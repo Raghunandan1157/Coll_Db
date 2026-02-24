@@ -129,8 +129,9 @@
       hint.textContent = 'Start typing to find yourself';
       search.focus();
     })
-    .catch(function () {
-      status.innerHTML = '<span class="status-icon">&#9888;</span>Failed to load employees.';
+    .catch(function (err) {
+      console.error('Employee load error:', err);
+      status.innerHTML = '<span class="status-icon">&#9888;</span>Failed to load employees.<br><small style="color:#4a5568">Pull to refresh or check connection.</small>';
     });
 
     function esc(s) { return s.replace(/[&<>"']/g, function (c) { return '&#' + c.charCodeAt(0) + ';'; }); }

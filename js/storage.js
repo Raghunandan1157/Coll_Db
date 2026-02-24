@@ -258,28 +258,53 @@ function hasData() {
 var _fetchingRemote = null;
 
 /**
+ * Extract employees by trying ALL sheets in the workbook,
+ * not just the last one. Prefers sheets with "Overall" in the name.
+ */
+function _extractEmployeesAllSheets(workbook) {
+  if (!workbook || !workbook.SheetNames || !workbook.SheetNames.length) return [];
+
+  // Try "Overall" sheet first
+  for (var s = 0; s < workbook.SheetNames.length; s++) {
+    if (workbook.SheetNames[s].toUpperCase().includes('OVERALL')) {
+      var parsed = extractEmployees(
+        { SheetNames: [workbook.SheetNames[s]], Sheets: workbook.Sheets }
+      );
+      if (parsed.employees && parsed.employees.length) return parsed.employees;
+    }
+  }
+
+  // Try each sheet until we find employees
+  for (var s = 0; s < workbook.SheetNames.length; s++) {
+    var parsed = extractEmployees(
+      { SheetNames: [workbook.SheetNames[s]], Sheets: workbook.Sheets }
+    );
+    if (parsed.employees && parsed.employees.length) return parsed.employees;
+  }
+
+  return [];
+}
+
+/**
  * Fetches data/report.xlsx from the server, parses it,
  * saves workbook + employees to IndexedDB, and returns the workbook record.
- * Cached so concurrent calls don't re-fetch.
  * @returns {Promise<{id: string, data: ArrayBuffer, fileName: string, uploadedAt: Date}|null>}
  */
 function _fetchRemoteReport() {
   if (_fetchingRemote) return _fetchingRemote;
 
-  _fetchingRemote = fetch('data/report.xlsx')
+  _fetchingRemote = fetch('./data/report.xlsx')
     .then(function (res) {
       if (!res.ok) throw new Error('No remote report (' + res.status + ')');
       return res.arrayBuffer();
     })
     .then(function (buf) {
-      // Save workbook to IndexedDB
       return saveWorkbook(buf, 'report.xlsx').then(function () {
-        // Parse employees and save them too
         if (typeof XLSX !== 'undefined' && typeof extractEmployees === 'function') {
           var wb = XLSX.read(new Uint8Array(buf), { type: 'array', cellFormula: false, cellNF: true });
-          var parsed = extractEmployees(wb);
-          if (parsed.employees && parsed.employees.length) {
-            return saveEmployees(parsed.employees).then(function () {
+          var emps = _extractEmployeesAllSheets(wb);
+          if (emps.length) {
+            return saveEmployees(emps).then(function () {
               return { id: 'current', data: buf, fileName: 'report.xlsx', uploadedAt: new Date() };
             });
           }
@@ -288,7 +313,7 @@ function _fetchRemoteReport() {
       });
     })
     .catch(function (err) {
-      console.warn('Remote report fetch failed:', err);
+      console.error('Remote report fetch failed:', err);
       _fetchingRemote = null;
       return null;
     });
@@ -298,7 +323,6 @@ function _fetchRemoteReport() {
 
 /**
  * Gets the workbook, falling back to the remote report if IndexedDB is empty.
- * @returns {Promise<{id: string, data: ArrayBuffer, fileName: string, uploadedAt: Date}|null>}
  */
 function getWorkbookWithFallback() {
   return getWorkbook().then(function (wb) {
@@ -309,12 +333,10 @@ function getWorkbookWithFallback() {
 
 /**
  * Gets all employees, falling back to the remote report if IndexedDB is empty.
- * @returns {Promise<Array<{id: string, name: string, rowData: Array}>>}
  */
 function getAllEmployeesWithFallback() {
   return getAllEmployees().then(function (emps) {
     if (emps && emps.length) return emps;
-    // Try fetching remote, which also saves employees
     return _fetchRemoteReport().then(function () {
       return getAllEmployees();
     });
