@@ -9,6 +9,71 @@
     return;
   }
 
+  /* ---------- GitHub sync config ---------- */
+  var GH_OWNER = 'Raghunandan1157';
+  var GH_REPO = 'Coll_Db';
+  var GH_FILE_PATH = 'data/report.xlsx';
+  var GH_API = 'https://api.github.com/repos/' + GH_OWNER + '/' + GH_REPO + '/contents/' + GH_FILE_PATH;
+
+  function getGHToken() { return localStorage.getItem('gh_token'); }
+  function saveGHToken(t) { localStorage.setItem('gh_token', t); }
+
+  function promptForToken() {
+    var t = prompt('Enter your GitHub token to enable cloud sync.\nThis is saved only in this browser.');
+    if (t && t.trim()) { saveGHToken(t.trim()); return t.trim(); }
+    return null;
+  }
+
+  /**
+   * Push an ArrayBuffer to GitHub as data/report.xlsx.
+   * Gets the current file SHA first (required for updates), then PUTs the new content.
+   */
+  async function pushToGitHub(arrayBuffer) {
+    var token = getGHToken();
+    if (!token) token = promptForToken();
+    if (!token) throw new Error('No GitHub token — file saved locally only.');
+
+    // Get current file SHA
+    var shaRes = await fetch(GH_API, {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    var sha = null;
+    if (shaRes.ok) {
+      var shaData = await shaRes.json();
+      sha = shaData.sha;
+    }
+
+    // Convert ArrayBuffer to base64
+    var bytes = new Uint8Array(arrayBuffer);
+    var binary = '';
+    for (var i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    var base64 = btoa(binary);
+
+    // Push to GitHub
+    var body = {
+      message: 'Update report — ' + new Date().toLocaleDateString('en-IN'),
+      content: base64
+    };
+    if (sha) body.sha = sha;
+
+    var putRes = await fetch(GH_API, {
+      method: 'PUT',
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+
+    if (!putRes.ok) {
+      var err = await putRes.json().catch(function () { return {}; });
+      throw new Error('GitHub push failed: ' + (err.message || putRes.status));
+    }
+    return true;
+  }
+
   // DOM references
   var logoutBtn = document.getElementById('logout-btn');
   var uploadZone = document.getElementById('upload-zone');
@@ -96,7 +161,17 @@
       });
 
       // Extract employees and display
-      displayWorkbookData(workbook, file.name);
+      await displayWorkbookData(workbook, file.name);
+
+      // Push to GitHub for cross-device sync
+      showStatus('Syncing to cloud...', true);
+      try {
+        await pushToGitHub(arrayBuffer);
+        showStatus('Uploaded & synced to all devices!', true);
+      } catch (ghErr) {
+        console.warn('GitHub sync failed:', ghErr);
+        showStatus('Saved locally. Cloud sync failed: ' + ghErr.message, false);
+      }
 
     } catch (err) {
       console.error('Upload failed:', err);

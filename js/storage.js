@@ -302,20 +302,25 @@ function _extractEmployeesAllSheets(workbook) {
 }
 
 /**
- * Fetches data/report.xlsx from the server, parses it,
+ * Fetches data/report.xlsx from the server (cache-busted), parses it,
  * saves workbook + employees to IndexedDB, and returns the workbook record.
  * @returns {Promise<{id: string, data: ArrayBuffer, fileName: string, uploadedAt: Date}|null>}
  */
 function _fetchRemoteReport() {
   if (_fetchingRemote) return _fetchingRemote;
 
-  _fetchingRemote = fetch('./data/report.xlsx')
+  // Cache-bust so we always get the latest from GitHub Pages
+  var url = './data/report.xlsx?t=' + Date.now();
+
+  _fetchingRemote = fetch(url)
     .then(function (res) {
       if (!res.ok) throw new Error('No remote report (' + res.status + ')');
       return res.arrayBuffer();
     })
     .then(function (buf) {
-      return saveWorkbook(buf, 'report.xlsx').then(function () {
+      return clearAllData().then(function () {
+        return saveWorkbook(buf, 'report.xlsx');
+      }).then(function () {
         if (typeof XLSX !== 'undefined' && typeof extractEmployees === 'function') {
           var wb = XLSX.read(new Uint8Array(buf), { type: 'array', cellFormula: false, cellNF: true });
           var emps = _extractEmployeesAllSheets(wb);
@@ -338,23 +343,28 @@ function _fetchRemoteReport() {
 }
 
 /**
- * Gets the workbook, falling back to the remote report if IndexedDB is empty.
+ * Gets the workbook — always fetches latest from remote first,
+ * falls back to IndexedDB if remote fails.
  */
 function getWorkbookWithFallback() {
-  return getWorkbook().then(function (wb) {
+  _fetchingRemote = null; // reset so we always re-fetch
+  return _fetchRemoteReport().then(function (wb) {
     if (wb) return wb;
-    return _fetchRemoteReport();
+    return getWorkbook(); // fallback to local cache
   });
 }
 
 /**
- * Gets all employees, falling back to the remote report if IndexedDB is empty.
+ * Gets all employees — always fetches latest from remote first,
+ * falls back to IndexedDB if remote fails.
  */
 function getAllEmployeesWithFallback() {
-  return getAllEmployees().then(function (emps) {
+  _fetchingRemote = null; // reset so we always re-fetch
+  return _fetchRemoteReport().then(function () {
+    return getAllEmployees();
+  }).then(function (emps) {
     if (emps && emps.length) return emps;
-    return _fetchRemoteReport().then(function () {
-      return getAllEmployees();
-    });
+    // Remote had no employees, try local cache
+    return getAllEmployees();
   });
 }
