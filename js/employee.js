@@ -202,6 +202,17 @@
       if (!empRow) { showNoData(); return; }
 
       renderDashboard(empRow);
+
+      // Show "Last updated" timestamp
+      if (wb.uploadedAt) {
+        var d = new Date(wb.uploadedAt);
+        var day = String(d.getDate()).padStart(2, '0');
+        var mon = String(d.getMonth() + 1).padStart(2, '0');
+        var hr = String(d.getHours()).padStart(2, '0');
+        var min = String(d.getMinutes()).padStart(2, '0');
+        var el = document.getElementById('lastUpdated');
+        if (el) el.textContent = 'Updated ' + day + '-' + mon + '-' + d.getFullYear() + ' ' + hr + ':' + min;
+      }
     } catch (err) {
       console.error('Load failed:', err);
       showNoData();

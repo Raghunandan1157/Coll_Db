@@ -513,6 +513,12 @@ body.emp-dark::before {
   color: #6B7A99;
   margin-top: 2px;
 }
+.emp-last-updated {
+  font-size: 10px;
+  color: #4a5568;
+  margin-top: 2px;
+  letter-spacing: 0.3px;
+}
 
 /* --- Date Badge --- */
 .emp-date-badge {

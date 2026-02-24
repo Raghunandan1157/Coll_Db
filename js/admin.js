@@ -147,7 +147,7 @@
 
       // Clear old data before saving new
       await clearAllData();
-      _fetchingRemote = null;
+      resetFetchCache();
 
       // Save to IndexedDB
       await saveWorkbook(arrayBuffer, file.name);
@@ -287,7 +287,7 @@
     // Delete old data from IndexedDB
     try {
       await clearAllData();
-      _fetchingRemote = null;
+      resetFetchCache();
     } catch (e) {
       console.error('Clear failed:', e);
     }

@@ -106,9 +106,9 @@
   </div>
 
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-  <script src="js/employeeParser.js?v=4"></script>
-  <script src="js/storage.js?v=4"></script>
-  <script src="js/auth.js?v=4"></script>
+  <script src="js/employeeParser.js?v=5"></script>
+  <script src="js/storage.js?v=5"></script>
+  <script src="js/auth.js?v=5"></script>
   <script>
   (function () {
     if (typeof isAdminAuthenticated === 'function' && isAdminAuthenticated()) {
@@ -259,5 +259,6 @@
     });
   })();
   </script>
+  <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js');}</script>
 </body>
 </html>

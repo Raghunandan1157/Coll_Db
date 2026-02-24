@@ -18,6 +18,7 @@
       <div class="emp-header-left">
         <h1>Portfolio</h1>
         <div class="emp-subtitle" id="emp-subtitle"></div>
+        <div class="emp-last-updated" id="lastUpdated"></div>
       </div>
       <div class="emp-header-right">
         <div class="emp-date-badge" id="dateBadge">
@@ -63,9 +64,10 @@
   </div>
 
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-  <script src="js/employeeParser.js?v=4"></script>
-  <script src="js/storage.js?v=4"></script>
-  <script src="js/auth.js?v=4"></script>
-  <script src="js/employee.js?v=4"></script>
+  <script src="js/employeeParser.js?v=5"></script>
+  <script src="js/storage.js?v=5"></script>
+  <script src="js/auth.js?v=5"></script>
+  <script src="js/employee.js?v=5"></script>
+  <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js');}</script>
 </body>
 </html>

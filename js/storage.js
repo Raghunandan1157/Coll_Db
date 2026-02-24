@@ -276,6 +276,16 @@ var _lastFetchTime = 0;
 var FETCH_CACHE_MS = 5 * 60 * 1000; // 5 minutes
 
 /**
+ * Resets the remote fetch cache so the next call to
+ * getWorkbookWithFallback / getAllEmployeesWithFallback
+ * will fetch fresh data from the server.
+ */
+function resetFetchCache() {
+  _fetchingRemote = null;
+  _lastFetchTime = 0;
+}
+
+/**
  * Extract employees by trying ALL sheets in the workbook,
  * not just the last one. Prefers sheets with "Overall" in the name.
  */
