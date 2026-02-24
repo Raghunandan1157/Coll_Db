@@ -254,6 +254,22 @@ function hasData() {
   });
 }
 
+/**
+ * Clears all data from both workbook and employees stores.
+ * @returns {Promise<void>}
+ */
+function clearAllData() {
+  return initDB().then(function (db) {
+    return new Promise(function (resolve, reject) {
+      var tx = db.transaction(["workbook", "employees"], "readwrite");
+      tx.objectStore("workbook").clear();
+      tx.objectStore("employees").clear();
+      tx.oncomplete = function () { resolve(); };
+      tx.onerror = function (event) { reject(event.target.error); };
+    });
+  });
+}
+
 /* ---------- Remote fallback ---------- */
 var _fetchingRemote = null;
 

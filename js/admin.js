@@ -80,6 +80,10 @@
       // Read file as ArrayBuffer
       var arrayBuffer = await readFileAsArrayBuffer(file);
 
+      // Clear old data before saving new
+      await clearAllData();
+      _fetchingRemote = null;
+
       // Save to IndexedDB
       await saveWorkbook(arrayBuffer, file.name);
 
@@ -204,7 +208,15 @@
   }
 
   // Clear / re-upload
-  clearBtn.addEventListener('click', function () {
+  clearBtn.addEventListener('click', async function () {
+    // Delete old data from IndexedDB
+    try {
+      await clearAllData();
+      _fetchingRemote = null;
+    } catch (e) {
+      console.error('Clear failed:', e);
+    }
+
     // Reset file input
     fileInput.value = '';
 
