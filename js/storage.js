@@ -272,6 +272,8 @@ function clearAllData() {
 
 /* ---------- Remote fallback ---------- */
 var _fetchingRemote = null;
+var _lastFetchTime = 0;
+var FETCH_CACHE_MS = 5 * 60 * 1000; // 5 minutes
 
 /**
  * Extract employees by trying ALL sheets in the workbook,
@@ -350,24 +352,42 @@ function _fetchRemoteReport() {
  * falls back to IndexedDB if remote fails.
  */
 function getWorkbookWithFallback() {
-  _fetchingRemote = null; // reset so we always re-fetch
+  var now = Date.now();
+  if (now - _lastFetchTime < FETCH_CACHE_MS) {
+    return getWorkbook().then(function (wb) {
+      if (wb) return wb;
+      _fetchingRemote = null;
+      return _fetchRemoteReport();
+    });
+  }
+  _fetchingRemote = null;
+  _lastFetchTime = now;
   return _fetchRemoteReport().then(function (wb) {
     if (wb) return wb;
-    return getWorkbook(); // fallback to local cache
+    return getWorkbook();
   });
 }
 
 /**
- * Gets all employees — always fetches latest from remote first,
+ * Gets all employees — fetches latest from remote (with 5-min cache),
  * falls back to IndexedDB if remote fails.
  */
 function getAllEmployeesWithFallback() {
-  _fetchingRemote = null; // reset so we always re-fetch
+  var now = Date.now();
+  if (now - _lastFetchTime < FETCH_CACHE_MS) {
+    return getAllEmployees().then(function (emps) {
+      if (emps && emps.length) return emps;
+      _fetchingRemote = null;
+      _lastFetchTime = now;
+      return _fetchRemoteReport().then(function () { return getAllEmployees(); });
+    });
+  }
+  _fetchingRemote = null;
+  _lastFetchTime = now;
   return _fetchRemoteReport().then(function () {
     return getAllEmployees();
   }).then(function (emps) {
     if (emps && emps.length) return emps;
-    // Remote had no employees, try local cache
     return getAllEmployees();
   });
 }

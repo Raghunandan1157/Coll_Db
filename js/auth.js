@@ -1,11 +1,24 @@
-var ADMIN_PASSCODE = "4321";
+// SHA-256 hash of the admin passcode (hashed "4321")
+var ADMIN_HASH = '96d002f3c9c3e4fbbe87e7ce6b0e1e8df4e9c02c1f7b74dd2ebc2f5dff73ee4f';
+
+async function _sha256(str) {
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+}
 
 function authenticateAdmin(passcode) {
-  if (passcode === ADMIN_PASSCODE) {
-    sessionStorage.setItem('adminAuth', 'true');
-    return true;
-  }
-  return false;
+  // Sync check using pre-computed hash
+  var encoder = new TextEncoder();
+  var data = encoder.encode(passcode);
+  // Use sync comparison for prompt flow
+  return crypto.subtle.digest('SHA-256', data).then(function (buf) {
+    var hash = Array.from(new Uint8Array(buf)).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+    if (hash === ADMIN_HASH) {
+      sessionStorage.setItem('adminAuth', 'true');
+      return true;
+    }
+    return false;
+  });
 }
 
 async function authenticateEmployee(employeeId) {

@@ -3,6 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0B0F1A">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
   <title>Employee Dashboard</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/styles.css">
@@ -27,12 +31,18 @@
     </div>
 
     <div class="emp-tab-content active" id="collectionTab">
-      <div id="collectionContent"></div>
+      <div id="collectionContent">
+        <div style="text-align:center;padding:60px 20px;">
+          <div style="width:28px;height:28px;border:3px solid rgba(79,140,255,0.15);border-top-color:#4F8CFF;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px;"></div>
+          <p style="color:#6B7A99;font-size:13px;">Loading your portfolio...</p>
+        </div>
+      </div>
     </div>
 
     <div class="emp-tab-content" id="disbursementTab">
       <div id="disbursementContent" style="text-align:center;padding:80px 20px;">
-        <p style="color:#6B7A99;font-size:14px;">Disbursement data not available.</p>
+        <p style="color:#6B7A99;font-size:32px;margin-bottom:8px;">📋</p>
+        <p style="color:#6B7A99;font-size:14px;">Disbursement data coming soon.</p>
       </div>
     </div>
 
@@ -53,9 +63,9 @@
   </div>
 
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-  <script src="js/employeeParser.js?v=3"></script>
-  <script src="js/storage.js?v=3"></script>
-  <script src="js/auth.js?v=3"></script>
-  <script src="js/employee.js?v=3"></script>
+  <script src="js/employeeParser.js?v=4"></script>
+  <script src="js/storage.js?v=4"></script>
+  <script src="js/auth.js?v=4"></script>
+  <script src="js/employee.js?v=4"></script>
 </body>
 </html>

@@ -205,9 +205,9 @@
    */
   async function displayWorkbookData(workbook, fileName) {
     try {
-      // Extract employees
+      // Extract employees (try all sheets, prefer Overall)
+      var employees = _extractEmployeesAllSheets(workbook);
       var empResult = extractEmployees(workbook);
-      var employees = empResult.employees;
 
       // Build employee list for IndexedDB
       var empList = employees.map(function (emp) {
