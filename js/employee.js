@@ -8,10 +8,10 @@
 
   // Date badge — show current month-end
   var now = new Date();
-  var MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  var lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  document.getElementById('dateBadgeText').textContent =
-    MON[now.getMonth()] + ' ' + lastDay + ', ' + String(now.getFullYear()).slice(-2);
+  var dd = String(now.getDate()).padStart(2, '0');
+  var mm = String(now.getMonth() + 1).padStart(2, '0');
+  var yyyy = now.getFullYear();
+  document.getElementById('dateBadgeText').textContent = dd + '-' + mm + '-' + yyyy;
 
   // Logout button
   document.getElementById('logout-btn').onclick = logout;
