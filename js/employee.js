@@ -54,6 +54,7 @@
     return '';
   }
   function numVal(v) { return typeof v === 'number' ? v : 0; }
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return '&#' + c.charCodeAt(0) + ';'; }); }
 
   /* ---------- Render ---------- */
   function renderDashboard(empRow) {
