@@ -3,44 +3,97 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Daily Collection Report - Login</title>
-  <link rel="stylesheet" href="css/styles.css">
+  <title>Daily Collection Report</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:#0B0F1A; --surface:#131825; --border:rgba(255,255,255,0.06);
+      --text:#E8ECF4; --muted:#6B7A99; --accent:#4F8CFF;
+    }
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+    body::before{content:'';position:fixed;top:-200px;left:50%;transform:translateX(-50%);width:800px;height:600px;background:radial-gradient(ellipse,rgba(79,140,255,0.08) 0%,transparent 70%);pointer-events:none;}
+
+    .login-wrap{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;}
+    .login-box{width:100%;max-width:420px;position:relative;z-index:1;}
+
+    .brand{text-align:center;margin-bottom:36px;}
+    .brand h1{font-family:'Playfair Display',serif;font-size:28px;letter-spacing:-0.5px;}
+    .brand p{font-size:13px;color:var(--muted);margin-top:4px;}
+
+    /* Search */
+    .search-box{position:relative;margin-bottom:8px;}
+    .search-box svg{position:absolute;left:16px;top:50%;transform:translateY(-50%);width:18px;height:18px;color:var(--muted);pointer-events:none;}
+    .search-input{
+      width:100%;padding:16px 16px 16px 46px;border:1px solid var(--border);
+      border-radius:14px;background:var(--surface);color:var(--text);font-size:16px;
+      font-family:inherit;outline:none;transition:all 0.2s;
+    }
+    .search-input::placeholder{color:#3d4a63;}
+    .search-input:focus{border-color:rgba(79,140,255,0.4);box-shadow:0 0 0 4px rgba(79,140,255,0.08);}
+
+    /* Results */
+    .results{
+      border-radius:14px;overflow:hidden;
+      border:1px solid var(--border);background:var(--surface);
+      max-height:350px;overflow-y:auto;
+      transition:all 0.2s;
+    }
+    .results:empty{border:none;}
+    .results::-webkit-scrollbar{width:3px;}
+    .results::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:3px;}
+
+    .emp-row{
+      display:flex;align-items:center;gap:14px;padding:14px 18px;
+      cursor:pointer;transition:background 0.15s;
+      border-bottom:1px solid rgba(255,255,255,0.03);
+    }
+    .emp-row:last-child{border-bottom:none;}
+    .emp-row:hover,.emp-row:focus{background:rgba(79,140,255,0.08);outline:none;}
+    .emp-row:active{background:rgba(79,140,255,0.14);}
+
+    .avatar{
+      width:40px;height:40px;border-radius:12px;
+      display:flex;align-items:center;justify-content:center;
+      font-weight:700;font-size:15px;flex-shrink:0;
+    }
+    .avatar-emp{background:rgba(52,211,153,0.12);color:#34D399;}
+    .avatar-admin{background:rgba(251,191,36,0.12);color:#FBBF24;}
+
+    .emp-detail{flex:1;min-width:0;}
+    .emp-name{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .emp-id{font-size:11px;color:var(--muted);margin-top:1px;}
+
+    .row-arrow{color:#3d4a63;font-size:20px;flex-shrink:0;transition:transform 0.2s;}
+    .emp-row:hover .row-arrow{transform:translateX(2px);color:var(--accent);}
+
+    /* Highlight matched text */
+    mark{background:none;color:var(--accent);font-weight:700;}
+
+    /* Status */
+    .status{text-align:center;padding:24px 16px;color:var(--muted);font-size:13px;}
+    .status-icon{font-size:32px;margin-bottom:8px;display:block;}
+
+    /* Hint */
+    .hint{text-align:center;color:#3d4a63;font-size:11px;margin-top:12px;letter-spacing:0.3px;}
+  </style>
 </head>
-<body style="padding:0; background: transparent;">
-
-  <div class="login-wrapper">
-    <div class="login-card">
-      <h1 class="login-header">Daily Collection Report</h1>
-
-      <div class="login-tabs">
-        <button class="login-tab active" id="tab-employee">Employee Login</button>
-        <button class="login-tab" id="tab-admin">Admin Login</button>
+<body>
+  <div class="login-wrap">
+    <div class="login-box">
+      <div class="brand">
+        <h1>Collection Report</h1>
+        <p>Search your name to sign in</p>
       </div>
 
-      <div id="form-employee">
-        <form class="login-form">
-          <div class="form-group">
-            <label>Select Employee</label>
-            <select id="emp-select" required>
-              <option value="">-- Choose your name --</option>
-            </select>
-            <p id="emp-loading" style="font-size:9pt; color:#888; margin-top:6px;">Loading employees...</p>
-          </div>
-          <button class="btn-primary" type="submit" id="emp-login-btn" disabled>Login</button>
-          <p class="login-error" id="emp-error">No report uploaded yet. Contact your administrator.</p>
-        </form>
+      <div class="search-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input class="search-input" id="search" type="text" placeholder="Type your name or ID..." autocomplete="off" autofocus>
       </div>
 
-      <div id="form-admin" class="hidden">
-        <form class="login-form">
-          <div class="form-group">
-            <label>Admin Passcode</label>
-            <input type="password" id="admin-pass-input" placeholder="Enter admin passcode" required>
-          </div>
-          <button class="btn-primary" type="submit">Access Admin Panel</button>
-          <p class="login-error" id="admin-error">Incorrect passcode.</p>
-        </form>
-      </div>
+      <div class="results" id="results"></div>
+      <div class="status" id="status">Loading...</div>
+      <div class="hint" id="hint"></div>
     </div>
   </div>
 
@@ -48,114 +101,152 @@
   <script src="js/storage.js"></script>
   <script src="js/auth.js"></script>
   <script>
-    (function () {
-      var tabEmployee = document.getElementById('tab-employee');
-      var tabAdmin = document.getElementById('tab-admin');
-      var formEmployee = document.getElementById('form-employee');
-      var formAdmin = document.getElementById('form-admin');
-      var empError = document.getElementById('emp-error');
-      var adminError = document.getElementById('admin-error');
+  (function () {
+    if (typeof isAdminAuthenticated === 'function' && isAdminAuthenticated()) {
+      window.location.href = 'admin.html'; return;
+    }
+    if (typeof isEmployeeAuthenticated === 'function' && isEmployeeAuthenticated()) {
+      window.location.href = 'employee.html'; return;
+    }
 
-      // Auto-redirect if already authenticated
-      if (typeof isAdminAuthenticated === 'function' && isAdminAuthenticated()) {
-        window.location.href = 'admin.html';
+    var allEmployees = [];
+    var search = document.getElementById('search');
+    var results = document.getElementById('results');
+    var status = document.getElementById('status');
+    var hint = document.getElementById('hint');
+
+    // Load
+    initDB().then(function () { return getAllEmployees(); })
+    .then(function (emps) {
+      if (!emps || !emps.length) {
+        status.innerHTML = '<span class="status-icon">&#128203;</span>No employees found.<br>Admin must upload a report first.';
         return;
       }
-      if (typeof isEmployeeAuthenticated === 'function' && isEmployeeAuthenticated()) {
-        window.location.href = 'employee.html';
+      emps.sort(function (a, b) { return a.name.localeCompare(b.name); });
+      allEmployees = emps;
+      status.textContent = emps.length + ' employees loaded';
+      hint.textContent = 'Start typing to find yourself';
+      search.focus();
+    })
+    .catch(function () {
+      status.innerHTML = '<span class="status-icon">&#9888;</span>Failed to load employees.';
+    });
+
+    function esc(s) { return s.replace(/[&<>"']/g, function (c) { return '&#' + c.charCodeAt(0) + ';'; }); }
+
+    function highlight(text, q) {
+      if (!q) return esc(text);
+      var idx = text.toUpperCase().indexOf(q.toUpperCase());
+      if (idx === -1) return esc(text);
+      return esc(text.slice(0, idx)) + '<mark>' + esc(text.slice(idx, idx + q.length)) + '</mark>' + esc(text.slice(idx + q.length));
+    }
+
+    search.addEventListener('input', function () {
+      var q = this.value.trim();
+      if (q.length < 1) {
+        results.innerHTML = '';
+        status.style.display = '';
+        hint.style.display = '';
+        return;
+      }
+      status.style.display = 'none';
+      hint.style.display = 'none';
+
+      var qu = q.toUpperCase();
+
+      // Check for admin
+      var isAdmin = qu === 'ADMIN';
+
+      var matches = [];
+      if (isAdmin) {
+        matches.push({ id: '__admin__', name: 'Admin Panel', isAdmin: true });
+      }
+
+      var emps = allEmployees.filter(function (e) {
+        return e.name.toUpperCase().includes(qu) || String(e.id).toUpperCase().includes(qu);
+      }).slice(0, 25);
+
+      matches = matches.concat(emps);
+
+      if (!matches.length) {
+        results.innerHTML = '<div class="status">No matches found</div>';
         return;
       }
 
-      // Init DB
-      if (typeof initDB === 'function') {
-        initDB().catch(function(e) { console.error('DB init failed:', e); });
+      results.innerHTML = matches.map(function (e) {
+        if (e.isAdmin) {
+          return '<div class="emp-row" data-admin="1" tabindex="0">' +
+            '<div class="avatar avatar-admin">&#9881;</div>' +
+            '<div class="emp-detail">' +
+              '<div class="emp-name">Admin Panel</div>' +
+              '<div class="emp-id">Manage reports & employees</div>' +
+            '</div>' +
+            '<div class="row-arrow">&#8250;</div>' +
+          '</div>';
+        }
+        var initial = e.name.charAt(0).toUpperCase();
+        return '<div class="emp-row" data-id="' + esc(String(e.id)) + '" tabindex="0">' +
+          '<div class="avatar avatar-emp">' + initial + '</div>' +
+          '<div class="emp-detail">' +
+            '<div class="emp-name">' + highlight(e.name, q) + '</div>' +
+            '<div class="emp-id">ID: ' + highlight(String(e.id), q) + '</div>' +
+          '</div>' +
+          '<div class="row-arrow">&#8250;</div>' +
+        '</div>';
+      }).join('');
+    });
+
+    // Keyboard nav
+    search.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        var first = results.querySelector('.emp-row');
+        if (first) first.focus();
       }
+    });
 
-      // Tab switching
-      tabEmployee.addEventListener('click', function () {
-        tabEmployee.classList.add('active');
-        tabAdmin.classList.remove('active');
-        formEmployee.classList.remove('hidden');
-        formAdmin.classList.add('hidden');
-        empError.style.display = 'none';
-        adminError.style.display = 'none';
-      });
-
-      tabAdmin.addEventListener('click', function () {
-        tabAdmin.classList.add('active');
-        tabEmployee.classList.remove('active');
-        formAdmin.classList.remove('hidden');
-        formEmployee.classList.add('hidden');
-        empError.style.display = 'none';
-        adminError.style.display = 'none';
-      });
-
-      // Populate employee dropdown
-      var empSelect = document.getElementById('emp-select');
-      var empLoginBtn = document.getElementById('emp-login-btn');
-      var empLoading = document.getElementById('emp-loading');
-
-      initDB().then(function () {
-        return getAllEmployees();
-      }).then(function (employees) {
-        empLoading.style.display = 'none';
-        if (!employees || employees.length === 0) {
-          empSelect.innerHTML = '<option value="">No employees found</option>';
-          return;
-        }
-        // Sort by name
-        employees.sort(function (a, b) { return a.name.localeCompare(b.name); });
-        empSelect.innerHTML = '<option value="">-- Choose your name (' + employees.length + ' employees) --</option>';
-        for (var i = 0; i < employees.length; i++) {
-          var opt = document.createElement('option');
-          opt.value = employees[i].id;
-          opt.textContent = employees[i].name + '  (ID: ' + employees[i].id + ')';
-          empSelect.appendChild(opt);
-        }
-        empLoginBtn.disabled = false;
-      }).catch(function (err) {
-        console.error('Failed to load employees:', err);
-        empLoading.textContent = 'Failed to load. Admin must upload report first.';
-      });
-
-      empSelect.addEventListener('change', function () {
-        empError.style.display = 'none';
-      });
-
-      // Employee login
-      formEmployee.querySelector('form').addEventListener('submit', function (e) {
+    results.addEventListener('keydown', function (e) {
+      var row = e.target.closest('.emp-row');
+      if (!row) return;
+      if (e.key === 'ArrowDown') {
         e.preventDefault();
-        var empId = empSelect.value;
-        if (!empId) {
-          empError.textContent = 'Please select an employee from the list.';
-          empError.style.display = 'block';
-          return;
-        }
-        authenticateEmployee(empId).then(function (result) {
-          if (result) {
-            window.location.href = 'employee.html';
-          } else {
-            empError.textContent = 'Login failed. Please try again.';
-            empError.style.display = 'block';
-          }
-        }).catch(function (err) {
-          console.error('Login error:', err);
-          empError.textContent = 'Login error. Please try again.';
-          empError.style.display = 'block';
-        });
-      });
-
-      // Admin login
-      formAdmin.querySelector('form').addEventListener('submit', function (e) {
+        var next = row.nextElementSibling;
+        if (next && next.classList.contains('emp-row')) next.focus();
+      } else if (e.key === 'ArrowUp') {
         e.preventDefault();
-        var pass = document.getElementById('admin-pass-input').value;
-        if (authenticateAdmin(pass)) {
+        var prev = row.previousElementSibling;
+        if (prev && prev.classList.contains('emp-row')) prev.focus();
+        else search.focus();
+      } else if (e.key === 'Enter') {
+        row.click();
+      }
+    });
+
+    // Click to login
+    results.addEventListener('click', function (ev) {
+      var row = ev.target.closest('.emp-row');
+      if (!row) return;
+
+      // Admin
+      if (row.dataset.admin === '1') {
+        var pass = prompt('Enter admin passcode:');
+        if (pass && authenticateAdmin(pass)) {
           window.location.href = 'admin.html';
-        } else {
-          adminError.style.display = 'block';
+        } else if (pass !== null) {
+          alert('Incorrect passcode.');
         }
-      });
-    })();
+        return;
+      }
+
+      // Employee
+      row.style.background = 'rgba(79,140,255,0.14)';
+      row.style.pointerEvents = 'none';
+      authenticateEmployee(row.dataset.id).then(function (ok) {
+        if (ok) window.location.href = 'employee.html';
+        else { row.style.background = ''; row.style.pointerEvents = ''; }
+      }).catch(function () { row.style.background = ''; row.style.pointerEvents = ''; });
+    });
+  })();
   </script>
 </body>
 </html>
