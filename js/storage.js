@@ -309,10 +309,10 @@ function _extractEmployeesAllSheets(workbook) {
 function _fetchRemoteReport() {
   if (_fetchingRemote) return _fetchingRemote;
 
-  // Cache-bust so we always get the latest from GitHub Pages
-  var url = './data/report.xlsx?t=' + Date.now();
+  // Fetch from GitHub raw (no CDN cache) with cache-bust fallback to Pages
+  var rawUrl = 'https://raw.githubusercontent.com/Raghunandan1157/Coll_Db/master/data/report.xlsx?t=' + Date.now();
 
-  _fetchingRemote = fetch(url)
+  _fetchingRemote = fetch(rawUrl)
     .then(function (res) {
       if (!res.ok) throw new Error('No remote report (' + res.status + ')');
       return res.arrayBuffer();
