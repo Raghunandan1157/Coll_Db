@@ -1,5 +1,5 @@
 // SHA-256 hash of the admin passcode (hashed "4321")
-var ADMIN_HASH = '96d002f3c9c3e4fbbe87e7ce6b0e1e8df4e9c02c1f7b74dd2ebc2f5dff73ee4f';
+var ADMIN_HASH = 'fe2592b42a727e977f055947385b709cc82b16b9a87f88c6abf3900d65d0cdc3';
 
 async function _sha256(str) {
   var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
