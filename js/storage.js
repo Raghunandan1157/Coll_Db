@@ -309,11 +309,12 @@ function _extractEmployeesAllSheets(workbook) {
 function _fetchRemoteReport() {
   if (_fetchingRemote) return _fetchingRemote;
 
-  // Fetch directly from GitHub API (zero caching, always latest)
-  var apiUrl = 'https://api.github.com/repos/Raghunandan1157/Coll_Db/contents/data/report.xlsx';
+  // Fetch directly from GitHub API — no-store forces fresh every time
+  var apiUrl = 'https://api.github.com/repos/Raghunandan1157/Coll_Db/contents/data/report.xlsx?t=' + Date.now();
 
   _fetchingRemote = fetch(apiUrl, {
-      headers: { 'Accept': 'application/vnd.github.v3.raw' }
+      headers: { 'Accept': 'application/vnd.github.v3.raw' },
+      cache: 'no-store'
     })
     .then(function (res) {
       if (!res.ok) throw new Error('No remote report (' + res.status + ')');
