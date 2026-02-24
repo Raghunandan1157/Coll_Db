@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Panel - Daily Collection Report</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <nav class="admin-navbar">
+    <h2>Admin Panel</h2>
+    <button class="btn-logout" id="logout-btn">Logout</button>
+  </nav>
+
+  <div class="admin-section" id="upload-section">
+    <h3 class="section-title">Upload Report</h3>
+    <div class="upload-zone" id="upload-zone">
+      <div class="upload-content">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        <p class="upload-text">Drag & drop Excel file</p>
+        <p class="upload-subtext">or click to browse</p>
+        <p class="upload-hint">Supported formats: .xlsx, .xls</p>
+      </div>
+      <input type="file" id="file-input" accept=".xlsx,.xls" hidden>
+    </div>
+    <div class="file-info" id="file-info" hidden>
+      <span id="file-name"></span>
+      <button id="clear-btn">&times;</button>
+    </div>
+    <div class="upload-status" id="upload-status" hidden></div>
+  </div>
+
+  <div class="admin-section hidden" id="employees-section">
+    <h3 class="section-title">Extracted Employees <span id="emp-count"></span></h3>
+    <table class="employee-list-table" id="employee-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Employee ID</th>
+          <th>Employee Name</th>
+        </tr>
+      </thead>
+      <tbody id="employee-tbody"></tbody>
+    </table>
+  </div>
+
+  <div class="admin-section hidden" id="report-section">
+    <h3 class="section-title">Full Report</h3>
+    <nav class="sheet-tabs" id="sheet-tabs" hidden></nav>
+    <div class="report-container" id="report-container"></div>
+  </div>
+
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/parser.js"></script>
+  <script src="js/renderer.js"></script>
+  <script src="js/employeeParser.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>

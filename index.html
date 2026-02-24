@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Daily Collection Report - Login</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body style="padding:0; background: transparent;">
+
+  <div class="login-wrapper">
+    <div class="login-card">
+      <h1 class="login-header">Daily Collection Report</h1>
+
+      <div class="login-tabs">
+        <button class="login-tab active" id="tab-employee">Employee Login</button>
+        <button class="login-tab" id="tab-admin">Admin Login</button>
+      </div>
+
+      <div id="form-employee">
+        <form class="login-form">
+          <div class="form-group">
+            <label>Select Employee</label>
+            <select id="emp-select" required>
+              <option value="">-- Choose your name --</option>
+            </select>
+            <p id="emp-loading" style="font-size:9pt; color:#888; margin-top:6px;">Loading employees...</p>
+          </div>
+          <button class="btn-primary" type="submit" id="emp-login-btn" disabled>Login</button>
+          <p class="login-error" id="emp-error">No report uploaded yet. Contact your administrator.</p>
+        </form>
+      </div>
+
+      <div id="form-admin" class="hidden">
+        <form class="login-form">
+          <div class="form-group">
+            <label>Admin Passcode</label>
+            <input type="password" id="admin-pass-input" placeholder="Enter admin passcode" required>
+          </div>
+          <button class="btn-primary" type="submit">Access Admin Panel</button>
+          <p class="login-error" id="admin-error">Incorrect passcode.</p>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    (function () {
+      var tabEmployee = document.getElementById('tab-employee');
+      var tabAdmin = document.getElementById('tab-admin');
+      var formEmployee = document.getElementById('form-employee');
+      var formAdmin = document.getElementById('form-admin');
+      var empError = document.getElementById('emp-error');
+      var adminError = document.getElementById('admin-error');
+
+      // Auto-redirect if already authenticated
+      if (typeof isAdminAuthenticated === 'function' && isAdminAuthenticated()) {
+        window.location.href = 'admin.html';
+        return;
+      }
+      if (typeof isEmployeeAuthenticated === 'function' && isEmployeeAuthenticated()) {
+        window.location.href = 'employee.html';
+        return;
+      }
+
+      // Init DB
+      if (typeof initDB === 'function') {
+        initDB().catch(function(e) { console.error('DB init failed:', e); });
+      }
+
+      // Tab switching
+      tabEmployee.addEventListener('click', function () {
+        tabEmployee.classList.add('active');
+        tabAdmin.classList.remove('active');
+        formEmployee.classList.remove('hidden');
+        formAdmin.classList.add('hidden');
+        empError.style.display = 'none';
+        adminError.style.display = 'none';
+      });
+
+      tabAdmin.addEventListener('click', function () {
+        tabAdmin.classList.add('active');
+        tabEmployee.classList.remove('active');
+        formAdmin.classList.remove('hidden');
+        formEmployee.classList.add('hidden');
+        empError.style.display = 'none';
+        adminError.style.display = 'none';
+      });
+
+      // Populate employee dropdown
+      var empSelect = document.getElementById('emp-select');
+      var empLoginBtn = document.getElementById('emp-login-btn');
+      var empLoading = document.getElementById('emp-loading');
+
+      initDB().then(function () {
+        return getAllEmployees();
+      }).then(function (employees) {
+        empLoading.style.display = 'none';
+        if (!employees || employees.length === 0) {
+          empSelect.innerHTML = '<option value="">No employees found</option>';
+          return;
+        }
+        // Sort by name
+        employees.sort(function (a, b) { return a.name.localeCompare(b.name); });
+        empSelect.innerHTML = '<option value="">-- Choose your name (' + employees.length + ' employees) --</option>';
+        for (var i = 0; i < employees.length; i++) {
+          var opt = document.createElement('option');
+          opt.value = employees[i].id;
+          opt.textContent = employees[i].name + '  (ID: ' + employees[i].id + ')';
+          empSelect.appendChild(opt);
+        }
+        empLoginBtn.disabled = false;
+      }).catch(function (err) {
+        console.error('Failed to load employees:', err);
+        empLoading.textContent = 'Failed to load. Admin must upload report first.';
+      });
+
+      empSelect.addEventListener('change', function () {
+        empError.style.display = 'none';
+      });
+
+      // Employee login
+      formEmployee.querySelector('form').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var empId = empSelect.value;
+        if (!empId) {
+          empError.textContent = 'Please select an employee from the list.';
+          empError.style.display = 'block';
+          return;
+        }
+        authenticateEmployee(empId).then(function (result) {
+          if (result) {
+            window.location.href = 'employee.html';
+          } else {
+            empError.textContent = 'Login failed. Please try again.';
+            empError.style.display = 'block';
+          }
+        }).catch(function (err) {
+          console.error('Login error:', err);
+          empError.textContent = 'Login error. Please try again.';
+          empError.style.display = 'block';
+        });
+      });
+
+      // Admin login
+      formAdmin.querySelector('form').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var pass = document.getElementById('admin-pass-input').value;
+        if (authenticateAdmin(pass)) {
+          window.location.href = 'admin.html';
+        } else {
+          adminError.style.display = 'block';
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
