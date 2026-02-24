@@ -157,7 +157,7 @@
   async function loadData() {
     try {
       await initDB();
-      var wb = await getWorkbook();
+      var wb = await getWorkbookWithFallback();
       if (!wb || !wb.data) { showNoData(); return; }
 
       var workbook = XLSX.read(new Uint8Array(wb.data), { type: 'array', cellFormula: false, cellNF: true });

@@ -98,6 +98,7 @@
   </div>
 
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <script src="js/employeeParser.js"></script>
   <script src="js/storage.js"></script>
   <script src="js/auth.js"></script>
   <script>
@@ -116,7 +117,7 @@
     var hint = document.getElementById('hint');
 
     // Load
-    initDB().then(function () { return getAllEmployees(); })
+    initDB().then(function () { return getAllEmployeesWithFallback(); })
     .then(function (emps) {
       if (!emps || !emps.length) {
         status.innerHTML = '<span class="status-icon">&#128203;</span>No employees found.<br>Admin must upload a report first.';

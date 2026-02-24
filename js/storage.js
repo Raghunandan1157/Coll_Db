@@ -253,3 +253,70 @@ function hasData() {
     });
   });
 }
+
+/* ---------- Remote fallback ---------- */
+var _fetchingRemote = null;
+
+/**
+ * Fetches data/report.xlsx from the server, parses it,
+ * saves workbook + employees to IndexedDB, and returns the workbook record.
+ * Cached so concurrent calls don't re-fetch.
+ * @returns {Promise<{id: string, data: ArrayBuffer, fileName: string, uploadedAt: Date}|null>}
+ */
+function _fetchRemoteReport() {
+  if (_fetchingRemote) return _fetchingRemote;
+
+  _fetchingRemote = fetch('data/report.xlsx')
+    .then(function (res) {
+      if (!res.ok) throw new Error('No remote report (' + res.status + ')');
+      return res.arrayBuffer();
+    })
+    .then(function (buf) {
+      // Save workbook to IndexedDB
+      return saveWorkbook(buf, 'report.xlsx').then(function () {
+        // Parse employees and save them too
+        if (typeof XLSX !== 'undefined' && typeof extractEmployees === 'function') {
+          var wb = XLSX.read(new Uint8Array(buf), { type: 'array', cellFormula: false, cellNF: true });
+          var parsed = extractEmployees(wb);
+          if (parsed.employees && parsed.employees.length) {
+            return saveEmployees(parsed.employees).then(function () {
+              return { id: 'current', data: buf, fileName: 'report.xlsx', uploadedAt: new Date() };
+            });
+          }
+        }
+        return { id: 'current', data: buf, fileName: 'report.xlsx', uploadedAt: new Date() };
+      });
+    })
+    .catch(function (err) {
+      console.warn('Remote report fetch failed:', err);
+      _fetchingRemote = null;
+      return null;
+    });
+
+  return _fetchingRemote;
+}
+
+/**
+ * Gets the workbook, falling back to the remote report if IndexedDB is empty.
+ * @returns {Promise<{id: string, data: ArrayBuffer, fileName: string, uploadedAt: Date}|null>}
+ */
+function getWorkbookWithFallback() {
+  return getWorkbook().then(function (wb) {
+    if (wb) return wb;
+    return _fetchRemoteReport();
+  });
+}
+
+/**
+ * Gets all employees, falling back to the remote report if IndexedDB is empty.
+ * @returns {Promise<Array<{id: string, name: string, rowData: Array}>>}
+ */
+function getAllEmployeesWithFallback() {
+  return getAllEmployees().then(function (emps) {
+    if (emps && emps.length) return emps;
+    // Try fetching remote, which also saves employees
+    return _fetchRemoteReport().then(function () {
+      return getAllEmployees();
+    });
+  });
+}
