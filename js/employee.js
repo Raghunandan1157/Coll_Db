@@ -218,6 +218,83 @@
   /* ---------- Hierarchy (embedded) ---------- */
   var HIERARCHY = {"ANDRA PRADESH":{"KADAPA":["BUDWAL","DHARMAVARAM","KADAPA","KADIRI"]},"DHARWAD":{"BADAMI":["BADAMI","GAJENDRAGAD","NARAGUNDA","RAMDURGA"],"BALLARI":["BALLARI","KUDATHINI","SANDURU","SIRUGUPPA"],"BELAGAVI":["BAILHONGAL","BELAGAVI","GOKAK","KITTUR","YARAGATTI"],"CHIKKODI":["ATHANI","CHIKKODI","MUDALAGI","NIPPANI"],"DAVANAGERE":["DAVANAGERE","HARIHARA","HONNALI","SANTHEBENNURU"],"DHARWAD":["DHARWAD","HUBLI","HUBLI-2","KALGHATGI"],"GADAG":["GADAG","LAXMESHWAR","MUNDARAGI"],"KUDLIGI":["HARAPANAHALLI","KHANAHOSAHALLI","KOTTURU","KUDLIGI"],"VIJAYANAGARA":["HAGARIBOMMANAHALLI","HOSPET","HUVENAHADAGALLI"]},"KALBURGI":{"BIDAR":["AURAD","BHALKI","BIDAR","BIDAR-2"],"HUMNABAD":["BASAVAKALYAN","HULSOOR","HUMNABAD","KAMALAPURA"],"INDI":["ALMEL","CHADCHAN","INDI"],"KALBURGI":["AFZALPUR","ALAND","JEVARGI","KALABURAGI","KALBURGI-2"],"KUSHTAGI":["BAGALKOT","GANGAVATHI","HUNGUND","KOPPAL","KUSHTAGI"],"LINGSUGUR":["DEVADURGA","LINGSUGUR","MANVI","RAICHUR","SINDHNUR","SIRWAR"],"SEDAM":["CHINCHOLI","KALAGI","SEDAM","SHAHAPUR","YADGIR"],"VIJAYAPURA":["BILAGI","JAMAKHANDI","LOKAPUR","MUDDEBIHAL","SINDAGI","TALIKOTI","TIKOTA","VIJAYAPUR"]},"TELANGANA":{"MAHABOOBNAGAR":["GADWAL","MAHABUB NAGAR","MARIKAL","TANDUR"],"SANGAREDDY":["KODANGAL","NARAYANKHED","SANGAREDDY","ZAHEERABAD"]},"TUMKUR":{"BENGALORE -RURAL":["DABUSPET","DODDABALLAPURA","GOWRIBIDANUR"],"BENGALORE -URBAN":["CHANDAPURA","HEBBAL","J P NAGAR","KENGERI"],"CHIKKABALLAPUR":["BAGEPALLI","CHIKBALLAPURA","CHINTAMANI","DEVANAHALLI","SRINIVASPURA"],"CHIKKAMAGALURU":["CHIKKAMAGALURU","MUDIGERE","NR PURA"],"CHITRADURGA":["CHALLAKERE","CHITRADURGA","HIRIYUR","JAGALORE"],"HOLALKERE":["CHANNAGIRI","HOLAKERE","HOSADURGA"],"KADUR":["AJJAMPURA","KADUR","PANCHANHALLI","TARIKERE"],"KOLAR":["BANGARPET","BETHAMANGALA","KOLAR","MALUR"],"TIPTUR":["CHIKKANAYAKANAHALLI","GUBBI","HULIYAR","TIPTUR","TUREVEKERE"],"TUMKUR":["KORATAGERE","KUNIGAL","MADHUGIRI","SIRA","TUMKUR"]}};
 
+  /* ---------- Fuzzy name matching ---------- */
+  function normalizeForMatch(s) {
+    return s.toUpperCase().replace(/[\s\-\u00A0]+/g, '').trim();
+  }
+
+  function editDistance(a, b) {
+    if (a === b) return 0;
+    if (!a.length) return b.length;
+    if (!b.length) return a.length;
+    var prev = [], curr = [];
+    for (var j = 0; j <= a.length; j++) prev[j] = j;
+    for (var i = 1; i <= b.length; i++) {
+      curr[0] = i;
+      for (var j = 1; j <= a.length; j++) {
+        if (b[i - 1] === a[j - 1]) curr[j] = prev[j - 1];
+        else curr[j] = 1 + Math.min(prev[j - 1], prev[j], curr[j - 1]);
+      }
+      var tmp = prev; prev = curr; curr = tmp;
+    }
+    return prev[a.length];
+  }
+
+  function fuzzyMatch(a, b) {
+    var au = a.toUpperCase().trim();
+    var bu = b.toUpperCase().trim();
+    if (au === bu) return true;
+    var an = normalizeForMatch(a);
+    var bn = normalizeForMatch(b);
+    if (an === bn) return true;
+    // Allow edit distance 1 for strings >= 8 chars (avoids short-name false positives)
+    if (an.length >= 8 && bn.length >= 8 && Math.abs(an.length - bn.length) <= 1) {
+      return editDistance(an, bn) <= 1;
+    }
+    return false;
+  }
+
+  /* ---------- Collect all data rows from a section ---------- */
+  function getAllSectionRows(rows, sectionType) {
+    var results = [];
+    var currentSection = null;
+    for (var r = 0; r < rows.length; r++) {
+      var row = rows[r];
+      if (!row || !row.length) continue;
+      var firstCell = String(row[0] || '').trim().toUpperCase();
+      var secondCell = String(row[1] || '').trim().toUpperCase();
+
+      var headerText = firstCell + ' ' + secondCell;
+      if (headerText.includes('REGION') && (headerText.includes('WISE') || headerText.includes('NAME'))) {
+        currentSection = 'region'; continue;
+      }
+      if (headerText.includes('DISTRICT') && (headerText.includes('WISE') || headerText.includes('NAME'))) {
+        currentSection = 'district'; continue;
+      }
+      if (headerText.includes('BRANCH') && !headerText.includes('OFFICER') && (headerText.includes('WISE') || headerText.includes('NAME'))) {
+        currentSection = 'branch'; continue;
+      }
+      if (firstCell.includes('GRAND TOTAL') || secondCell.includes('GRAND TOTAL')) {
+        currentSection = null; continue;
+      }
+      if (currentSection !== sectionType) continue;
+
+      // Skip header/serial rows
+      if (firstCell === 'SL' || firstCell === 'SL.' || firstCell === 'SL NO' || firstCell === 'S.NO' || firstCell === 'SR') continue;
+      if (/^TOTAL/i.test(firstCell)) continue;
+
+      var nameInRow = String(row[1] || '').trim().toUpperCase();
+      if (!nameInRow || /^\d+$/.test(nameInRow)) {
+        nameInRow = String(row[0] || '').trim().toUpperCase();
+      }
+      if (!nameInRow || /^\d+$/.test(nameInRow)) continue;
+      if (/^(SL|NAME|OFFICER|DEMAND|COLLECTION)/i.test(nameInRow)) continue;
+
+      results.push({ name: nameInRow, row: row });
+    }
+    return results;
+  }
+
   /* ---------- Find children for drill-down ---------- */
   function findChildrenForRole(rows, hierarchy, role, location) {
     if (role === 'FO') return [];
@@ -226,45 +303,46 @@
     var locationUpper = (location || '').toUpperCase().trim();
 
     if (role === 'CEO') {
-      // Children = all regions
-      var regionNames = Object.keys(hierarchy);
-      for (var i = 0; i < regionNames.length; i++) {
-        var rn = regionNames[i];
-        var row = findRoleRow(rows, 'RM', rn);
-        if (row) children.push({ name: rn, row: row });
-      }
+      // Get all region rows directly from the sheet — no hierarchy name-matching needed
+      children = getAllSectionRows(rows, 'region');
     } else if (role === 'RM') {
-      // Children = districts in this region
-      var regionData = null;
+      // Find hierarchy entry for this region (fuzzy match handles name differences)
+      var hierarchyDistricts = null;
       for (var rk in hierarchy) {
-        if (rk.toUpperCase() === locationUpper) { regionData = hierarchy[rk]; break; }
+        if (fuzzyMatch(rk, locationUpper)) { hierarchyDistricts = Object.keys(hierarchy[rk]); break; }
       }
-      if (regionData) {
-        var districtNames = Object.keys(regionData);
-        for (var i = 0; i < districtNames.length; i++) {
-          var dn = districtNames[i];
-          var row = findRoleRow(rows, 'DM', dn);
-          if (row) children.push({ name: dn, row: row });
+      if (hierarchyDistricts) {
+        var allDistricts = getAllSectionRows(rows, 'district');
+        for (var i = 0; i < allDistricts.length; i++) {
+          for (var j = 0; j < hierarchyDistricts.length; j++) {
+            if (fuzzyMatch(allDistricts[i].name, hierarchyDistricts[j])) {
+              children.push(allDistricts[i]);
+              break;
+            }
+          }
         }
       }
     } else if (role === 'DM') {
-      // Children = branches in this district
-      var branchList = null;
+      // Find hierarchy entry for this district (fuzzy match)
+      var hierarchyBranches = null;
       for (var rk in hierarchy) {
         for (var dk in hierarchy[rk]) {
-          if (dk.toUpperCase() === locationUpper) { branchList = hierarchy[rk][dk]; break; }
+          if (fuzzyMatch(dk, locationUpper)) { hierarchyBranches = hierarchy[rk][dk]; break; }
         }
-        if (branchList) break;
+        if (hierarchyBranches) break;
       }
-      if (branchList) {
-        for (var i = 0; i < branchList.length; i++) {
-          var bn = branchList[i];
-          var row = findRoleRow(rows, 'BM', bn);
-          if (row) children.push({ name: bn, row: row });
+      if (hierarchyBranches) {
+        var allBranches = getAllSectionRows(rows, 'branch');
+        for (var i = 0; i < allBranches.length; i++) {
+          for (var j = 0; j < hierarchyBranches.length; j++) {
+            if (fuzzyMatch(allBranches[i].name, hierarchyBranches[j])) {
+              children.push(allBranches[i]);
+              break;
+            }
+          }
         }
       }
     } else if (role === 'BM') {
-      // Children = officers under this branch from the officer section
       children = findOfficersForBranch(rows, locationUpper);
     }
 
@@ -291,8 +369,9 @@
       var firstCell = String(row[0] || '').trim().toUpperCase();
       var secondCell = String(row[1] || '').trim().toUpperCase();
 
-      // Detect officer section start
-      if (firstCell.includes('BRANCH') && firstCell.includes('OFFICER') && firstCell.includes('NAME')) {
+      // Detect officer section start (header may be in col 0 or col 1)
+      var hdrText = firstCell + ' ' + secondCell;
+      if (hdrText.includes('BRANCH') && hdrText.includes('OFFICER') && hdrText.includes('NAME')) {
         inOfficerSection = true; continue;
       }
       if (!inOfficerSection) continue;
