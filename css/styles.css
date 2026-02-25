@@ -501,6 +501,11 @@ body.emp-dark::before {
   align-items: center;
   margin-bottom: 20px;
 }
+.emp-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
 .emp-header-left h1 {
   font-family: 'Playfair Display', serif;
   font-size: 24px;
