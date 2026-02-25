@@ -3,10 +3,21 @@
 
   var session = getEmployeeSession();
 
-  // Header subtitle
-  document.getElementById('emp-subtitle').textContent = 'Collection \u2014 ' + session.name;
+  // Header subtitle — role-aware
+  var subtitleEl = document.getElementById('emp-subtitle');
+  if (session.role === 'CEO') {
+    subtitleEl.textContent = 'CEO \u2014 Overall';
+  } else if (session.role === 'RM') {
+    subtitleEl.textContent = 'Regional Manager \u2014 ' + session.location;
+  } else if (session.role === 'DM') {
+    subtitleEl.textContent = 'District Manager \u2014 ' + session.location;
+  } else if (session.role === 'BM') {
+    subtitleEl.textContent = 'Branch Manager \u2014 ' + session.location;
+  } else {
+    subtitleEl.textContent = 'Collection \u2014 ' + session.name;
+  }
 
-  // Date badge — show current month-end
+  // Date badge — show current date
   var now = new Date();
   var dd = String(now.getDate()).padStart(2, '0');
   var mm = String(now.getMonth() + 1).padStart(2, '0');
@@ -154,6 +165,63 @@
     document.getElementById('collectionContent').innerHTML = html;
   }
 
+  /* ---------- Find row for role-based lookup ---------- */
+  function findRoleRow(rows, role, location) {
+    var currentSection = null;
+    var locationUpper = location.toUpperCase().trim();
+
+    for (var r = 0; r < rows.length; r++) {
+      var row = rows[r];
+      if (!row || !row.length) continue;
+      var firstCell = String(row[0] || '').trim().toUpperCase();
+      var secondCell = String(row[1] || '').trim().toUpperCase();
+
+      // Detect section headers
+      if (firstCell.includes('REGION') && (firstCell.includes('WISE') || firstCell.includes('NAME'))) {
+        currentSection = 'region'; continue;
+      }
+      if (firstCell.includes('DISTRICT') && (firstCell.includes('WISE') || firstCell.includes('NAME'))) {
+        currentSection = 'district'; continue;
+      }
+      if (firstCell.includes('BRANCH') && (firstCell.includes('WISE') || firstCell.includes('NAME'))) {
+        currentSection = 'branch'; continue;
+      }
+
+      // CEO: find Grand Total row in the region section
+      if (role === 'CEO') {
+        if (currentSection === 'region' && (firstCell.includes('GRAND TOTAL') || secondCell.includes('GRAND TOTAL'))) {
+          return row;
+        }
+        continue;
+      }
+
+      // Grand Total ends a section
+      if (firstCell.includes('GRAND TOTAL') || secondCell.includes('GRAND TOTAL')) {
+        currentSection = null; continue;
+      }
+
+      // Match role to section
+      var targetSection = null;
+      if (role === 'RM') targetSection = 'region';
+      else if (role === 'DM') targetSection = 'district';
+      else if (role === 'BM') targetSection = 'branch';
+
+      if (currentSection !== targetSection) continue;
+
+      // Check name match in column 0 or 1
+      var nameInRow = String(row[1] || '').trim().toUpperCase();
+      if (!nameInRow || /^\d+$/.test(nameInRow)) {
+        nameInRow = String(row[0] || '').trim().toUpperCase();
+      }
+
+      if (nameInRow === locationUpper) {
+        return row;
+      }
+    }
+
+    return null;
+  }
+
   /* ---------- Load Data ---------- */
   async function loadData() {
     try {
@@ -162,8 +230,6 @@
       if (!wb || !wb.data) { showNoData(); return; }
 
       var workbook = XLSX.read(new Uint8Array(wb.data), { type: 'array', cellFormula: false, cellNF: true });
-      var needle   = session.name.toUpperCase().trim();
-      var needleId = String(session.id).trim();
 
       // Find "Overall" sheet
       var targetSheet = null;
@@ -188,17 +254,27 @@
       var rows = XLSX.utils.sheet_to_json(targetSheet, { header: 1 });
       if (!rows || rows.length < 2) { showNoData(); return; }
 
-      // Find employee row
       var empRow = null;
-      for (var r = 0; r < rows.length; r++) {
-        var row = rows[r];
-        if (!row || !row.length) continue;
-        for (var c = 0; c < Math.min(row.length, 5); c++) {
-          var cv = String(row[c] || '').trim();
-          if (cv.toUpperCase() === needle || cv === needleId) { empRow = row; break; }
+
+      if (session.role && session.role !== 'FO') {
+        // Role-based lookup: CEO, RM, DM, BM
+        empRow = findRoleRow(rows, session.role, session.location);
+      } else {
+        // FO: current behavior — search all rows for name/ID match
+        var needle   = session.name.toUpperCase().trim();
+        var needleId = String(session.id).trim();
+
+        for (var r = 0; r < rows.length; r++) {
+          var row = rows[r];
+          if (!row || !row.length) continue;
+          for (var c = 0; c < Math.min(row.length, 5); c++) {
+            var cv = String(row[c] || '').trim();
+            if (cv.toUpperCase() === needle || cv === needleId) { empRow = row; break; }
+          }
+          if (empRow) break;
         }
-        if (empRow) break;
       }
+
       if (!empRow) { showNoData(); return; }
 
       renderDashboard(empRow);
