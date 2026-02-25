@@ -14,25 +14,85 @@
   </nav>
 
   <div class="admin-section" id="upload-section">
-    <h3 class="section-title">Upload Report</h3>
-    <div class="upload-zone" id="upload-zone">
-      <div class="upload-content">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-          <polyline points="17 8 12 3 7 8"/>
-          <line x1="12" y1="3" x2="12" y2="15"/>
-        </svg>
-        <p class="upload-text">Drag & drop Excel file</p>
-        <p class="upload-subtext">or click to browse</p>
-        <p class="upload-hint">Supported formats: .xlsx, .xls</p>
+    <h3 class="section-title">Upload Reports</h3>
+    <div class="upload-grid">
+
+      <!-- Portfolio -->
+      <div class="upload-card" data-category="portfolio">
+        <div class="upload-card-label">
+          <span class="upload-card-icon">&#128230;</span>
+          <span>Portfolio</span>
+        </div>
+        <div class="upload-zone">
+          <div class="upload-content">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            <p class="upload-text">Drag & drop</p>
+            <p class="upload-subtext">or click to browse</p>
+          </div>
+          <input type="file" accept=".xlsx,.xls" hidden>
+        </div>
+        <div class="card-file-info" hidden>
+          <span class="card-file-name"></span>
+          <button class="card-clear-btn">&times;</button>
+        </div>
+        <div class="card-upload-status" hidden></div>
       </div>
-      <input type="file" id="file-input" accept=".xlsx,.xls" hidden>
+
+      <!-- Disbursement -->
+      <div class="upload-card" data-category="disbursement">
+        <div class="upload-card-label">
+          <span class="upload-card-icon">&#128181;</span>
+          <span>Disbursement</span>
+        </div>
+        <div class="upload-zone">
+          <div class="upload-content">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            <p class="upload-text">Drag & drop</p>
+            <p class="upload-subtext">or click to browse</p>
+          </div>
+          <input type="file" accept=".xlsx,.xls" hidden>
+        </div>
+        <div class="card-file-info" hidden>
+          <span class="card-file-name"></span>
+          <button class="card-clear-btn">&times;</button>
+        </div>
+        <div class="card-upload-status" hidden></div>
+      </div>
+
+      <!-- Collection -->
+      <div class="upload-card" data-category="collection">
+        <div class="upload-card-label">
+          <span class="upload-card-icon">&#128202;</span>
+          <span>Collection</span>
+        </div>
+        <div class="upload-zone">
+          <div class="upload-content">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            <p class="upload-text">Drag & drop</p>
+            <p class="upload-subtext">or click to browse</p>
+          </div>
+          <input type="file" accept=".xlsx,.xls" hidden>
+        </div>
+        <div class="card-file-info" hidden>
+          <span class="card-file-name"></span>
+          <button class="card-clear-btn">&times;</button>
+        </div>
+        <div class="card-upload-status" hidden></div>
+      </div>
+
     </div>
-    <div class="file-info" id="file-info" hidden>
-      <span id="file-name"></span>
-      <button id="clear-btn">&times;</button>
-    </div>
-    <div class="upload-status" id="upload-status" hidden></div>
   </div>
 
   <div class="admin-section hidden" id="employees-section">
@@ -55,58 +115,160 @@
     <div class="report-container" id="report-container"></div>
   </div>
 
+  <!-- Sidebar (before scripts so #logout-btn exists) -->
+  <div id="sidebarOverlay" class="sidebar-overlay"></div>
+  <div id="sidebarPanel" class="sidebar-panel">
+    <div class="sb-header">
+      <span class="sb-title">Menu</span>
+      <button class="sb-close" id="sidebarCloseBtn">&times;</button>
+    </div>
+    <nav class="sb-nav">
+      <a href="employee.html"><span class="sb-icon">&#127968;</span><span>Home</span></a>
+      <a href="contacts.html"><span class="sb-icon">&#128199;</span><span>Contacts</span></a>
+      <a href="locator.html"><span class="sb-icon">&#128205;</span><span>NLPL Branch Locator</span></a>
+    </nav>
+    <div class="sb-footer">
+      <button class="sb-logout" id="logout-btn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        <span>Logout</span>
+      </button>
+    </div>
+  </div>
+
+  <style>
+    /* 3-column upload grid */
+    .upload-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+    @media (max-width: 700px) {
+      .upload-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    .upload-card {
+      border: 1px solid #e0e0e0;
+      border-radius: 12px;
+      background: #fff;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .upload-card-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 700;
+      color: #2c3e50;
+    }
+    .upload-card-icon {
+      font-size: 18px;
+    }
+    .upload-card .upload-zone {
+      min-height: 110px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 2px dashed #d0d5dd;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      padding: 12px 8px;
+    }
+    .upload-card .upload-zone:hover,
+    .upload-card .upload-zone.drag-over {
+      border-color: #4F8CFF;
+      background: rgba(79,140,255,0.04);
+    }
+    .upload-card .upload-content {
+      text-align: center;
+    }
+    .upload-card .upload-content svg {
+      margin-bottom: 6px;
+    }
+    .upload-card .upload-text {
+      font-size: 12px;
+      font-weight: 600;
+      color: #555;
+      margin: 0;
+    }
+    .upload-card .upload-subtext {
+      font-size: 11px;
+      color: #999;
+      margin: 2px 0 0;
+    }
+    .card-file-info {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: #e8f5e9;
+      border-radius: 8px;
+      font-size: 12px;
+      color: #2e7d32;
+    }
+    .card-file-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+      margin-right: 8px;
+    }
+    .card-clear-btn {
+      background: none;
+      border: none;
+      color: #999;
+      font-size: 16px;
+      cursor: pointer;
+      padding: 0 2px;
+      line-height: 1;
+    }
+    .card-clear-btn:hover { color: #e53935; }
+    .card-upload-status {
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-size: 11px;
+    }
+    .card-upload-status.success { background: #d4edda; color: #155724; }
+    .card-upload-status.info { background: #d1ecf1; color: #0c5460; }
+
+    /* Sidebar */
+    .sidebar-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9998;opacity:0;visibility:hidden;transition:opacity .3s,visibility .3s;}
+    .sidebar-overlay.active{opacity:1;visibility:visible;}
+    .sidebar-panel{position:fixed;top:0;right:0;bottom:0;width:280px;max-width:85vw;background:#2c3e50;border-left:1px solid rgba(255,255,255,0.1);z-index:9999;transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;font-family:inherit;}
+    .sidebar-panel.active{transform:translateX(0);}
+    .sb-header{display:flex;align-items:center;justify-content:space-between;padding:18px 20px 14px;border-bottom:1px solid rgba(255,255,255,0.1);}
+    .sb-title{color:#fff;font-size:16px;font-weight:600;}
+    .sb-close{background:none;border:none;color:rgba(255,255,255,0.6);font-size:24px;cursor:pointer;padding:0 4px;line-height:1;}
+    .sb-close:hover{color:#fff;}
+    .sb-nav{padding:12px 0;flex:1;}
+    .sb-nav a{display:flex;align-items:center;gap:14px;padding:14px 20px;color:#fff;text-decoration:none;font-size:15px;font-weight:500;transition:background .2s;}
+    .sb-nav a:hover{background:rgba(255,255,255,0.08);}
+    .sb-icon{font-size:20px;width:28px;text-align:center;flex-shrink:0;}
+    .sb-footer{padding:16px 20px;border-top:1px solid rgba(255,255,255,0.1);margin-top:auto;}
+    .sb-logout{display:flex;align-items:center;gap:12px;width:100%;padding:14px 16px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);border-radius:12px;color:#EF4444;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;transition:all .2s;}
+    .sb-logout:hover{background:rgba(239,68,68,0.25);border-color:rgba(239,68,68,0.5);}
+  </style>
+
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-  <script src="js/employeeParser.js?v=7"></script>
-  <script src="js/storage.js?v=7"></script>
-  <script src="js/auth.js?v=7"></script>
-  <script src="js/parser.js?v=7"></script>
-  <script src="js/renderer.js?v=7"></script>
-  <script src="js/admin.js?v=7"></script>
-  <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js');}</script>
-<!-- Sidebar -->
-<style>
-  .sidebar-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9998;opacity:0;visibility:hidden;transition:opacity .3s,visibility .3s;}
-  .sidebar-overlay.active{opacity:1;visibility:visible;}
-  .sidebar-panel{position:fixed;top:0;right:0;bottom:0;width:280px;max-width:85vw;background:#2c3e50;border-left:1px solid rgba(255,255,255,0.1);z-index:9999;transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;font-family:inherit;}
-  .sidebar-panel.active{transform:translateX(0);}
-  .sb-header{display:flex;align-items:center;justify-content:space-between;padding:18px 20px 14px;border-bottom:1px solid rgba(255,255,255,0.1);}
-  .sb-title{color:#fff;font-size:16px;font-weight:600;}
-  .sb-close{background:none;border:none;color:rgba(255,255,255,0.6);font-size:24px;cursor:pointer;padding:0 4px;line-height:1;}
-  .sb-close:hover{color:#fff;}
-  .sb-nav{padding:12px 0;flex:1;}
-  .sb-nav a{display:flex;align-items:center;gap:14px;padding:14px 20px;color:#fff;text-decoration:none;font-size:15px;font-weight:500;transition:background .2s;}
-  .sb-nav a:hover{background:rgba(255,255,255,0.08);}
-  .sb-icon{font-size:20px;width:28px;text-align:center;flex-shrink:0;}
-  .sb-footer{padding:16px 20px;border-top:1px solid rgba(255,255,255,0.1);margin-top:auto;}
-  .sb-logout{display:flex;align-items:center;gap:12px;width:100%;padding:14px 16px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);border-radius:12px;color:#EF4444;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;transition:all .2s;}
-  .sb-logout:hover{background:rgba(239,68,68,0.25);border-color:rgba(239,68,68,0.5);}
-</style>
-<div id="sidebarOverlay" class="sidebar-overlay"></div>
-<div id="sidebarPanel" class="sidebar-panel">
-  <div class="sb-header">
-    <span class="sb-title">Menu</span>
-    <button class="sb-close" id="sidebarCloseBtn">&times;</button>
-  </div>
-  <nav class="sb-nav">
-    <a href="employee.html"><span class="sb-icon">🏠</span><span>Home</span></a>
-    <a href="contacts.html"><span class="sb-icon">📇</span><span>Contacts</span></a>
-    <a href="locator.html"><span class="sb-icon">📍</span><span>NLPL Branch Locator</span></a>
-  </nav>
-  <div class="sb-footer">
-    <button class="sb-logout" id="logout-btn">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-      <span>Logout</span>
-    </button>
-  </div>
-</div>
-<script>
-(function(){
-  var ov=document.getElementById('sidebarOverlay'),pn=document.getElementById('sidebarPanel');
-  document.getElementById('sidebar-toggle-btn').addEventListener('click',function(){ov.classList.add('active');pn.classList.add('active');});
-  function close(){ov.classList.remove('active');pn.classList.remove('active');}
-  document.getElementById('sidebarCloseBtn').addEventListener('click',close);
-  ov.addEventListener('click',close);
-})();
-</script>
+  <script src="js/employeeParser.js?v=8"></script>
+  <script src="js/storage.js?v=8"></script>
+  <script src="js/auth.js?v=8"></script>
+  <script src="js/parser.js?v=8"></script>
+  <script src="js/renderer.js?v=8"></script>
+  <script src="js/admin.js?v=8"></script>
+  <script>if('serviceWorker' in navigator && location.protocol !== 'file:'){navigator.serviceWorker.register('./sw.js');}</script>
+  <script>
+  (function(){
+    var ov=document.getElementById('sidebarOverlay'),pn=document.getElementById('sidebarPanel');
+    document.getElementById('sidebar-toggle-btn').addEventListener('click',function(){ov.classList.add('active');pn.classList.add('active');});
+    function close(){ov.classList.remove('active');pn.classList.remove('active');}
+    document.getElementById('sidebarCloseBtn').addEventListener('click',close);
+    ov.addEventListener('click',close);
+  })();
+  </script>
 </body>
 </html>

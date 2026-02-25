@@ -270,6 +270,55 @@ function clearAllData() {
   });
 }
 
+/**
+ * Saves a workbook by category (portfolio, disbursement, collection).
+ * Collection maps to id "current" for backward compatibility.
+ */
+function saveWorkbookByCategory(arrayBuffer, fileName, category) {
+  var id = (category === 'collection') ? 'current' : category;
+  return initDB().then(function (db) {
+    return new Promise(function (resolve, reject) {
+      var tx = db.transaction("workbook", "readwrite");
+      var store = tx.objectStore("workbook");
+      store.put({ id: id, data: arrayBuffer, fileName: fileName, uploadedAt: new Date() });
+      tx.oncomplete = function () { resolve(); };
+      tx.onerror = function (event) { reject(event.target.error); };
+    });
+  });
+}
+
+/**
+ * Retrieves a workbook by category.
+ */
+function getWorkbookByCategory(category) {
+  var id = (category === 'collection') ? 'current' : category;
+  return initDB().then(function (db) {
+    return new Promise(function (resolve, reject) {
+      var tx = db.transaction("workbook", "readonly");
+      var store = tx.objectStore("workbook");
+      var request = store.get(id);
+      request.onsuccess = function () { resolve(request.result || null); };
+      request.onerror = function (event) { reject(event.target.error); };
+    });
+  });
+}
+
+/**
+ * Deletes a single workbook by category.
+ */
+function clearWorkbookByCategory(category) {
+  var id = (category === 'collection') ? 'current' : category;
+  return initDB().then(function (db) {
+    return new Promise(function (resolve, reject) {
+      var tx = db.transaction("workbook", "readwrite");
+      var store = tx.objectStore("workbook");
+      store.delete(id);
+      tx.oncomplete = function () { resolve(); };
+      tx.onerror = function (event) { reject(event.target.error); };
+    });
+  });
+}
+
 /* ---------- Remote fallback ---------- */
 var _fetchingRemote = null;
 var _lastFetchTime = 0;

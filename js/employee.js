@@ -590,6 +590,9 @@
       renderDashboard(empRow);
       renderBreadcrumbs();
 
+      // Auto-switch to Collection tab since that's where data renders
+      switchEmpTab('collection');
+
       // Render sub-units for drill-down
       if (session.role !== 'FO') {
         var childRoleMap = { CEO: 'RM', RM: 'DM', DM: 'BM', BM: 'FO' };
