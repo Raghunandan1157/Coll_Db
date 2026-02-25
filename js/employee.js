@@ -254,10 +254,11 @@
     return false;
   }
 
-  /* ---------- Collect all data rows from a section ---------- */
+  /* ---------- Collect all data rows from a section (first occurrence only) ---------- */
   function getAllSectionRows(rows, sectionType) {
     var results = [];
     var currentSection = null;
+    var foundTarget = false;
     for (var r = 0; r < rows.length; r++) {
       var row = rows[r];
       if (!row || !row.length) continue;
@@ -275,6 +276,8 @@
         currentSection = 'branch'; continue;
       }
       if (firstCell.includes('GRAND TOTAL') || secondCell.includes('GRAND TOTAL')) {
+        // If we already collected rows for our target section, stop here
+        if (currentSection === sectionType && foundTarget) break;
         currentSection = null; continue;
       }
       if (currentSection !== sectionType) continue;
@@ -291,6 +294,7 @@
       if (/^(SL|NAME|OFFICER|DEMAND|COLLECTION)/i.test(nameInRow)) continue;
 
       results.push({ name: nameInRow, row: row });
+      foundTarget = true;
     }
     return results;
   }
