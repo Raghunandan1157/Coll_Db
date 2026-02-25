@@ -1,9 +1,11 @@
-var CACHE_NAME = 'coll-report-v5';
+var CACHE_NAME = 'coll-report-v6';
 var ASSETS = [
   './',
   './index.html',
   './employee.html',
   './admin.html',
+  './contacts.html',
+  './locator.html',
   './css/styles.css',
   './js/employeeParser.js',
   './js/storage.js',
