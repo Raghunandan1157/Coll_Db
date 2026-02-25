@@ -99,9 +99,10 @@
 
     var regDem = numVal(empRow[REG.demand]);
     var regCol = numVal(empRow[REG.collection]);
+    var regNoData = (regDem === 0 && regCol === 0);
     var regPct = regDem > 0 ? Math.min(Math.round((regCol / regDem) * 100), 100) : 0;
-    var regPctColor = regPct >= 95 ? '#34D399' : regPct >= 80 ? '#FBBF24' : '#F87171';
-    var regBarW = Math.max(regPct, 8);
+    var regPctColor = regNoData ? '#6B7A99' : regPct >= 95 ? '#34D399' : regPct >= 80 ? '#FBBF24' : '#F87171';
+    var regPctText = regNoData ? '-' : regPct + '%';
 
     html += '<div class="emp-reg-summary emp-fade">' +
       '<div class="emp-reg-label">Reg DPD</div>' +
@@ -115,11 +116,11 @@
           '<div class="emp-reg-lbl">Collection</div>' +
         '</div>' +
         '<div class="emp-reg-stat">' +
-          '<div class="emp-reg-val" style="color:' + regPctColor + '">' + regPct + '%</div>' +
+          '<div class="emp-reg-val" style="color:' + regPctColor + '">' + regPctText + '</div>' +
           '<div class="emp-reg-lbl">Collection %</div>' +
         '</div>' +
       '</div>' +
-      '<div class="emp-bucket-bar" style="width:' + regBarW + '%;background:#4F8CFF"></div>' +
+      (regNoData ? '' : '<div class="emp-bucket-bar" style="width:' + Math.max(regPct, 8) + '%;background:#4F8CFF"></div>') +
     '</div>';
 
     html += '<div class="emp-buckets">';
@@ -127,8 +128,12 @@
       var bk = BUCKETS[i];
       var demand     = empRow[bk.demand];
       var collection = empRow[bk.collection];
-      var barW = numVal(demand) > 0 ? Math.min(Math.round((numVal(collection) / numVal(demand)) * 100), 100) : 0;
-      var pctColor = barW >= 95 ? '#34D399' : barW >= 80 ? '#FBBF24' : '#F87171';
+      var dVal = numVal(demand);
+      var cVal = numVal(collection);
+      var noData = (dVal === 0 && cVal === 0);
+      var barW = dVal > 0 ? Math.min(Math.round((cVal / dVal) * 100), 100) : 0;
+      var pctColor = noData ? '#6B7A99' : barW >= 95 ? '#34D399' : barW >= 80 ? '#FBBF24' : '#F87171';
+      var pctText = noData ? '-' : barW + '%';
 
       html += '<div class="emp-bucket-card emp-fade" data-bucket="' + bk.key + '" style="animation-delay:' + (0.1 + i * 0.05) + 's">' +
         '<div class="emp-bucket-indicator" style="background:' + bk.color + '"></div>' +
@@ -146,11 +151,11 @@
             '<div class="emp-bucket-lbl">Collection</div>' +
           '</div>' +
           '<div class="emp-bucket-stat">' +
-            '<div class="emp-bucket-val" style="color:' + pctColor + '">' + barW + '%</div>' +
+            '<div class="emp-bucket-val" style="color:' + pctColor + '">' + pctText + '</div>' +
             '<div class="emp-bucket-lbl">Collection %</div>' +
           '</div>' +
         '</div>' +
-        '<div class="emp-bucket-bar" style="width:' + Math.max(barW, 8) + '%;background:' + bk.color + '"></div>' +
+        (noData ? '' : '<div class="emp-bucket-bar" style="width:' + Math.max(barW, 8) + '%;background:' + bk.color + '"></div>') +
       '</div>';
     }
     html += '</div>';
