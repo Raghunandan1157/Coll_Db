@@ -405,6 +405,7 @@
       if (row.dataset.role) {
         row.style.background = 'rgba(79,140,255,0.14)';
         row.style.pointerEvents = 'none';
+        clearRoleNavStack();
         setRoleSession(row.dataset.role, row.dataset.location);
         window.location.href = 'employee.html';
         return;
@@ -413,6 +414,7 @@
       // Employee
       row.style.background = 'rgba(79,140,255,0.14)';
       row.style.pointerEvents = 'none';
+      clearRoleNavStack();
       authenticateEmployee(row.dataset.id).then(function (ok) {
         if (ok) window.location.href = 'employee.html';
         else { row.style.background = ''; row.style.pointerEvents = ''; }

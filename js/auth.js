@@ -35,6 +35,76 @@ function setRoleSession(role, location) {
   localStorage.setItem('roleLocation', location);
 }
 
+function pushRoleNav(childRole, childLocation) {
+  var stack = getRoleNavStack();
+  var current = getEmployeeSession();
+  stack.push({ role: current.role, location: current.location, name: current.name, id: current.id });
+  localStorage.setItem('roleNavStack', JSON.stringify(stack));
+  // Clear FO keys if navigating to a role
+  if (childRole !== 'FO') {
+    localStorage.removeItem('employeeId');
+    localStorage.removeItem('employeeName');
+    setRoleSession(childRole, childLocation);
+  } else {
+    // FO: store employee info
+    localStorage.removeItem('roleAuth');
+    localStorage.removeItem('roleName');
+    localStorage.removeItem('roleLocation');
+    localStorage.setItem('employeeId', childLocation); // childLocation = empId for FO
+    localStorage.setItem('employeeName', childRole === 'FO' ? childLocation : '');
+  }
+}
+
+function popRoleNav() {
+  var stack = getRoleNavStack();
+  if (!stack.length) return null;
+  var prev = stack.pop();
+  localStorage.setItem('roleNavStack', JSON.stringify(stack));
+  // Restore session
+  localStorage.removeItem('employeeId');
+  localStorage.removeItem('employeeName');
+  localStorage.removeItem('roleAuth');
+  localStorage.removeItem('roleName');
+  localStorage.removeItem('roleLocation');
+  if (prev.role === 'FO') {
+    localStorage.setItem('employeeId', prev.id);
+    localStorage.setItem('employeeName', prev.name);
+  } else {
+    setRoleSession(prev.role, prev.location);
+  }
+  return prev;
+}
+
+function restoreNavTo(index) {
+  var stack = getRoleNavStack();
+  if (index < 0 || index >= stack.length) return;
+  var target = stack[index];
+  // Trim stack to that point
+  stack = stack.slice(0, index);
+  localStorage.setItem('roleNavStack', JSON.stringify(stack));
+  // Restore session
+  localStorage.removeItem('employeeId');
+  localStorage.removeItem('employeeName');
+  localStorage.removeItem('roleAuth');
+  localStorage.removeItem('roleName');
+  localStorage.removeItem('roleLocation');
+  if (target.role === 'FO') {
+    localStorage.setItem('employeeId', target.id);
+    localStorage.setItem('employeeName', target.name);
+  } else {
+    setRoleSession(target.role, target.location);
+  }
+}
+
+function getRoleNavStack() {
+  try { return JSON.parse(localStorage.getItem('roleNavStack') || '[]'); }
+  catch (e) { return []; }
+}
+
+function clearRoleNavStack() {
+  localStorage.removeItem('roleNavStack');
+}
+
 function isAdminAuthenticated() {
   return localStorage.getItem('adminAuth') === 'true';
 }
@@ -68,5 +138,6 @@ function logout() {
   localStorage.removeItem('roleAuth');
   localStorage.removeItem('roleName');
   localStorage.removeItem('roleLocation');
+  localStorage.removeItem('roleNavStack');
   window.location.href = 'index.html';
 }

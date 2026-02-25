@@ -31,6 +31,8 @@
       </div>
     </div>
 
+    <div id="breadcrumbBar" class="emp-breadcrumb-bar" style="display:none;"></div>
+
     <div class="emp-tab-content active" id="collectionTab">
       <div id="collectionContent">
         <div style="text-align:center;padding:60px 20px;">
@@ -89,6 +91,122 @@
   </div>
 
   <style>
+    /* Breadcrumbs */
+    .emp-breadcrumb-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 20px;
+      font-size: 12px;
+      color: #6B7A99;
+      overflow-x: auto;
+      white-space: nowrap;
+      -webkit-overflow-scrolling: touch;
+    }
+    .emp-breadcrumb-bar::-webkit-scrollbar { display: none; }
+    .emp-bc-item {
+      cursor: pointer;
+      color: #4F8CFF;
+      font-weight: 500;
+      transition: opacity 0.15s;
+    }
+    .emp-bc-item:hover { opacity: 0.8; }
+    .emp-bc-item.current {
+      color: #E8ECF4;
+      cursor: default;
+      font-weight: 600;
+    }
+    .emp-bc-sep { color: #3d4a63; margin: 0 2px; }
+
+    /* Sub-unit cards */
+    .emp-team-section { margin-top: 18px; }
+    .emp-team-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #E8ECF4;
+      margin-bottom: 10px;
+      padding: 0 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .emp-team-count {
+      font-size: 11px;
+      font-weight: 500;
+      color: #6B7A99;
+      background: rgba(107,122,153,0.12);
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+    .emp-sub-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 16px;
+      background: #131825;
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 14px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .emp-sub-card:hover {
+      background: rgba(79,140,255,0.06);
+      border-color: rgba(79,140,255,0.2);
+    }
+    .emp-sub-card:active {
+      background: rgba(79,140,255,0.12);
+      transform: scale(0.99);
+    }
+    .emp-sub-avatar {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+    .emp-sub-avatar.region { background: rgba(139,92,246,0.12); color: #A78BFA; }
+    .emp-sub-avatar.district { background: rgba(59,130,246,0.12); color: #60A5FA; }
+    .emp-sub-avatar.branch { background: rgba(16,185,129,0.12); color: #34D399; }
+    .emp-sub-avatar.officer { background: rgba(251,191,36,0.12); color: #FBBF24; }
+    .emp-sub-info { flex: 1; min-width: 0; }
+    .emp-sub-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: #E8ECF4;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .emp-sub-meta {
+      font-size: 11px;
+      color: #6B7A99;
+      margin-top: 2px;
+      display: flex;
+      gap: 12px;
+    }
+    .emp-sub-pct {
+      font-size: 13px;
+      font-weight: 600;
+      flex-shrink: 0;
+      min-width: 42px;
+      text-align: right;
+    }
+    .emp-sub-arrow {
+      color: #3d4a63;
+      font-size: 18px;
+      flex-shrink: 0;
+      transition: transform 0.15s;
+    }
+    .emp-sub-card:hover .emp-sub-arrow {
+      transform: translateX(2px);
+      color: #4F8CFF;
+    }
+
     .sidebar-overlay {
       position: fixed;
       inset: 0;

@@ -67,14 +67,13 @@
   function numVal(v) { return typeof v === 'number' ? v : 0; }
   function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return '&#' + c.charCodeAt(0) + ';'; }); }
 
-  /* ---------- Render ---------- */
+  /* ---------- Render Dashboard ---------- */
   function renderDashboard(empRow) {
-    // Compute totals
     var totalDemand = numVal(empRow[REG.demand]);
-    var totalPos      = numVal(empRow[REG.collection]);
+    var totalPos    = numVal(empRow[REG.collection]);
     for (var i = 0; i < BUCKETS.length; i++) {
       totalDemand += numVal(empRow[BUCKETS[i].demand]);
-      totalPos      += numVal(empRow[BUCKETS[i].collection]);
+      totalPos    += numVal(empRow[BUCKETS[i].collection]);
     }
 
     var html = '';
@@ -98,7 +97,6 @@
     // ── DPD BUCKET ALLOCATION ──
     html += '<div class="emp-section-title">DPD Bucket Allocation</div>';
 
-    // Reg DPD summary row
     html += '<div class="emp-reg-summary emp-fade">' +
       '<div class="emp-reg-label">Reg DPD</div>' +
       '<div class="emp-reg-values">' +
@@ -113,7 +111,6 @@
       '</div>' +
     '</div>';
 
-    // Bucket cards
     html += '<div class="emp-buckets">';
     for (var i = 0; i < BUCKETS.length; i++) {
       var bk = BUCKETS[i];
@@ -142,7 +139,7 @@
     }
     html += '</div>';
 
-    // ── ACCOUNTS DISTRIBUTION BAR CHART ──
+    // ── COLLECTION % BAR CHART ──
     var barLabels = ['1-30', '31-60', '61-90', 'NPA'];
     var barColors = ['#34D399', '#FBBF24', '#FB923C', '#F87171'];
     html += '<div class="emp-bar-visual emp-fade" style="animation-delay:0.35s">' +
@@ -176,7 +173,6 @@
       var firstCell = String(row[0] || '').trim().toUpperCase();
       var secondCell = String(row[1] || '').trim().toUpperCase();
 
-      // Detect section headers
       if (firstCell.includes('REGION') && (firstCell.includes('WISE') || firstCell.includes('NAME'))) {
         currentSection = 'region'; continue;
       }
@@ -187,7 +183,6 @@
         currentSection = 'branch'; continue;
       }
 
-      // CEO: find Grand Total row in the region section
       if (role === 'CEO') {
         if (currentSection === 'region' && (firstCell.includes('GRAND TOTAL') || secondCell.includes('GRAND TOTAL'))) {
           return row;
@@ -195,12 +190,10 @@
         continue;
       }
 
-      // Grand Total ends a section
       if (firstCell.includes('GRAND TOTAL') || secondCell.includes('GRAND TOTAL')) {
         currentSection = null; continue;
       }
 
-      // Match role to section
       var targetSection = null;
       if (role === 'RM') targetSection = 'region';
       else if (role === 'DM') targetSection = 'district';
@@ -208,7 +201,6 @@
 
       if (currentSection !== targetSection) continue;
 
-      // Check name match in column 0 or 1
       var nameInRow = String(row[1] || '').trim().toUpperCase();
       if (!nameInRow || /^\d+$/.test(nameInRow)) {
         nameInRow = String(row[0] || '').trim().toUpperCase();
@@ -220,6 +212,251 @@
     }
 
     return null;
+  }
+
+  /* ---------- Hierarchy ---------- */
+  var _hierarchy = null;
+
+  function loadHierarchy() {
+    if (_hierarchy) return Promise.resolve(_hierarchy);
+    return fetch('data/hierarchy.json?v=' + Date.now())
+      .then(function (r) { return r.json(); })
+      .then(function (data) { _hierarchy = data; return data; })
+      .catch(function () { _hierarchy = {}; return {}; });
+  }
+
+  /* ---------- Find children for drill-down ---------- */
+  function findChildrenForRole(rows, hierarchy, role, location) {
+    if (role === 'FO') return [];
+
+    var children = [];
+    var locationUpper = (location || '').toUpperCase().trim();
+
+    if (role === 'CEO') {
+      // Children = all regions
+      var regionNames = Object.keys(hierarchy);
+      for (var i = 0; i < regionNames.length; i++) {
+        var rn = regionNames[i];
+        var row = findRoleRow(rows, 'RM', rn);
+        if (row) children.push({ name: rn, row: row });
+      }
+    } else if (role === 'RM') {
+      // Children = districts in this region
+      var regionData = null;
+      for (var rk in hierarchy) {
+        if (rk.toUpperCase() === locationUpper) { regionData = hierarchy[rk]; break; }
+      }
+      if (regionData) {
+        var districtNames = Object.keys(regionData);
+        for (var i = 0; i < districtNames.length; i++) {
+          var dn = districtNames[i];
+          var row = findRoleRow(rows, 'DM', dn);
+          if (row) children.push({ name: dn, row: row });
+        }
+      }
+    } else if (role === 'DM') {
+      // Children = branches in this district
+      var branchList = null;
+      for (var rk in hierarchy) {
+        for (var dk in hierarchy[rk]) {
+          if (dk.toUpperCase() === locationUpper) { branchList = hierarchy[rk][dk]; break; }
+        }
+        if (branchList) break;
+      }
+      if (branchList) {
+        for (var i = 0; i < branchList.length; i++) {
+          var bn = branchList[i];
+          var row = findRoleRow(rows, 'BM', bn);
+          if (row) children.push({ name: bn, row: row });
+        }
+      }
+    } else if (role === 'BM') {
+      // Children = officers under this branch from the officer section
+      children = findOfficersForBranch(rows, locationUpper);
+    }
+
+    // Sort by collection % descending
+    children.sort(function (a, b) {
+      var pctA = numVal(a.row[REG.demand]) > 0 ? numVal(a.row[REG.collection]) / numVal(a.row[REG.demand]) : 0;
+      var pctB = numVal(b.row[REG.demand]) > 0 ? numVal(b.row[REG.collection]) / numVal(b.row[REG.demand]) : 0;
+      return pctB - pctA;
+    });
+
+    return children;
+  }
+
+  /* ---------- Find officers for a branch ---------- */
+  function findOfficersForBranch(rows, branchUpper) {
+    var officers = [];
+    var inOfficerSection = false;
+    var currentBranch = null;
+    var foundBranch = false;
+
+    for (var r = 0; r < rows.length; r++) {
+      var row = rows[r];
+      if (!row || !row.length) continue;
+      var firstCell = String(row[0] || '').trim().toUpperCase();
+      var secondCell = String(row[1] || '').trim().toUpperCase();
+
+      // Detect officer section start
+      if (firstCell.includes('BRANCH') && firstCell.includes('OFFICER') && firstCell.includes('NAME')) {
+        inOfficerSection = true; continue;
+      }
+      if (!inOfficerSection) continue;
+
+      // Branch header row: empty col0 (or not an empId), branch name in col1 with data
+      var col0 = String(row[0] || '').trim();
+      var col1 = String(row[1] || '').trim();
+
+      // Skip header/sub-header rows
+      if (firstCell === 'EMP ID' || secondCell === 'BRANCH / OFFICER NAME') continue;
+      if (firstCell === '' && secondCell === '') continue;
+      if (secondCell === 'DEMAND' || secondCell === 'COLLECTION') continue;
+
+      // Is this a branch header? (no empId in col0, name in col1, has numeric data)
+      var hasEmpId = col0.length > 0 && /^[A-Z]{2}\d+/.test(col0.toUpperCase());
+
+      if (!hasEmpId && col1.length > 0 && row.length > 3) {
+        // This is a branch header row
+        currentBranch = col1.toUpperCase();
+        if (currentBranch === branchUpper) {
+          foundBranch = true;
+        } else if (foundBranch) {
+          // We've moved past our branch
+          break;
+        }
+        continue;
+      }
+
+      // Officer row — has empId
+      if (hasEmpId && foundBranch) {
+        var officerName = col1.trim();
+        officers.push({
+          name: officerName,
+          empId: col0,
+          row: row
+        });
+      }
+    }
+
+    return officers;
+  }
+
+  /* ---------- Render sub-unit cards ---------- */
+  function renderSubUnits(children, childRole) {
+    if (!children.length) return '';
+
+    var roleLabel = { RM: 'Regions', DM: 'Districts', BM: 'Branches', FO: 'Officers' };
+    var avatarType = { RM: 'region', DM: 'district', BM: 'branch', FO: 'officer' };
+    var label = roleLabel[childRole] || 'Team';
+    var avType = avatarType[childRole] || 'branch';
+
+    var html = '<div class="emp-team-section">' +
+      '<div class="emp-team-title">' + label +
+        '<span class="emp-team-count">' + children.length + '</span>' +
+      '</div>';
+
+    for (var i = 0; i < children.length; i++) {
+      var child = children[i];
+      var demand = numVal(child.row[REG.demand]);
+      var collection = numVal(child.row[REG.collection]);
+      var pct = demand > 0 ? Math.round((collection / demand) * 100) : 0;
+      var pctColor = pct >= 95 ? '#34D399' : pct >= 80 ? '#FBBF24' : '#F87171';
+      var displayName = child.name;
+      var initial = displayName.charAt(0).toUpperCase();
+      var dataAttr = childRole === 'FO'
+        ? 'data-emp-id="' + esc(child.empId || '') + '" data-emp-name="' + esc(child.name) + '"'
+        : 'data-child-role="' + esc(childRole) + '" data-child-location="' + esc(child.name) + '"';
+
+      html += '<div class="emp-sub-card" ' + dataAttr + '>' +
+        '<div class="emp-sub-avatar ' + avType + '">' + initial + '</div>' +
+        '<div class="emp-sub-info">' +
+          '<div class="emp-sub-name">' + esc(displayName) + '</div>' +
+          '<div class="emp-sub-meta">' +
+            '<span>D: ' + fmtNum(demand) + '</span>' +
+            '<span>C: ' + fmtNum(collection) + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="emp-sub-pct" style="color:' + pctColor + '">' + pct + '%</div>' +
+        '<div class="emp-sub-arrow">&#8250;</div>' +
+      '</div>';
+    }
+
+    html += '</div>';
+    return html;
+  }
+
+  /* ---------- Render breadcrumbs ---------- */
+  function renderBreadcrumbs() {
+    var navStack = getRoleNavStack();
+    var bar = document.getElementById('breadcrumbBar');
+    if (!bar) return;
+
+    // Only show if there's navigation history
+    if (!navStack.length) {
+      bar.style.display = 'none';
+      return;
+    }
+
+    bar.style.display = '';
+    var html = '';
+
+    for (var i = 0; i < navStack.length; i++) {
+      var item = navStack[i];
+      var label = item.role === 'CEO' ? 'CEO' : item.location || item.name || item.role;
+      html += '<span class="emp-bc-item" data-nav-index="' + i + '">' + esc(label) + '</span>';
+      html += '<span class="emp-bc-sep">&#8250;</span>';
+    }
+
+    // Current (non-clickable)
+    var currentLabel = session.role === 'CEO' ? 'CEO' :
+                       session.role === 'FO' ? session.name :
+                       session.location;
+    html += '<span class="emp-bc-item current">' + esc(currentLabel) + '</span>';
+
+    bar.innerHTML = html;
+
+    // Click handler for breadcrumb items
+    bar.onclick = function (ev) {
+      var item = ev.target.closest('.emp-bc-item[data-nav-index]');
+      if (!item) return;
+      var idx = parseInt(item.dataset.navIndex, 10);
+      restoreNavTo(idx);
+      window.location.reload();
+    };
+  }
+
+  /* ---------- Click handler for sub-unit cards ---------- */
+  function attachSubUnitClickHandlers() {
+    var container = document.getElementById('collectionContent');
+    if (!container) return;
+
+    container.addEventListener('click', function (ev) {
+      var card = ev.target.closest('.emp-sub-card');
+      if (!card) return;
+
+      card.style.background = 'rgba(79,140,255,0.12)';
+      card.style.pointerEvents = 'none';
+
+      if (card.dataset.childRole) {
+        // Role drill-down (CEO→RM, RM→DM, DM→BM)
+        pushRoleNav(card.dataset.childRole, card.dataset.childLocation);
+        window.location.reload();
+      } else if (card.dataset.empId) {
+        // BM→FO drill-down
+        var stack = getRoleNavStack();
+        var current = getEmployeeSession();
+        stack.push({ role: current.role, location: current.location, name: current.name, id: current.id });
+        localStorage.setItem('roleNavStack', JSON.stringify(stack));
+        // Set FO session
+        localStorage.removeItem('roleAuth');
+        localStorage.removeItem('roleName');
+        localStorage.removeItem('roleLocation');
+        localStorage.setItem('employeeId', card.dataset.empId);
+        localStorage.setItem('employeeName', card.dataset.empName);
+        window.location.reload();
+      }
+    });
   }
 
   /* ---------- Load Data ---------- */
@@ -239,7 +476,6 @@
           break;
         }
       }
-      // Fallback: first wide sheet (>= 15 cols)
       if (!targetSheet) {
         for (var s = 0; s < workbook.SheetNames.length; s++) {
           var ws = workbook.Sheets[workbook.SheetNames[s]];
@@ -257,10 +493,8 @@
       var empRow = null;
 
       if (session.role && session.role !== 'FO') {
-        // Role-based lookup: CEO, RM, DM, BM
         empRow = findRoleRow(rows, session.role, session.location);
       } else {
-        // FO: current behavior — search all rows for name/ID match
         var needle   = session.name.toUpperCase().trim();
         var needleId = String(session.id).trim();
 
@@ -278,6 +512,23 @@
       if (!empRow) { showNoData(); return; }
 
       renderDashboard(empRow);
+      renderBreadcrumbs();
+
+      // Load hierarchy and render sub-units
+      if (session.role !== 'FO') {
+        var hierarchy = await loadHierarchy();
+        var childRoleMap = { CEO: 'RM', RM: 'DM', DM: 'BM', BM: 'FO' };
+        var childRole = childRoleMap[session.role];
+        if (childRole) {
+          var children = findChildrenForRole(rows, hierarchy, session.role, session.location);
+          if (children.length) {
+            var subHtml = renderSubUnits(children, childRole);
+            document.getElementById('collectionContent').innerHTML += subHtml;
+          }
+        }
+      }
+
+      attachSubUnitClickHandlers();
 
       // Show "Last updated" timestamp
       if (wb.uploadedAt) {
