@@ -513,6 +513,9 @@
 
       card.style.background = 'rgba(79,140,255,0.12)';
       card.style.pointerEvents = 'none';
+      // Show loading spinner inside card
+      var arrow = card.querySelector('.emp-sub-arrow');
+      if (arrow) arrow.innerHTML = '<div style="width:16px;height:16px;border:2px solid rgba(79,140,255,0.2);border-top-color:#4F8CFF;border-radius:50%;animation:spin .7s linear infinite;"></div>';
 
       if (card.dataset.childRole) {
         // Role drill-down (CEO→RM, RM→DM, DM→BM)
@@ -629,6 +632,7 @@
   }
 
   // Tab switching (global for onclick)
+  var tabTitles = { portfolio: 'Portfolio', disbursement: 'Disbursement', collection: 'Collection' };
   window.switchEmpTab = function (tab) {
     document.querySelectorAll('.emp-tab-item').forEach(function (t) {
       t.classList.toggle('active', t.dataset.tab === tab);
@@ -637,6 +641,8 @@
       tc.classList.remove('active');
     });
     document.getElementById(tab + 'Tab').classList.add('active');
+    var titleEl = document.getElementById('emp-header-title');
+    if (titleEl) titleEl.textContent = tabTitles[tab] || tab;
   };
 
   loadData();

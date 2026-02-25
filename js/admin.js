@@ -114,6 +114,7 @@
       });
 
       clearBtn.addEventListener('click', function () {
+        if (!confirm('Remove this uploaded file?')) return;
         clearCategoryData(category, card);
       });
     })(cards[i]);
