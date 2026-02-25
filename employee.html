@@ -35,7 +35,7 @@
 
     <div id="breadcrumbBar" class="emp-breadcrumb-bar" style="display:none;"></div>
 
-    <div class="emp-tab-content active" id="collectionTab">
+    <div class="emp-tab-content active" id="portfolioTab">
       <div id="collectionContent">
         <div style="text-align:center;padding:60px 20px;">
           <div style="width:28px;height:28px;border:3px solid rgba(79,140,255,0.15);border-top-color:#4F8CFF;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px;"></div>
@@ -51,19 +51,30 @@
       </div>
     </div>
 
+    <div class="emp-tab-content" id="collectionTab">
+      <div id="collectionTabContent" style="text-align:center;padding:80px 20px;">
+        <p style="color:#6B7A99;font-size:32px;margin-bottom:8px;">📊</p>
+        <p style="color:#6B7A99;font-size:14px;">Collection data coming soon.</p>
+      </div>
+    </div>
+
     <div id="no-data" class="hidden" style="text-align:center;padding:80px 20px;">
       <p style="color:#6B7A99;font-size:14px;">No report data available.<br>Contact your administrator.</p>
     </div>
   </div>
 
   <div class="emp-tab-bar">
-    <div class="emp-tab-item active" data-tab="collection" onclick="switchEmpTab('collection')">
+    <div class="emp-tab-item active" data-tab="portfolio" onclick="switchEmpTab('portfolio')">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-      Collection
+      Portfolio
     </div>
     <div class="emp-tab-item" data-tab="disbursement" onclick="switchEmpTab('disbursement')">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
       Disbursement
+    </div>
+    <div class="emp-tab-item" data-tab="collection" onclick="switchEmpTab('collection')">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+      Collection
     </div>
   </div>
 
@@ -328,7 +339,7 @@
   <script src="js/storage.js?v=7"></script>
   <script src="js/auth.js?v=7"></script>
   <script src="js/employee.js?v=7"></script>
-  <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js');}</script>
+  <script>if('serviceWorker' in navigator && location.protocol !== 'file:'){navigator.serviceWorker.register('./sw.js');}</script>
   <script>
   (function(){
     var overlay = document.getElementById('sidebarOverlay');
