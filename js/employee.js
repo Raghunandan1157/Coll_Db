@@ -100,9 +100,9 @@
     var regDem = numVal(empRow[REG.demand]);
     var regCol = numVal(empRow[REG.collection]);
     var regNoData = (regDem === 0 && regCol === 0);
-    var regPct = regDem > 0 ? Math.min(Math.round((regCol / regDem) * 100), 100) : 0;
-    var regPctColor = regNoData ? '#6B7A99' : regPct === 100 ? '#34D399' : regPct === 0 ? '#F87171' : '#4F8CFF';
-    var regPctText = regNoData ? '-' : regPct + '%';
+    var regPct = regDem > 0 ? Math.min(Math.round((regCol / regDem) * 10000) / 100, 100) : 0;
+    var regPctColor = regNoData ? '#6B7A99' : regPct >= 100 ? '#34D399' : regPct === 0 ? '#F87171' : '#4F8CFF';
+    var regPctText = regNoData ? '-' : regPct.toFixed(2) + '%';
 
     html += '<div class="emp-reg-summary emp-fade">' +
       '<div class="emp-reg-label">Reg DPD</div>' +
@@ -133,9 +133,9 @@
       var dVal = numVal(demand);
       var cVal = numVal(collection);
       var noData = (dVal === 0 && cVal === 0);
-      var barW = dVal > 0 ? Math.min(Math.round((cVal / dVal) * 100), 100) : 0;
-      var pctColor = noData ? '#6B7A99' : barW === 100 ? '#34D399' : barW === 0 ? '#F87171' : '#4F8CFF';
-      var pctText = noData ? '-' : barW + '%';
+      var barW = dVal > 0 ? Math.min(Math.round((cVal / dVal) * 10000) / 100, 100) : 0;
+      var pctColor = noData ? '#6B7A99' : barW >= 100 ? '#34D399' : barW === 0 ? '#F87171' : '#4F8CFF';
+      var pctText = noData ? '-' : barW.toFixed(2) + '%';
 
       html += '<div class="emp-bucket-card emp-fade" data-bucket="' + bk.key + '" style="animation-delay:' + (0.1 + i * 0.05) + 's">' +
         '<div class="emp-bucket-indicator" style="background:' + bk.color + '"></div>' +
