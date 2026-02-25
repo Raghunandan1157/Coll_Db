@@ -89,7 +89,7 @@
         '<div class="emp-snap-divider"></div>' +
         '<div class="emp-snapshot-metric">' +
           '<div class="emp-snap-lbl">Total Collection</div>' +
-          '<div class="emp-snap-val">' + fmtCr(totalPos) + '<span class="emp-snap-unit">' + crUnit(totalPos) + '</span></div>' +
+          '<div class="emp-snap-val">' + fmtNum(totalPos) + '</div>' +
         '</div>' +
       '</div>' +
     '</div>';
@@ -105,7 +105,7 @@
           '<div class="emp-reg-lbl">Demand</div>' +
         '</div>' +
         '<div class="emp-reg-stat">' +
-          '<div class="emp-reg-val emp-accent-text">' + fmtCr(empRow[REG.collection]) + '<span class="emp-reg-unit"> ' + crUnit(empRow[REG.collection]) + '</span></div>' +
+          '<div class="emp-reg-val emp-accent-text">' + fmtNum(empRow[REG.collection]) + '</div>' +
           '<div class="emp-reg-lbl">Collection</div>' +
         '</div>' +
       '</div>' +
@@ -130,7 +130,7 @@
             '<div class="emp-bucket-lbl">Demand</div>' +
           '</div>' +
           '<div class="emp-bucket-stat">' +
-            '<div class="emp-bucket-val emp-pos-val">' + fmtCr(collection) + '<span class="emp-cr-unit">' + crUnit(collection) + '</span></div>' +
+            '<div class="emp-bucket-val emp-pos-val">' + fmtNum(collection) + '</div>' +
             '<div class="emp-bucket-lbl">Collection</div>' +
           '</div>' +
         '</div>' +
