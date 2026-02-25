@@ -101,7 +101,7 @@
     var regCol = numVal(empRow[REG.collection]);
     var regNoData = (regDem === 0 && regCol === 0);
     var regPct = regDem > 0 ? Math.min(Math.round((regCol / regDem) * 100), 100) : 0;
-    var regPctColor = regNoData ? '#6B7A99' : regPct >= 95 ? '#34D399' : regPct >= 80 ? '#FBBF24' : '#F87171';
+    var regPctColor = regNoData ? '#6B7A99' : regPct === 100 ? '#34D399' : regPct === 0 ? '#F87171' : '#4F8CFF';
     var regPctText = regNoData ? '-' : regPct + '%';
 
     html += '<div class="emp-reg-summary emp-fade">' +
@@ -134,7 +134,7 @@
       var cVal = numVal(collection);
       var noData = (dVal === 0 && cVal === 0);
       var barW = dVal > 0 ? Math.min(Math.round((cVal / dVal) * 100), 100) : 0;
-      var pctColor = noData ? '#6B7A99' : barW >= 95 ? '#34D399' : barW >= 80 ? '#FBBF24' : '#F87171';
+      var pctColor = noData ? '#6B7A99' : barW === 100 ? '#34D399' : barW === 0 ? '#F87171' : '#4F8CFF';
       var pctText = noData ? '-' : barW + '%';
 
       html += '<div class="emp-bucket-card emp-fade" data-bucket="' + bk.key + '" style="animation-delay:' + (0.1 + i * 0.05) + 's">' +

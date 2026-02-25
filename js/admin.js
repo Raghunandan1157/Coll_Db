@@ -128,6 +128,11 @@
       return;
     }
 
+    if (file.size > 10 * 1024 * 1024) {
+      showCardStatus(card, 'File too large. Maximum 10 MB.', false);
+      return;
+    }
+
     var fileInfo = card.querySelector('.card-file-info');
     var fileNameSpan = card.querySelector('.card-file-name');
     var uploadZone = card.querySelector('.upload-zone');
@@ -138,6 +143,16 @@
 
     try {
       var arrayBuffer = await readFileAsArrayBuffer(file);
+
+      // Validate that the file is a real Excel file
+      try {
+        XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
+      } catch (xlsxErr) {
+        showCardStatus(card, 'Invalid file. Upload a valid Excel file.', false);
+        fileInfo.hidden = true;
+        uploadZone.style.display = '';
+        return;
+      }
 
       if (category === 'collection') {
         await clearAllData();
