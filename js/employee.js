@@ -120,7 +120,9 @@
           '<div class="emp-reg-lbl">Collection %</div>' +
         '</div>' +
       '</div>' +
-      (regNoData ? '' : '<div class="emp-bucket-bar" style="width:' + Math.max(regPct, 8) + '%;background:#4F8CFF"></div>') +
+      (regPct === 0
+        ? '<div class="emp-bucket-bar" style="width:100%;height:2px;background:rgba(255,255,255,0.06)"></div>'
+        : '<div class="emp-bucket-bar" style="width:' + Math.max(regPct, 8) + '%;background:#4F8CFF"></div>') +
     '</div>';
 
     html += '<div class="emp-buckets">';
@@ -155,7 +157,9 @@
             '<div class="emp-bucket-lbl">Collection %</div>' +
           '</div>' +
         '</div>' +
-        (noData ? '' : '<div class="emp-bucket-bar" style="width:' + Math.max(barW, 8) + '%;background:' + bk.color + '"></div>') +
+        (barW === 0
+          ? '<div class="emp-bucket-bar" style="width:100%;height:2px;background:rgba(255,255,255,0.06)"></div>'
+          : '<div class="emp-bucket-bar" style="width:' + Math.max(barW, 8) + '%;background:' + bk.color + '"></div>') +
       '</div>';
     }
     html += '</div>';
