@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NLPL Branch Locator</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    :root {
+      --bg: #0b1320;
+      --card: #111a2b;
+      --muted: #8aa0c2;
+      --text: #e6eefc;
+      --accent: #4da3ff;
+      --accent-2: #00d4ff;
+      --ink: #0b1320;
+    }
+    * { box-sizing: border-box }
+    html, body { height: 100%; margin: 0 }
+    body { font: 14px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji"; background: var(--bg); color: var(--text) }
+
+    /* Floating back button */
+    .back-btn {
+      position: fixed; top: 16px; left: 16px; z-index: 999;
+      width: 42px; height: 42px; border-radius: 50%;
+      background: var(--card); border: 1px solid #22314f;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--accent); text-decoration: none;
+      box-shadow: 0 4px 16px rgba(0,0,0,.4);
+      transition: background .2s, transform .15s;
+    }
+    .back-btn:hover { background: #1a2744; transform: scale(1.08) }
+    .back-btn svg { width: 20px; height: 20px }
+
+    header { padding: 18px 20px 10px; padding-left: 68px; position: sticky; top: 0; backdrop-filter: saturate(150%) blur(6px); background: linear-gradient(180deg, rgba(11,19,32,.9), rgba(11,19,32,.6) 40%, rgba(11,19,32,0)); z-index: 5; border-bottom: 1px solid #20314f }
+    h1 { margin: 0 0 6px; font-size: 18px; font-weight: 800; letter-spacing: .3px }
+    .sub { color: var(--muted); font-size: 12px }
+    .wrap { max-width: 1200px; margin: 0 auto }
+
+    .controls { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0 2px; align-items: center }
+    .controls .search-wrap { flex: 1; min-width: 200px }
+
+    #search {
+      width: 100%;
+      background: #fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='%23667085'><path d='M10 2a8 8 0 105.3 14.3l4.7 4.7 1.4-1.4-4.7-4.7A8 8 0 0010 2zm0 2a6 6 0 110 12 6 6 0 010-12z'/></svg>") no-repeat 14px center;
+      color: var(--ink); border: 2px solid #ffffff;
+      padding: 12px 14px 12px 44px; border-radius: 14px;
+      box-shadow: 0 10px 24px rgba(0,0,0,.25), 0 0 0 4px rgba(77,163,255,.28);
+      transition: box-shadow .2s, border-color .2s;
+    }
+    #search::placeholder { color: #667085 }
+    #search:hover { box-shadow: 0 12px 28px rgba(0,0,0,.30), 0 0 0 4px rgba(77,163,255,.38) }
+    #search:focus { outline: none; border-color: var(--accent); box-shadow: 0 14px 32px rgba(0,0,0,.34), 0 0 0 4px rgba(0,212,255,.45) }
+
+    button, .btn { padding: 10px 12px; border-radius: 12px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #05111f; border: none; font-weight: 700; cursor: pointer; text-decoration: none; font-size: 13px }
+    button.ghost { background: #16233c; color: var(--text); border: 1px solid #22314f }
+    button:active { transform: translateY(1px) }
+
+    .card { background: var(--card); border: 1px solid #22314f; border-radius: 16px; padding: 10px; margin: 12px 20px; overflow: hidden }
+    .meta { color: var(--muted); font-size: 12px; padding: 0 2px 8px 2px }
+    table { width: 100%; border-collapse: collapse }
+    thead th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 700; letter-spacing: .3px; border-bottom: 1px solid #23314d; padding: 10px }
+    tbody td { padding: 12px 10px; border-bottom: 1px dashed #20304d; vertical-align: middle }
+    tbody tr:hover { background: #0e1a31 }
+    .num { width: 52px; color: var(--muted) }
+    .name-col { min-width: 280px; font-weight: 600 }
+    .coords { font-variant-numeric: tabular-nums; color: #c8e1ff }
+    .actions { white-space: nowrap }
+    .badge { display: inline-block; font-size: 11px; padding: 3px 8px; border-radius: 999px; background: #122747; color: var(--muted); border: 1px solid #24365a }
+
+    #mapCard { margin: 12px 20px }
+    #map { height: 60vh; width: 100%; border-radius: 14px; border: 1px solid #22314f }
+    .leaflet-control-attribution { background: rgba(17,26,43,.8) !important; color: #c6d7f2 !important }
+
+    @media (max-width: 900px) {
+      #map { height: 50vh }
+      header { padding-left: 60px }
+    }
+    @media (max-width: 720px) {
+      .controls { flex-direction: column }
+      .actions .btn { display: inline-block; margin-top: 8px }
+      .name-col { min-width: auto }
+      tbody td { padding: 10px 8px }
+      header { padding-left: 56px }
+      .back-btn { top: 12px; left: 10px; width: 36px; height: 36px }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Floating back button -->
+  <a href="employee.html" class="back-btn" title="Back to Employee Dashboard">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+  </a>
+
+  <header>
+    <div class="wrap">
+      <h1>NLPL Branch Locator</h1>
+      <div class="sub">Click a branch or its coordinates to open the pin in <span class="badge">Google Maps</span>. Coordinates shown as <strong>(Lat, Long)</strong>. Use the search to filter; markers update live.</div>
+      <div class="controls">
+        <div class="search-wrap">
+          <input id="search" type="search" placeholder="Search branch... (e.g., KOLAR, HUBLI, SEDAM, GADWAL)" aria-label="Search branches" />
+        </div>
+        <button class="ghost" id="clearBtn" title="Clear search">Clear</button>
+        <button id="copyBtn" title="Copy visible rows as CSV">Export CSV</button>
+        <button id="fitBtn" title="Zoom map to all visible markers">Fit All</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <!-- Map -->
+    <div id="mapCard" class="card">
+      <div class="meta">Interactive map (OpenStreetMap tiles). Click any marker to open Google Maps for driving directions.</div>
+      <div id="map"></div>
+      <div class="meta" style="margin-top:8px">
+        <button class="ghost" id="locateBtn" title="Center map to your current location">Locate Me</button>
+        <span style="margin-left:8px;color:var(--muted)">Your location never leaves your device.</span>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="card">
+      <div class="meta"><span id="count"></span></div>
+      <div style="overflow:auto">
+        <table id="tbl">
+          <thead>
+            <tr>
+              <th class="num">#</th>
+              <th>Branch</th>
+              <th>Coordinates (Lat, Long)</th>
+              <th class="actions">Open</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    /* ============================
+       BRANCH DATA — NLPL (126)
+       ============================ */
+    const RAW = `NLPL AFZALPUR BRANCH\t17.1997779,76.3536049
+NLPL AJJAMPURA BRANCH\t13.726274, 76.008817
+NLPL ALAND BRANCH\t17.56226002198624, 76.56776810223826
+NLPL ALMEL BRANCH\t17.0941269,76.2197611
+NLPL ATHANI BRANCH\t16.731664605042315, 75.06067059367254
+NLPL AURAD BRANCH\t18.250104513120924, 77.42520775345791
+NLPL BADAMI BRANCH\t15.926857056660136, 75.67826208217068
+NLPL BAGALKOT BRANCH\t16.1768599,75.6597316
+NLPL BAGEPALLI BRANCH\t13.7852289,77.7795089
+NLPL BAILHONGAL BRANCH\t15.807628477438666, 74.8463467247143
+NLPL BALLARI BRANCH\t15.161332744384001, 76.89705008937929
+NLPL BANGARPET BRANCH\t13.0123635,78.1717471
+NLPL BASAVAKALYAN BRANCH\t17.861923, 76.949958
+NLPL BELAGAVI BRANCH\t15.88406656045591, 74.51021291122528
+NLPL BETHAMANGALA BRANCH\t13.1542039,78.3894376
+NLPL BHALKI BRANCH\t18.05057776924593, 77.2234186532665
+NLPL BIDAR BRANCH\t17.889206646555838, 77.51499379978596
+NLPL BIDAR-2 BRANCH\t17.932449990450877, 77.4836578108111
+NLPL BILAGI BRANCH\t16.34086241329985, 75.63383153331466
+NLPL BUDWAL BRANCH\t14.7395228,79.061661
+NLPL CHADCHAN BRANCH\t17.3110572,75.6606753
+NLPL CHALLAKERE BRANCH\t14.30718700601603, 76.63572666930843
+NLPL CHANDAPURA BRANCH\t12.788410642428197, 77.70438873002904
+NLPL CHANNAGIRI BRANCH\t14.0259139,75.9248238
+NLPL CHIKBALLAPURA BRANCH\t13.432843, 77.731872
+NLPL CHIKKAMAGALURU BRANCH\t13.335988101791475, 75.79655929444841
+NLPL CHIKKANAYAKANAHALLI BRANCH\t13.4096649,76.6179462
+NLPL CHIKKODI BRANCH\t16.428683671314783, 74.58353865261896
+NLPL CHINCHOLI BRANCH\t17.455058,77.4212892
+NLPL CHINTAMANI BRANCH\t13.39054,78.047506
+NLPL CHITRADURGA BRANCH\t14.235082884732288, 76.41107322883644
+NLPL DABUSPET BRANCH\t13.229274926515624, 77.23989524232711
+NLPL DAVANAGERE BRANCH\t14.4437731,75.9283368
+NLPL DEVADURGA BRANCH\t16.417179,76.9269371
+NLPL DEVANAHALLI BRANCH\t13.256782,77.7228719
+NLPL DHARMAVARAM BRANCH\t14.404071, 77.709700
+NLPL DHARWAD BRANCH\t15.463167930693144, 74.98723517463061
+NLPL DODDABALLAPURA BRANCH\t13.308838188553954, 77.54578215535943
+NLPL GADAG BRANCH\t15.4317304,75.6421109
+NLPL GADWAL BRANCH\t16\u00b014'13.8"N 77\u00b048'21.2"E
+NLPL GAJENDRAGAD BRANCH\t15.733954554022079, 75.96230023558951
+NLPL GANGAVATHI BRANCH\t15.4286741,76.5243031
+NLPL GOKAK BRANCH\t16.163545548331417, 74.81062445399157
+NLPL GOWRIBIDANUR BRANCH\t13.617101, 77.518174
+NLPL GUBBI BRANCH\t13.3074653,76.9452
+NLPL HAGARIBOMMANAHALLI BRANCH\t15.0439943,76.203002
+NLPL HARAPANAHALLI BRANCH\t14.782967847998629, 75.9939722000005
+NLPL HARIHARA BRANCH\t14.4978145,75.8062615
+NLPL HEBBAL BRANCH\t13.046004194735188, 77.54776963254638
+NLPL HIRIYUR BRANCH\t13.95323734452114, 76.61266874636014
+NLPL HOLAKERE BRANCH\t14.0429936,76.1806632
+NLPL HONNALI BRANCH\t14.2355796,75.6463012
+NLPL HOSADURGA BRANCH\t13.799741, 76.281405
+NLPL HOSPET BRANCH\t15.2664487,76.3729922
+NLPL HUBLI BRANCH\t15.343333513840527, 75.11632851618188
+NLPL HUBLI-2 BRANCH\t15.3921872048847, 75.08086284161423
+NLPL HULIYAR BRANCH\t13.5831178,76.5402221
+NLPL HULSOOR BRANCH\t18.018590539861165, 77.0050410423271
+NLPL HUMNABAD BRANCH\t17.773303, 77.121126
+NLPL HUNGUND BRANCH\t16.057482, 75.939514
+NLPL HUVENAHADAGALLI BRANCH\t15.0158027,75.9290902
+NLPL INDI BRANCH\t17.1798611,75.9575278
+NLPL J P NAGAR BRANCH\t12.880862007333317, 77.56768996348002
+NLPL JAGALORE BRANCH\t14.520170106529038, 76.33701459131429
+NLPL JAMAKHANDI BRANCH\t16.51190913931777, 75.26428326276755
+NLPL JEVARGI BRANCH\t17.0088518,76.7741078
+NLPL KADAPA BRANCH\t14.467822,78.8533828
+NLPL KADIRI BRANCH\t14.095472, 78.163972
+NLPL KADUR BRANCH\t13.548971091968893, 76.01678616749366
+NLPL KALAGI BRANCH\t17.3597566,77.1546186
+NLPL KALBURGI 1 & 2 BRANCH\t17.3364636,76.8590702
+NLPL KALGHATGI BRANCH\t15.180905126494222, 74.97586369912399
+NLPL KAMALAPURA BRANCH\t17.5869591,76.9881501
+NLPL KENGERI BRANCH\t12.963328417190176, 77.4765347839842
+NLPL KHANAHOSAHALLI BRANCH\t14.648576242485095, 76.46650487115161
+NLPL KITTUR BRANCH\t15.595249735117445, 74.78107102638802
+NLPL KODANGAL BRANCH\t17.3349939,77.9050743
+NLPL KOLAR BRANCH\t13.1230352,78.1272801
+NLPL KOPPAL BRANCH\t15.3576302,76.1456525
+NLPL KORATAGERE BRANCH\t13.5200295,77.2354506
+NLPL KOTTURU BRANCH\t14.82214113977693, 76.21756632885065
+NLPL KUDATHINI BRANCH\t15.197449704401095, 76.76034836878908
+NLPL KUDLIGI BRANCH\t14.903867321976593, 76.39074365924527
+NLPL KUNIGAL BRANCH\t13.0281964,77.0372279
+NLPL KUSHTAGI BRANCH\t15.7491399,76.19217
+NLPL LAXMESHWAR BRANCH\t15.1281544,75.4723542
+NLPL LINGSUGUR BRANCH\t16.1574064,76.5221158
+NLPL LOKAPUR BRANCH\t16.160192740478404, 75.3730606968417
+NLPL MADHUGIRI BRANCH\t13.6611445,77.2167198
+NLPL MAHABUB NAGAR BRANCH\t16.7276137,77.984084
+NLPL MALUR BRANCH\t12.9994716,77.9378283
+NLPL MANVI BRANCH\t15.9995322,77.0478732
+NLPL MARIKAL BRANCH\t16.601622, 77.719875
+NLPL MUDALAGI BRANCH\t16.34058606256304, 74.96868188990965
+NLPL MUDDEBIHAL BRANCH\t16.5754961,75.9737627
+NLPL MUDIGERE BRANCH\t13.139689314519405, 75.64357546219954
+NLPL MUNDARAGI BRANCH\t15.2045,75.8858611
+NLPL NARAGUNDA BRANCH\t15.719347137547135, 75.38436777559099
+NLPL NARAYANKHED BRANCH\t18.0381237,77.7899481
+NLPL NIPPANI BRANCH\t16.40596433525752, 74.37724545398395
+NLPL NR PURA BRANCH\t13.606910303836482, 75.50203319793275
+NLPL PANCHANHALLI BRANCH\t13.548023, 76.334716
+NLPL RAICHUR BRANCH\t16.2134945,77.3290222
+NLPL RAMDURGA BRANCH\t15.949960000253625, 75.29228137301867
+NLPL SANDURU BRANCH\t15.090327, 76.548987
+NLPL SANGAREDDY BRANCH\t17.593815, 78.071960
+NLPL SANTHEBENNURU BRANCH\t14.1687778,76.003
+NLPL SEDAM BRANCH\t17.1727473,77.2834414
+NLPL SHAHAPUR BRANCH\t16.6874351,76.8483552
+NLPL SINDAGI BRANCH\t16.9140642,76.2301392
+NLPL SINDHNUR BRANCH\t15.7556867,76.7536364
+NLPL SIRA BRANCH\t13.7435876,76.90224
+NLPL SIRUGUPPA BRANCH\t15.6284649,76.8925182
+NLPL SIRWAR BRANCH\t16.174138,77.0231164
+NLPL SRINIVASPURA BRANCH\t13.3439404,78.2139166
+NLPL TALIKOTI BRANCH\t16.4849816,76.3065931
+NLPL TANDUR BRANCH\t17.261997, 77.596153
+NLPL TARIKERE BRANCH\t13.697152311432712, 75.82197494005081
+NLPL TIKOTA BRANCH\t16.8410784,75.5215685
+NLPL TIPTUR BRANCH\t13.2580006,76.4506201
+NLPL TUMKUR BRANCH\t13.3157854,77.1212647
+NLPL TUREVEKERE BRANCH\t13.1668995,76.6662337
+NLPL VIJAYAPUR BRANCH\t16.8308997,75.7008777
+NLPL YADGIR BRANCH\t16.7649523,77.1526902
+NLPL YARAGATTI BRANCH\t15.967944022715036, 75.02098953820831
+NLPL ZAHEERABAD BRANCH\t17.691302, 77.639235`;
+
+    /* ===== Helpers ===== */
+    const fmt = (v, p = 6) => Number(v).toFixed(p);
+    const gmUrl = (lat, lon) => `https://www.google.com/maps?q=${lat},${lon}`;
+
+    function parseDMS(dmsStr) {
+      const re = /(\d+)\u00b0(\d+)'([\d.]+)"([NS])\s+(\d+)\u00b0(\d+)'([\d.]+)"([EW])/;
+      const m = dmsStr.match(re);
+      if (!m) return null;
+      const lat = (Number(m[1]) + Number(m[2]) / 60 + Number(m[3]) / 3600) * (m[4] === 'S' ? -1 : 1);
+      const lon = (Number(m[5]) + Number(m[6]) / 60 + Number(m[7]) / 3600) * (m[8] === 'W' ? -1 : 1);
+      return { lat, lon };
+    }
+
+    function parseRaw(raw) {
+      return raw.split(/\n+/)
+        .map(l => l.trim()).filter(Boolean)
+        .map(line => {
+          let name, lat, lon;
+          if (line.includes('\u00b0')) {
+            const m = line.match(/^(.*?)\s*(\d+\u00b0\d+'[\d.]+"[NS]\s+\d+\u00b0\d+'[\d.]+"[EW])/);
+            if (m) {
+              name = m[1].replace(/\t/g, ' ').trim();
+              const c = parseDMS(m[2]);
+              if (c) { lat = c.lat; lon = c.lon; }
+            }
+          }
+          if (lat === undefined) {
+            const m2 = line.match(/^(.*?)\t?\s*([-+]?\d+(?:\.\d+)?)\s*,\s*([-+]?\d+(?:\.\d+)?)/);
+            if (m2) {
+              name = m2[1].replace(/\t/g, ' ').trim();
+              lat = Number(m2[2]);
+              lon = Number(m2[3]);
+            }
+          }
+          return (name && lat !== undefined) ? { name, lat, lon } : null;
+        }).filter(Boolean);
+    }
+
+    const rows = parseRaw(RAW);
+
+    function getFiltered(searchText) {
+      const q = searchText.toLowerCase();
+      return rows.filter(r => r.name.toLowerCase().includes(q));
+    }
+
+    /* ===== Map ===== */
+    let map, markersLayer;
+    function initMap() {
+      map = L.map('map', { scrollWheelZoom: true });
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      }).addTo(map);
+      markersLayer = L.layerGroup().addTo(map);
+      updateMarkers(getFiltered(''));
+    }
+
+    function updateMarkers(filtered) {
+      markersLayer.clearLayers();
+      const bounds = [];
+      filtered.forEach(r => {
+        const marker = L.marker([r.lat, r.lon])
+          .bindPopup(`<strong>${esc(r.name)}</strong><br/>(${fmt(r.lat)}, ${fmt(r.lon)})<br/><a href="${gmUrl(r.lat, r.lon)}" target="_blank" rel="noopener">Open in Google Maps</a>`)
+          .on('click', () => window.open(gmUrl(r.lat, r.lon), '_blank'));
+        marker.addTo(markersLayer);
+        bounds.push([r.lat, r.lon]);
+      });
+      if (bounds.length) {
+        map.fitBounds(bounds, { padding: [30, 30] });
+      } else {
+        map.setView([15.5, 76.5], 6);
+      }
+    }
+
+    /* ===== XSS helper ===== */
+    function esc(s) {
+      const d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    /* ===== Table ===== */
+    const tbody = document.querySelector('#tbl tbody');
+    const countEl = document.getElementById('count');
+
+    function render(searchText) {
+      searchText = searchText || '';
+      const filtered = getFiltered(searchText);
+      tbody.innerHTML = '';
+      filtered.forEach((r, i) => {
+        const tr = document.createElement('tr');
+
+        const n = document.createElement('td'); n.className = 'num'; n.textContent = i + 1;
+
+        const nameCell = document.createElement('td'); nameCell.className = 'name-col';
+        const aName = document.createElement('a');
+        aName.href = gmUrl(r.lat, r.lon); aName.target = '_blank'; aName.rel = 'noopener';
+        aName.textContent = r.name; aName.style.color = '#bfe1ff'; aName.style.textDecoration = 'none';
+        nameCell.appendChild(aName);
+
+        const coords = document.createElement('td'); coords.className = 'coords';
+        const aCoords = document.createElement('a');
+        aCoords.href = gmUrl(r.lat, r.lon); aCoords.target = '_blank'; aCoords.rel = 'noopener';
+        aCoords.textContent = `(${fmt(r.lat)}, ${fmt(r.lon)})`;
+        aCoords.style.color = '#c8e1ff'; aCoords.style.textDecoration = 'none';
+        coords.appendChild(aCoords);
+
+        const actions = document.createElement('td'); actions.className = 'actions';
+        const btn = document.createElement('a'); btn.className = 'btn';
+        btn.href = gmUrl(r.lat, r.lon); btn.target = '_blank'; btn.rel = 'noopener';
+        btn.textContent = 'Open in Maps';
+        actions.appendChild(btn);
+
+        tr.append(n, nameCell, coords, actions);
+        tbody.appendChild(tr);
+      });
+
+      countEl.textContent = `${filtered.length} shown of ${rows.length} branches`;
+      if (map) updateMarkers(filtered);
+    }
+
+    /* ===== Controls ===== */
+    const search = document.getElementById('search');
+    const clearBtn = document.getElementById('clearBtn');
+    const copyBtn = document.getElementById('copyBtn');
+    const fitBtn = document.getElementById('fitBtn');
+    const locateBtn = document.getElementById('locateBtn');
+
+    search.addEventListener('input', () => render(search.value));
+    clearBtn.addEventListener('click', () => { search.value = ''; render(''); });
+
+    // Export CSV
+    copyBtn.addEventListener('click', () => {
+      const header = 'Branch,Latitude,Longitude';
+      const filtered = getFiltered(search.value);
+      const lines = filtered.map(r => `${r.name},${fmt(r.lat)},${fmt(r.lon)}`);
+      const csv = [header, ...lines].join('\n');
+      navigator.clipboard.writeText(csv).then(() => {
+        copyBtn.textContent = 'Copied!';
+        setTimeout(() => copyBtn.textContent = 'Export CSV', 1200);
+      });
+    });
+
+    // Fit All
+    fitBtn.addEventListener('click', () => updateMarkers(getFiltered(search.value)));
+
+    // Locate Me
+    locateBtn.addEventListener('click', () => {
+      if (!navigator.geolocation) return alert('Geolocation not supported');
+      navigator.geolocation.getCurrentPosition(pos => {
+        const { latitude: lat, longitude: lon } = pos.coords;
+        L.circleMarker([lat, lon], { radius: 8, color: '#00d4ff', fillColor: '#00d4ff', fillOpacity: 0.7 })
+          .addTo(map).bindPopup('You are here').openPopup();
+        map.setView([lat, lon], 12);
+      }, err => alert('Location failed: ' + err.message), { enableHighAccuracy: true, timeout: 8000 });
+    });
+
+    /* ===== Init ===== */
+    render('');
+    initMap();
+  </script>
+</body>
+</html>

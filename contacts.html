@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="NLPL Employee Directory - Search and browse employee information">
+    <meta name="author" content="NLPL">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+
+    <!-- Open Graph / Social Media -->
+    <meta property="og:title" content="NLPL Employee Directory">
+    <meta property="og:description" content="Search and browse the NLPL employee directory">
+    <meta property="og:type" content="website">
+
+    <title>NLPL | Employee Directory</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        /*
+        =============================================
+        CORE VARIABLES & RESET
+        =============================================
+        */
+        :root {
+            /* Palette - Premium Dark Tech */
+            --bg-deep: #030014;
+            --bg-surface: #0f0728;
+            --primary: #7c3aed;  /* Electric Violet */
+            --primary-light: #a78bfa;
+            --accent: #06b6d4;   /* Cyan */
+            --accent-glow: rgba(6, 182, 212, 0.5);
+
+            /* Text */
+            --text-main: #ffffff;
+            --text-sub: #cbd5e1;
+            --text-muted: #64748b;
+
+            /* Cards */
+            --card-bg: rgba(255, 255, 255, 0.03);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --card-hover-bg: rgba(255, 255, 255, 0.06);
+            --glass-blur: blur(12px);
+
+            /* Shadows & Glows */
+            --glow-primary: 0 0 20px rgba(124, 58, 237, 0.3);
+            --glow-accent: 0 0 20px rgba(6, 182, 212, 0.3);
+            --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.4);
+
+            /* Animations */
+            --ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--bg-deep);
+            color: var(--text-main);
+            min-height: 100vh;
+            line-height: 1.6;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /*
+        =============================================
+        FLOATING BACK BUTTON
+        =============================================
+        */
+        .back-btn {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            background: rgba(15, 7, 40, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 100px;
+            color: #fff;
+            text-decoration: none;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+        }
+
+        .back-btn:hover {
+            background: rgba(124, 58, 237, 0.35);
+            border-color: rgba(124, 58, 237, 0.5);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 24px rgba(124, 58, 237, 0.3);
+        }
+
+        .back-btn svg {
+            width: 16px;
+            height: 16px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        /*
+        =============================================
+        BACKGROUND ANIMATION
+        =============================================
+        */
+        .bg-mesh {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1;
+            background:
+                radial-gradient(circle at 15% 50%, rgba(124, 58, 237, 0.15) 0%, transparent 25%),
+                radial-gradient(circle at 85% 30%, rgba(6, 182, 212, 0.15) 0%, transparent 25%);
+            filter: blur(60px);
+            animation: pulseBackground 10s ease-in-out infinite alternate;
+        }
+
+        /* Animated orbs */
+        .orb {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(80px);
+            z-index: -1;
+            opacity: 0.4;
+            animation: floatOrb 20s infinite linear;
+        }
+
+        .orb-1 {
+            width: 400px;
+            height: 400px;
+            background: var(--primary);
+            top: -100px;
+            left: -100px;
+            animation-duration: 25s;
+        }
+
+        .orb-2 {
+            width: 300px;
+            height: 300px;
+            background: var(--accent);
+            bottom: -50px;
+            right: -50px;
+            animation-duration: 30s;
+            animation-direction: reverse;
+        }
+
+        @keyframes pulseBackground {
+            0% { opacity: 0.8; transform: scale(1); }
+            100% { opacity: 1; transform: scale(1.05); }
+        }
+
+        @keyframes floatOrb {
+            0% { transform: translate(0, 0) rotate(0deg); }
+            33% { transform: translate(50px, 50px) rotate(120deg); }
+            66% { transform: translate(-30px, 80px) rotate(240deg); }
+            100% { transform: translate(0, 0) rotate(360deg); }
+        }
+
+        /*
+        =============================================
+        LAYOUT & TYPOGRAPHY
+        =============================================
+        */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 80px 24px 40px;
+            position: relative;
+        }
+
+        h1, h2, h3 {
+            font-family: 'Outfit', sans-serif;
+            letter-spacing: -0.02em;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 60px;
+            position: relative;
+            animation: slideDown 0.8s var(--ease-out-back);
+        }
+
+        /* Text-based logo */
+        .text-logo {
+            display: inline-block;
+            margin-bottom: 24px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 2.8rem;
+            font-weight: 700;
+            letter-spacing: 0.15em;
+            background: linear-gradient(135deg, var(--primary-light), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            filter: drop-shadow(0 0 25px rgba(124, 58, 237, 0.4));
+            animation: floatLogo 6s ease-in-out infinite;
+            position: relative;
+        }
+
+        .text-logo::after {
+            content: '';
+            position: absolute;
+            bottom: -6px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+            border-radius: 2px;
+        }
+
+        @keyframes floatLogo {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        h1 {
+            font-size: 3.5rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+            background: linear-gradient(to right, #fff, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        .subtitle {
+            font-size: 1.125rem;
+            color: var(--text-sub);
+            max-width: 600px;
+            margin: 0 auto 40px;
+            font-weight: 300;
+        }
+
+        /*
+        =============================================
+        SEARCH COMPONENT
+        =============================================
+        */
+        .search-container {
+            position: relative;
+            max-width: 640px;
+            margin: 0 auto;
+            z-index: 10;
+        }
+
+        .search-box {
+            position: relative;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(16px);
+            border-radius: 24px;
+            padding: 8px;
+            border: 1px solid var(--card-border);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.2);
+        }
+
+        .search-box:focus-within {
+            transform: translateY(-2px) scale(1.01);
+            background: rgba(255, 255, 255, 0.08);
+            border-color: var(--primary-light);
+            box-shadow: 0 8px 40px rgba(124, 58, 237, 0.25);
+        }
+
+        .search-icon-wrapper {
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-sub);
+            font-size: 1.2rem;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: #fff;
+            font-size: 1.1rem;
+            padding: 12px 16px 12px 0;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            outline: none;
+        }
+
+        input[type="text"]::placeholder {
+            color: var(--text-muted);
+            opacity: 0.7;
+        }
+
+        /* Stats Badge */
+        .stats-badge {
+            margin-top: 24px;
+            display: inline-flex;
+            gap: 24px;
+            padding: 8px 20px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 100px;
+            border: 1px solid var(--card-border);
+            font-size: 0.9rem;
+            color: var(--text-sub);
+            backdrop-filter: blur(4px);
+            animation: fadeIn 1s ease-out 0.4s backwards;
+        }
+
+        .stat-value {
+            color: var(--accent);
+            font-weight: 700;
+        }
+
+        /*
+        =============================================
+        GRID & CARDS
+        =============================================
+        */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 24px;
+            perspective: 1000px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 24px;
+            padding: 24px;
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: var(--glass-blur);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            opacity: 0;
+            animation: cardEnter 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+        }
+
+        /* Card Hover Effects */
+        .card:hover {
+            transform: translateY(-8px) scale(1.02);
+            background: var(--card-hover-bg);
+            border-color: rgba(124, 58, 237, 0.3);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4),
+                        0 0 20px rgba(124, 58, 237, 0.1);
+            z-index: 2;
+        }
+
+        /* Gradient Top Border on Hover */
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.4s ease;
+        }
+
+        .card:hover::before {
+            transform: scaleX(1);
+        }
+
+        /* Card Header */
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .avatar {
+            width: 64px;
+            height: 64px;
+            border-radius: 18px;
+            background: linear-gradient(135deg, #2d2b42, #1a1829);
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: 700;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            position: relative;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        /* Status Dot on Avatar */
+        .avatar::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            right: -2px;
+            width: 14px;
+            height: 14px;
+            background: #10b981;
+            border: 3px solid #1a1829;
+            border-radius: 50%;
+        }
+
+        .card-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .card h3 {
+            font-size: 1.25rem;
+            color: var(--text-main);
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .role-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            border-radius: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border: 1px solid transparent;
+            transition: all 0.3s ease;
+            cursor: help;
+        }
+
+        /* Role Variants */
+        .role-vip {
+            background: rgba(251, 191, 36, 0.1);
+            color: #fbbf24;
+            border-color: rgba(251, 191, 36, 0.3);
+            box-shadow: 0 0 15px rgba(251, 191, 36, 0.15);
+        }
+
+        .role-mgmt {
+            background: rgba(236, 72, 153, 0.1);
+            color: #f472b6;
+            border-color: rgba(236, 72, 153, 0.3);
+            box-shadow: 0 0 15px rgba(236, 72, 153, 0.15);
+        }
+
+        .role-field {
+            background: rgba(6, 182, 212, 0.1);
+            color: #22d3ee;
+            border-color: rgba(6, 182, 212, 0.3);
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.15);
+        }
+
+        .role-base {
+            background: rgba(99, 102, 241, 0.1);
+            color: #818cf8;
+            border-color: rgba(99, 102, 241, 0.3);
+        }
+
+        /* Card Body */
+        .card-body {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .detail-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--text-sub);
+            font-size: 0.95rem;
+            padding: 8px;
+            border-radius: 8px;
+            transition: background 0.2s;
+        }
+
+        .detail-row:hover {
+            background: rgba(255,255,255,0.03);
+        }
+
+        .icon-box {
+            width: 32px;
+            height: 32px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            color: var(--text-muted);
+        }
+
+        /* Actions */
+        .card-actions {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid var(--card-border);
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .btn-call {
+            padding: 10px 20px;
+            background: linear-gradient(135deg, var(--primary), #6d28d9);
+            color: white;
+            text-decoration: none;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(124, 58, 237, 0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .btn-call:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(124, 58, 237, 0.5);
+            filter: brightness(1.1);
+        }
+
+        /*
+        =============================================
+        STATES & FOOTER
+        =============================================
+        */
+        .empty-state {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 80px 20px;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        .empty-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            opacity: 0.5;
+            display: inline-block;
+            animation: floatOrb 5s ease-in-out infinite;
+        }
+
+        /* Spinner */
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(255,255,255,0.1);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 24px;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 80px;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            border-top: 1px solid var(--card-border);
+            padding-top: 40px;
+        }
+
+        footer a {
+            color: var(--text-sub);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        footer a:hover {
+            color: var(--primary-light);
+        }
+
+        /*
+        =============================================
+        ANIMATION KEYFRAMES
+        =============================================
+        */
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes cardEnter {
+            from { opacity: 0; transform: translateY(30px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Mobile Adjustments */
+        @media (max-width: 600px) {
+            h1 { font-size: 2.2rem; }
+            .grid { grid-template-columns: 1fr; }
+            .search-box { margin: 0 10px; }
+            .text-logo { font-size: 2rem; }
+            .back-btn { top: 12px; left: 12px; padding: 6px 12px; font-size: 0.75rem; }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Floating Back / Home Button -->
+    <a href="employee.html" class="back-btn">
+        <svg viewBox="0 0 24 24"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1h-2z"/></svg>
+        Home
+    </a>
+
+    <!-- Animated Background Elements -->
+    <div class="bg-mesh"></div>
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+
+    <div class="container">
+        <header>
+            <div class="text-logo">NLPL</div>
+            <h1>NLPL Team Directory</h1>
+            <p class="subtitle">Connect with your colleagues across the organization.</p>
+
+            <div class="search-container">
+                <div class="search-box">
+                    <div class="search-icon-wrapper">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    </div>
+                    <input type="text" id="searchInput" placeholder="Find by name, role, ID, or location..." autocomplete="off">
+                </div>
+            </div>
+
+            <div class="stats-badge" id="statsBar">
+                <span>Total: <span class="stat-value" id="totalCount">-</span></span>
+                <span>Showing: <span class="stat-value" id="displayedCount">-</span></span>
+            </div>
+        </header>
+
+        <main id="resultsGrid" class="grid">
+            <div class="empty-state">
+                <div class="spinner"></div>
+                <p>Syncing employee data...</p>
+            </div>
+        </main>
+
+        <footer>
+            <p>&copy; 2026 NLPL. Powered by <a href="https://supabase.com" target="_blank" rel="noopener">Supabase</a></p>
+        </footer>
+    </div>
+
+    <script>
+        // =============================================
+        // Configuration
+        // =============================================
+        var CONFIG = {
+            supabaseUrl: "https://zovnmmdfthpbubrorsgh.supabase.co",
+            supabaseKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpvdm5tbWRmdGhwYnVicm9yc2doIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE1NzE3ODgsImV4cCI6MjA3NzE0Nzc4OH0.92BH2sjUOgkw6iSRj1_4gt0p3eThg3QT4VK-Q4EdmBE",
+            animationStaggerDelay: 50
+        };
+
+        // =============================================
+        // Application Logic
+        // =============================================
+        var App = {
+            supabase: null,
+            state: {
+                total: 0,
+                debounce: null
+            },
+            ui: {},
+
+            init: function() {
+                if (!window.supabase) {
+                    this.renderError("System Error", "Supabase SDK failed to load.");
+                    return;
+                }
+
+                this.supabase = window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseKey);
+
+                // Cache UI elements
+                this.ui = {
+                    input: document.getElementById('searchInput'),
+                    grid: document.getElementById('resultsGrid'),
+                    total: document.getElementById('totalCount'),
+                    displayed: document.getElementById('displayedCount')
+                };
+
+                // Event Listeners
+                var self = this;
+                this.ui.input.addEventListener('input', function(e) { self.handleSearch(e); });
+
+                // Initial Fetch
+                this.fetchData('');
+            },
+
+            handleSearch: function(e) {
+                var self = this;
+                clearTimeout(this.state.debounce);
+                this.state.debounce = setTimeout(function() {
+                    self.fetchData(e.target.value.trim());
+                }, 300);
+            },
+
+            fetchData: async function(query) {
+                this.renderLoading();
+
+                try {
+                    var dbQuery = this.supabase.from('employees').select('*', { count: 'exact' });
+
+                    if (query) {
+                        var filter = 'name.ilike.%' + query + '%,emp_id.ilike.%' + query + '%,role.ilike.%' + query + '%,location.ilike.%' + query + '%,mobile.ilike.%' + query + '%';
+                        dbQuery = dbQuery.or(filter);
+                    }
+
+                    var result = await dbQuery.limit(50);
+                    var data = result.data;
+                    var error = result.error;
+                    var count = result.count;
+
+                    if (error) throw error;
+
+                    if (!query) this.state.total = count || data.length;
+
+                    this.updateStats(data.length);
+                    this.renderCards(data);
+
+                } catch (err) {
+                    console.error(err);
+                    this.renderError("Connection Failed", "Could not retrieve employee data.");
+                }
+            },
+
+            updateStats: function(count) {
+                this.ui.total.textContent = this.state.total || '-';
+                this.ui.displayed.textContent = count;
+            },
+
+            renderLoading: function() {
+                this.ui.grid.innerHTML =
+                    '<div class="empty-state">' +
+                        '<div class="spinner"></div>' +
+                        '<p style="color:var(--text-muted)">Searching directory...</p>' +
+                    '</div>';
+            },
+
+            renderError: function(title, msg) {
+                this.ui.grid.innerHTML =
+                    '<div class="empty-state">' +
+                        '<div class="empty-icon">&#9888;&#65039;</div>' +
+                        '<h3>' + this.safe(title) + '</h3>' +
+                        '<p>' + this.safe(msg) + '</p>' +
+                    '</div>';
+            },
+
+            renderCards: function(employees) {
+                if (!employees.length) {
+                    this.ui.grid.innerHTML =
+                        '<div class="empty-state">' +
+                            '<div class="empty-icon">&#128301;</div>' +
+                            '<h3>No matches found</h3>' +
+                            '<p>Try searching for a different name, role, or location.</p>' +
+                        '</div>';
+                    return;
+                }
+
+                var self = this;
+                var html = employees.map(function(emp, index) {
+                    var delay = index * CONFIG.animationStaggerDelay;
+                    var roleInfo = self.getRoleConfig(emp.role);
+
+                    var card =
+                        '<div class="card" style="animation-delay: ' + delay + 'ms">' +
+                            '<div class="card-header">' +
+                                '<div class="avatar">' + self.getInitials(emp.name) + '</div>' +
+                                '<div class="card-info">' +
+                                    '<h3>' + self.safe(emp.name) + '</h3>' +
+                                    '<span class="role-pill ' + roleInfo.cls + '" title="' + self.safe(roleInfo.full) + '">' +
+                                        self.safe(emp.role || 'Team Member') +
+                                    '</span>' +
+                                '</div>' +
+                            '</div>' +
+                            '<div class="card-body">' +
+                                '<div class="detail-row">' +
+                                    '<div class="icon-box">&#127380;</div>' +
+                                    '<span>' + self.safe(emp.emp_id || '\u2014') + '</span>' +
+                                '</div>' +
+                                '<div class="detail-row">' +
+                                    '<div class="icon-box">&#128205;</div>' +
+                                    '<span>' + self.safe(emp.location || 'Remote') + '</span>' +
+                                '</div>' +
+                                '<div class="detail-row">' +
+                                    '<div class="icon-box">&#128222;</div>' +
+                                    '<span>' + self.safe(emp.mobile || '\u2014') + '</span>' +
+                                '</div>' +
+                            '</div>';
+
+                    if (emp.mobile) {
+                        card +=
+                            '<div class="card-actions">' +
+                                '<a href="tel:' + self.safe(emp.mobile) + '" class="btn-call">' +
+                                    '<span>Call Now</span>' +
+                                '</a>' +
+                            '</div>';
+                    }
+
+                    card += '</div>';
+                    return card;
+                }).join('');
+
+                this.ui.grid.innerHTML = html;
+            },
+
+            getRoleConfig: function(role) {
+                if (!role) return { cls: 'role-base', full: 'Team Member' };
+
+                var r = role.toUpperCase();
+
+                // VIP / Leadership (Gold)
+                if (['DIRECTOR', 'LEADER', 'RM', 'DM', 'ZM', 'VP', 'CEO'].some(function(x) { return r.indexOf(x) !== -1; })) {
+                    var vipMap = { 'RM': 'Regional Manager', 'DM': 'District Manager', 'ZM': 'Zonal Manager' };
+                    return { cls: 'role-vip', full: vipMap[r] || role };
+                }
+
+                // Management (Pink)
+                if (['BM', 'ABM', 'MANAGER', 'ACM', 'BSM'].some(function(x) { return r.indexOf(x) !== -1; })) {
+                    var mgmtMap = { 'BM': 'Branch Manager', 'ABM': 'Asst. Branch Manager', 'ACM': 'Area Credit Manager', 'BSM': 'Business Sales Manager' };
+                    return { cls: 'role-mgmt', full: mgmtMap[r] || role };
+                }
+
+                // Field / Sales (Cyan)
+                if (['FO', 'DOE', 'ROE', 'TSM', 'RVO', 'IA', 'AUDIT'].some(function(x) { return r.indexOf(x) !== -1; })) {
+                    var fieldMap = { 'FO': 'Field Officer', 'DOE': 'Data Entry Operator', 'ROE': 'Regional Ops Exec' };
+                    return { cls: 'role-field', full: fieldMap[r] || role };
+                }
+
+                // Default (Indigo)
+                return { cls: 'role-base', full: role };
+            },
+
+            getInitials: function(name) {
+                if (!name) return '?';
+                return name.split(' ')
+                    .map(function(n) { return n[0]; })
+                    .slice(0, 2)
+                    .join('')
+                    .toUpperCase();
+            },
+
+            safe: function(text) {
+                if (!text) return text;
+                return text.toString().replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+            }
+        };
+
+        // Launch
+        document.addEventListener('DOMContentLoaded', function() { App.init(); });
+    </script>
+</body>
+</html>
