@@ -173,13 +173,14 @@
       var firstCell = String(row[0] || '').trim().toUpperCase();
       var secondCell = String(row[1] || '').trim().toUpperCase();
 
-      if (firstCell.includes('REGION') && (firstCell.includes('WISE') || firstCell.includes('NAME'))) {
+      var headerText = firstCell + ' ' + secondCell;
+      if (headerText.includes('REGION') && (headerText.includes('WISE') || headerText.includes('NAME'))) {
         currentSection = 'region'; continue;
       }
-      if (firstCell.includes('DISTRICT') && (firstCell.includes('WISE') || firstCell.includes('NAME'))) {
+      if (headerText.includes('DISTRICT') && (headerText.includes('WISE') || headerText.includes('NAME'))) {
         currentSection = 'district'; continue;
       }
-      if (firstCell.includes('BRANCH') && (firstCell.includes('WISE') || firstCell.includes('NAME'))) {
+      if (headerText.includes('BRANCH') && !headerText.includes('OFFICER') && (headerText.includes('WISE') || headerText.includes('NAME'))) {
         currentSection = 'branch'; continue;
       }
 
