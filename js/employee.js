@@ -657,14 +657,14 @@
         var el = document.getElementById('lastUpdated');
         if (el) el.textContent = 'Updated ' + day + '-' + mon + '-' + d.getFullYear() + ' ' + hr + ':' + min;
       }
-      // Load portfolio & disbursement tabs
-      loadTabData('portfolio', 'portfolioContent');
-      loadTabData('disbursement', 'disbursementContent');
-
     } catch (err) {
       console.error('Load failed:', err);
       showNoData();
     }
+
+    // Load portfolio & disbursement tabs (always, regardless of collection data)
+    loadTabData('portfolio', 'portfolioContent');
+    loadTabData('disbursement', 'disbursementContent');
   }
 
   function showNoData() {
