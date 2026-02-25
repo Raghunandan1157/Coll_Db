@@ -259,24 +259,3 @@ function isNumeric(cell) {
  * @param {boolean} isPercentage
  * @returns {string}
  */
-function formatNumber(value, isPercentage) {
-  if (value === null || value === undefined || value === '') return '';
-  if (typeof value === 'string') {
-    if (value === '-' || value.trim() === '-') return '-';
-    return value;
-  }
-  if (typeof value !== 'number' || !isFinite(value)) return String(value);
-
-  if (isPercentage) {
-    // Value might already be 0-100 or 0-1 range
-    const pct = value > 1 ? value : value * 100;
-    return pct.toFixed(2) + '%';
-  }
-
-  // Integer formatting with commas
-  if (Number.isInteger(value)) {
-    return value.toLocaleString('en-IN');
-  }
-  // Decimal — 2 places
-  return value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
