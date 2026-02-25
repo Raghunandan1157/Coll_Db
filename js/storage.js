@@ -262,7 +262,8 @@ function clearAllData() {
   return initDB().then(function (db) {
     return new Promise(function (resolve, reject) {
       var tx = db.transaction(["workbook", "employees"], "readwrite");
-      tx.objectStore("workbook").clear();
+      // Only delete collection workbook — preserve portfolio & disbursement
+      tx.objectStore("workbook").delete("current");
       tx.objectStore("employees").clear();
       tx.oncomplete = function () { resolve(); };
       tx.onerror = function (event) { reject(event.target.error); };

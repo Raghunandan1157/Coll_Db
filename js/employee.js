@@ -68,7 +68,7 @@
   function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return '&#' + c.charCodeAt(0) + ';'; }); }
 
   /* ---------- Render Dashboard ---------- */
-  function renderDashboard(empRow) {
+  function renderDashboard(empRow, containerId) {
     var totalDemand = numVal(empRow[REG.demand]);
     var totalPos    = numVal(empRow[REG.collection]);
     for (var i = 0; i < BUCKETS.length; i++) {
@@ -159,7 +159,7 @@
     }
     html += '</div>';
 
-    document.getElementById('collectionContent').innerHTML = html;
+    document.getElementById(containerId || 'collectionContent').innerHTML = html;
   }
 
   /* ---------- Find row for role-based lookup ---------- */
@@ -538,6 +538,71 @@
     });
   }
 
+  /* ---------- Find target sheet helper ---------- */
+  function findOverallSheet(workbook) {
+    for (var s = 0; s < workbook.SheetNames.length; s++) {
+      if (workbook.SheetNames[s].toUpperCase().includes('OVERALL')) {
+        return workbook.Sheets[workbook.SheetNames[s]];
+      }
+    }
+    for (var s = 0; s < workbook.SheetNames.length; s++) {
+      var ws = workbook.Sheets[workbook.SheetNames[s]];
+      if (ws && ws['!ref']) {
+        var dec = XLSX.utils.decode_range(ws['!ref']);
+        if (dec.e.c >= 15) return ws;
+      }
+    }
+    return null;
+  }
+
+  /* ---------- Find employee row helper ---------- */
+  function findEmpRow(rows) {
+    if (session.role && session.role !== 'FO') {
+      return findRoleRow(rows, session.role, session.location);
+    }
+    var needle   = session.name.toUpperCase().trim();
+    var needleId = String(session.id).trim();
+    for (var r = 0; r < rows.length; r++) {
+      var row = rows[r];
+      if (!row || !row.length) continue;
+      for (var c = 0; c < Math.min(row.length, 5); c++) {
+        var cv = String(row[c] || '').trim();
+        if (cv.toUpperCase() === needle || cv === needleId) return row;
+      }
+    }
+    return null;
+  }
+
+  /* ---------- Load a category tab (portfolio / disbursement) ---------- */
+  var noDataHtml = '<div style="text-align:center;padding:80px 20px;">' +
+    '<p style="color:#6B7A99;font-size:32px;margin-bottom:8px;">&#128202;</p>' +
+    '<p style="color:#6B7A99;font-size:14px;">No data uploaded yet.</p></div>';
+
+  async function loadTabData(category, containerId) {
+    try {
+      var wb = await getWorkbookByCategory(category);
+      if (!wb || !wb.data) {
+        document.getElementById(containerId).innerHTML = noDataHtml;
+        return;
+      }
+
+      var workbook = XLSX.read(new Uint8Array(wb.data), { type: 'array', cellFormula: false, cellNF: true });
+      var sheet = findOverallSheet(workbook);
+      if (!sheet) { document.getElementById(containerId).innerHTML = noDataHtml; return; }
+
+      var rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+      if (!rows || rows.length < 2) { document.getElementById(containerId).innerHTML = noDataHtml; return; }
+
+      var empRow = findEmpRow(rows);
+      if (!empRow) { document.getElementById(containerId).innerHTML = noDataHtml; return; }
+
+      renderDashboard(empRow, containerId);
+    } catch (err) {
+      console.error(category + ' tab load failed:', err);
+      document.getElementById(containerId).innerHTML = noDataHtml;
+    }
+  }
+
   /* ---------- Load Data ---------- */
   async function loadData() {
     try {
@@ -547,47 +612,13 @@
 
       var workbook = XLSX.read(new Uint8Array(wb.data), { type: 'array', cellFormula: false, cellNF: true });
 
-      // Find "Overall" sheet
-      var targetSheet = null;
-      for (var s = 0; s < workbook.SheetNames.length; s++) {
-        if (workbook.SheetNames[s].toUpperCase().includes('OVERALL')) {
-          targetSheet = workbook.Sheets[workbook.SheetNames[s]];
-          break;
-        }
-      }
-      if (!targetSheet) {
-        for (var s = 0; s < workbook.SheetNames.length; s++) {
-          var ws = workbook.Sheets[workbook.SheetNames[s]];
-          if (ws && ws['!ref']) {
-            var dec = XLSX.utils.decode_range(ws['!ref']);
-            if (dec.e.c >= 15) { targetSheet = ws; break; }
-          }
-        }
-      }
+      var targetSheet = findOverallSheet(workbook);
       if (!targetSheet) { showNoData(); return; }
 
       var rows = XLSX.utils.sheet_to_json(targetSheet, { header: 1 });
       if (!rows || rows.length < 2) { showNoData(); return; }
 
-      var empRow = null;
-
-      if (session.role && session.role !== 'FO') {
-        empRow = findRoleRow(rows, session.role, session.location);
-      } else {
-        var needle   = session.name.toUpperCase().trim();
-        var needleId = String(session.id).trim();
-
-        for (var r = 0; r < rows.length; r++) {
-          var row = rows[r];
-          if (!row || !row.length) continue;
-          for (var c = 0; c < Math.min(row.length, 5); c++) {
-            var cv = String(row[c] || '').trim();
-            if (cv.toUpperCase() === needle || cv === needleId) { empRow = row; break; }
-          }
-          if (empRow) break;
-        }
-      }
-
+      var empRow = findEmpRow(rows);
       if (!empRow) { showNoData(); return; }
 
       renderDashboard(empRow);
@@ -621,6 +652,10 @@
         var el = document.getElementById('lastUpdated');
         if (el) el.textContent = 'Updated ' + day + '-' + mon + '-' + d.getFullYear() + ' ' + hr + ':' + min;
       }
+      // Load portfolio & disbursement tabs
+      loadTabData('portfolio', 'portfolioContent');
+      loadTabData('disbursement', 'disbursementContent');
+
     } catch (err) {
       console.error('Load failed:', err);
       showNoData();
