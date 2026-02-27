@@ -32,8 +32,8 @@
   var BUCKETS = [
     { name: 'Bucket 1', range: '1 \u2014 30 DPD', key: '1-30',  color: '#34D399', demand: 6,  collection: 7  },
     { name: 'Bucket 2', range: '31 \u2014 60 DPD', key: '31-60', color: '#FBBF24', demand: 10, collection: 11 },
-    { name: 'Bucket 3', range: '61 \u2014 90 DPD', key: '61-90', color: '#FB923C', demand: 14, collection: 15 },
-    { name: 'NPA',      range: '90+ DPD',          key: 'npa',   color: '#F87171', demand: 18, collection: 19 }
+    { name: 'PNPA',     range: 'Pre-NPA',           key: 'pnpa',  color: '#FB923C', demand: 14, collection: 15 },
+    { name: 'NPA',      range: 'NPA',               key: 'npa',   color: '#F87171', demand: 18, collection: 19 }
   ];
 
   /* ---------- Product data cache ---------- */
@@ -466,15 +466,20 @@
       }
 
       // Product branch+officer table title in col 0
+      // Title format: "BRANCH + OFFICER NAME WISE - IGL COLLECTION REPORT"
+      // Product name appears mid-string, not at the end
       if (c0.includes('BRANCH') && c0.includes('OFFICER') && c0.includes('COLLECTION REPORT')) {
         var prod2 = null;
-        if (c0.endsWith('- IGL')) prod2 = 'igl';
-        else if (c0.endsWith('- FIG')) prod2 = 'fig';
-        else if (c0.endsWith('- IL')) prod2 = 'il';
+        if (c0.includes('- IGL')) prod2 = 'igl';
+        else if (c0.includes('- FIG')) prod2 = 'fig';
+        else if (c0.includes('- IL')) prod2 = 'il';
         if (prod2) {
           if (!result[prod2]) result[prod2] = {};
-          result[prod2].boStart = r;
-          boStarts.push({ key: prod2, row: r });
+          // Only keep first match per product (skip duplicate title rows)
+          if (result[prod2].boStart == null) {
+            result[prod2].boStart = r;
+            boStarts.push({ key: prod2, row: r });
+          }
         }
       }
     }
