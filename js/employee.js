@@ -94,7 +94,25 @@
       '</div>' +
     '</div>';
 
-    // ── DPD BUCKET ALLOCATION ──
+    // ── PRODUCT FILTER ──
+    html += '<div class="emp-product-filter">' +
+      '<button class="emp-product-pill active" data-product="all">All</button>' +
+      '<button class="emp-product-pill" data-product="igl">IGL</button>' +
+      '<button class="emp-product-pill" data-product="fig">FIG</button>' +
+      '<button class="emp-product-pill" data-product="il">IL</button>' +
+    '</div>';
+
+    // ── COMING SOON placeholder (hidden by default) ──
+    html += '<div class="emp-coming-soon" style="display:none;">' +
+      '<div style="text-align:center;padding:60px 20px;">' +
+        '<div style="font-size:36px;margin-bottom:12px;">🚧</div>' +
+        '<div style="color:#E8ECF4;font-size:16px;font-weight:600;margin-bottom:6px;"><span class="emp-cs-label"></span> Data</div>' +
+        '<div style="color:#6B7A99;font-size:13px;">Coming soon</div>' +
+      '</div>' +
+    '</div>';
+
+    // ── DPD BUCKET ALLOCATION (wrapped in data-section) ──
+    html += '<div class="emp-data-section">';
     html += '<div class="emp-section-title">DPD Bucket Allocation</div>';
 
     var regDem = numVal(empRow[REG.demand]);
@@ -163,6 +181,7 @@
       '</div>';
     }
     html += '</div>';
+    html += '</div>'; // close .emp-data-section
 
     document.getElementById(containerId || 'collectionContent').innerHTML = html;
   }
@@ -543,6 +562,35 @@
     });
   }
 
+  /* ---------- Product filter pill toggle ---------- */
+  function attachProductFilterHandler() {
+    var container = document.getElementById('collectionContent');
+    if (!container) return;
+    container.addEventListener('click', function (ev) {
+      var pill = ev.target.closest('.emp-product-pill');
+      if (!pill) return;
+      var product = pill.dataset.product;
+
+      container.querySelectorAll('.emp-product-pill').forEach(function (p) {
+        p.classList.remove('active');
+      });
+      pill.classList.add('active');
+
+      var dataSection = container.querySelector('.emp-data-section');
+      var comingSoon = container.querySelector('.emp-coming-soon');
+      if (!dataSection || !comingSoon) return;
+
+      if (product === 'all') {
+        dataSection.style.display = '';
+        comingSoon.style.display = 'none';
+      } else {
+        dataSection.style.display = 'none';
+        comingSoon.querySelector('.emp-cs-label').textContent = pill.textContent.trim();
+        comingSoon.style.display = '';
+      }
+    });
+  }
+
   /* ---------- Find target sheet helper ---------- */
   function findOverallSheet(workbook) {
     for (var s = 0; s < workbook.SheetNames.length; s++) {
@@ -646,6 +694,7 @@
       }
 
       attachSubUnitClickHandlers();
+      attachProductFilterHandler();
 
       // Show "Last updated" timestamp
       if (wb.uploadedAt) {
