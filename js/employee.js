@@ -36,6 +36,11 @@
     { name: 'NPA',      range: '90+ DPD',          key: 'npa',   color: '#F87171', demand: 18, collection: 19 }
   ];
 
+  /* ---------- Product data cache ---------- */
+  var _cachedRows = null;
+  var _productBounds = null;
+  var _subUnitHandlerAttached = false;
+
   /* ---------- Formatters ---------- */
   function fmtNum(v) {
     if (v == null || v === '') return '-';
@@ -100,15 +105,6 @@
       '<button class="emp-product-pill" data-product="igl">IGL</button>' +
       '<button class="emp-product-pill" data-product="fig">FIG</button>' +
       '<button class="emp-product-pill" data-product="il">IL</button>' +
-    '</div>';
-
-    // ── COMING SOON placeholder (hidden by default) ──
-    html += '<div class="emp-coming-soon" style="display:none;">' +
-      '<div style="text-align:center;padding:60px 20px;">' +
-        '<div style="font-size:36px;margin-bottom:12px;">🚧</div>' +
-        '<div style="color:#E8ECF4;font-size:16px;font-weight:600;margin-bottom:6px;"><span class="emp-cs-label"></span> Data</div>' +
-        '<div style="color:#6B7A99;font-size:13px;">Coming soon</div>' +
-      '</div>' +
     '</div>';
 
     // ── DPD BUCKET ALLOCATION (wrapped in data-section) ──
@@ -442,6 +438,353 @@
     return officers;
   }
 
+  /* ========== Product-wise data (IGL, FIG, IL) ========== */
+
+  /**
+   * Detect product table boundaries in the rows array.
+   */
+  function detectProductBoundaries(rows) {
+    var result = {};
+    var boStarts = [];
+
+    for (var r = 0; r < rows.length; r++) {
+      var row = rows[r];
+      if (!row || !row.length) continue;
+      var c0 = String(row[0] || '').toUpperCase().trim();
+      var c1 = String(row[1] || '').toUpperCase().trim();
+
+      // Product region section: "REGION WISE - IGL REPORT" in col 1
+      if (c1.includes('REGION WISE') && c1.includes('REPORT')) {
+        var prod = null;
+        if (c1.includes('IGL')) prod = 'igl';
+        else if (c1.includes('FIG')) prod = 'fig';
+        else if (c1.includes('IL')) prod = 'il';
+        if (prod) {
+          if (!result[prod]) result[prod] = {};
+          result[prod].regStart = r;
+        }
+      }
+
+      // Product branch+officer table title in col 0
+      if (c0.includes('BRANCH') && c0.includes('OFFICER') && c0.includes('COLLECTION REPORT')) {
+        var prod2 = null;
+        if (c0.endsWith('- IGL')) prod2 = 'igl';
+        else if (c0.endsWith('- FIG')) prod2 = 'fig';
+        else if (c0.endsWith('- IL')) prod2 = 'il';
+        if (prod2) {
+          if (!result[prod2]) result[prod2] = {};
+          result[prod2].boStart = r;
+          boStarts.push({ key: prod2, row: r });
+        }
+      }
+    }
+
+    // Compute end rows for branch+officer tables
+    boStarts.sort(function (a, b) { return a.row - b.row; });
+    for (var i = 0; i < boStarts.length; i++) {
+      var endRow = (i + 1 < boStarts.length) ? boStarts[i + 1].row : rows.length;
+      result[boStarts[i].key].boEnd = endRow;
+    }
+
+    // Compute end rows for region sections (scan for Grand Total)
+    var products = ['igl', 'fig', 'il'];
+    for (var p = 0; p < products.length; p++) {
+      var k = products[p];
+      if (result[k] && result[k].regStart != null) {
+        result[k].regEnd = result[k].regStart + 50;
+        for (var r = result[k].regStart; r < Math.min(result[k].regStart + 50, rows.length); r++) {
+          var row = rows[r];
+          if (!row) continue;
+          if (String(row[1] || '').trim().toUpperCase() === 'GRAND TOTAL') {
+            result[k].regEnd = r + 1;
+            break;
+          }
+        }
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Find the employee/role row within a product's data.
+   */
+  function findProductEmpRow(product) {
+    var b = _productBounds[product];
+    if (!b) return null;
+
+    // CEO: Grand Total from product region section
+    if (session.role === 'CEO' && b.regStart != null) {
+      for (var r = b.regStart; r < b.regEnd; r++) {
+        var row = _cachedRows[r];
+        if (!row) continue;
+        if (String(row[1] || '').trim().toUpperCase() === 'GRAND TOTAL') return row;
+      }
+      return null;
+    }
+
+    // RM: region row from product region section
+    if (session.role === 'RM' && b.regStart != null) {
+      var loc = session.location.toUpperCase().trim();
+      for (var r = b.regStart; r < b.regEnd; r++) {
+        var row = _cachedRows[r];
+        if (!row) continue;
+        var c1 = String(row[1] || '').trim();
+        if (c1 && fuzzyMatch(c1, loc)) return row;
+      }
+      return null;
+    }
+
+    // DM: aggregate branches from product BO table
+    if (session.role === 'DM') {
+      return aggregateDistrictBranches(b, session.location);
+    }
+
+    // BM: find branch header in product BO table
+    if (session.role === 'BM') {
+      var branchUpper = session.location.toUpperCase().trim();
+      for (var r = b.boStart; r < b.boEnd; r++) {
+        var row = _cachedRows[r];
+        if (!row) continue;
+        var c0 = String(row[0] || '').trim();
+        var c1 = String(row[1] || '').trim();
+        if (!c0 && c1 && fuzzyMatch(c1, branchUpper)) return row;
+      }
+      return null;
+    }
+
+    // FO: find by emp ID or name
+    var needleId = String(session.id || '').trim().toUpperCase();
+    var needleName = (session.name || '').toUpperCase().trim();
+    for (var r = b.boStart; r < b.boEnd; r++) {
+      var row = _cachedRows[r];
+      if (!row) continue;
+      var c0 = String(row[0] || '').trim().toUpperCase();
+      var c1 = String(row[1] || '').trim().toUpperCase();
+      if ((needleId && c0 === needleId) || (needleName && c1 === needleName)) return row;
+    }
+    return null;
+  }
+
+  /**
+   * Aggregate branch data for a district from a product's BO table.
+   */
+  function aggregateDistrictBranches(b, districtName) {
+    var distUpper = districtName.toUpperCase().trim();
+    var branches = null;
+    for (var rk in HIERARCHY) {
+      for (var dk in HIERARCHY[rk]) {
+        if (fuzzyMatch(dk, distUpper)) { branches = HIERARCHY[rk][dk]; break; }
+      }
+      if (branches) break;
+    }
+    if (!branches || !branches.length) return null;
+
+    var branchSet = {};
+    for (var i = 0; i < branches.length; i++) {
+      branchSet[normalizeForMatch(branches[i])] = true;
+    }
+
+    var sumRow = new Array(25);
+    sumRow[0] = null;
+    sumRow[1] = districtName;
+    for (var c = 2; c < 25; c++) sumRow[c] = 0;
+
+    var found = false;
+    for (var r = b.boStart; r < b.boEnd; r++) {
+      var row = _cachedRows[r];
+      if (!row) continue;
+      var c0 = String(row[0] || '').trim();
+      var c1 = String(row[1] || '').trim();
+      if (!c0 && c1 && branchSet[normalizeForMatch(c1)]) {
+        found = true;
+        for (var c = 2; c < Math.min(row.length, 24); c++) {
+          if (typeof row[c] === 'number') sumRow[c] += row[c];
+        }
+      }
+    }
+
+    if (!found) return null;
+
+    // Recompute percentage columns
+    if (sumRow[2] > 0) sumRow[5] = sumRow[3] / sumRow[2];
+    if (sumRow[6] > 0) sumRow[9] = sumRow[7] / sumRow[6];
+    if (sumRow[10] > 0) sumRow[13] = sumRow[11] / sumRow[10];
+    if (sumRow[14] > 0) sumRow[17] = sumRow[15] / sumRow[14];
+
+    return sumRow;
+  }
+
+  /**
+   * Find child units for drill-down within a product's data.
+   */
+  function findProductChildren(product) {
+    var b = _productBounds[product];
+    if (!b) return [];
+
+    if (session.role === 'CEO' && b.regStart != null) {
+      var children = [];
+      for (var r = b.regStart; r < b.regEnd; r++) {
+        var row = _cachedRows[r];
+        if (!row) continue;
+        var c1 = String(row[1] || '').trim();
+        if (!c1) continue;
+        var c1u = c1.toUpperCase();
+        if (c1u === 'GRAND TOTAL' || c1u.includes('REGION') || c1u.includes('REPORT')) continue;
+        if (c1u === 'DEMAND' || c1u === 'COLLECTION' || c1u === 'FTOD') continue;
+        if (typeof row[2] !== 'number') continue;
+        children.push({ name: c1u, row: row });
+      }
+      return children;
+    }
+
+    if (session.role === 'RM') {
+      var locationUpper = (session.location || '').toUpperCase().trim();
+      var regionData = null;
+      for (var rk in HIERARCHY) {
+        if (fuzzyMatch(rk, locationUpper)) { regionData = HIERARCHY[rk]; break; }
+      }
+      if (!regionData) return [];
+      var children = [];
+      for (var dk in regionData) {
+        var aggRow = aggregateDistrictBranches(_productBounds[product], dk);
+        if (aggRow) children.push({ name: dk.toUpperCase(), row: aggRow });
+      }
+      return children;
+    }
+
+    if (session.role === 'DM') {
+      var locationUpper = (session.location || '').toUpperCase().trim();
+      var branchNames = null;
+      for (var rk in HIERARCHY) {
+        for (var dk in HIERARCHY[rk]) {
+          if (fuzzyMatch(dk, locationUpper)) { branchNames = HIERARCHY[rk][dk]; break; }
+        }
+        if (branchNames) break;
+      }
+      if (!branchNames) return [];
+      var branchSet = {};
+      for (var i = 0; i < branchNames.length; i++) {
+        branchSet[normalizeForMatch(branchNames[i])] = true;
+      }
+      var children = [];
+      for (var r = b.boStart; r < b.boEnd; r++) {
+        var row = _cachedRows[r];
+        if (!row) continue;
+        var c0 = String(row[0] || '').trim();
+        var c1 = String(row[1] || '').trim();
+        if (!c0 && c1 && branchSet[normalizeForMatch(c1)]) {
+          children.push({ name: c1.toUpperCase(), row: row });
+        }
+      }
+      return children;
+    }
+
+    if (session.role === 'BM') {
+      var branchUpper = (session.location || '').toUpperCase().trim();
+      var officers = [];
+      var foundBranch = false;
+      for (var r = b.boStart; r < b.boEnd; r++) {
+        var row = _cachedRows[r];
+        if (!row) continue;
+        var c0 = String(row[0] || '').trim();
+        var c1 = String(row[1] || '').trim();
+        var c0u = c0.toUpperCase();
+        var c1u = c1.toUpperCase();
+        if (c0u === 'EMP ID' || c1u === 'BRANCH / OFFICER NAME') continue;
+        if (c1u === 'DEMAND' || c1u === 'COLLECTION') continue;
+        var hasEmpId = c0.length > 0 && /^[A-Z]{2}\d+/.test(c0u);
+        if (!hasEmpId && c1.length > 0 && row.length > 3) {
+          if (fuzzyMatch(c1u, branchUpper)) foundBranch = true;
+          else if (foundBranch) break;
+          continue;
+        }
+        if (hasEmpId && foundBranch) {
+          officers.push({ name: c1.trim(), empId: c0, row: row });
+        }
+      }
+      return officers;
+    }
+
+    return [];
+  }
+
+  /**
+   * Render the full collection view for a given product filter.
+   */
+  function renderCollectionView(product) {
+    var empRow;
+    if (product === 'all') {
+      empRow = findEmpRow(_cachedRows);
+    } else {
+      empRow = findProductEmpRow(product);
+    }
+
+    var container = document.getElementById('collectionContent');
+
+    if (!empRow) {
+      var pillHtml = '<div class="emp-product-filter">' +
+        '<button class="emp-product-pill' + (product === 'all' ? ' active' : '') + '" data-product="all">All</button>' +
+        '<button class="emp-product-pill' + (product === 'igl' ? ' active' : '') + '" data-product="igl">IGL</button>' +
+        '<button class="emp-product-pill' + (product === 'fig' ? ' active' : '') + '" data-product="fig">FIG</button>' +
+        '<button class="emp-product-pill' + (product === 'il' ? ' active' : '') + '" data-product="il">IL</button>' +
+      '</div>';
+      container.innerHTML = pillHtml +
+        '<div style="text-align:center;padding:60px 20px;">' +
+          '<div style="font-size:36px;margin-bottom:12px;">&#128202;</div>' +
+          '<div style="color:#E8ECF4;font-size:16px;font-weight:600;margin-bottom:6px;">' +
+            (product === 'all' ? 'No' : product.toUpperCase()) + ' Data</div>' +
+          '<div style="color:#6B7A99;font-size:13px;">No data available' +
+            (product !== 'all' ? ' for this product' : '') + '.</div>' +
+        '</div>';
+      attachPillClickHandlers();
+      return;
+    }
+
+    renderDashboard(empRow);
+
+    // Update active pill
+    container.querySelectorAll('.emp-product-pill').forEach(function (p) {
+      p.classList.toggle('active', p.dataset.product === product);
+    });
+
+    // Add sub-units
+    if (session.role !== 'FO') {
+      var childRoleMap = { CEO: 'RM', RM: 'DM', DM: 'BM', BM: 'FO' };
+      var childRole = childRoleMap[session.role];
+      if (childRole) {
+        var children;
+        if (product === 'all') {
+          children = findChildrenForRole(_cachedRows, HIERARCHY, session.role, session.location);
+        } else {
+          children = findProductChildren(product);
+          children.sort(function (a, b) {
+            var pctA = numVal(a.row[REG.demand]) > 0 ? numVal(a.row[REG.collection]) / numVal(a.row[REG.demand]) : 0;
+            var pctB = numVal(b.row[REG.demand]) > 0 ? numVal(b.row[REG.collection]) / numVal(b.row[REG.demand]) : 0;
+            return pctB - pctA;
+          });
+        }
+        if (children.length) {
+          container.innerHTML += renderSubUnits(children, childRole);
+        }
+      }
+    }
+
+    attachSubUnitClickHandlers();
+    attachPillClickHandlers();
+  }
+
+  function attachPillClickHandlers() {
+    var pills = document.querySelectorAll('.emp-product-pill');
+    for (var i = 0; i < pills.length; i++) {
+      (function (pill) {
+        pill.onclick = function () {
+          renderCollectionView(pill.dataset.product);
+        };
+      })(pills[i]);
+    }
+  }
+
   /* ---------- Render sub-unit cards ---------- */
   function renderSubUnits(children, childRole) {
     if (!children.length) return '';
@@ -528,6 +871,8 @@
 
   /* ---------- Click handler for sub-unit cards ---------- */
   function attachSubUnitClickHandlers() {
+    if (_subUnitHandlerAttached) return;
+    _subUnitHandlerAttached = true;
     var container = document.getElementById('collectionContent');
     if (!container) return;
 
@@ -558,35 +903,6 @@
         localStorage.setItem('employeeId', card.dataset.empId);
         localStorage.setItem('employeeName', card.dataset.empName);
         window.location.reload();
-      }
-    });
-  }
-
-  /* ---------- Product filter pill toggle ---------- */
-  function attachProductFilterHandler() {
-    var container = document.getElementById('collectionContent');
-    if (!container) return;
-    container.addEventListener('click', function (ev) {
-      var pill = ev.target.closest('.emp-product-pill');
-      if (!pill) return;
-      var product = pill.dataset.product;
-
-      container.querySelectorAll('.emp-product-pill').forEach(function (p) {
-        p.classList.remove('active');
-      });
-      pill.classList.add('active');
-
-      var dataSection = container.querySelector('.emp-data-section');
-      var comingSoon = container.querySelector('.emp-coming-soon');
-      if (!dataSection || !comingSoon) return;
-
-      if (product === 'all') {
-        dataSection.style.display = '';
-        comingSoon.style.display = 'none';
-      } else {
-        dataSection.style.display = 'none';
-        comingSoon.querySelector('.emp-cs-label').textContent = pill.textContent.trim();
-        comingSoon.style.display = '';
       }
     });
   }
@@ -671,30 +987,18 @@
       var rows = XLSX.utils.sheet_to_json(targetSheet, { header: 1 });
       if (!rows || rows.length < 2) { showNoData(); return; }
 
+      // Cache rows and detect product table boundaries
+      _cachedRows = rows;
+      _productBounds = detectProductBoundaries(rows);
+
       var empRow = findEmpRow(rows);
       if (!empRow) { showNoData(); return; }
 
-      renderDashboard(empRow);
+      renderCollectionView('all');
       renderBreadcrumbs();
 
       // Auto-switch to Collection tab since that's where data renders
       switchEmpTab('collection');
-
-      // Render sub-units for drill-down
-      if (session.role !== 'FO') {
-        var childRoleMap = { CEO: 'RM', RM: 'DM', DM: 'BM', BM: 'FO' };
-        var childRole = childRoleMap[session.role];
-        if (childRole) {
-          var children = findChildrenForRole(rows, HIERARCHY, session.role, session.location);
-          if (children.length) {
-            var subHtml = renderSubUnits(children, childRole);
-            document.getElementById('collectionContent').innerHTML += subHtml;
-          }
-        }
-      }
-
-      attachSubUnitClickHandlers();
-      attachProductFilterHandler();
 
       // Show "Last updated" timestamp
       if (wb.uploadedAt) {

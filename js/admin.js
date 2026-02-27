@@ -13,8 +13,11 @@
   /* ---------- GitHub sync config ---------- */
   var GH_OWNER = 'Raghunandan1157';
   var GH_REPO = 'Coll_Db';
-  var GH_FILE_PATH = 'data/report.xlsx';
-  var GH_API = 'https://api.github.com/repos/' + GH_OWNER + '/' + GH_REPO + '/contents/' + GH_FILE_PATH;
+  var GH_FILE_PATHS = {
+    collection: 'data/report.xlsx',
+    portfolio: 'data/portfolio.xlsx',
+    disbursement: 'data/disbursement.xlsx'
+  };
 
   function getGHToken() { return localStorage.getItem('gh_token'); }
   function saveGHToken(t) { localStorage.setItem('gh_token', t); }
@@ -25,12 +28,15 @@
     return null;
   }
 
-  async function pushToGitHub(arrayBuffer) {
+  async function pushToGitHub(arrayBuffer, category) {
     var token = getGHToken();
     if (!token) token = promptForToken();
     if (!token) throw new Error('No GitHub token — file saved locally only.');
 
-    var shaRes = await fetch(GH_API, {
+    var filePath = GH_FILE_PATHS[category || 'collection'];
+    var apiUrl = 'https://api.github.com/repos/' + GH_OWNER + '/' + GH_REPO + '/contents/' + filePath;
+
+    var shaRes = await fetch(apiUrl, {
       headers: { 'Authorization': 'Bearer ' + token }
     });
     var sha = null;
@@ -52,7 +58,7 @@
     };
     if (sha) body.sha = sha;
 
-    var putRes = await fetch(GH_API, {
+    var putRes = await fetch(apiUrl, {
       method: 'PUT',
       headers: {
         'Authorization': 'Bearer ' + token,
@@ -166,7 +172,7 @@
 
         showCardStatus(card, 'Syncing to cloud...', true);
         try {
-          await pushToGitHub(arrayBuffer);
+          await pushToGitHub(arrayBuffer, 'collection');
           showCardStatus(card, 'Uploaded & synced!', true);
         } catch (ghErr) {
           console.warn('GitHub sync failed:', ghErr);
@@ -174,7 +180,14 @@
         }
       } else {
         await saveWorkbookByCategory(arrayBuffer, file.name, category);
-        showCardStatus(card, 'Uploaded!', true);
+        showCardStatus(card, 'Syncing to cloud...', true);
+        try {
+          await pushToGitHub(arrayBuffer, category);
+          showCardStatus(card, 'Uploaded & synced!', true);
+        } catch (ghErr) {
+          console.warn('GitHub sync failed:', ghErr);
+          showCardStatus(card, 'Saved locally. Sync failed.', false);
+        }
       }
     } catch (err) {
       console.error('Upload failed:', err);
