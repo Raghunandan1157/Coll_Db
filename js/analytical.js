@@ -55,13 +55,8 @@
       '.fo-call-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px; border-radius: 10px; background: rgba(52,211,153,0.1); color: #34D399; font-size: 13px; font-weight: 600; text-decoration: none; border: 1px solid rgba(52,211,153,0.2); transition: all 0.2s; }',
       '.fo-call-btn:active { transform: scale(0.97); background: rgba(52,211,153,0.2); }',
       '.fo-no-phone { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px; border-radius: 10px; background: rgba(107,122,153,0.08); color: #6B7A99; font-size: 12px; border: 1px solid rgba(107,122,153,0.12); }',
-      // Expanded performance detail
-      '.fo-detail { margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.04); }',
-      '.fo-detail-title { font-size: 11px; font-weight: 600; color: #6B7A99; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }',
-      '.fo-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }',
-      '.fo-detail-item { background: rgba(255,255,255,0.02); border-radius: 8px; padding: 8px 10px; }',
-      '.fo-detail-lbl { font-size: 9px; color: #6B7A99; text-transform: uppercase; letter-spacing: 0.3px; }',
-      '.fo-detail-val { font-size: 13px; font-weight: 700; color: #E8ECF4; margin-top: 2px; }',
+      '.fo-view-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px; border-radius: 10px; background: rgba(79,140,255,0.1); color: #4F8CFF; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid rgba(79,140,255,0.2); transition: all 0.2s; }',
+      '.fo-view-btn:active { transform: scale(0.97); background: rgba(79,140,255,0.2); }',
       '.fo-branch-tag { font-size: 10px; color: #4F8CFF; background: rgba(79,140,255,0.1); padding: 2px 6px; border-radius: 6px; margin-left: 4px; }'
     ].join('\n');
     document.head.appendChild(style);
@@ -176,6 +171,7 @@
       if (bucket === 'dpd1') { dem = numVal(o.row[COL.dpd1Demand]); col = numVal(o.row[COL.dpd1Collection]); }
       else if (bucket === 'dpd2') { dem = numVal(o.row[COL.dpd2Demand]); col = numVal(o.row[COL.dpd2Collection]); }
       else if (bucket === 'pnpa') { dem = numVal(o.row[COL.pnpaDemand]); col = numVal(o.row[COL.pnpaCollection]); }
+      else if (bucket === 'npa') { dem = numVal(o.row[COL.npaDemand]); col = numVal(o.row[COL.npaActAmt]); }
       else { dem = numVal(o.row[COL.regDemand]); col = numVal(o.row[COL.regCollection]); }
       // Skip officers with 0 demand and 0 collection
       if (dem === 0 && col === 0) continue;
@@ -186,6 +182,7 @@
         dpd1Dem: numVal(o.row[COL.dpd1Demand]), dpd1Col: numVal(o.row[COL.dpd1Collection]), dpd1Pct: numVal(o.row[COL.dpd1Demand]) > 0 ? (numVal(o.row[COL.dpd1Collection]) / numVal(o.row[COL.dpd1Demand])) * 100 : 0,
         dpd2Dem: numVal(o.row[COL.dpd2Demand]), dpd2Col: numVal(o.row[COL.dpd2Collection]), dpd2Pct: numVal(o.row[COL.dpd2Demand]) > 0 ? (numVal(o.row[COL.dpd2Collection]) / numVal(o.row[COL.dpd2Demand])) * 100 : 0,
         pnpaDem: numVal(o.row[COL.pnpaDemand]), pnpaCol: numVal(o.row[COL.pnpaCollection]), pnpaPct: numVal(o.row[COL.pnpaDemand]) > 0 ? (numVal(o.row[COL.pnpaCollection]) / numVal(o.row[COL.pnpaDemand])) * 100 : 0,
+        npaDem: numVal(o.row[COL.npaDemand]), npaCol: numVal(o.row[COL.npaActAmt]), npaPct: numVal(o.row[COL.npaDemand]) > 0 ? (numVal(o.row[COL.npaActAmt]) / numVal(o.row[COL.npaDemand])) * 100 : 0,
         npaActAcct: numVal(o.row[COL.npaActAcct]), npaActAmt: numVal(o.row[COL.npaActAmt])
       });
     }
@@ -213,7 +210,7 @@
   }
 
   // State
-  var _analState = { rows: null, role: null, location: null, activeView: null, expandedFO: null, foBucket: 'regular' };
+  var _analState = { rows: null, role: null, location: null, activeView: null, expandedFO: null, foBucket: 'regular', foLoading: false };
 
   function buildCardHtml(item, rankNum, type, delay) {
     var pctColor = item.pct >= 95 ? '#34D399' : item.pct >= 80 ? '#FBBF24' : '#F87171';
@@ -250,7 +247,7 @@
     var barW = Math.min(fo.pct, 100);
     var phone = _phoneCache[fo.empId.toUpperCase()] || '';
 
-    var html = '<div class="fo-card emp-fade" data-fo-empid="' + esc(fo.empId) + '" style="animation-delay:' + delay + 's">';
+    var html = '<div class="fo-card emp-fade" data-fo-empid="' + esc(fo.empId) + '" data-fo-name="' + esc(fo.name) + '" style="animation-delay:' + delay + 's">';
     html += '<div class="fo-header">';
     html += '<div class="fo-rank" style="background:' + pctColor + '20;color:' + pctColor + '">#' + rankNum + '</div>';
     html += '<div class="fo-avatar">' + fo.name.charAt(0).toUpperCase() + '</div>';
@@ -266,31 +263,21 @@
     html += '</div>';
     html += '<div class="pf-progress-track" style="margin-top:8px"><div class="pf-progress-fill" style="width:' + barW + '%;background:' + pctColor + '"></div></div>';
 
-    // Call button
+    // Action buttons — call + view dashboard
     html += '<div class="fo-actions">';
     if (phone) {
       html += '<a href="tel:' + esc(phone) + '" class="fo-call-btn" onclick="event.stopPropagation();">';
       html += '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>';
-      html += 'Call ' + esc(phone) + '</a>';
+      html += 'Call</a>';
+    } else if (_analState.foLoading) {
+      html += '<div class="fo-no-phone" style="color:#4F8CFF;border-color:rgba(79,140,255,0.15)"><svg width="12" height="12" viewBox="0 0 24 24" style="animation:spin .7s linear infinite"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="30 70"/></svg> Fetching from database...</div>';
     } else {
-      html += '<div class="fo-no-phone">No phone number</div>';
+      html += '<div class="fo-no-phone">No phone</div>';
     }
+    html += '<div class="fo-view-btn" onclick="event.stopPropagation(); this.closest(\'.fo-card\').click();">';
+    html += '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+    html += 'View Dashboard</div>';
     html += '</div>';
-
-    // Expanded performance detail
-    if (expanded) {
-      var d1Color = fo.dpd1Pct >= 50 ? '#34D399' : fo.dpd1Pct >= 25 ? '#FBBF24' : '#F87171';
-      var d2Color = fo.dpd2Pct >= 50 ? '#34D399' : fo.dpd2Pct >= 25 ? '#FBBF24' : '#F87171';
-      var pnColor = fo.pnpaPct >= 50 ? '#34D399' : fo.pnpaPct >= 25 ? '#FBBF24' : '#F87171';
-      html += '<div class="fo-detail">';
-      html += '<div class="fo-detail-title">Performance Breakdown</div>';
-      html += '<div class="fo-detail-grid">';
-      html += '<div class="fo-detail-item"><div class="fo-detail-lbl">Bucket 1 (1-30 DPD)</div><div class="fo-detail-val" style="color:' + d1Color + '">' + fo.dpd1Pct.toFixed(2) + '%</div></div>';
-      html += '<div class="fo-detail-item"><div class="fo-detail-lbl">Bucket 2 (31-60 DPD)</div><div class="fo-detail-val" style="color:' + d2Color + '">' + fo.dpd2Pct.toFixed(2) + '%</div></div>';
-      html += '<div class="fo-detail-item"><div class="fo-detail-lbl">PNPA (Pre-NPA)</div><div class="fo-detail-val" style="color:' + pnColor + '">' + fo.pnpaPct.toFixed(2) + '%</div></div>';
-      html += '<div class="fo-detail-item"><div class="fo-detail-lbl">NPA Activation</div><div class="fo-detail-val">' + fmtNum(fo.npaActAcct) + ' / ' + fmtNum(fo.npaActAmt) + '</div></div>';
-      html += '</div></div>';
-    }
 
     html += '</div>';
     return html;
@@ -309,8 +296,6 @@
     var rows = _analState.rows;
 
     var html = '<div class="anal-container">';
-    html += '<div class="anal-page-title">Analytical Tool</div>';
-    html += '<div class="anal-page-subtitle">Performance analysis based on regular collection %</div>';
 
     // Buttons
     html += '<div class="anal-btn-row">';
@@ -341,53 +326,57 @@
         html += buildSectionHtml('Bottom 5 Branches \u2014 ' + esc(location), downArrow, 'bottom', dData.slice(0, 5));
       }
     } else if (view === 'fo') {
-      var allOfficers = getAllOfficers(rows);
-      var allowedBranches = null;
-      var label = 'All';
+      {
+        var allOfficers = getAllOfficers(rows);
+        var allowedBranches = null;
+        var label = 'All';
 
-      if (role === 'RM') {
-        allowedBranches = getRegionBranches(location); label = esc(location);
-      } else if (role === 'DM') {
-        allowedBranches = getDistrictBranches(location); label = esc(location);
-      }
+        if (role === 'RM') {
+          allowedBranches = getRegionBranches(location); label = esc(location);
+        } else if (role === 'DM') {
+          allowedBranches = getDistrictBranches(location); label = esc(location);
+        }
 
-      if (allowedBranches) {
-        allOfficers = allOfficers.filter(function(o) {
-          for (var k = 0; k < allowedBranches.length; k++) { if (fuzzyMatch(o.branch, allowedBranches[k])) return true; }
-          return false;
-        });
-      }
+        if (allowedBranches) {
+          allOfficers = allOfficers.filter(function(o) {
+            for (var k = 0; k < allowedBranches.length; k++) { if (fuzzyMatch(o.branch, allowedBranches[k])) return true; }
+            return false;
+          });
+        }
 
-      var bk = _analState.foBucket;
-      var bucketKey = bk === 'dpd1' ? 'dpd1' : bk === 'dpd2' ? 'dpd2' : bk === 'pnpa' ? 'pnpa' : null;
-      var foData = computeFOData(allOfficers, bucketKey);
-      var lowPerformers = foData.slice(0, 20);
-      var bucketLabel = bk === 'dpd1' ? 'Bucket 1' : bk === 'dpd2' ? 'Bucket 2' : bk === 'pnpa' ? 'PNPA' : 'Regular';
+        var bk = _analState.foBucket;
+        var bucketKey = bk === 'dpd1' ? 'dpd1' : bk === 'dpd2' ? 'dpd2' : bk === 'pnpa' ? 'pnpa' : bk === 'npa' ? 'npa' : null;
+        var foData = computeFOData(allOfficers, bucketKey);
+        var lowPerformers = foData.slice(0, 20);
+        var bucketLabel = bk === 'dpd1' ? '1-30' : bk === 'dpd2' ? '31-60' : bk === 'pnpa' ? 'PNPA' : bk === 'npa' ? 'NPA' : 'Regular';
 
-      // Bucket filter pills
-      html += '<div class="anal-btn-row" style="margin-bottom:16px">';
-      html += '<button class="anal-btn' + (bk === 'regular' ? ' active' : '') + '" data-fo-bucket="regular" style="padding:8px 10px;font-size:12px">Regular</button>';
-      html += '<button class="anal-btn' + (bk === 'dpd1' ? ' active' : '') + '" data-fo-bucket="dpd1" style="padding:8px 10px;font-size:12px">Bucket 1</button>';
-      html += '<button class="anal-btn' + (bk === 'dpd2' ? ' active' : '') + '" data-fo-bucket="dpd2" style="padding:8px 10px;font-size:12px">Bucket 2</button>';
-      html += '<button class="anal-btn' + (bk === 'pnpa' ? ' active' : '') + '" data-fo-bucket="pnpa" style="padding:8px 10px;font-size:12px">PNPA</button>';
-      html += '</div>';
+        // Bucket filter pills
+        html += '<div class="anal-btn-row" style="margin-bottom:16px;flex-wrap:wrap">';
+        html += '<button class="anal-btn' + (bk === 'regular' ? ' active' : '') + '" data-fo-bucket="regular" style="padding:8px 10px;font-size:12px">Regular</button>';
+        html += '<button class="anal-btn' + (bk === 'dpd1' ? ' active' : '') + '" data-fo-bucket="dpd1" style="padding:8px 10px;font-size:12px">1-30</button>';
+        html += '<button class="anal-btn' + (bk === 'dpd2' ? ' active' : '') + '" data-fo-bucket="dpd2" style="padding:8px 10px;font-size:12px">31-60</button>';
+        html += '<button class="anal-btn' + (bk === 'pnpa' ? ' active' : '') + '" data-fo-bucket="pnpa" style="padding:8px 10px;font-size:12px">PNPA</button>';
+        html += '<button class="anal-btn' + (bk === 'npa' ? ' active' : '') + '" data-fo-bucket="npa" style="padding:8px 10px;font-size:12px">NPA</button>';
+        html += '</div>';
 
-      html += '<div class="anal-section"><div class="anal-section-header">';
-      html += '<div class="anal-section-icon bottom">' + downArrow + '</div>';
-      html += '<div class="anal-section-title">Low Performing (' + bucketLabel + ')' + (role !== 'CEO' ? ' \u2014 ' + label : '') + '</div>';
-      html += '<div class="anal-section-count">' + lowPerformers.length + '</div></div>';
+        html += '<div class="anal-section"><div class="anal-section-header">';
+        html += '<div class="anal-section-icon bottom">' + downArrow + '</div>';
+        html += '<div class="anal-section-title">Low Performing (' + bucketLabel + ')' + (role !== 'CEO' ? ' \u2014 ' + label : '') + '</div>';
+        html += '<div class="anal-section-count">' + lowPerformers.length + '</div></div>';
 
-      if (!lowPerformers.length) {
-        html += '<div class="anal-empty">No field officer data available</div>';
-      } else {
-        html += '<div class="anal-list">';
-        for (var f = 0; f < lowPerformers.length; f++) {
-          var isExpanded = _analState.expandedFO === lowPerformers[f].empId;
-          html += buildFOCardHtml(lowPerformers[f], f + 1, f * 0.04, isExpanded);
+        if (!lowPerformers.length) {
+          html += '<div class="anal-empty">No field officer data available</div>';
+        } else {
+          html += '<div class="anal-list">';
+          for (var f = 0; f < lowPerformers.length; f++) {
+            var isExpanded = _analState.expandedFO === lowPerformers[f].empId;
+            html += buildFOCardHtml(lowPerformers[f], f + 1, f * 0.04, isExpanded);
+          }
+          html += '</div>';
         }
         html += '</div>';
       }
-      html += '</div>';
+    }
     }
 
     html += '</div>';
@@ -407,13 +396,15 @@
         _analState.expandedFO = null;
         _analState.foBucket = 'regular';
 
-        // Pre-fetch phone numbers for FO view
+        // Show FO content immediately, phones load async
         if (newView === 'fo' && _analState.rows) {
-          renderPage(); // render immediately, phones load async
+          _analState.foLoading = true;
+          renderPage(); // render with "Fetching..." placeholders
           var allOfficers = getAllOfficers(_analState.rows);
           var empIds = allOfficers.map(function(o) { return o.empId; });
           await fetchPhones(empIds);
-          renderPage(); // re-render with phone numbers
+          _analState.foLoading = false;
+          renderPage(); // re-render with actual phone numbers
         } else {
           renderPage();
         }
@@ -429,12 +420,27 @@
       };
     });
 
-    // FO card click to expand/collapse
+    // FO card click — navigate to FO's full dashboard
     container.querySelectorAll('[data-fo-empid]').forEach(function(card) {
       card.onclick = function() {
         var empId = card.dataset.foEmpid;
-        _analState.expandedFO = _analState.expandedFO === empId ? null : empId;
-        renderPage();
+        var empName = card.dataset.foName || '';
+        // Save current session to nav stack
+        var stack = typeof getRoleNavStack === 'function' ? getRoleNavStack() : [];
+        var current = typeof getEmployeeSession === 'function' ? getEmployeeSession() : null;
+        if (current) {
+          stack.push({ role: current.role, location: current.location, name: current.name, id: current.id });
+          localStorage.setItem('roleNavStack', JSON.stringify(stack));
+        }
+        // Switch to FO session
+        localStorage.removeItem('roleAuth');
+        localStorage.removeItem('roleName');
+        localStorage.removeItem('roleLocation');
+        localStorage.setItem('employeeId', empId);
+        localStorage.setItem('employeeName', empName);
+        // Flag to return to analytical tab
+        localStorage.setItem('returnToAnalytical', 'true');
+        window.location.reload();
       };
     });
   }

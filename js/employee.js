@@ -197,8 +197,35 @@
       // Load analytical tab
       if (typeof _loadAnalyticalTab === 'function') _loadAnalyticalTab();
 
-      // Default to collection tab
-      switchEmpTab('collection');
+      // Check if returning from analytical FO drill-down
+      var returnFlag = localStorage.getItem('returnToAnalytical');
+      if (returnFlag && session.role === 'FO') {
+        // Show back button for FO viewed from analytical
+        var headerLeft = document.querySelector('.emp-header-left');
+        if (headerLeft) {
+          var backBtn = document.createElement('button');
+          backBtn.className = 'emp-logout-btn';
+          backBtn.style.cssText = 'font-size:20px;line-height:1;margin-right:10px;padding:6px 10px;border-radius:10px;background:rgba(79,140,255,0.1);border:1px solid rgba(79,140,255,0.2);color:#4F8CFF;cursor:pointer;';
+          backBtn.innerHTML = '&#8592;';
+          backBtn.title = 'Back to Analytical';
+          backBtn.onclick = function() {
+            localStorage.removeItem('returnToAnalytical');
+            if (typeof popRoleNav === 'function') popRoleNav();
+            localStorage.setItem('openAnalytical', 'true');
+            window.location.reload();
+          };
+          headerLeft.insertBefore(backBtn, headerLeft.firstChild);
+        }
+        localStorage.removeItem('returnToAnalytical');
+      }
+
+      // Check if should open analytical tab after back navigation
+      if (localStorage.getItem('openAnalytical')) {
+        localStorage.removeItem('openAnalytical');
+        switchEmpTab('analytical');
+      } else {
+        switchEmpTab('collection');
+      }
     } catch (err) {
       console.error('Load failed:', err);
       showNoData();
@@ -212,13 +239,27 @@
   // Tab switching (global for onclick)
   var tabTitles = { portfolio: 'Portfolio', disbursement: 'Disbursement', collection: 'Collection', analytical: 'Analytical Tool' };
   window.switchEmpTab = function (tab) {
-    document.querySelectorAll('.emp-tab-item').forEach(function (t) {
-      t.classList.toggle('active', t.dataset.tab === tab);
-    });
+    // Switch tab content
     document.querySelectorAll('.emp-tab-content').forEach(function (tc) {
       tc.classList.remove('active');
     });
     document.getElementById(tab + 'Tab').classList.add('active');
+
+    // Bottom tab bar — show for main tabs, hide for analytical
+    var isMainTab = (tab === 'portfolio' || tab === 'disbursement' || tab === 'collection');
+    var tabBar = document.querySelector('.emp-tab-bar');
+    if (tabBar) tabBar.style.display = isMainTab ? '' : 'none';
+    document.querySelectorAll('.emp-tab-item').forEach(function (t) {
+      t.classList.toggle('active', isMainTab && t.dataset.tab === tab);
+    });
+
+    // Sidebar — highlight active item (home = collection/portfolio/disbursement)
+    var sidebarTab = isMainTab ? 'home' : tab;
+    document.querySelectorAll('[data-sidebar-tab]').forEach(function (s) {
+      s.classList.toggle('active', s.dataset.sidebarTab === sidebarTab);
+    });
+
+    // Header title
     var titleEl = document.getElementById('emp-header-title');
     if (titleEl) titleEl.textContent = tabTitles[tab] || tab;
   };

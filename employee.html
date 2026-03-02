@@ -94,6 +94,14 @@
       <button class="sidebar-close-btn" id="sidebarCloseBtn" aria-label="Close menu">&times;</button>
     </div>
     <nav class="sidebar-nav">
+      <a href="javascript:void(0)" class="sidebar-nav-item" data-sidebar-tab="home" onclick="closeSidebar(); switchEmpTab('collection');">
+        <span class="sidebar-nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
+        <span class="sidebar-nav-label">Home</span>
+      </a>
+      <a href="javascript:void(0)" id="analyticalNavItem" class="sidebar-nav-item" data-sidebar-tab="analytical" onclick="closeSidebar(); switchEmpTab('analytical');" style="display:none;">
+        <span class="sidebar-nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>
+        <span class="sidebar-nav-label">Analytical Tool</span>
+      </a>
       <a href="contacts.html" class="sidebar-nav-item">
         <span class="sidebar-nav-icon">&#128199;</span>
         <span class="sidebar-nav-label">Contacts</span>
@@ -101,10 +109,6 @@
       <a href="locator.html" class="sidebar-nav-item">
         <span class="sidebar-nav-icon">&#128205;</span>
         <span class="sidebar-nav-label">NLPL Branch Locator</span>
-      </a>
-      <a href="javascript:void(0)" id="analyticalNavItem" class="sidebar-nav-item" onclick="closeSidebar(); switchEmpTab('analytical');" style="display:none;">
-        <span class="sidebar-nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>
-        <span class="sidebar-nav-label">Analytical Tool</span>
       </a>
     </nav>
     <div class="sidebar-footer">
@@ -337,6 +341,15 @@
     }
     .sidebar-nav-item:hover {
       background: rgba(79,140,255,0.08);
+    }
+    .sidebar-nav-item.active {
+      background: rgba(79,140,255,0.12);
+      color: #4F8CFF;
+      border-left: 3px solid #4F8CFF;
+      padding-left: 17px;
+    }
+    .sidebar-nav-item.active .sidebar-nav-icon svg {
+      stroke: #4F8CFF;
     }
     .sidebar-nav-icon {
       font-size: 20px;
