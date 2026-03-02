@@ -8,14 +8,19 @@
     style.textContent = [
       '.anal-container { padding: 12px 10px 80px; }',
       '.anal-page-title { font-size: 20px; font-weight: 700; color: #E8ECF4; margin-bottom: 4px; }',
-      '.anal-page-subtitle { font-size: 12px; color: #6B7A99; margin-bottom: 20px; }',
-      '.anal-group { margin-bottom: 28px; }',
-      '.anal-group-title {',
-      '  font-size: 16px; font-weight: 700; color: #E8ECF4;',
-      '  margin-bottom: 16px; padding: 0 2px;',
-      '  border-left: 3px solid #4F8CFF; padding-left: 10px;',
+      '.anal-page-subtitle { font-size: 12px; color: #6B7A99; margin-bottom: 16px; }',
+      '.anal-btn-row { display: flex; gap: 10px; margin-bottom: 20px; }',
+      '.anal-btn {',
+      '  padding: 10px 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08);',
+      '  background: #131825; color: #6B7A99; font-size: 14px; font-weight: 600;',
+      '  cursor: pointer; transition: all 0.2s; flex: 1; text-align: center;',
       '}',
-      '.anal-section { margin-bottom: 20px; }',
+      '.anal-btn.active {',
+      '  background: rgba(79,140,255,0.12); color: #4F8CFF; border-color: rgba(79,140,255,0.3);',
+      '}',
+      '.anal-btn:active { transform: scale(0.97); }',
+      '.anal-content { }',
+      '.anal-section { margin-bottom: 24px; }',
       '.anal-section-header {',
       '  display: flex; align-items: center; gap: 10px;',
       '  margin-bottom: 14px; padding: 0 2px;',
@@ -81,14 +86,12 @@
       '}',
       '.anal-divider {',
       '  height: 1px; background: rgba(255,255,255,0.04); margin: 16px 0;',
-      '}',
-      '.anal-group-divider {',
-      '  height: 2px; background: linear-gradient(90deg, rgba(79,140,255,0.2), rgba(79,140,255,0), rgba(79,140,255,0.2));',
-      '  margin: 28px 0;',
       '}'
     ].join('\n');
     document.head.appendChild(style);
   }
+
+  var HIERARCHY = {"ANDRA PRADESH":{"KADAPA":["BUDWAL","DHARMAVARAM","KADAPA","KADIRI"]},"DHARWAD":{"BADAMI":["BADAMI","GAJENDRAGAD","NARAGUNDA","RAMDURGA"],"BALLARI":["BALLARI","KUDATHINI","SANDURU","SIRUGUPPA"],"BELAGAVI":["BAILHONGAL","BELAGAVI","GOKAK","KITTUR","YARAGATTI"],"CHIKKODI":["ATHANI","CHIKKODI","MUDALAGI","NIPPANI"],"DAVANAGERE":["DAVANAGERE","HARIHARA","HONNALI","SANTHEBENNURU"],"DHARWAD":["DHARWAD","HUBLI","HUBLI-2","KALGHATGI"],"GADAG":["GADAG","LAXMESHWAR","MUNDARAGI"],"KUDLIGI":["HARAPANAHALLI","KHANAHOSAHALLI","KOTTURU","KUDLIGI"],"VIJAYANAGARA":["HAGARIBOMMANAHALLI","HOSPET","HUVENAHADAGALLI"]},"KALBURGI":{"BIDAR":["AURAD","BHALKI","BIDAR","BIDAR-2"],"HUMNABAD":["BASAVAKALYAN","HULSOOR","HUMNABAD","KAMALAPURA"],"INDI":["ALMEL","CHADCHAN","INDI"],"KALBURGI":["AFZALPUR","ALAND","JEVARGI","KALABURAGI","KALBURGI-2"],"KUSHTAGI":["BAGALKOT","GANGAVATHI","HUNGUND","KOPPAL","KUSHTAGI"],"LINGSUGUR":["DEVADURGA","LINGSUGUR","MANVI","RAICHUR","SINDHNUR","SIRWAR"],"SEDAM":["CHINCHOLI","KALAGI","SEDAM","SHAHAPUR","YADGIR"],"VIJAYAPURA":["BILAGI","JAMAKHANDI","LOKAPUR","MUDDEBIHAL","SINDAGI","TALIKOTI","TIKOTA","VIJAYAPUR"]},"TELANGANA":{"MAHABOOBNAGAR":["GADWAL","MAHABUB NAGAR","MARIKAL","TANDUR"],"SANGAREDDY":["KODANGAL","NARAYANKHED","SANGAREDDY","ZAHEERABAD"]},"TUMKUR":{"BENGALORE -RURAL":["DABUSPET","DODDABALLAPURA","GOWRIBIDANUR"],"BENGALORE -URBAN":["CHANDAPURA","HEBBAL","J P NAGAR","KENGERI"],"CHIKKABALLAPUR":["BAGEPALLI","CHIKBALLAPURA","CHINTAMANI","DEVANAHALLI","SRINIVASPURA"],"CHIKKAMAGALURU":["CHIKKAMAGALURU","MUDIGERE","NR PURA"],"CHITRADURGA":["CHALLAKERE","CHITRADURGA","HIRIYUR","JAGALORE"],"HOLALKERE":["CHANNAGIRI","HOLAKERE","HOSADURGA"],"KADUR":["AJJAMPURA","KADUR","PANCHANHALLI","TARIKERE"],"KOLAR":["BANGARPET","BETHAMANGALA","KOLAR","MALUR"],"TIPTUR":["CHIKKANAYAKANAHALLI","GUBBI","HULIYAR","TIPTUR","TUREVEKERE"],"TUMKUR":["KORATAGERE","KUNIGAL","MADHUGIRI","SIRA","TUMKUR"]}};
 
   var COL = {
     name: 1,
@@ -103,6 +106,43 @@
   function numVal(v) { return typeof v === 'number' ? v : (parseFloat(String(v).replace(/,/g, '')) || 0); }
   function fmtNum(n) { return n.toLocaleString('en-IN'); }
   function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+  function fuzzyMatch(a, b) { return a.replace(/[\s\-]/g, '').indexOf(b.replace(/[\s\-]/g, '')) >= 0 || b.replace(/[\s\-]/g, '').indexOf(a.replace(/[\s\-]/g, '')) >= 0; }
+
+  // Get all branches under a region from HIERARCHY
+  function getRegionBranches(regionName) {
+    var rUpper = regionName.toUpperCase().trim();
+    for (var rk in HIERARCHY) {
+      if (fuzzyMatch(rk, rUpper)) {
+        var branches = [];
+        var districts = HIERARCHY[rk];
+        for (var dk in districts) {
+          for (var i = 0; i < districts[dk].length; i++) {
+            branches.push(districts[dk][i].toUpperCase());
+          }
+        }
+        return branches;
+      }
+    }
+    return [];
+  }
+
+  // Get all branches under a district from HIERARCHY
+  function getDistrictBranches(districtName) {
+    var dUpper = districtName.toUpperCase().trim();
+    for (var rk in HIERARCHY) {
+      var districts = HIERARCHY[rk];
+      for (var dk in districts) {
+        if (fuzzyMatch(dk, dUpper)) {
+          var branches = [];
+          for (var i = 0; i < districts[dk].length; i++) {
+            branches.push(districts[dk][i].toUpperCase());
+          }
+          return branches;
+        }
+      }
+    }
+    return [];
+  }
 
   // Generic section row extractor — mirrors collection.js getAllSectionRows
   function getAllSectionRows(rows, sectionType) {
@@ -145,6 +185,20 @@
       foundTarget = true;
     }
     return results;
+  }
+
+  function filterByNames(sectionRows, allowedNames) {
+    var filtered = [];
+    for (var i = 0; i < sectionRows.length; i++) {
+      var bName = sectionRows[i].name.toUpperCase().trim();
+      for (var j = 0; j < allowedNames.length; j++) {
+        if (fuzzyMatch(bName, allowedNames[j])) {
+          filtered.push(sectionRows[i]);
+          break;
+        }
+      }
+    }
+    return filtered;
   }
 
   function computeData(sectionRows) {
@@ -205,22 +259,15 @@
     return html;
   }
 
-  function buildGroupHtml(label, data, upArrow, downArrow) {
-    var bottom10 = data.slice(0, 10);
-    var top10 = data.slice(-10).reverse();
+  // Stored state for re-rendering
+  var _analState = { rows: null, role: null, location: null };
 
-    var html = '<div class="anal-group">';
-    html += '<div class="anal-group-title">' + label + '</div>';
-    html += buildSectionHtml('Top 10 ' + label, upArrow, 'top', top10);
-    html += '<div class="anal-divider"></div>';
-    html += buildSectionHtml('Bottom 10 ' + label, downArrow, 'bottom', bottom10);
-    html += '</div>';
-    return html;
-  }
-
-  function renderAnalytical(rows, role) {
+  function renderAnalytical() {
+    var rows = _analState.rows;
+    var role = _analState.role;
+    var location = _analState.location;
     var container = document.getElementById('analyticalContent');
-    if (!container) return;
+    if (!container || !rows) return;
 
     var upArrow = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>';
     var downArrow = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>';
@@ -229,36 +276,50 @@
     html += '<div class="anal-page-title">Analytical Tool</div>';
     html += '<div class="anal-page-subtitle">Performance analysis based on regular collection %</div>';
 
-    // CEO: Regions + Districts + Branches
+    // Buttons row
+    html += '<div class="anal-btn-row">';
+    html += '<button class="anal-btn active" data-anal-view="branches">';
+    html += '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>';
+    html += 'Branches</button>';
+    html += '</div>';
+
+    // Content
+    html += '<div class="anal-content">';
+
     if (role === 'CEO') {
-      var regionData = computeData(getAllSectionRows(rows, 'region'));
-      html += buildGroupHtml('Regions', regionData, upArrow, downArrow);
-      html += '<div class="anal-group-divider"></div>';
-
-      var districtData = computeData(getAllSectionRows(rows, 'district'));
-      html += buildGroupHtml('Districts', districtData, upArrow, downArrow);
-      html += '<div class="anal-group-divider"></div>';
-
       var branchData = computeData(getAllSectionRows(rows, 'branch'));
-      html += buildGroupHtml('Branches', branchData, upArrow, downArrow);
+      var top10 = branchData.slice(-10).reverse();
+      var bottom10 = branchData.slice(0, 10);
+
+      html += buildSectionHtml('Top 10 Branches', upArrow, 'top', top10);
+      html += '<div class="anal-divider"></div>';
+      html += buildSectionHtml('Bottom 10 Branches', downArrow, 'bottom', bottom10);
     }
 
-    // RM: Districts + Branches
     if (role === 'RM') {
-      var districtData2 = computeData(getAllSectionRows(rows, 'district'));
-      html += buildGroupHtml('Districts', districtData2, upArrow, downArrow);
-      html += '<div class="anal-group-divider"></div>';
+      var allBranches = getAllSectionRows(rows, 'branch');
+      var regionBranchNames = getRegionBranches(location);
+      var filtered = filterByNames(allBranches, regionBranchNames);
+      var regionData = computeData(filtered);
+      var top10rm = regionData.slice(-10).reverse();
 
-      var branchData2 = computeData(getAllSectionRows(rows, 'branch'));
-      html += buildGroupHtml('Branches', branchData2, upArrow, downArrow);
+      html += buildSectionHtml('Top 10 Branches \u2014 ' + esc(location), upArrow, 'top', top10rm);
     }
 
-    // DM: Branches only
     if (role === 'DM') {
-      var branchData3 = computeData(getAllSectionRows(rows, 'branch'));
-      html += buildGroupHtml('Branches', branchData3, upArrow, downArrow);
+      var allBranches2 = getAllSectionRows(rows, 'branch');
+      var districtBranchNames = getDistrictBranches(location);
+      var filtered2 = filterByNames(allBranches2, districtBranchNames);
+      var districtData = computeData(filtered2);
+      var top5 = districtData.slice(-5).reverse();
+      var bottom5 = districtData.slice(0, 5);
+
+      html += buildSectionHtml('Top 5 Branches \u2014 ' + esc(location), upArrow, 'top', top5);
+      html += '<div class="anal-divider"></div>';
+      html += buildSectionHtml('Bottom 5 Branches \u2014 ' + esc(location), downArrow, 'bottom', bottom5);
     }
 
+    html += '</div>';
     html += '</div>';
     container.innerHTML = html;
   }
@@ -289,7 +350,6 @@
       var workbook = XLSX.read(new Uint8Array(wb.data), { type: 'array', cellFormula: false, cellNF: true });
       if (!workbook || !workbook.SheetNames || !workbook.SheetNames.length) return;
 
-      // Find the OverAll sheet
       var overallSheet = null;
       for (var i = 0; i < workbook.SheetNames.length; i++) {
         var sn = workbook.SheetNames[i];
@@ -304,7 +364,10 @@
       if (!sheet) return;
 
       var rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-      renderAnalytical(rows, role);
+      _analState.rows = rows;
+      _analState.role = role;
+      _analState.location = session.location;
+      renderAnalytical();
     } catch (err) {
       console.error('Analytical load failed:', err);
     }
