@@ -9,7 +9,13 @@
       '.anal-container { padding: 12px 10px 80px; }',
       '.anal-page-title { font-size: 20px; font-weight: 700; color: #E8ECF4; margin-bottom: 4px; }',
       '.anal-page-subtitle { font-size: 12px; color: #6B7A99; margin-bottom: 20px; }',
-      '.anal-section { margin-bottom: 24px; }',
+      '.anal-group { margin-bottom: 28px; }',
+      '.anal-group-title {',
+      '  font-size: 16px; font-weight: 700; color: #E8ECF4;',
+      '  margin-bottom: 16px; padding: 0 2px;',
+      '  border-left: 3px solid #4F8CFF; padding-left: 10px;',
+      '}',
+      '.anal-section { margin-bottom: 20px; }',
       '.anal-section-header {',
       '  display: flex; align-items: center; gap: 10px;',
       '  margin-bottom: 14px; padding: 0 2px;',
@@ -74,13 +80,16 @@
       '  font-size: 13px; font-weight: 700; color: #E8ECF4;',
       '}',
       '.anal-divider {',
-      '  height: 1px; background: rgba(255,255,255,0.04); margin: 20px 0;',
+      '  height: 1px; background: rgba(255,255,255,0.04); margin: 16px 0;',
+      '}',
+      '.anal-group-divider {',
+      '  height: 2px; background: linear-gradient(90deg, rgba(79,140,255,0.2), rgba(79,140,255,0), rgba(79,140,255,0.2));',
+      '  margin: 28px 0;',
       '}'
     ].join('\n');
     document.head.appendChild(style);
   }
 
-  // Reuse same COL indices as collection.js
   var COL = {
     name: 1,
     regDemand: 2, regCollection: 3, regFtod: 4, regPct: 5,
@@ -95,8 +104,8 @@
   function fmtNum(n) { return n.toLocaleString('en-IN'); }
   function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
-  // Get all branch rows — mirrors collection.js getAllSectionRows logic exactly
-  function getAllBranchRows(rows) {
+  // Generic section row extractor — mirrors collection.js getAllSectionRows
+  function getAllSectionRows(rows, sectionType) {
     var results = [];
     var currentSection = null;
     var foundTarget = false;
@@ -108,22 +117,22 @@
       var hdr = c0 + ' ' + c1;
 
       if (hdr.includes('REGION') && (hdr.includes('WISE') || hdr.includes('NAME'))) {
-        if (currentSection === 'branch' && foundTarget) break;
+        if (currentSection === sectionType && foundTarget) break;
         currentSection = 'region'; continue;
       }
       if (hdr.includes('DISTRICT') && (hdr.includes('WISE') || hdr.includes('NAME'))) {
-        if (currentSection === 'branch' && foundTarget) break;
+        if (currentSection === sectionType && foundTarget) break;
         currentSection = 'district'; continue;
       }
       if (hdr.includes('BRANCH') && !hdr.includes('OFFICER') && (hdr.includes('WISE') || hdr.includes('NAME'))) {
-        if (currentSection === 'branch' && foundTarget) break;
+        if (currentSection === sectionType && foundTarget) break;
         currentSection = 'branch'; continue;
       }
       if (c0.includes('GRAND TOTAL') || c1.includes('GRAND TOTAL')) {
-        if (currentSection === 'branch' && foundTarget) break;
+        if (currentSection === sectionType && foundTarget) break;
         currentSection = null; continue;
       }
-      if (currentSection !== 'branch') continue;
+      if (currentSection !== sectionType) continue;
       if (c0 === 'SL' || c0 === 'SL.' || c1 === 'SL' || c1 === 'SL.') continue;
       if (/^TOTAL/i.test(c0)) continue;
 
@@ -136,6 +145,20 @@
       foundTarget = true;
     }
     return results;
+  }
+
+  function computeData(sectionRows) {
+    var data = [];
+    for (var i = 0; i < sectionRows.length; i++) {
+      var b = sectionRows[i];
+      var dem = numVal(b.row[COL.regDemand]);
+      var col = numVal(b.row[COL.regCollection]);
+      var bal = dem - col;
+      var pctRaw = dem > 0 ? (col / dem) * 100 : 0;
+      data.push({ name: b.name, demand: dem, collection: col, balance: bal, pct: pctRaw });
+    }
+    data.sort(function (a, b) { return a.pct - b.pct; });
+    return data;
   }
 
   function buildCardHtml(item, rankNum, type, delay) {
@@ -170,7 +193,7 @@
     html += '</div>';
 
     if (items.length === 0) {
-      html += '<div class="anal-empty">No branch data available</div>';
+      html += '<div class="anal-empty">No data available</div>';
     } else {
       html += '<div class="anal-list">';
       for (var j = 0; j < items.length; j++) {
@@ -182,54 +205,83 @@
     return html;
   }
 
-  function renderAnalytical(rows) {
+  function buildGroupHtml(label, data, upArrow, downArrow) {
+    var bottom10 = data.slice(0, 10);
+    var top10 = data.slice(-10).reverse();
+
+    var html = '<div class="anal-group">';
+    html += '<div class="anal-group-title">' + label + '</div>';
+    html += buildSectionHtml('Top 10 ' + label, upArrow, 'top', top10);
+    html += '<div class="anal-divider"></div>';
+    html += buildSectionHtml('Bottom 10 ' + label, downArrow, 'bottom', bottom10);
+    html += '</div>';
+    return html;
+  }
+
+  function renderAnalytical(rows, role) {
     var container = document.getElementById('analyticalContent');
     if (!container) return;
 
-    var branches = getAllBranchRows(rows);
-
-    // Calculate collection % for each branch
-    var branchData = [];
-    for (var i = 0; i < branches.length; i++) {
-      var b = branches[i];
-      var dem = numVal(b.row[COL.regDemand]);
-      var col = numVal(b.row[COL.regCollection]);
-      var bal = dem - col;
-      var pctRaw = dem > 0 ? (col / dem) * 100 : 0;
-      branchData.push({ name: b.name, demand: dem, collection: col, balance: bal, pct: pctRaw });
-    }
-
-    // Sort by percentage
-    branchData.sort(function (a, b) { return a.pct - b.pct; });
-
-    var bottom10 = branchData.slice(0, 10);
-    var top10 = branchData.slice(-10).reverse();
-
-    // SVG icons
     var upArrow = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>';
     var downArrow = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>';
 
-    // Build page
     var html = '<div class="anal-container">';
     html += '<div class="anal-page-title">Analytical Tool</div>';
-    html += '<div class="anal-page-subtitle">Branch performance analysis based on regular collection %</div>';
+    html += '<div class="anal-page-subtitle">Performance analysis based on regular collection %</div>';
 
-    // Top 10 section
-    html += buildSectionHtml('Top 10 Branches', upArrow, 'top', top10);
+    // CEO: Regions + Districts + Branches
+    if (role === 'CEO') {
+      var regionData = computeData(getAllSectionRows(rows, 'region'));
+      html += buildGroupHtml('Regions', regionData, upArrow, downArrow);
+      html += '<div class="anal-group-divider"></div>';
 
-    // Divider
-    html += '<div class="anal-divider"></div>';
+      var districtData = computeData(getAllSectionRows(rows, 'district'));
+      html += buildGroupHtml('Districts', districtData, upArrow, downArrow);
+      html += '<div class="anal-group-divider"></div>';
 
-    // Bottom 10 section
-    html += buildSectionHtml('Bottom 10 Branches', downArrow, 'bottom', bottom10);
+      var branchData = computeData(getAllSectionRows(rows, 'branch'));
+      html += buildGroupHtml('Branches', branchData, upArrow, downArrow);
+    }
+
+    // RM: Districts + Branches
+    if (role === 'RM') {
+      var districtData2 = computeData(getAllSectionRows(rows, 'district'));
+      html += buildGroupHtml('Districts', districtData2, upArrow, downArrow);
+      html += '<div class="anal-group-divider"></div>';
+
+      var branchData2 = computeData(getAllSectionRows(rows, 'branch'));
+      html += buildGroupHtml('Branches', branchData2, upArrow, downArrow);
+    }
+
+    // DM: Branches only
+    if (role === 'DM') {
+      var branchData3 = computeData(getAllSectionRows(rows, 'branch'));
+      html += buildGroupHtml('Branches', branchData3, upArrow, downArrow);
+    }
 
     html += '</div>';
     container.innerHTML = html;
   }
 
-  // Load function exposed globally — mirrors collection.js _loadCollectionTab pattern
+  // Load function exposed globally
   window._loadAnalyticalTab = async function () {
     try {
+      var session = typeof getEmployeeSession === 'function' ? getEmployeeSession() : null;
+      if (!session) return;
+
+      var role = session.role;
+
+      // Only show for CEO, RM, DM
+      if (role !== 'CEO' && role !== 'RM' && role !== 'DM') {
+        var navItem = document.getElementById('analyticalNavItem');
+        if (navItem) navItem.style.display = 'none';
+        return;
+      }
+
+      // Show sidebar nav item
+      var navItem2 = document.getElementById('analyticalNavItem');
+      if (navItem2) navItem2.style.display = '';
+
       if (typeof getWorkbookWithFallback !== 'function') return;
       var wb = await getWorkbookWithFallback();
       if (!wb || !wb.data) return;
@@ -237,7 +289,7 @@
       var workbook = XLSX.read(new Uint8Array(wb.data), { type: 'array', cellFormula: false, cellNF: true });
       if (!workbook || !workbook.SheetNames || !workbook.SheetNames.length) return;
 
-      // Find the OverAll sheet (not On-Date, not FY, not tom_)
+      // Find the OverAll sheet
       var overallSheet = null;
       for (var i = 0; i < workbook.SheetNames.length; i++) {
         var sn = workbook.SheetNames[i];
@@ -252,7 +304,7 @@
       if (!sheet) return;
 
       var rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-      renderAnalytical(rows);
+      renderAnalytical(rows, role);
     } catch (err) {
       console.error('Analytical load failed:', err);
     }
