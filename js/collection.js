@@ -830,8 +830,9 @@
       var ch = children[i];
       var dem = numVal(ch.row[COL.regDemand]);
       var col = numVal(ch.row[COL.regCollection]);
-      var pct = dem > 0 ? Math.round((col / dem) * 100) : 0;
-      var pctColor = pct >= 95 ? '#34D399' : pct >= 80 ? '#FBBF24' : '#F87171';
+      var pctRaw = dem > 0 ? (col / dem) * 100 : 0;
+      var pct = pctRaw.toFixed(2);
+      var pctColor = pctRaw >= 95 ? '#34D399' : pctRaw >= 80 ? '#FBBF24' : '#F87171';
       var rank = ch.row[COL.rank];
       var rankBadge = (rank != null && rank !== '-' && rank !== '') ? '<span class="pf-sub-rank">#' + esc(String(rank)) + '</span>' : '';
       var initial = ch.name.charAt(0).toUpperCase();
