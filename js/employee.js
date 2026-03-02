@@ -27,6 +27,27 @@
   // Logout button
   document.getElementById('logout-btn').onclick = logout;
 
+  // Fetch and show phone number for FO viewed from analytical
+  var SUPABASE_URL = 'https://zovnmmdfthpbubrorsgh.supabase.co';
+  var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpvdm5tbWRmdGhwYnVicm9yc2doIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE1NzE3ODgsImV4cCI6MjA3NzE0Nzc4OH0.92BH2sjUOgkw6iSRj1_4gt0p3eThg3QT4VK-Q4EdmBE';
+  async function _showFOPhone(empId) {
+    try {
+      var url = SUPABASE_URL + '/rest/v1/employees?select=emp_id,mobile&or=(emp_id.ilike.' + empId + ')';
+      var resp = await fetch(url, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY } });
+      var data = await resp.json();
+      if (Array.isArray(data) && data.length && data[0].mobile) {
+        var phone = data[0].mobile;
+        var phoneBar = document.createElement('div');
+        phoneBar.style.cssText = 'display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 20px;background:rgba(52,211,153,0.06);border-bottom:1px solid rgba(52,211,153,0.15);';
+        phoneBar.innerHTML = '<a href="tel:' + phone + '" style="display:flex;align-items:center;gap:8px;color:#34D399;font-size:14px;font-weight:600;text-decoration:none;">' +
+          '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>' +
+          'Call ' + phone + '</a>';
+        var header = document.querySelector('.emp-header');
+        if (header) header.after(phoneBar);
+      }
+    } catch (e) { console.error('Phone fetch failed:', e); }
+  }
+
   /* ---------- Formatters (for disbursement tab) ---------- */
   function fmtNum(v) {
     if (v == null || v === '') return '-';
@@ -172,6 +193,11 @@
       var item = ev.target.closest('.emp-bc-item[data-nav-index]');
       if (!item) return;
       var idx = parseInt(item.dataset.navIndex, 10);
+      // If navigating back from analytical drill-down, return to analytical tab
+      if (localStorage.getItem('returnToAnalytical')) {
+        localStorage.removeItem('returnToAnalytical');
+        localStorage.setItem('openAnalytical', 'true');
+      }
       restoreNavTo(idx);
       window.location.reload();
     };
@@ -199,24 +225,26 @@
 
       // Check if returning from analytical FO drill-down
       var returnFlag = localStorage.getItem('returnToAnalytical');
-      if (returnFlag && session.role === 'FO') {
-        // Show back button for FO viewed from analytical
+      if (returnFlag) {
+        // Show back button
         var headerLeft = document.querySelector('.emp-header-left');
         if (headerLeft) {
           var backBtn = document.createElement('button');
-          backBtn.className = 'emp-logout-btn';
-          backBtn.style.cssText = 'font-size:20px;line-height:1;margin-right:10px;padding:6px 10px;border-radius:10px;background:rgba(79,140,255,0.1);border:1px solid rgba(79,140,255,0.2);color:#4F8CFF;cursor:pointer;';
+          backBtn.style.cssText = 'font-size:20px;line-height:1;margin-right:10px;padding:8px 12px;border-radius:10px;background:rgba(79,140,255,0.1);border:1px solid rgba(79,140,255,0.2);color:#4F8CFF;cursor:pointer;flex-shrink:0;';
           backBtn.innerHTML = '&#8592;';
           backBtn.title = 'Back to Analytical';
           backBtn.onclick = function() {
             localStorage.removeItem('returnToAnalytical');
-            if (typeof popRoleNav === 'function') popRoleNav();
+            popRoleNav();
             localStorage.setItem('openAnalytical', 'true');
             window.location.reload();
           };
           headerLeft.insertBefore(backBtn, headerLeft.firstChild);
         }
-        localStorage.removeItem('returnToAnalytical');
+        // Show phone number for this FO
+        if (session.role === 'FO' && session.id) {
+          _showFOPhone(session.id);
+        }
       }
 
       // Check if should open analytical tab after back navigation
