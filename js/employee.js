@@ -194,6 +194,9 @@
       // Load disbursement tab
       loadTabData('disbursement', 'disbursementContent');
 
+      // Load analytical tab
+      if (typeof _loadAnalyticalTab === 'function') _loadAnalyticalTab();
+
       // Default to collection tab
       switchEmpTab('collection');
     } catch (err) {
@@ -207,7 +210,7 @@
   }
 
   // Tab switching (global for onclick)
-  var tabTitles = { portfolio: 'Portfolio', disbursement: 'Disbursement', collection: 'Collection' };
+  var tabTitles = { portfolio: 'Portfolio', disbursement: 'Disbursement', collection: 'Collection', analytical: 'Analytical Tool' };
   window.switchEmpTab = function (tab) {
     document.querySelectorAll('.emp-tab-item').forEach(function (t) {
       t.classList.toggle('active', t.dataset.tab === tab);
