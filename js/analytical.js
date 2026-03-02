@@ -168,13 +168,21 @@
     return data;
   }
 
-  function computeFOData(officers) {
+  function computeFOData(officers, bucket) {
     var data = [];
     for (var i = 0; i < officers.length; i++) {
-      var o = officers[i], dem = numVal(o.row[COL.regDemand]), col = numVal(o.row[COL.regCollection]);
+      var o = officers[i];
+      var dem, col, pct;
+      if (bucket === 'dpd1') { dem = numVal(o.row[COL.dpd1Demand]); col = numVal(o.row[COL.dpd1Collection]); }
+      else if (bucket === 'dpd2') { dem = numVal(o.row[COL.dpd2Demand]); col = numVal(o.row[COL.dpd2Collection]); }
+      else if (bucket === 'pnpa') { dem = numVal(o.row[COL.pnpaDemand]); col = numVal(o.row[COL.pnpaCollection]); }
+      else { dem = numVal(o.row[COL.regDemand]); col = numVal(o.row[COL.regCollection]); }
+      // Skip officers with 0 demand and 0 collection
+      if (dem === 0 && col === 0) continue;
+      pct = dem > 0 ? (col / dem) * 100 : 0;
       data.push({
         name: o.name, empId: o.empId, branch: o.branch,
-        demand: dem, collection: col, balance: dem - col, pct: dem > 0 ? (col / dem) * 100 : 0,
+        demand: dem, collection: col, balance: dem - col, pct: pct,
         dpd1Dem: numVal(o.row[COL.dpd1Demand]), dpd1Col: numVal(o.row[COL.dpd1Collection]), dpd1Pct: numVal(o.row[COL.dpd1Demand]) > 0 ? (numVal(o.row[COL.dpd1Collection]) / numVal(o.row[COL.dpd1Demand])) * 100 : 0,
         dpd2Dem: numVal(o.row[COL.dpd2Demand]), dpd2Col: numVal(o.row[COL.dpd2Collection]), dpd2Pct: numVal(o.row[COL.dpd2Demand]) > 0 ? (numVal(o.row[COL.dpd2Collection]) / numVal(o.row[COL.dpd2Demand])) * 100 : 0,
         pnpaDem: numVal(o.row[COL.pnpaDemand]), pnpaCol: numVal(o.row[COL.pnpaCollection]), pnpaPct: numVal(o.row[COL.pnpaDemand]) > 0 ? (numVal(o.row[COL.pnpaCollection]) / numVal(o.row[COL.pnpaDemand])) * 100 : 0,
@@ -191,15 +199,21 @@
     var toFetch = empIds.filter(function(id) { return !_phoneCache[id.toUpperCase()]; });
     if (!toFetch.length) return;
     try {
-      var url = SUPABASE_URL + '/rest/v1/employees?select=emp_id,mobile&emp_id=in.(' + toFetch.map(function(id) { return '"' + id + '"'; }).join(',') + ')';
-      var resp = await fetch(url, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY } });
-      var data = await resp.json();
-      if (Array.isArray(data)) { for (var i = 0; i < data.length; i++) { if (data[i].emp_id && data[i].mobile) _phoneCache[data[i].emp_id.toUpperCase()] = data[i].mobile; } }
+      // Fetch all employees and match locally for case-insensitive lookup
+      var batchSize = 50;
+      for (var b = 0; b < toFetch.length; b += batchSize) {
+        var batch = toFetch.slice(b, b + batchSize);
+        var orFilter = batch.map(function(id) { return 'emp_id.ilike.' + id; }).join(',');
+        var url = SUPABASE_URL + '/rest/v1/employees?select=emp_id,mobile&or=(' + orFilter + ')';
+        var resp = await fetch(url, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY } });
+        var data = await resp.json();
+        if (Array.isArray(data)) { for (var i = 0; i < data.length; i++) { if (data[i].emp_id && data[i].mobile) _phoneCache[data[i].emp_id.toUpperCase()] = data[i].mobile; } }
+      }
     } catch (e) { console.error('Phone fetch failed:', e); }
   }
 
   // State
-  var _analState = { rows: null, role: null, location: null, activeView: null, expandedFO: null };
+  var _analState = { rows: null, role: null, location: null, activeView: null, expandedFO: null, foBucket: 'regular' };
 
   function buildCardHtml(item, rankNum, type, delay) {
     var pctColor = item.pct >= 95 ? '#34D399' : item.pct >= 80 ? '#FBBF24' : '#F87171';
@@ -344,12 +358,23 @@
         });
       }
 
-      var foData = computeFOData(allOfficers);
+      var bk = _analState.foBucket;
+      var bucketKey = bk === 'dpd1' ? 'dpd1' : bk === 'dpd2' ? 'dpd2' : bk === 'pnpa' ? 'pnpa' : null;
+      var foData = computeFOData(allOfficers, bucketKey);
       var lowPerformers = foData.slice(0, 20);
+      var bucketLabel = bk === 'dpd1' ? 'Bucket 1' : bk === 'dpd2' ? 'Bucket 2' : bk === 'pnpa' ? 'PNPA' : 'Regular';
+
+      // Bucket filter pills
+      html += '<div class="anal-btn-row" style="margin-bottom:16px">';
+      html += '<button class="anal-btn' + (bk === 'regular' ? ' active' : '') + '" data-fo-bucket="regular" style="padding:8px 10px;font-size:12px">Regular</button>';
+      html += '<button class="anal-btn' + (bk === 'dpd1' ? ' active' : '') + '" data-fo-bucket="dpd1" style="padding:8px 10px;font-size:12px">Bucket 1</button>';
+      html += '<button class="anal-btn' + (bk === 'dpd2' ? ' active' : '') + '" data-fo-bucket="dpd2" style="padding:8px 10px;font-size:12px">Bucket 2</button>';
+      html += '<button class="anal-btn' + (bk === 'pnpa' ? ' active' : '') + '" data-fo-bucket="pnpa" style="padding:8px 10px;font-size:12px">PNPA</button>';
+      html += '</div>';
 
       html += '<div class="anal-section"><div class="anal-section-header">';
       html += '<div class="anal-section-icon bottom">' + downArrow + '</div>';
-      html += '<div class="anal-section-title">Low Performing Officers' + (role !== 'CEO' ? ' \u2014 ' + label : '') + '</div>';
+      html += '<div class="anal-section-title">Low Performing (' + bucketLabel + ')' + (role !== 'CEO' ? ' \u2014 ' + label : '') + '</div>';
       html += '<div class="anal-section-count">' + lowPerformers.length + '</div></div>';
 
       if (!lowPerformers.length) {
@@ -380,6 +405,7 @@
         var newView = btn.dataset.analView;
         _analState.activeView = newView;
         _analState.expandedFO = null;
+        _analState.foBucket = 'regular';
 
         // Pre-fetch phone numbers for FO view
         if (newView === 'fo' && _analState.rows) {
@@ -391,6 +417,15 @@
         } else {
           renderPage();
         }
+      };
+    });
+
+    // Bucket filter pills
+    container.querySelectorAll('[data-fo-bucket]').forEach(function(btn) {
+      btn.onclick = function() {
+        _analState.foBucket = btn.dataset.foBucket;
+        _analState.expandedFO = null;
+        renderPage();
       };
     });
 
