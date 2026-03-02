@@ -305,6 +305,59 @@ function getWorkbookByCategory(category) {
 }
 
 /**
+ * GitHub file paths for each category (mirrors admin.js).
+ */
+var _GH_CATEGORY_PATHS = {
+  portfolio: 'data/portfolio.xlsx',
+  disbursement: 'data/disbursement.xlsx'
+};
+
+var _categoryFetching = {};
+
+/**
+ * Fetches a category workbook from GitHub and saves it to IndexedDB.
+ */
+function _fetchRemoteCategory(category) {
+  if (_categoryFetching[category]) return _categoryFetching[category];
+
+  var filePath = _GH_CATEGORY_PATHS[category];
+  if (!filePath) return Promise.resolve(null);
+
+  var apiUrl = 'https://api.github.com/repos/Raghunandan1157/Coll_Db/contents/' + filePath + '?t=' + Date.now();
+
+  _categoryFetching[category] = fetch(apiUrl, {
+    headers: { 'Accept': 'application/vnd.github.v3.raw' },
+    cache: 'no-store'
+  })
+    .then(function (res) {
+      if (!res.ok) throw new Error('No remote ' + category + ' (' + res.status + ')');
+      return res.arrayBuffer();
+    })
+    .then(function (buf) {
+      return saveWorkbookByCategory(buf, category + '.xlsx', category).then(function () {
+        return { id: category, data: buf, fileName: category + '.xlsx', uploadedAt: new Date() };
+      });
+    })
+    .catch(function (err) {
+      console.error('Remote ' + category + ' fetch failed:', err);
+      _categoryFetching[category] = null;
+      return null;
+    });
+
+  return _categoryFetching[category];
+}
+
+/**
+ * Gets a category workbook with remote fallback (like getWorkbookWithFallback).
+ */
+function getWorkbookByCategoryWithFallback(category) {
+  return getWorkbookByCategory(category).then(function (wb) {
+    if (wb && wb.data) return wb;
+    return _fetchRemoteCategory(category);
+  });
+}
+
+/**
  * Deletes a single workbook by category.
  */
 function clearWorkbookByCategory(category) {

@@ -130,7 +130,7 @@
 
   async function loadTabData(category, containerId) {
     try {
-      var wb = await getWorkbookByCategory(category);
+      var wb = await getWorkbookByCategoryWithFallback(category);
       if (!wb || !wb.data) {
         document.getElementById(containerId).innerHTML = noDataHtml;
         return;

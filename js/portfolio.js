@@ -917,7 +917,7 @@
   window._loadPortfolioTab = async function () {
     try {
       await initDB();
-      var wb = await getWorkbookByCategory('portfolio');
+      var wb = await getWorkbookByCategoryWithFallback('portfolio');
       if (!wb || !wb.data) {
         document.getElementById('portfolioContent').innerHTML = noDataHtml();
         return;
