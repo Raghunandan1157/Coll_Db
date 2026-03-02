@@ -247,12 +247,14 @@
         }
       }
 
-      // Check if should open analytical tab after back navigation
+      // Restore active tab on reload
       if (localStorage.getItem('openAnalytical')) {
         localStorage.removeItem('openAnalytical');
         switchEmpTab('analytical');
       } else {
-        switchEmpTab('collection');
+        var savedTab = localStorage.getItem('activeTab');
+        var validTabs = ['portfolio', 'disbursement', 'collection', 'analytical'];
+        switchEmpTab(savedTab && validTabs.indexOf(savedTab) !== -1 ? savedTab : 'collection');
       }
     } catch (err) {
       console.error('Load failed:', err);
@@ -290,6 +292,9 @@
     // Header title
     var titleEl = document.getElementById('emp-header-title');
     if (titleEl) titleEl.textContent = tabTitles[tab] || tab;
+
+    // Persist active tab for reload
+    localStorage.setItem('activeTab', tab);
   };
 
   loadData();

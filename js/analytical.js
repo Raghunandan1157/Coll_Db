@@ -396,6 +396,8 @@
         _analState.activeView = newView;
         _analState.expandedFO = null;
         _analState.foBucket = 'regular';
+        localStorage.setItem('analView', newView);
+        localStorage.setItem('analBucket', 'regular');
 
         // Show FO content immediately, phones load async
         if (newView === 'fo' && _analState.rows) {
@@ -420,6 +422,7 @@
         _analState.foBucket = btn.dataset.foBucket;
         _analState.expandedFO = null;
         _analState.foLoading = false;
+        localStorage.setItem('analBucket', btn.dataset.foBucket);
         renderPage();
       };
     });
@@ -479,9 +482,28 @@
       _analState.rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
       _analState.role = role;
       _analState.location = session.location;
-      _analState.activeView = null;
+
+      // Restore saved analytical view state
+      var savedView = localStorage.getItem('analView');
+      var savedBucket = localStorage.getItem('analBucket');
+      _analState.activeView = (savedView === 'branches' || savedView === 'fo') ? savedView : null;
+      _analState.foBucket = savedBucket || 'regular';
       _analState.expandedFO = null;
+
       renderPage();
+
+      // If restoring FO view, fetch phones
+      if (_analState.activeView === 'fo' && _analState.rows) {
+        _analState.foLoading = true;
+        renderPage();
+        try {
+          var allOfficers = getAllOfficers(_analState.rows);
+          var empIds = allOfficers.map(function(o) { return o.empId; });
+          await fetchPhones(empIds);
+        } catch (e) { console.error('FO phone restore error:', e); }
+        _analState.foLoading = false;
+        renderPage();
+      }
     } catch (err) {
       console.error('Analytical load failed:', err);
     }

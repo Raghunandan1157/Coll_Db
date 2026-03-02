@@ -870,6 +870,7 @@
     container.querySelectorAll('[data-coll-view]').forEach(function (btn) {
       btn.onclick = function () {
         _collState.view = btn.dataset.collView;
+        localStorage.setItem('collView', btn.dataset.collView);
         renderCollection();
       };
     });
@@ -878,6 +879,7 @@
     container.querySelectorAll('[data-coll-product]').forEach(function (pill) {
       pill.onclick = function () {
         _collState.product = pill.dataset.collProduct;
+        localStorage.setItem('collProduct', pill.dataset.collProduct);
         renderCollection();
       };
     });
@@ -941,6 +943,16 @@
       // Detect product boundaries
       if (_collState.rows) _collState.bounds = detectProductBounds(_collState.rows);
       if (_collState.fyRows) _collState.fyBounds = detectProductBounds(_collState.fyRows);
+
+      // Restore saved collection state
+      var savedView = localStorage.getItem('collView');
+      if (savedView && (savedView === 'overall' || savedView === 'fy')) {
+        _collState.view = savedView;
+      }
+      var savedProduct = localStorage.getItem('collProduct');
+      if (savedProduct && ['all', 'igl', 'fig', 'il'].indexOf(savedProduct) !== -1) {
+        _collState.product = savedProduct;
+      }
 
       renderCollection();
 

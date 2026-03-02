@@ -139,5 +139,13 @@ function logout() {
   localStorage.removeItem('roleName');
   localStorage.removeItem('roleLocation');
   localStorage.removeItem('roleNavStack');
+  // Clear persisted UI state
+  localStorage.removeItem('activeTab');
+  localStorage.removeItem('analView');
+  localStorage.removeItem('analBucket');
+  localStorage.removeItem('collProduct');
+  localStorage.removeItem('collView');
+  localStorage.removeItem('openAnalytical');
+  localStorage.removeItem('returnToAnalytical');
   window.location.href = 'index.html';
 }
