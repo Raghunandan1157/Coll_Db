@@ -166,6 +166,7 @@
           var rows = XLSX.utils.sheet_to_json(targetSheet, { header: 1 });
           var regions = [], districts = [], branches = [];
           var currentSection = null;
+          var doneRegion = false, doneDistrict = false, doneBranch = false;
 
           for (var r = 0; r < rows.length; r++) {
             var row = rows[r];
@@ -176,20 +177,23 @@
             // Detect section headers (text may be in col 0 or col 1)
             var headerText = firstCell + ' ' + secondCell;
             if (headerText.includes('REGION') && (headerText.includes('WISE') || headerText.includes('NAME'))) {
-              currentSection = 'region'; continue;
+              currentSection = doneRegion ? null : 'region'; continue;
             }
             if (headerText.includes('DISTRICT') && (headerText.includes('WISE') || headerText.includes('NAME'))) {
-              currentSection = 'district'; continue;
+              currentSection = doneDistrict ? null : 'district'; continue;
             }
             if (headerText.includes('BRANCH') && !headerText.includes('OFFICER') && (headerText.includes('WISE') || headerText.includes('NAME'))) {
-              currentSection = 'branch'; continue;
+              currentSection = doneBranch ? null : 'branch'; continue;
             }
             // Header rows with SL/NAME/DEMAND — skip
             if (firstCell === 'SL' || firstCell === 'SL.' || firstCell === 'SL NO' || firstCell === 'S.NO' || firstCell === 'SR') continue;
             if (secondCell === 'SL' || secondCell === 'SL.' || secondCell === 'OFFICER NAME' || secondCell === 'NAME') continue;
 
-            // Grand Total ends a section
+            // Grand Total ends a section — mark it as done so product repeats are skipped
             if (firstCell.includes('GRAND TOTAL') || secondCell.includes('GRAND TOTAL') || firstCell === 'GRAND TOTAL' || secondCell === 'GRAND TOTAL') {
+              if (currentSection === 'region') doneRegion = true;
+              else if (currentSection === 'district') doneDistrict = true;
+              else if (currentSection === 'branch') doneBranch = true;
               currentSection = null; continue;
             }
             // "Total" rows — skip
