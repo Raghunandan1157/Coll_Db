@@ -196,13 +196,15 @@
     var toFetch = empIds.filter(function(id) { return !_phoneCache[id.toUpperCase()]; });
     if (!toFetch.length) return;
     try {
-      // Fetch all employees and match locally for case-insensitive lookup
       var batchSize = 50;
       for (var b = 0; b < toFetch.length; b += batchSize) {
         var batch = toFetch.slice(b, b + batchSize);
         var orFilter = batch.map(function(id) { return 'emp_id.ilike.' + id; }).join(',');
         var url = SUPABASE_URL + '/rest/v1/employees?select=emp_id,mobile&or=(' + orFilter + ')';
-        var resp = await fetch(url, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY } });
+        var controller = new AbortController();
+        var timer = setTimeout(function() { controller.abort(); }, 8000);
+        var resp = await fetch(url, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }, signal: controller.signal });
+        clearTimeout(timer);
         var data = await resp.json();
         if (Array.isArray(data)) { for (var i = 0; i < data.length; i++) { if (data[i].emp_id && data[i].mobile) _phoneCache[data[i].emp_id.toUpperCase()] = data[i].mobile; } }
       }
@@ -377,7 +379,6 @@
         html += '</div>';
       }
     }
-    }
 
     html += '</div>';
     container.innerHTML = html;
@@ -400,9 +401,11 @@
         if (newView === 'fo' && _analState.rows) {
           _analState.foLoading = true;
           renderPage(); // render with "Fetching..." placeholders
-          var allOfficers = getAllOfficers(_analState.rows);
-          var empIds = allOfficers.map(function(o) { return o.empId; });
-          await fetchPhones(empIds);
+          try {
+            var allOfficers = getAllOfficers(_analState.rows);
+            var empIds = allOfficers.map(function(o) { return o.empId; });
+            await fetchPhones(empIds);
+          } catch (e) { console.error('FO phone load error:', e); }
           _analState.foLoading = false;
           renderPage(); // re-render with actual phone numbers
         } else {
@@ -416,6 +419,7 @@
       btn.onclick = function() {
         _analState.foBucket = btn.dataset.foBucket;
         _analState.expandedFO = null;
+        _analState.foLoading = false;
         renderPage();
       };
     });
@@ -451,12 +455,7 @@
       if (!session) return;
       var role = session.role;
 
-      if (role !== 'CEO' && role !== 'RM' && role !== 'DM') {
-        var navItem = document.getElementById('analyticalNavItem');
-        if (navItem) navItem.style.display = 'none';
-        return;
-      }
-
+      // Always show analytical tool in sidebar for all roles
       var navItem2 = document.getElementById('analyticalNavItem');
       if (navItem2) navItem2.style.display = '';
 

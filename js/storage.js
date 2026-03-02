@@ -308,8 +308,7 @@ function getWorkbookByCategory(category) {
  * GitHub file paths for each category (mirrors admin.js).
  */
 var _GH_CATEGORY_PATHS = {
-  portfolio: 'data/portfolio.xlsx',
-  disbursement: 'data/disbursement.xlsx'
+  portfolio: 'data/portfolio.xlsx'
 };
 
 var _categoryFetching = {};
@@ -461,23 +460,28 @@ function _fetchRemoteReport() {
 }
 
 /**
- * Gets the workbook — always fetches latest from remote first,
- * falls back to IndexedDB if remote fails.
+ * Gets the workbook — tries IndexedDB first for instant load,
+ * then fetches latest from remote in background if cache expired.
+ * Only waits for remote if IndexedDB has no data.
  */
 function getWorkbookWithFallback() {
   var now = Date.now();
-  if (now - _lastFetchTime < FETCH_CACHE_MS) {
-    return getWorkbook().then(function (wb) {
-      if (wb) return wb;
-      _fetchingRemote = null;
-      return _fetchRemoteReport();
-    });
-  }
-  _fetchingRemote = null;
-  _lastFetchTime = now;
-  return _fetchRemoteReport().then(function (wb) {
-    if (wb) return wb;
-    return getWorkbook();
+  var cacheValid = (now - _lastFetchTime < FETCH_CACHE_MS);
+
+  return getWorkbook().then(function (wb) {
+    if (wb) {
+      // Have local data — return immediately; refresh in background if stale
+      if (!cacheValid) {
+        _fetchingRemote = null;
+        _lastFetchTime = now;
+        _fetchRemoteReport(); // fire-and-forget background refresh
+      }
+      return wb;
+    }
+    // No local data — must wait for remote
+    _fetchingRemote = null;
+    _lastFetchTime = now;
+    return _fetchRemoteReport();
   });
 }
 
@@ -487,20 +491,21 @@ function getWorkbookWithFallback() {
  */
 function getAllEmployeesWithFallback() {
   var now = Date.now();
-  if (now - _lastFetchTime < FETCH_CACHE_MS) {
-    return getAllEmployees().then(function (emps) {
-      if (emps && emps.length) return emps;
-      _fetchingRemote = null;
-      _lastFetchTime = now;
-      return _fetchRemoteReport().then(function () { return getAllEmployees(); });
-    });
-  }
-  _fetchingRemote = null;
-  _lastFetchTime = now;
-  return _fetchRemoteReport().then(function () {
-    return getAllEmployees();
-  }).then(function (emps) {
-    if (emps && emps.length) return emps;
-    return getAllEmployees();
+  var cacheValid = (now - _lastFetchTime < FETCH_CACHE_MS);
+
+  return getAllEmployees().then(function (emps) {
+    if (emps && emps.length) {
+      // Have local data — return immediately; refresh in background if stale
+      if (!cacheValid) {
+        _fetchingRemote = null;
+        _lastFetchTime = now;
+        _fetchRemoteReport(); // fire-and-forget background refresh
+      }
+      return emps;
+    }
+    // No local data — must wait for remote
+    _fetchingRemote = null;
+    _lastFetchTime = now;
+    return _fetchRemoteReport().then(function () { return getAllEmployees(); });
   });
 }
