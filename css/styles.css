@@ -824,6 +824,254 @@ body.emp-dark::before {
 }
 
 /* ============================================================
+   D2. PORTFOLIO TAB
+   ============================================================ */
+
+/* View toggle (OverAll / FY) */
+.pf-view-toggle {
+  display: flex;
+  gap: 4px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 12px;
+  padding: 4px;
+  margin-bottom: 16px;
+}
+.pf-view-btn {
+  flex: 1;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: #6B7A99;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.pf-view-btn:hover {
+  color: #A0B4D0;
+}
+.pf-view-btn.active {
+  background: rgba(79,140,255,0.15);
+  color: #4F8CFF;
+  box-shadow: 0 2px 8px rgba(79,140,255,0.1);
+}
+
+/* Header card with date + rank/perf */
+.pf-header-card {
+  margin-bottom: 16px;
+}
+.pf-header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.pf-report-date {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #6B7A99;
+}
+.pf-report-date svg {
+  flex-shrink: 0;
+  color: #4F8CFF;
+}
+.pf-badges {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.pf-rank-badge {
+  background: linear-gradient(135deg, rgba(251,191,36,0.15), rgba(251,191,36,0.05));
+  border: 1px solid rgba(251,191,36,0.3);
+  color: #FBBF24;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 8px;
+  font-family: 'Playfair Display', serif;
+}
+.pf-perf-badge {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 8px;
+  border: 1px solid;
+  background: rgba(255,255,255,0.02);
+}
+
+/* Regular demand card */
+.pf-reg-card {
+  background: #131825;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 12px;
+  position: relative;
+  overflow: hidden;
+}
+.pf-reg-main {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+.pf-reg-stat {
+  text-align: center;
+}
+.pf-reg-val {
+  font-family: 'Playfair Display', serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: #E8ECF4;
+  line-height: 1.2;
+}
+.pf-reg-lbl {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #6B7A99;
+  margin-top: 4px;
+}
+.pf-progress-track {
+  height: 4px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 4px;
+  margin-top: 16px;
+  overflow: hidden;
+}
+.pf-progress-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* NPA card */
+.pf-npa-card {
+  background: #131825;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 14px;
+  padding: 18px 20px;
+  margin-bottom: 12px;
+  position: relative;
+  overflow: hidden;
+}
+.pf-npa-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.pf-npa-demand {
+  margin-left: auto;
+  text-align: right;
+}
+.pf-npa-grid {
+  display: flex;
+  gap: 0;
+}
+.pf-npa-section {
+  flex: 1;
+  text-align: center;
+}
+.pf-npa-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+}
+.pf-npa-row {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+.pf-npa-item {
+  text-align: center;
+}
+.pf-npa-val {
+  font-family: 'Playfair Display', serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: #E8ECF4;
+  line-height: 1.2;
+}
+.pf-npa-lbl {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #6B7A99;
+  margin-top: 2px;
+}
+.pf-npa-divider {
+  width: 1px;
+  background: rgba(255,255,255,0.08);
+  margin: 0 4px;
+  align-self: stretch;
+}
+
+/* On-Date section */
+.pf-ondate-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.pf-ondate-card {
+  background: #131825;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 14px;
+  padding: 16px;
+}
+.pf-ondate-tomorrow {
+  border-color: rgba(79,140,255,0.12);
+  background: linear-gradient(135deg, #131825 0%, #151d30 100%);
+}
+.pf-ondate-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: #6B7A99;
+  font-weight: 500;
+  margin-bottom: 12px;
+}
+.pf-ondate-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pf-ondate-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.pf-ondate-val {
+  font-size: 16px;
+  font-weight: 700;
+  color: #E8ECF4;
+}
+.pf-ondate-lbl {
+  font-size: 10px;
+  color: #6B7A99;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Sub-unit rank badge */
+.pf-sub-rank {
+  font-size: 10px;
+  font-weight: 700;
+  color: #FBBF24;
+  background: rgba(251,191,36,0.1);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+/* ============================================================
    E. UTILITIES
    ============================================================ */
 
