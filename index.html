@@ -3,38 +3,39 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#0B0F1A">
+  <meta name="theme-color" content="#F8FAFC">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
   <title>Daily Collection Report</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg:#0B0F1A; --surface:#131825; --border:rgba(255,255,255,0.06);
-      --text:#E8ECF4; --muted:#6B7A99; --accent:#4F8CFF;
+      --bg:#F8FAFC; --surface:#FFFFFF; --border:#E2E8F0;
+      --text:#1E293B; --muted:#64748B; --accent:#059669;
     }
     *{margin:0;padding:0;box-sizing:border-box;}
-    body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
-    body::before{content:'';position:fixed;top:-200px;left:50%;transform:translateX(-50%);width:800px;height:600px;background:radial-gradient(ellipse,rgba(79,140,255,0.08) 0%,transparent 70%);pointer-events:none;}
+    body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
 
     .login-wrap{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;}
     .login-box{width:100%;max-width:420px;position:relative;z-index:1;}
 
     .brand{text-align:center;margin-bottom:36px;}
-    .brand h1{font-family:'Playfair Display',serif;font-size:28px;letter-spacing:-0.5px;}
-    .brand p{font-size:13px;color:var(--muted);margin-top:4px;}
+    .brand h1{font-family:'Playfair Display',serif;font-size:32px;letter-spacing:-0.5px;color:var(--text);}
+    .brand p{font-size:14px;color:var(--muted);margin-top:6px;font-weight:500;}
 
     /* Search */
+    .search-card{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:32px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.05),0 2px 4px -1px rgba(0,0,0,0.03);}
     .search-box{position:relative;margin-bottom:8px;}
-    .search-box svg{position:absolute;left:16px;top:50%;transform:translateY(-50%);width:18px;height:18px;color:var(--muted);pointer-events:none;}
+    .search-box svg{position:absolute;left:16px;top:50%;transform:translateY(-50%);width:18px;height:18px;color:var(--muted);pointer-events:none;transition:color 0.2s;}
     .search-input{
       width:100%;padding:16px 16px 16px 46px;border:1px solid var(--border);
-      border-radius:14px;background:var(--surface);color:var(--text);font-size:16px;
+      border-radius:14px;background:#F1F5F9;color:var(--text);font-size:16px;
       font-family:inherit;outline:none;transition:all 0.2s;
     }
-    .search-input::placeholder{color:#3d4a63;}
-    .search-input:focus{border-color:rgba(79,140,255,0.4);box-shadow:0 0 0 4px rgba(79,140,255,0.08);}
+    .search-input::placeholder{color:#94A3B8;}
+    .search-input:focus{border-color:rgba(5,150,105,0.4);box-shadow:0 0 0 4px rgba(5,150,105,0.1);background:#fff;}
+    .search-box:focus-within svg{color:var(--accent);}
 
     /* Results */
     .results{
@@ -45,34 +46,34 @@
     }
     .results:empty{border:none;}
     .results::-webkit-scrollbar{width:3px;}
-    .results::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:3px;}
+    .results::-webkit-scrollbar-thumb{background:rgba(0,0,0,0.12);border-radius:3px;}
 
     .emp-row{
       display:flex;align-items:center;gap:14px;padding:14px 18px;
       cursor:pointer;transition:background 0.15s;
-      border-bottom:1px solid rgba(255,255,255,0.03);
+      border-bottom:1px solid #F1F5F9;
     }
     .emp-row:last-child{border-bottom:none;}
-    .emp-row:hover,.emp-row:focus{background:rgba(79,140,255,0.08);outline:none;}
-    .emp-row:active{background:rgba(79,140,255,0.14);}
+    .emp-row:hover,.emp-row:focus{background:#F0FDF4;outline:none;}
+    .emp-row:active{background:#DCFCE7;}
 
     .avatar{
       width:40px;height:40px;border-radius:12px;
       display:flex;align-items:center;justify-content:center;
       font-weight:700;font-size:15px;flex-shrink:0;
     }
-    .avatar-emp{background:rgba(52,211,153,0.12);color:#34D399;}
-    .avatar-admin{background:rgba(251,191,36,0.12);color:#FBBF24;}
-    .avatar-ceo{background:rgba(251,191,36,0.12);color:#FBBF24;}
-    .avatar-rm{background:rgba(139,92,246,0.12);color:#A78BFA;}
-    .avatar-dm{background:rgba(59,130,246,0.12);color:#60A5FA;}
-    .avatar-bm{background:rgba(16,185,129,0.12);color:#34D399;}
+    .avatar-emp{background:#ECFDF5;color:#059669;}
+    .avatar-admin{background:#FEF3C7;color:#D97706;}
+    .avatar-ceo{background:#FEF3C7;color:#D97706;}
+    .avatar-rm{background:#F3E8FF;color:#7C3AED;}
+    .avatar-dm{background:#DBEAFE;color:#2563EB;}
+    .avatar-bm{background:#ECFDF5;color:#059669;}
 
     .emp-detail{flex:1;min-width:0;}
-    .emp-name{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .emp-name{font-size:14px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     .emp-id{font-size:11px;color:var(--muted);margin-top:1px;}
 
-    .row-arrow{color:#3d4a63;font-size:20px;flex-shrink:0;transition:transform 0.2s;}
+    .row-arrow{color:#CBD5E1;font-size:20px;flex-shrink:0;transition:transform 0.2s;}
     .emp-row:hover .row-arrow{transform:translateX(2px);color:var(--accent);}
 
     /* Highlight matched text */
@@ -82,11 +83,23 @@
     .status{text-align:center;padding:24px 16px;color:var(--muted);font-size:13px;}
     .status-icon{font-size:32px;margin-bottom:8px;display:block;}
 
+    /* Badge */
+    .emp-badge{display:inline-flex;align-items:center;padding:6px 16px;border-radius:100px;background:#ECFDF5;border:1px solid #A7F3D0;}
+    .emp-badge .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);margin-right:8px;}
+    .emp-badge span{color:var(--accent);font-weight:600;font-size:13px;}
+
     /* Hint */
-    .hint{text-align:center;color:#3d4a63;font-size:11px;margin-top:12px;letter-spacing:0.3px;}
+    .hint{text-align:center;color:#94A3B8;font-size:12px;margin-top:16px;font-style:italic;font-weight:500;}
+
+    /* Footer */
+    .login-footer{padding-top:24px;}
+    .login-footer nav{display:flex;justify-content:center;gap:24px;font-size:13px;font-weight:600;color:#94A3B8;}
+    .login-footer a{color:#94A3B8;text-decoration:none;transition:color 0.2s;}
+    .login-footer a:hover{color:var(--accent);}
+    .login-footer .sep{color:#E2E8F0;}
 
     /* Spinner */
-    .spinner{width:28px;height:28px;border:3px solid rgba(79,140,255,0.15);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px;}
+    .spinner{width:28px;height:28px;border:3px solid #E2E8F0;border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px;}
     @keyframes spin{to{transform:rotate(360deg);}}
   </style>
 </head>
@@ -98,14 +111,26 @@
         <p>Empowering Employees</p>
       </div>
 
-      <div class="search-box">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input class="search-input" id="search" type="text" placeholder="Type your name or ID..." autocomplete="off" autofocus>
+      <div class="search-card">
+        <div class="search-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input class="search-input" id="search" type="text" placeholder="Type your name or ID..." autocomplete="off" autofocus>
+        </div>
+
+        <div class="results" id="results"></div>
+        <div class="status" id="status"><div class="spinner"></div>Loading employees...</div>
+        <div class="hint" id="hint"></div>
       </div>
 
-      <div class="results" id="results"></div>
-      <div class="status" id="status"><div class="spinner"></div>Loading employees...</div>
-      <div class="hint" id="hint"></div>
+      <div class="login-footer">
+        <nav>
+          <a href="#">Support</a>
+          <span class="sep">|</span>
+          <a href="#">Internal Portal</a>
+          <span class="sep">|</span>
+          <a href="#">Privacy Policy</a>
+        </nav>
+      </div>
     </div>
   </div>
 
@@ -174,7 +199,6 @@
             var firstCell = String(row[0] || '').trim().toUpperCase();
             var secondCell = String(row[1] || '').trim().toUpperCase();
 
-            // Detect section headers (text may be in col 0 or col 1)
             var headerText = firstCell + ' ' + secondCell;
             if (headerText.includes('REGION') && (headerText.includes('WISE') || headerText.includes('NAME'))) {
               currentSection = doneRegion ? null : 'region'; continue;
@@ -185,27 +209,22 @@
             if (headerText.includes('BRANCH') && !headerText.includes('OFFICER') && (headerText.includes('WISE') || headerText.includes('NAME'))) {
               currentSection = doneBranch ? null : 'branch'; continue;
             }
-            // Header rows with SL/NAME/DEMAND — skip
             if (firstCell === 'SL' || firstCell === 'SL.' || firstCell === 'SL NO' || firstCell === 'S.NO' || firstCell === 'SR') continue;
             if (secondCell === 'SL' || secondCell === 'SL.' || secondCell === 'OFFICER NAME' || secondCell === 'NAME') continue;
 
-            // Grand Total ends a section — mark it as done so product repeats are skipped
             if (firstCell.includes('GRAND TOTAL') || secondCell.includes('GRAND TOTAL') || firstCell === 'GRAND TOTAL' || secondCell === 'GRAND TOTAL') {
               if (currentSection === 'region') doneRegion = true;
               else if (currentSection === 'district') doneDistrict = true;
               else if (currentSection === 'branch') doneBranch = true;
               currentSection = null; continue;
             }
-            // "Total" rows — skip
             if (/^TOTAL/i.test(firstCell)) continue;
 
-            // Collect names from column 1 (name column)
             var name = String(row[1] || '').trim();
             if (!name || /^\d+$/.test(name)) {
               name = String(row[0] || '').trim();
             }
             if (!name || /^\d+$/.test(name)) continue;
-            // Skip if it looks like a header keyword
             if (/^(SL|NAME|OFFICER|DEMAND|COLLECTION|REG|DISTRICT|BRANCH)/i.test(name)) continue;
 
             if (currentSection === 'region') regions.push(name);
@@ -233,13 +252,13 @@
       }
       emps.sort(function (a, b) { return a.name.localeCompare(b.name); });
       allEmployees = emps;
-      status.textContent = emps.length + ' employees loaded';
+      status.innerHTML = '<div class="emp-badge"><span class="dot"></span><span>' + emps.length + ' employees loaded</span></div>';
       hint.textContent = 'Start typing to find yourself';
       search.focus();
     })
     .catch(function (err) {
       console.error('Employee load error:', err);
-      status.innerHTML = '<span class="status-icon">&#9888;</span>Failed to load employees.<br><small style="color:#4a5568">Pull to refresh or check connection.</small>';
+      status.innerHTML = '<span class="status-icon">&#9888;</span>Failed to load employees.<br><small style="color:#94A3B8">Pull to refresh or check connection.</small>';
     });
 
     function esc(s) { return s.replace(/[&<>"']/g, function (c) { return '&#' + c.charCodeAt(0) + ';'; }); }
@@ -408,7 +427,7 @@
 
       // Role-based login (CEO/RM/DM/BM)
       if (row.dataset.role) {
-        row.style.background = 'rgba(79,140,255,0.14)';
+        row.style.background = '#DCFCE7';
         row.style.pointerEvents = 'none';
         clearRoleNavStack();
         setRoleSession(row.dataset.role, row.dataset.location);
@@ -417,7 +436,7 @@
       }
 
       // Employee
-      row.style.background = 'rgba(79,140,255,0.14)';
+      row.style.background = '#DCFCE7';
       row.style.pointerEvents = 'none';
       clearRoleNavStack();
       authenticateEmployee(row.dataset.id).then(function (ok) {

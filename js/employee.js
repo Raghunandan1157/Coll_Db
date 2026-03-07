@@ -146,8 +146,8 @@
   }
 
   var noDataHtml = '<div style="text-align:center;padding:80px 20px;">' +
-    '<p style="color:#6B7A99;font-size:32px;margin-bottom:8px;">&#128202;</p>' +
-    '<p style="color:#6B7A99;font-size:14px;">No data uploaded yet.</p></div>';
+    '<p style="color:#64748B;font-size:32px;margin-bottom:8px;">&#128202;</p>' +
+    '<p style="color:#64748B;font-size:14px;">No data uploaded yet.</p></div>';
 
   async function loadTabData(category, containerId) {
     try {
@@ -230,7 +230,7 @@
         var headerLeft = document.querySelector('.emp-header-left');
         if (headerLeft) {
           var backBtn = document.createElement('button');
-          backBtn.style.cssText = 'font-size:20px;line-height:1;margin-right:10px;padding:8px 12px;border-radius:10px;background:rgba(79,140,255,0.1);border:1px solid rgba(79,140,255,0.2);color:#4F8CFF;cursor:pointer;flex-shrink:0;';
+          backBtn.style.cssText = 'font-size:20px;line-height:1;margin-right:10px;padding:8px 12px;border-radius:10px;background:#F0FDF4;border:1px solid #A7F3D0;color:#059669;cursor:pointer;flex-shrink:0;';
           backBtn.innerHTML = '&#8592;';
           backBtn.title = 'Back to Analytical';
           backBtn.onclick = function() {

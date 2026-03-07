@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#0B0F1A">
+  <meta name="theme-color" content="#F8FAFC">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
   <title>Employee Dashboard</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
@@ -38,8 +38,8 @@
     <div class="emp-tab-content active" id="portfolioTab">
       <div id="portfolioContent">
         <div style="text-align:center;padding:60px 20px;">
-          <div style="width:28px;height:28px;border:3px solid rgba(79,140,255,0.15);border-top-color:#4F8CFF;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px;"></div>
-          <p style="color:#6B7A99;font-size:13px;">Loading portfolio data...</p>
+          <div style="width:28px;height:28px;border:3px solid #E2E8F0;border-top-color:#059669;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px;"></div>
+          <p style="color:#64748B;font-size:13px;">Loading portfolio data...</p>
         </div>
       </div>
     </div>
@@ -47,8 +47,8 @@
     <div class="emp-tab-content" id="disbursementTab">
       <div id="disbursementContent">
         <div style="text-align:center;padding:60px 20px;">
-          <div style="width:28px;height:28px;border:3px solid rgba(79,140,255,0.15);border-top-color:#4F8CFF;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px;"></div>
-          <p style="color:#6B7A99;font-size:13px;">Loading disbursement data...</p>
+          <div style="width:28px;height:28px;border:3px solid #E2E8F0;border-top-color:#059669;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px;"></div>
+          <p style="color:#64748B;font-size:13px;">Loading disbursement data...</p>
         </div>
       </div>
     </div>
@@ -56,8 +56,8 @@
     <div class="emp-tab-content" id="collectionTab">
       <div id="collectionContent">
         <div style="text-align:center;padding:60px 20px;">
-          <div style="width:28px;height:28px;border:3px solid rgba(79,140,255,0.15);border-top-color:#4F8CFF;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px;"></div>
-          <p style="color:#6B7A99;font-size:13px;">Loading collection data...</p>
+          <div style="width:28px;height:28px;border:3px solid #E2E8F0;border-top-color:#059669;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px;"></div>
+          <p style="color:#64748B;font-size:13px;">Loading collection data...</p>
         </div>
       </div>
     </div>
@@ -67,7 +67,7 @@
     </div>
 
     <div id="no-data" class="hidden" style="text-align:center;padding:80px 20px;">
-      <p style="color:#6B7A99;font-size:14px;">No report data available.<br>Contact your administrator.</p>
+      <p style="color:#64748B;font-size:14px;">No report data available.<br>Contact your administrator.</p>
     </div>
   </div>
 
@@ -129,9 +129,9 @@
     .emp-product-pill {
       padding: 6px 18px;
       border-radius: 20px;
-      border: 1px solid rgba(255,255,255,0.08);
-      background: rgba(255,255,255,0.04);
-      color: #6B7A99;
+      border: 1px solid #E2E8F0;
+      background: #F8FAFC;
+      color: #64748B;
       font-size: 13px;
       font-weight: 600;
       font-family: inherit;
@@ -140,14 +140,14 @@
       white-space: nowrap;
     }
     .emp-product-pill:hover {
-      background: rgba(79,140,255,0.08);
-      border-color: rgba(79,140,255,0.2);
-      color: #A0B4D0;
+      background: #F0FDF4;
+      border-color: #A7F3D0;
+      color: #475569;
     }
     .emp-product-pill.active {
-      background: rgba(79,140,255,0.15);
-      border-color: #4F8CFF;
-      color: #4F8CFF;
+      background: #ECFDF5;
+      border-color: #059669;
+      color: #059669;
     }
 
     /* Breadcrumbs */
@@ -157,7 +157,7 @@
       gap: 6px;
       padding: 10px 20px;
       font-size: 12px;
-      color: #6B7A99;
+      color: #64748B;
       overflow-x: auto;
       white-space: nowrap;
       -webkit-overflow-scrolling: touch;
@@ -165,24 +165,24 @@
     .emp-breadcrumb-bar::-webkit-scrollbar { display: none; }
     .emp-bc-item {
       cursor: pointer;
-      color: #4F8CFF;
+      color: #059669;
       font-weight: 500;
       transition: opacity 0.15s;
     }
     .emp-bc-item:hover { opacity: 0.8; }
     .emp-bc-item.current {
-      color: #E8ECF4;
+      color: #1E293B;
       cursor: default;
       font-weight: 600;
     }
-    .emp-bc-sep { color: #3d4a63; margin: 0 2px; }
+    .emp-bc-sep { color: #CBD5E1; margin: 0 2px; }
 
     /* Sub-unit cards */
     .emp-team-section { margin-top: 18px; }
     .emp-team-title {
       font-size: 14px;
       font-weight: 600;
-      color: #E8ECF4;
+      color: #1E293B;
       margin-bottom: 10px;
       padding: 0 4px;
       display: flex;
@@ -192,8 +192,8 @@
     .emp-team-count {
       font-size: 11px;
       font-weight: 500;
-      color: #6B7A99;
-      background: rgba(107,122,153,0.12);
+      color: #64748B;
+      background: #F1F5F9;
       padding: 2px 8px;
       border-radius: 10px;
     }
@@ -202,19 +202,20 @@
       align-items: center;
       gap: 12px;
       padding: 14px 16px;
-      background: #131825;
-      border: 1px solid rgba(255,255,255,0.06);
+      background: #FFFFFF;
+      border: 1px solid #E2E8F0;
       border-radius: 14px;
       margin-bottom: 8px;
       cursor: pointer;
       transition: all 0.15s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
     }
     .emp-sub-card:hover {
-      background: rgba(79,140,255,0.06);
-      border-color: rgba(79,140,255,0.2);
+      background: #F0FDF4;
+      border-color: #A7F3D0;
     }
     .emp-sub-card:active {
-      background: rgba(79,140,255,0.12);
+      background: #ECFDF5;
       transform: scale(0.99);
     }
     .emp-sub-avatar {
@@ -228,22 +229,22 @@
       font-size: 14px;
       flex-shrink: 0;
     }
-    .emp-sub-avatar.region { background: rgba(139,92,246,0.12); color: #A78BFA; }
-    .emp-sub-avatar.district { background: rgba(59,130,246,0.12); color: #60A5FA; }
-    .emp-sub-avatar.branch { background: rgba(16,185,129,0.12); color: #34D399; }
-    .emp-sub-avatar.officer { background: rgba(251,191,36,0.12); color: #FBBF24; }
+    .emp-sub-avatar.region { background: #F3E8FF; color: #7C3AED; }
+    .emp-sub-avatar.district { background: #DBEAFE; color: #2563EB; }
+    .emp-sub-avatar.branch { background: #ECFDF5; color: #059669; }
+    .emp-sub-avatar.officer { background: #FEF3C7; color: #D97706; }
     .emp-sub-info { flex: 1; min-width: 0; }
     .emp-sub-name {
       font-size: 14px;
       font-weight: 600;
-      color: #E8ECF4;
+      color: #1E293B;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
     .emp-sub-meta {
       font-size: 11px;
-      color: #6B7A99;
+      color: #64748B;
       margin-top: 2px;
       display: flex;
       gap: 12px;
@@ -256,20 +257,20 @@
       text-align: right;
     }
     .emp-sub-arrow {
-      color: #3d4a63;
+      color: #CBD5E1;
       font-size: 18px;
       flex-shrink: 0;
       transition: transform 0.15s;
     }
     .emp-sub-card:hover .emp-sub-arrow {
       transform: translateX(2px);
-      color: #4F8CFF;
+      color: #059669;
     }
 
     .sidebar-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.5);
+      background: rgba(0,0,0,0.3);
       z-index: 9998;
       opacity: 0;
       visibility: hidden;
@@ -286,14 +287,15 @@
       bottom: 0;
       width: 280px;
       max-width: 85vw;
-      background: #131825;
-      border-left: 1px solid rgba(255,255,255,0.06);
+      background: #FFFFFF;
+      border-left: 1px solid #E2E8F0;
       z-index: 9999;
       transform: translateX(100%);
       transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
       display: flex;
       flex-direction: column;
       font-family: inherit;
+      box-shadow: -4px 0 24px rgba(0,0,0,0.08);
     }
     .sidebar-panel.active {
       transform: translateX(0);
@@ -303,17 +305,17 @@
       align-items: center;
       justify-content: space-between;
       padding: 18px 20px 14px;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
+      border-bottom: 1px solid #E2E8F0;
     }
     .sidebar-title {
-      color: #E8ECF4;
+      color: #1E293B;
       font-size: 16px;
       font-weight: 600;
     }
     .sidebar-close-btn {
       background: none;
       border: none;
-      color: #6B7A99;
+      color: #94A3B8;
       font-size: 24px;
       cursor: pointer;
       padding: 0 4px;
@@ -321,7 +323,7 @@
       transition: color 0.2s ease;
     }
     .sidebar-close-btn:hover {
-      color: #E8ECF4;
+      color: #1E293B;
     }
     .sidebar-nav {
       padding: 12px 0;
@@ -332,7 +334,7 @@
       align-items: center;
       gap: 14px;
       padding: 14px 20px;
-      color: #E8ECF4;
+      color: #1E293B;
       text-decoration: none;
       font-size: 15px;
       font-weight: 500;
@@ -340,16 +342,16 @@
       transition: background 0.2s ease;
     }
     .sidebar-nav-item:hover {
-      background: rgba(79,140,255,0.08);
+      background: #F0FDF4;
     }
     .sidebar-nav-item.active {
-      background: rgba(79,140,255,0.12);
-      color: #4F8CFF;
-      border-left: 3px solid #4F8CFF;
+      background: #ECFDF5;
+      color: #059669;
+      border-left: 3px solid #059669;
       padding-left: 17px;
     }
     .sidebar-nav-item.active .sidebar-nav-icon svg {
-      stroke: #4F8CFF;
+      stroke: #059669;
     }
     .sidebar-nav-icon {
       font-size: 20px;
@@ -364,7 +366,7 @@
     }
     .sidebar-footer {
       padding: 16px 20px;
-      border-top: 1px solid rgba(255,255,255,0.06);
+      border-top: 1px solid #E2E8F0;
       margin-top: auto;
     }
     .sidebar-logout-btn {
@@ -373,8 +375,8 @@
       gap: 12px;
       width: 100%;
       padding: 14px 16px;
-      background: rgba(239,68,68,0.1);
-      border: 1px solid rgba(239,68,68,0.25);
+      background: #FEF2F2;
+      border: 1px solid #FECACA;
       border-radius: 12px;
       color: #EF4444;
       font-size: 15px;
@@ -384,8 +386,8 @@
       transition: all 0.2s ease;
     }
     .sidebar-logout-btn:hover {
-      background: rgba(239,68,68,0.2);
-      border-color: rgba(239,68,68,0.4);
+      background: #FEE2E2;
+      border-color: #FCA5A5;
     }
   </style>
 

@@ -1,5 +1,5 @@
 /* ============================================================
-   STYLES.CSS — Employee Performance Dashboard
+   STYLES.CSS — Employee Performance Dashboard (Light Mode)
    A. Excel Report Styles (preserved)
    B. Login Page
    C. Admin Panel
@@ -383,9 +383,11 @@ td.col-rank {
   justify-content: space-between;
   align-items: center;
   padding: 12px 24px;
-  background: #2c3e50;
-  color: #fff;
+  background: #FFFFFF;
+  color: #1E293B;
   margin-bottom: 24px;
+  border-bottom: 1px solid #E2E8F0;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
 .admin-navbar h2 {
   font-size: 14pt;
@@ -394,8 +396,8 @@ td.col-rank {
 
 .btn-logout {
   background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  color: #fff;
+  border: 1px solid #E2E8F0;
+  color: #1E293B;
   padding: 6px 16px;
   border-radius: 6px;
   font-size: 9pt;
@@ -404,7 +406,7 @@ td.col-rank {
   transition: background 0.2s;
 }
 .btn-logout:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: #F1F5F9;
 }
 
 .admin-section {
@@ -459,13 +461,13 @@ td.col-rank {
 }
 
 /* ============================================================
-   D. EMPLOYEE PAGE (Dark Theme — Portfolio Style)
+   D. EMPLOYEE PAGE (Light Theme)
    ============================================================ */
 
 body.emp-dark {
   font-family: 'DM Sans', sans-serif;
-  background: #0B0F1A;
-  color: #E8ECF4;
+  background: #F8FAFC;
+  color: #1E293B;
   padding: 0;
   margin: 0;
   min-height: 100vh;
@@ -474,14 +476,7 @@ body.emp-dark {
   overflow-x: hidden;
 }
 body.emp-dark::before {
-  content: '';
-  position: fixed;
-  top: -200px; left: 50%;
-  transform: translateX(-50%);
-  width: 800px; height: 600px;
-  background: radial-gradient(ellipse, rgba(79,140,255,0.08) 0%, transparent 70%);
-  pointer-events: none;
-  z-index: 0;
+  display: none;
 }
 
 .emp-app {
@@ -511,29 +506,29 @@ body.emp-dark::before {
   font-size: 24px;
   font-weight: 700;
   letter-spacing: -0.5px;
-  color: #E8ECF4;
+  color: #1E293B;
 }
 .emp-subtitle {
   font-size: 13px;
-  color: #6B7A99;
+  color: #64748B;
   margin-top: 2px;
 }
 .emp-last-updated {
   font-size: 10px;
-  color: #4a5568;
+  color: #94A3B8;
   margin-top: 2px;
   letter-spacing: 0.3px;
 }
 
 /* --- Date Badge --- */
 .emp-date-badge {
-  background: #1A2035;
-  border: 1px solid rgba(255,255,255,0.06);
+  background: #F1F5F9;
+  border: 1px solid #E2E8F0;
   padding: 8px 14px;
   border-radius: 10px;
   font-size: 13px;
   font-weight: 500;
-  color: #4F8CFF;
+  color: #059669;
   cursor: pointer;
   transition: all 0.2s;
   display: flex;
@@ -542,8 +537,8 @@ body.emp-dark::before {
   user-select: none;
 }
 .emp-date-badge:hover {
-  background: rgba(79,140,255,0.1);
-  border-color: rgba(79,140,255,0.25);
+  background: #ECFDF5;
+  border-color: #A7F3D0;
 }
 .emp-date-badge svg { width: 14px; height: 14px; flex-shrink: 0; }
 
@@ -553,21 +548,21 @@ body.emp-dark::before {
   gap: 8px;
 }
 .emp-logout-btn {
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: #F1F5F9;
+  border: 1px solid #E2E8F0;
   border-radius: 10px;
   padding: 8px;
   cursor: pointer;
-  color: #6B7A99;
+  color: #64748B;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.2s;
 }
 .emp-logout-btn:hover {
-  background: rgba(248,113,113,0.1);
-  border-color: rgba(248,113,113,0.3);
-  color: #F87171;
+  background: #FEF2F2;
+  border-color: #FECACA;
+  color: #EF4444;
 }
 .emp-logout-btn svg { flex-shrink: 0; }
 
@@ -577,8 +572,8 @@ body.emp-dark::before {
 
 /* --- Snapshot Card --- */
 .emp-snapshot {
-  background: linear-gradient(135deg, #1E2A4A 0%, #162040 100%);
-  border: 1px solid rgba(79,140,255,0.15);
+  background: linear-gradient(135deg, #F0FDF4 0%, #ECFDF5 100%);
+  border: 1px solid #A7F3D0;
   border-radius: 16px;
   padding: 24px;
   margin-bottom: 20px;
@@ -590,14 +585,14 @@ body.emp-dark::before {
   position: absolute;
   top: -40px; right: -40px;
   width: 120px; height: 120px;
-  background: radial-gradient(circle, rgba(79,140,255,0.12) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(5,150,105,0.08) 0%, transparent 70%);
   pointer-events: none;
 }
 .emp-snapshot-label {
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 1.5px;
-  color: #6B7A99;
+  color: #64748B;
   margin-bottom: 16px;
   font-weight: 500;
 }
@@ -610,7 +605,7 @@ body.emp-dark::before {
 .emp-snapshot-metric { flex: 1; }
 .emp-snap-lbl {
   font-size: 12px;
-  color: #6B7A99;
+  color: #64748B;
   margin-bottom: 6px;
 }
 .emp-snap-val {
@@ -618,19 +613,19 @@ body.emp-dark::before {
   font-size: 32px;
   font-weight: 700;
   line-height: 1;
-  color: #E8ECF4;
+  color: #1E293B;
 }
 .emp-snap-unit {
   font-family: 'DM Sans', sans-serif;
   font-size: 14px;
   font-weight: 500;
-  color: #6B7A99;
+  color: #64748B;
   margin-left: 2px;
 }
 .emp-snap-divider {
   width: 1px;
   height: 48px;
-  background: rgba(255,255,255,0.08);
+  background: #E2E8F0;
   flex-shrink: 0;
 }
 
@@ -639,7 +634,7 @@ body.emp-dark::before {
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 1.5px;
-  color: #6B7A99;
+  color: #64748B;
   font-weight: 500;
   margin-bottom: 12px;
   padding-left: 4px;
@@ -647,8 +642,8 @@ body.emp-dark::before {
 
 /* --- Reg DPD Summary --- */
 .emp-reg-summary {
-  background: #131825;
-  border: 1px solid rgba(255,255,255,0.06);
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
   border-radius: 16px;
   padding: 20px 24px;
   margin-bottom: 12px;
@@ -657,11 +652,12 @@ body.emp-dark::before {
   align-items: center;
   position: relative;
   overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
 .emp-reg-label {
   font-size: 15px;
   font-weight: 700;
-  color: #E8ECF4;
+  color: #1E293B;
 }
 .emp-reg-values {
   display: flex;
@@ -672,22 +668,22 @@ body.emp-dark::before {
 .emp-reg-val {
   font-size: 20px;
   font-weight: 700;
-  color: #E8ECF4;
+  color: #1E293B;
 }
 .emp-reg-unit {
   font-family: 'DM Sans', sans-serif;
   font-size: 12px;
   font-weight: 500;
-  color: #6B7A99;
+  color: #64748B;
 }
 .emp-reg-lbl {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 1px;
-  color: #6B7A99;
+  color: #64748B;
   margin-top: 2px;
 }
-.emp-accent-text { color: #4F8CFF !important; }
+.emp-accent-text { color: #059669 !important; }
 
 /* --- DPD Bucket Cards --- */
 .emp-buckets {
@@ -697,8 +693,8 @@ body.emp-dark::before {
   margin-bottom: 28px;
 }
 .emp-bucket-card {
-  background: #131825;
-  border: 1px solid rgba(255,255,255,0.06);
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
   border-radius: 14px;
   padding: 18px 20px;
   display: flex;
@@ -708,11 +704,12 @@ body.emp-dark::before {
   cursor: pointer;
   position: relative;
   overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
 .emp-bucket-card:hover {
-  border-color: rgba(255,255,255,0.12);
+  border-color: #CBD5E1;
   transform: translateY(-1px);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
 }
 .emp-bucket-indicator {
   width: 4px;
@@ -724,12 +721,12 @@ body.emp-dark::before {
 .emp-bucket-name {
   font-size: 14px;
   font-weight: 600;
-  color: #E8ECF4;
+  color: #1E293B;
   margin-bottom: 4px;
 }
 .emp-bucket-sub {
   font-size: 12px;
-  color: #6B7A99;
+  color: #64748B;
 }
 .emp-bucket-stats {
   display: flex;
@@ -751,18 +748,18 @@ body.emp-dark::before {
   font-size: 9px;
   text-transform: uppercase;
   letter-spacing: 1px;
-  color: #6B7A99;
+  color: #64748B;
   margin-top: 2px;
 }
 .emp-pos-val {
-  color: #4F8CFF !important;
+  color: #059669 !important;
   font-size: 16px;
 }
 .emp-cr-unit {
   font-family: 'DM Sans', sans-serif;
   font-size: 11px;
   font-weight: 500;
-  color: #6B7A99;
+  color: #64748B;
   margin-left: 1px;
 }
 .emp-bucket-bar {
@@ -779,10 +776,10 @@ body.emp-dark::before {
   max-width: 480px;
   width: 100%;
   margin: 0 auto;
-  background: rgba(19,24,37,0.98);
+  background: rgba(255,255,255,0.95);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-top: 1px solid rgba(255,255,255,0.06);
+  border-top: 1px solid #E2E8F0;
   display: flex;
   z-index: 100;
   margin-top: auto;
@@ -794,7 +791,7 @@ body.emp-dark::before {
   align-items: center;
   gap: 4px;
   padding: 12px 0 calc(12px + env(safe-area-inset-bottom));
-  color: #6B7A99;
+  color: #94A3B8;
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.3px;
@@ -803,13 +800,13 @@ body.emp-dark::before {
   user-select: none;
   position: relative;
 }
-.emp-tab-item.active { color: #4F8CFF; }
+.emp-tab-item.active { color: #059669; }
 .emp-tab-item.active::before {
   content: '';
   position: absolute;
   top: 0; left: 20%; right: 20%;
   height: 2px;
-  background: #4F8CFF;
+  background: #059669;
   border-radius: 0 0 2px 2px;
 }
 .emp-tab-item svg { width: 20px !important; height: 20px !important; flex-shrink: 0; }
@@ -831,8 +828,8 @@ body.emp-dark::before {
 .pf-view-toggle {
   display: flex;
   gap: 4px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.06);
+  background: #F1F5F9;
+  border: 1px solid #E2E8F0;
   border-radius: 12px;
   padding: 4px;
   margin-bottom: 16px;
@@ -843,7 +840,7 @@ body.emp-dark::before {
   border: none;
   border-radius: 10px;
   background: transparent;
-  color: #6B7A99;
+  color: #64748B;
   font-size: 13px;
   font-weight: 600;
   font-family: inherit;
@@ -851,12 +848,12 @@ body.emp-dark::before {
   transition: all 0.2s ease;
 }
 .pf-view-btn:hover {
-  color: #A0B4D0;
+  color: #475569;
 }
 .pf-view-btn.active {
-  background: rgba(79,140,255,0.15);
-  color: #4F8CFF;
-  box-shadow: 0 2px 8px rgba(79,140,255,0.1);
+  background: #FFFFFF;
+  color: #059669;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
 }
 
 /* Header card with date + rank/perf */
@@ -875,11 +872,11 @@ body.emp-dark::before {
   align-items: center;
   gap: 6px;
   font-size: 13px;
-  color: #6B7A99;
+  color: #64748B;
 }
 .pf-report-date svg {
   flex-shrink: 0;
-  color: #4F8CFF;
+  color: #059669;
 }
 .pf-badges {
   display: flex;
@@ -889,7 +886,7 @@ body.emp-dark::before {
 .pf-rank-badge {
   background: linear-gradient(135deg, rgba(251,191,36,0.15), rgba(251,191,36,0.05));
   border: 1px solid rgba(251,191,36,0.3);
-  color: #FBBF24;
+  color: #B45309;
   font-size: 14px;
   font-weight: 700;
   padding: 4px 12px;
@@ -902,18 +899,19 @@ body.emp-dark::before {
   padding: 4px 12px;
   border-radius: 8px;
   border: 1px solid;
-  background: rgba(255,255,255,0.02);
+  background: rgba(255,255,255,0.5);
 }
 
 /* Regular demand card */
 .pf-reg-card {
-  background: #131825;
-  border: 1px solid rgba(255,255,255,0.06);
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
   border-radius: 16px;
   padding: 20px;
   margin-bottom: 12px;
   position: relative;
   overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
 .pf-reg-main {
   display: grid;
@@ -927,19 +925,19 @@ body.emp-dark::before {
   font-family: 'Playfair Display', serif;
   font-size: 20px;
   font-weight: 700;
-  color: #E8ECF4;
+  color: #1E293B;
   line-height: 1.2;
 }
 .pf-reg-lbl {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 1px;
-  color: #6B7A99;
+  color: #64748B;
   margin-top: 4px;
 }
 .pf-progress-track {
   height: 4px;
-  background: rgba(255,255,255,0.06);
+  background: #E2E8F0;
   border-radius: 4px;
   margin-top: 16px;
   overflow: hidden;
@@ -952,13 +950,14 @@ body.emp-dark::before {
 
 /* NPA card */
 .pf-npa-card {
-  background: #131825;
-  border: 1px solid rgba(255,255,255,0.06);
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
   border-radius: 14px;
   padding: 18px 20px;
   margin-bottom: 12px;
   position: relative;
   overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
 .pf-npa-header {
   display: flex;
@@ -997,19 +996,19 @@ body.emp-dark::before {
   font-family: 'Playfair Display', serif;
   font-size: 18px;
   font-weight: 700;
-  color: #E8ECF4;
+  color: #1E293B;
   line-height: 1.2;
 }
 .pf-npa-lbl {
   font-size: 9px;
   text-transform: uppercase;
   letter-spacing: 1px;
-  color: #6B7A99;
+  color: #64748B;
   margin-top: 2px;
 }
 .pf-npa-divider {
   width: 1px;
-  background: rgba(255,255,255,0.08);
+  background: #E2E8F0;
   margin: 0 4px;
   align-self: stretch;
 }
@@ -1022,20 +1021,21 @@ body.emp-dark::before {
   margin-bottom: 20px;
 }
 .pf-ondate-card {
-  background: #131825;
-  border: 1px solid rgba(255,255,255,0.06);
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
   border-radius: 14px;
   padding: 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
 .pf-ondate-tomorrow {
-  border-color: rgba(79,140,255,0.12);
-  background: linear-gradient(135deg, #131825 0%, #151d30 100%);
+  border-color: #A7F3D0;
+  background: linear-gradient(135deg, #FFFFFF 0%, #F0FDF4 100%);
 }
 .pf-ondate-label {
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 1.5px;
-  color: #6B7A99;
+  color: #64748B;
   font-weight: 500;
   margin-bottom: 12px;
 }
@@ -1052,11 +1052,11 @@ body.emp-dark::before {
 .pf-ondate-val {
   font-size: 16px;
   font-weight: 700;
-  color: #E8ECF4;
+  color: #1E293B;
 }
 .pf-ondate-lbl {
   font-size: 10px;
-  color: #6B7A99;
+  color: #64748B;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -1065,8 +1065,8 @@ body.emp-dark::before {
 .pf-sub-rank {
   font-size: 10px;
   font-weight: 700;
-  color: #FBBF24;
-  background: rgba(251,191,36,0.1);
+  color: #B45309;
+  background: #FEF3C7;
   padding: 1px 6px;
   border-radius: 4px;
 }

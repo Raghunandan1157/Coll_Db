@@ -241,21 +241,21 @@
     .card-upload-status.info { background: #d1ecf1; color: #0c5460; }
 
     /* Sidebar */
-    .sidebar-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9998;opacity:0;visibility:hidden;transition:opacity .3s,visibility .3s;}
+    .sidebar-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.3);z-index:9998;opacity:0;visibility:hidden;transition:opacity .3s,visibility .3s;}
     .sidebar-overlay.active{opacity:1;visibility:visible;}
-    .sidebar-panel{position:fixed;top:0;right:0;bottom:0;width:280px;max-width:85vw;background:#2c3e50;border-left:1px solid rgba(255,255,255,0.1);z-index:9999;transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;font-family:inherit;}
+    .sidebar-panel{position:fixed;top:0;right:0;bottom:0;width:280px;max-width:85vw;background:#FFFFFF;border-left:1px solid #E2E8F0;z-index:9999;transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;font-family:inherit;box-shadow:-4px 0 24px rgba(0,0,0,0.08);}
     .sidebar-panel.active{transform:translateX(0);}
-    .sb-header{display:flex;align-items:center;justify-content:space-between;padding:18px 20px 14px;border-bottom:1px solid rgba(255,255,255,0.1);}
-    .sb-title{color:#fff;font-size:16px;font-weight:600;}
-    .sb-close{background:none;border:none;color:rgba(255,255,255,0.6);font-size:24px;cursor:pointer;padding:0 4px;line-height:1;}
-    .sb-close:hover{color:#fff;}
+    .sb-header{display:flex;align-items:center;justify-content:space-between;padding:18px 20px 14px;border-bottom:1px solid #E2E8F0;}
+    .sb-title{color:#1E293B;font-size:16px;font-weight:600;}
+    .sb-close{background:none;border:none;color:#94A3B8;font-size:24px;cursor:pointer;padding:0 4px;line-height:1;}
+    .sb-close:hover{color:#1E293B;}
     .sb-nav{padding:12px 0;flex:1;}
-    .sb-nav a{display:flex;align-items:center;gap:14px;padding:14px 20px;color:#fff;text-decoration:none;font-size:15px;font-weight:500;transition:background .2s;}
-    .sb-nav a:hover{background:rgba(255,255,255,0.08);}
+    .sb-nav a{display:flex;align-items:center;gap:14px;padding:14px 20px;color:#1E293B;text-decoration:none;font-size:15px;font-weight:500;transition:background .2s;}
+    .sb-nav a:hover{background:#F0FDF4;}
     .sb-icon{font-size:20px;width:28px;text-align:center;flex-shrink:0;}
-    .sb-footer{padding:16px 20px;border-top:1px solid rgba(255,255,255,0.1);margin-top:auto;}
-    .sb-logout{display:flex;align-items:center;gap:12px;width:100%;padding:14px 16px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);border-radius:12px;color:#EF4444;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;transition:all .2s;}
-    .sb-logout:hover{background:rgba(239,68,68,0.25);border-color:rgba(239,68,68,0.5);}
+    .sb-footer{padding:16px 20px;border-top:1px solid #E2E8F0;margin-top:auto;}
+    .sb-logout{display:flex;align-items:center;gap:12px;width:100%;padding:14px 16px;background:#FEF2F2;border:1px solid #FECACA;border-radius:12px;color:#EF4444;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;transition:all .2s;}
+    .sb-logout:hover{background:#FEE2E2;border-color:#FCA5A5;}
   </style>
 
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>

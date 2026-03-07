@@ -7,13 +7,13 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
     :root {
-      --bg: #0b1320;
-      --card: #111a2b;
-      --muted: #8aa0c2;
-      --text: #e6eefc;
-      --accent: #4da3ff;
-      --accent-2: #00d4ff;
-      --ink: #0b1320;
+      --bg: #F8FAFC;
+      --card: #FFFFFF;
+      --muted: #64748B;
+      --text: #1E293B;
+      --accent: #059669;
+      --accent-2: #0EA5E9;
+      --ink: #1E293B;
     }
     * { box-sizing: border-box }
     html, body { height: 100%; margin: 0 }
@@ -23,17 +23,17 @@
     .back-btn {
       position: fixed; top: 16px; right: 16px; z-index: 999;
       width: 42px; height: 42px; border-radius: 50%;
-      background: var(--card); border: 1px solid #22314f;
+      background: #FFFFFF; border: 1px solid #E2E8F0;
       display: flex; align-items: center; justify-content: center;
       color: var(--accent); text-decoration: none;
-      box-shadow: 0 4px 16px rgba(0,0,0,.4);
+      box-shadow: 0 2px 8px rgba(0,0,0,.06);
       transition: background .2s, transform .15s;
     }
-    .back-btn:hover { background: #1a2744; transform: scale(1.08) }
+    .back-btn:hover { background: #F0FDF4; transform: scale(1.08) }
     .back-btn svg { width: 20px; height: 20px }
 
-    header { padding: 18px 20px 10px; padding-left: 68px; position: sticky; top: 0; backdrop-filter: saturate(150%) blur(6px); background: linear-gradient(180deg, rgba(11,19,32,.9), rgba(11,19,32,.6) 40%, rgba(11,19,32,0)); z-index: 5; border-bottom: 1px solid #20314f }
-    h1 { margin: 0 0 6px; font-size: 18px; font-weight: 800; letter-spacing: .3px }
+    header { padding: 18px 20px 10px; padding-left: 68px; position: sticky; top: 0; backdrop-filter: saturate(150%) blur(6px); background: linear-gradient(180deg, rgba(248,250,252,.95), rgba(248,250,252,.8) 40%, rgba(248,250,252,0)); z-index: 5; border-bottom: 1px solid #E2E8F0 }
+    h1 { margin: 0 0 6px; font-size: 18px; font-weight: 800; letter-spacing: .3px; color: #1E293B }
     .sub { color: var(--muted); font-size: 12px }
     .wrap { max-width: 1200px; margin: 0 auto }
 
@@ -42,35 +42,35 @@
 
     #search {
       width: 100%;
-      background: #fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='%23667085'><path d='M10 2a8 8 0 105.3 14.3l4.7 4.7 1.4-1.4-4.7-4.7A8 8 0 0010 2zm0 2a6 6 0 110 12 6 6 0 010-12z'/></svg>") no-repeat 14px center;
-      color: var(--ink); border: 2px solid #ffffff;
+      background: #fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='%2394A3B8'><path d='M10 2a8 8 0 105.3 14.3l4.7 4.7 1.4-1.4-4.7-4.7A8 8 0 0010 2zm0 2a6 6 0 110 12 6 6 0 010-12z'/></svg>") no-repeat 14px center;
+      color: var(--ink); border: 1px solid #E2E8F0;
       padding: 12px 14px 12px 44px; border-radius: 14px;
-      box-shadow: 0 10px 24px rgba(0,0,0,.25), 0 0 0 4px rgba(77,163,255,.28);
+      box-shadow: 0 2px 8px rgba(0,0,0,.04);
       transition: box-shadow .2s, border-color .2s;
     }
-    #search::placeholder { color: #667085 }
-    #search:hover { box-shadow: 0 12px 28px rgba(0,0,0,.30), 0 0 0 4px rgba(77,163,255,.38) }
-    #search:focus { outline: none; border-color: var(--accent); box-shadow: 0 14px 32px rgba(0,0,0,.34), 0 0 0 4px rgba(0,212,255,.45) }
+    #search::placeholder { color: #94A3B8 }
+    #search:hover { box-shadow: 0 4px 12px rgba(0,0,0,.06); border-color: #CBD5E1 }
+    #search:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px rgba(5,150,105,.1) }
 
-    button, .btn { padding: 10px 12px; border-radius: 12px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #05111f; border: none; font-weight: 700; cursor: pointer; text-decoration: none; font-size: 13px }
-    button.ghost { background: #16233c; color: var(--text); border: 1px solid #22314f }
+    button, .btn { padding: 10px 12px; border-radius: 12px; background: linear-gradient(135deg, var(--accent), #047857); color: #fff; border: none; font-weight: 700; cursor: pointer; text-decoration: none; font-size: 13px }
+    button.ghost { background: #F1F5F9; color: var(--text); border: 1px solid #E2E8F0 }
+    button.ghost:hover { background: #E2E8F0 }
     button:active { transform: translateY(1px) }
 
-    .card { background: var(--card); border: 1px solid #22314f; border-radius: 16px; padding: 10px; margin: 12px 20px; overflow: hidden }
+    .card { background: var(--card); border: 1px solid #E2E8F0; border-radius: 16px; padding: 10px; margin: 12px 20px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.04) }
     .meta { color: var(--muted); font-size: 12px; padding: 0 2px 8px 2px }
     table { width: 100%; border-collapse: collapse }
-    thead th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 700; letter-spacing: .3px; border-bottom: 1px solid #23314d; padding: 10px }
-    tbody td { padding: 12px 10px; border-bottom: 1px dashed #20304d; vertical-align: middle }
-    tbody tr:hover { background: #0e1a31 }
+    thead th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 700; letter-spacing: .3px; border-bottom: 1px solid #E2E8F0; padding: 10px }
+    tbody td { padding: 12px 10px; border-bottom: 1px solid #F1F5F9; vertical-align: middle }
+    tbody tr:hover { background: #F0FDF4 }
     .num { width: 52px; color: var(--muted) }
     .name-col { min-width: 280px; font-weight: 600 }
-    .coords { font-variant-numeric: tabular-nums; color: #c8e1ff }
+    .coords { font-variant-numeric: tabular-nums; color: #475569 }
     .actions { white-space: nowrap }
-    .badge { display: inline-block; font-size: 11px; padding: 3px 8px; border-radius: 999px; background: #122747; color: var(--muted); border: 1px solid #24365a }
+    .badge { display: inline-block; font-size: 11px; padding: 3px 8px; border-radius: 999px; background: #F1F5F9; color: var(--muted); border: 1px solid #E2E8F0 }
 
     #mapCard { margin: 12px 20px }
-    #map { height: 60vh; width: 100%; border-radius: 14px; border: 1px solid #22314f }
-    .leaflet-control-attribution { background: rgba(17,26,43,.8) !important; color: #c6d7f2 !important }
+    #map { height: 60vh; width: 100%; border-radius: 14px; border: 1px solid #E2E8F0 }
 
     @media (max-width: 900px) {
       #map { height: 50vh }
@@ -96,7 +96,7 @@
 </script>
 
   <!-- Hamburger menu button -->
-  <button id="sidebar-toggle-btn" class="back-btn" aria-label="Open menu" style="border:none;cursor:pointer;font-size:18px;line-height:1;">&#9776;</button>
+  <button id="sidebar-toggle-btn" class="back-btn" aria-label="Open menu" style="border:1px solid #E2E8F0;cursor:pointer;font-size:18px;line-height:1;">&#9776;</button>
 
   <header>
     <div class="wrap">
@@ -372,14 +372,14 @@ NLPL ZAHEERABAD BRANCH\t17.691302, 77.639235`;
         const nameCell = document.createElement('td'); nameCell.className = 'name-col';
         const aName = document.createElement('a');
         aName.href = gmUrl(r.lat, r.lon); aName.target = '_blank'; aName.rel = 'noopener';
-        aName.textContent = r.name; aName.style.color = '#bfe1ff'; aName.style.textDecoration = 'none';
+        aName.textContent = r.name; aName.style.color = '#1E293B'; aName.style.textDecoration = 'none';
         nameCell.appendChild(aName);
 
         const coords = document.createElement('td'); coords.className = 'coords';
         const aCoords = document.createElement('a');
         aCoords.href = gmUrl(r.lat, r.lon); aCoords.target = '_blank'; aCoords.rel = 'noopener';
         aCoords.textContent = `(${fmt(r.lat)}, ${fmt(r.lon)})`;
-        aCoords.style.color = '#c8e1ff'; aCoords.style.textDecoration = 'none';
+        aCoords.style.color = '#475569'; aCoords.style.textDecoration = 'none';
         coords.appendChild(aCoords);
 
         const actions = document.createElement('td'); actions.className = 'actions';
@@ -426,7 +426,7 @@ NLPL ZAHEERABAD BRANCH\t17.691302, 77.639235`;
       if (!navigator.geolocation) return alert('Geolocation not supported');
       navigator.geolocation.getCurrentPosition(pos => {
         const { latitude: lat, longitude: lon } = pos.coords;
-        L.circleMarker([lat, lon], { radius: 8, color: '#00d4ff', fillColor: '#00d4ff', fillOpacity: 0.7 })
+        L.circleMarker([lat, lon], { radius: 8, color: '#059669', fillColor: '#059669', fillOpacity: 0.7 })
           .addTo(map).bindPopup('You are here').openPopup();
         map.setView([lat, lon], 12);
       }, err => alert('Location failed: ' + err.message), { enableHighAccuracy: true, timeout: 8000 });
@@ -438,25 +438,25 @@ NLPL ZAHEERABAD BRANCH\t17.691302, 77.639235`;
   </script>
 
 <!-- Sidebar -->
-<div id="sidebarOverlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9998;opacity:0;visibility:hidden;transition:opacity .3s,visibility .3s;"></div>
-<div id="sidebarPanel" style="position:fixed;top:0;right:0;bottom:0;width:280px;max-width:85vw;background:#131825;border-left:1px solid rgba(255,255,255,0.06);z-index:9999;transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;font-family:system-ui,-apple-system,sans-serif;">
-  <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 20px 14px;border-bottom:1px solid rgba(255,255,255,0.06);">
-    <span style="color:#E8ECF4;font-size:16px;font-weight:600;">Menu</span>
-    <button id="sidebarCloseBtn" style="background:none;border:none;color:#6B7A99;font-size:24px;cursor:pointer;padding:0 4px;line-height:1;">&times;</button>
+<div id="sidebarOverlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.3);z-index:9998;opacity:0;visibility:hidden;transition:opacity .3s,visibility .3s;"></div>
+<div id="sidebarPanel" style="position:fixed;top:0;right:0;bottom:0;width:280px;max-width:85vw;background:#FFFFFF;border-left:1px solid #E2E8F0;z-index:9999;transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;font-family:system-ui,-apple-system,sans-serif;box-shadow:-4px 0 24px rgba(0,0,0,0.08);">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 20px 14px;border-bottom:1px solid #E2E8F0;">
+    <span style="color:#1E293B;font-size:16px;font-weight:600;">Menu</span>
+    <button id="sidebarCloseBtn" style="background:none;border:none;color:#94A3B8;font-size:24px;cursor:pointer;padding:0 4px;line-height:1;">&times;</button>
   </div>
   <nav style="padding:12px 0;flex:1;">
-    <a href="employee.html" style="display:flex;align-items:center;gap:14px;padding:14px 20px;color:#E8ECF4;text-decoration:none;font-size:15px;font-weight:500;transition:background .2s;" onmouseover="this.style.background='rgba(79,140,255,0.08)'" onmouseout="this.style.background=''">
-      <span style="font-size:20px;width:28px;text-align:center;">🏠</span><span>Home</span>
+    <a href="employee.html" style="display:flex;align-items:center;gap:14px;padding:14px 20px;color:#1E293B;text-decoration:none;font-size:15px;font-weight:500;transition:background .2s;" onmouseover="this.style.background='#F0FDF4'" onmouseout="this.style.background=''">
+      <span style="font-size:20px;width:28px;text-align:center;">&#127968;</span><span>Home</span>
     </a>
-    <a href="contacts.html" style="display:flex;align-items:center;gap:14px;padding:14px 20px;color:#E8ECF4;text-decoration:none;font-size:15px;font-weight:500;transition:background .2s;" onmouseover="this.style.background='rgba(79,140,255,0.08)'" onmouseout="this.style.background=''">
-      <span style="font-size:20px;width:28px;text-align:center;">📇</span><span>Contacts</span>
+    <a href="contacts.html" style="display:flex;align-items:center;gap:14px;padding:14px 20px;color:#1E293B;text-decoration:none;font-size:15px;font-weight:500;transition:background .2s;" onmouseover="this.style.background='#F0FDF4'" onmouseout="this.style.background=''">
+      <span style="font-size:20px;width:28px;text-align:center;">&#128199;</span><span>Contacts</span>
     </a>
-    <a href="locator.html" style="display:flex;align-items:center;gap:14px;padding:14px 20px;color:#4F8CFF;text-decoration:none;font-size:15px;font-weight:500;background:rgba(79,140,255,0.08);">
-      <span style="font-size:20px;width:28px;text-align:center;">📍</span><span>NLPL Branch Locator</span>
+    <a href="locator.html" style="display:flex;align-items:center;gap:14px;padding:14px 20px;color:#059669;text-decoration:none;font-size:15px;font-weight:500;background:#ECFDF5;border-left:3px solid #059669;padding-left:17px;">
+      <span style="font-size:20px;width:28px;text-align:center;">&#128205;</span><span>NLPL Branch Locator</span>
     </a>
   </nav>
-  <div style="padding:16px 20px;border-top:1px solid rgba(255,255,255,0.06);margin-top:auto;">
-    <button onclick="['adminAuth','employeeId','employeeName','roleAuth','roleName','roleLocation','roleNavStack'].forEach(function(k){localStorage.removeItem(k)});window.location.href='index.html';" style="display:flex;align-items:center;gap:12px;width:100%;padding:14px 16px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:12px;color:#EF4444;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;transition:all .2s;" onmouseover="this.style.background='rgba(239,68,68,0.2)';this.style.borderColor='rgba(239,68,68,0.4)'" onmouseout="this.style.background='rgba(239,68,68,0.1)';this.style.borderColor='rgba(239,68,68,0.25)'">
+  <div style="padding:16px 20px;border-top:1px solid #E2E8F0;margin-top:auto;">
+    <button onclick="['adminAuth','employeeId','employeeName','roleAuth','roleName','roleLocation','roleNavStack'].forEach(function(k){localStorage.removeItem(k)});window.location.href='index.html';" style="display:flex;align-items:center;gap:12px;width:100%;padding:14px 16px;background:#FEF2F2;border:1px solid #FECACA;border-radius:12px;color:#EF4444;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;transition:all .2s;" onmouseover="this.style.background='#FEE2E2';this.style.borderColor='#FCA5A5'" onmouseout="this.style.background='#FEF2F2';this.style.borderColor='#FECACA'">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
       <span>Logout</span>
     </button>

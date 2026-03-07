@@ -6,58 +6,58 @@
     style.id = 'analytical-styles';
     style.textContent = [
       '.anal-container { padding: 12px 10px 80px; }',
-      '.anal-page-title { font-size: 20px; font-weight: 700; color: #E8ECF4; margin-bottom: 4px; }',
-      '.anal-page-subtitle { font-size: 12px; color: #6B7A99; margin-bottom: 16px; }',
+      '.anal-page-title { font-size: 20px; font-weight: 700; color: #1E293B; margin-bottom: 4px; }',
+      '.anal-page-subtitle { font-size: 12px; color: #64748B; margin-bottom: 16px; }',
       '.anal-btn-row { display: flex; gap: 10px; margin-bottom: 20px; }',
       '.anal-btn {',
-      '  padding: 10px 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08);',
-      '  background: #131825; color: #6B7A99; font-size: 13px; font-weight: 600;',
+      '  padding: 10px 16px; border-radius: 12px; border: 1px solid #E2E8F0;',
+      '  background: #FFFFFF; color: #64748B; font-size: 13px; font-weight: 600;',
       '  cursor: pointer; transition: all 0.2s; flex: 1; text-align: center;',
       '  display: flex; align-items: center; justify-content: center; gap: 6px;',
       '}',
-      '.anal-btn.active { background: rgba(79,140,255,0.12); color: #4F8CFF; border-color: rgba(79,140,255,0.3); }',
+      '.anal-btn.active { background: #ECFDF5; color: #059669; border-color: #A7F3D0; }',
       '.anal-btn:active { transform: scale(0.97); }',
       '.anal-section { margin-bottom: 24px; }',
       '.anal-section-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; padding: 0 2px; }',
       '.anal-section-icon { width: 32px; height: 32px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }',
       '.anal-section-icon.top { background: rgba(52,211,153,0.12); color: #34D399; }',
       '.anal-section-icon.bottom { background: rgba(248,113,113,0.12); color: #F87171; }',
-      '.anal-section-title { font-size: 15px; font-weight: 700; color: #E8ECF4; }',
-      '.anal-section-count { font-size: 11px; font-weight: 500; color: #6B7A99; background: rgba(107,122,153,0.12); padding: 2px 8px; border-radius: 10px; margin-left: auto; }',
-      '.anal-empty { text-align: center; color: #6B7A99; padding: 40px 0; font-size: 13px; }',
+      '.anal-section-title { font-size: 15px; font-weight: 700; color: #1E293B; }',
+      '.anal-section-count { font-size: 11px; font-weight: 500; color: #64748B; background: #F1F5F9; padding: 2px 8px; border-radius: 10px; margin-left: auto; }',
+      '.anal-empty { text-align: center; color: #64748B; padding: 40px 0; font-size: 13px; }',
       '.anal-list { display: flex; flex-direction: column; gap: 10px; }',
-      '.anal-card { background: #131825; border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; padding: 14px; transition: border-color 0.2s, transform 0.2s; }',
-      '.anal-card:active { border-color: rgba(255,255,255,0.12); transform: scale(0.99); }',
+      '.anal-card { background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 14px; padding: 14px; transition: border-color 0.2s, transform 0.2s; }',
+      '.anal-card:active { border-color: #CBD5E1; transform: scale(0.99); }',
       '.anal-card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }',
       '.anal-rank { font-size: 11px; font-weight: 700; padding: 3px 7px; border-radius: 8px; min-width: 28px; text-align: center; flex-shrink: 0; }',
       '.anal-branch-avatar { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; flex-shrink: 0; }',
       '.anal-avatar-top { background: rgba(52,211,153,0.12); color: #34D399; }',
       '.anal-avatar-bottom { background: rgba(248,113,113,0.12); color: #F87171; }',
-      '.anal-branch-name { flex: 1; font-size: 13px; font-weight: 600; color: #E8ECF4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }',
+      '.anal-branch-name { flex: 1; font-size: 13px; font-weight: 600; color: #1E293B; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }',
       '.anal-pct { font-size: 16px; font-weight: 800; flex-shrink: 0; font-family: "DM Sans", sans-serif; }',
       '.anal-card-stats { display: flex; justify-content: space-between; margin-bottom: 8px; }',
       '.anal-stat { display: flex; flex-direction: column; align-items: center; gap: 1px; flex: 1; }',
-      '.anal-stat-lbl { font-size: 9px; text-transform: uppercase; color: #6B7A99; letter-spacing: 0.5px; }',
-      '.anal-stat-val { font-size: 13px; font-weight: 700; color: #E8ECF4; }',
-      '.anal-divider { height: 1px; background: rgba(255,255,255,0.04); margin: 16px 0; }',
+      '.anal-stat-lbl { font-size: 9px; text-transform: uppercase; color: #64748B; letter-spacing: 0.5px; }',
+      '.anal-stat-val { font-size: 13px; font-weight: 700; color: #1E293B; }',
+      '.anal-divider { height: 1px; background: #F1F5F9; margin: 16px 0; }',
       // FO card styles
-      '.fo-card { background: #131825; border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; padding: 14px; margin-bottom: 10px; cursor: pointer; transition: all 0.2s; }',
+      '.fo-card { background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 14px; padding: 14px; margin-bottom: 10px; cursor: pointer; transition: all 0.2s; }',
       '.fo-card:active { transform: scale(0.99); }',
       '.fo-header { display: flex; align-items: center; gap: 10px; }',
       '.fo-rank { font-size: 11px; font-weight: 700; padding: 3px 7px; border-radius: 8px; min-width: 28px; text-align: center; flex-shrink: 0; }',
       '.fo-avatar { width: 30px; height: 30px; border-radius: 50%; background: rgba(248,113,113,0.12); color: #F87171; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; flex-shrink: 0; }',
       '.fo-info { flex: 1; min-width: 0; }',
-      '.fo-name { font-size: 13px; font-weight: 600; color: #E8ECF4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }',
-      '.fo-empid { font-size: 10px; color: #6B7A99; }',
+      '.fo-name { font-size: 13px; font-weight: 600; color: #1E293B; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }',
+      '.fo-empid { font-size: 10px; color: #64748B; }',
       '.fo-pct { font-size: 16px; font-weight: 800; flex-shrink: 0; font-family: "DM Sans", sans-serif; }',
       '.fo-stats { display: flex; justify-content: space-between; margin-top: 10px; }',
       '.fo-actions { display: flex; gap: 8px; margin-top: 12px; }',
       '.fo-call-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px; border-radius: 10px; background: rgba(52,211,153,0.1); color: #34D399; font-size: 13px; font-weight: 600; text-decoration: none; border: 1px solid rgba(52,211,153,0.2); transition: all 0.2s; }',
       '.fo-call-btn:active { transform: scale(0.97); background: rgba(52,211,153,0.2); }',
-      '.fo-no-phone { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px; border-radius: 10px; background: rgba(107,122,153,0.08); color: #6B7A99; font-size: 12px; border: 1px solid rgba(107,122,153,0.12); }',
-      '.fo-view-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px; border-radius: 10px; background: rgba(79,140,255,0.1); color: #4F8CFF; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid rgba(79,140,255,0.2); transition: all 0.2s; }',
-      '.fo-view-btn:active { transform: scale(0.97); background: rgba(79,140,255,0.2); }',
-      '.fo-branch-tag { font-size: 10px; color: #4F8CFF; background: rgba(79,140,255,0.1); padding: 2px 6px; border-radius: 6px; margin-left: 4px; }'
+      '.fo-no-phone { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px; border-radius: 10px; background: #F1F5F9; color: #64748B; font-size: 12px; border: 1px solid #F1F5F9; }',
+      '.fo-view-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px; border-radius: 10px; background: #F0FDF4; color: #059669; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid #A7F3D0; transition: all 0.2s; }',
+      '.fo-view-btn:active { transform: scale(0.97); background: #A7F3D0; }',
+      '.fo-branch-tag { font-size: 10px; color: #059669; background: #F0FDF4; padding: 2px 6px; border-radius: 6px; margin-left: 4px; }'
     ].join('\n');
     document.head.appendChild(style);
   }
@@ -227,7 +227,7 @@
       '</div>' +
       '<div class="anal-card-stats">' +
       '<div class="anal-stat"><span class="anal-stat-lbl">Demand</span><span class="anal-stat-val">' + fmtNum(item.demand) + '</span></div>' +
-      '<div class="anal-stat"><span class="anal-stat-lbl">Collection</span><span class="anal-stat-val" style="color:#4F8CFF">' + fmtNum(item.collection) + '</span></div>' +
+      '<div class="anal-stat"><span class="anal-stat-lbl">Collection</span><span class="anal-stat-val" style="color:#059669">' + fmtNum(item.collection) + '</span></div>' +
       '<div class="anal-stat"><span class="anal-stat-lbl">Balance</span><span class="anal-stat-val" style="color:#FB923C">' + fmtNum(item.balance) + '</span></div>' +
       '</div>' +
       '<div class="pf-progress-track"><div class="pf-progress-fill" style="width:' + barW + '%;background:' + pctColor + '"></div></div>' +
@@ -260,7 +260,7 @@
 
     html += '<div class="fo-stats">';
     html += '<div class="anal-stat"><span class="anal-stat-lbl">Demand</span><span class="anal-stat-val">' + fmtNum(fo.demand) + '</span></div>';
-    html += '<div class="anal-stat"><span class="anal-stat-lbl">Collection</span><span class="anal-stat-val" style="color:#4F8CFF">' + fmtNum(fo.collection) + '</span></div>';
+    html += '<div class="anal-stat"><span class="anal-stat-lbl">Collection</span><span class="anal-stat-val" style="color:#059669">' + fmtNum(fo.collection) + '</span></div>';
     html += '<div class="anal-stat"><span class="anal-stat-lbl">Balance</span><span class="anal-stat-val" style="color:#FB923C">' + fmtNum(fo.balance) + '</span></div>';
     html += '</div>';
     html += '<div class="pf-progress-track" style="margin-top:8px"><div class="pf-progress-fill" style="width:' + barW + '%;background:' + pctColor + '"></div></div>';
@@ -272,7 +272,7 @@
       html += '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>';
       html += 'Call</a>';
     } else if (_analState.foLoading) {
-      html += '<div class="fo-no-phone" style="color:#4F8CFF;border-color:rgba(79,140,255,0.15)"><svg width="12" height="12" viewBox="0 0 24 24" style="animation:spin .7s linear infinite"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="30 70"/></svg> Fetching from database...</div>';
+      html += '<div class="fo-no-phone" style="color:#059669;border-color:#ECFDF5"><svg width="12" height="12" viewBox="0 0 24 24" style="animation:spin .7s linear infinite"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="30 70"/></svg> Fetching from database...</div>';
     } else {
       html += '<div class="fo-no-phone">No phone</div>';
     }

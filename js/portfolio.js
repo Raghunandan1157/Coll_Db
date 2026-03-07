@@ -569,7 +569,7 @@
   function noDataHtml(msg) {
     return '<div style="text-align:center;padding:80px 20px;">' +
       '<div style="font-size:36px;margin-bottom:12px;">&#128202;</div>' +
-      '<div style="color:#6B7A99;font-size:14px;">' + (msg || 'No portfolio data uploaded yet.') + '</div></div>';
+      '<div style="color:#64748B;font-size:14px;">' + (msg || 'No portfolio data uploaded yet.') + '</div></div>';
   }
 
   function viewToggleHtml() {
@@ -585,7 +585,7 @@
     var perfUpper = perfText.toUpperCase();
     var isAbove = perfUpper.includes('ABOVE');
     var isBelow = perfUpper.includes('BELOW');
-    var perfColor = isAbove ? '#34D399' : isBelow ? '#F87171' : '#6B7A99';
+    var perfColor = isAbove ? '#34D399' : isBelow ? '#F87171' : '#64748B';
     var perfIcon = isAbove ? '&#9650;' : isBelow ? '&#9660;' : '';
     var perfLabel = isAbove ? 'Above Average' : isBelow ? 'Below Average' : (perfText || '-');
 
@@ -627,7 +627,7 @@
         '<div class="emp-snap-divider"></div>' +
         '<div class="emp-snapshot-metric">' +
           '<div class="emp-snap-lbl">Overall %</div>' +
-          '<div class="emp-snap-val" style="color:#4F8CFF;font-size:24px;">' + overallPct + '%</div>' +
+          '<div class="emp-snap-val" style="color:#059669;font-size:24px;">' + overallPct + '%</div>' +
         '</div>' +
       '</div>' +
     '</div>';
@@ -650,7 +650,7 @@
     var pct = row[COL.regPct];
     var pctVal = typeof pct === 'number' ? (pct * 100) : 0;
     var noData = (dem === 0 && col === 0);
-    var pctColor = noData ? '#6B7A99' : pctVal >= 99 ? '#34D399' : pctVal >= 95 ? '#FBBF24' : '#F87171';
+    var pctColor = noData ? '#64748B' : pctVal >= 99 ? '#34D399' : pctVal >= 95 ? '#FBBF24' : '#F87171';
     var barW = Math.min(pctVal, 100);
 
     return '<div class="emp-data-section">' +
@@ -662,7 +662,7 @@
             '<div class="pf-reg-lbl">Demand</div>' +
           '</div>' +
           '<div class="pf-reg-stat">' +
-            '<div class="pf-reg-val" style="color:#4F8CFF">' + fmtNum(col) + '</div>' +
+            '<div class="pf-reg-val" style="color:#059669">' + fmtNum(col) + '</div>' +
             '<div class="pf-reg-lbl">Collection</div>' +
           '</div>' +
           '<div class="pf-reg-stat">' +
@@ -699,7 +699,7 @@
       var pct = row[bk.p];
       var pctVal = typeof pct === 'number' ? (pct * 100) : 0;
       var noData = (dem === 0 && col === 0);
-      var pctColor = noData ? '#6B7A99' : pctVal >= 50 ? '#34D399' : pctVal >= 25 ? '#FBBF24' : '#F87171';
+      var pctColor = noData ? '#64748B' : pctVal >= 50 ? '#34D399' : pctVal >= 25 ? '#FBBF24' : '#F87171';
       var barW = noData ? 0 : Math.min(pctVal, 100);
 
       html += '<div class="emp-bucket-card emp-fade" style="animation-delay:' + (0.1 + i * 0.05) + 's">' +
@@ -718,7 +718,7 @@
             '<div class="emp-bucket-lbl">Collection</div>' +
           '</div>' +
           '<div class="emp-bucket-stat">' +
-            '<div class="emp-bucket-val" style="color:#6B7A99">' + fmtNum(bal) + '</div>' +
+            '<div class="emp-bucket-val" style="color:#64748B">' + fmtNum(bal) + '</div>' +
             '<div class="emp-bucket-lbl">Balance</div>' +
           '</div>' +
           '<div class="emp-bucket-stat">' +
@@ -727,7 +727,7 @@
           '</div>' +
         '</div>' +
         (barW === 0
-          ? '<div class="emp-bucket-bar" style="width:100%;height:2px;background:rgba(255,255,255,0.08)"></div>'
+          ? '<div class="emp-bucket-bar" style="width:100%;height:2px;background:#E2E8F0"></div>'
           : '<div class="emp-bucket-bar" style="width:' + Math.max(barW, 8) + '%;height:4px;opacity:0.85;background:' + bk.color + '"></div>') +
       '</div>';
     }
@@ -765,7 +765,7 @@
         '</div>' +
         '<div class="pf-npa-divider"></div>' +
         '<div class="pf-npa-section">' +
-          '<div class="pf-npa-section-title" style="color:#4F8CFF">Closure</div>' +
+          '<div class="pf-npa-section-title" style="color:#059669">Closure</div>' +
           '<div class="pf-npa-row">' +
             '<div class="pf-npa-item"><div class="pf-npa-val">' + fmtNum(clsAcct) + '</div><div class="pf-npa-lbl">Account</div></div>' +
             '<div class="pf-npa-item"><div class="pf-npa-val">' + fmtNum(clsAmt) + '</div><div class="pf-npa-lbl">Amount</div></div>' +
@@ -795,7 +795,7 @@
       '<div class="pf-ondate-label">Today</div>' +
       '<div class="pf-ondate-stats">' +
         '<div class="pf-ondate-stat"><div class="pf-ondate-val">' + fmtNum(odDem) + '</div><div class="pf-ondate-lbl">Demand</div></div>' +
-        '<div class="pf-ondate-stat"><div class="pf-ondate-val" style="color:#4F8CFF">' + fmtNum(odCol) + '</div><div class="pf-ondate-lbl">Collection</div></div>' +
+        '<div class="pf-ondate-stat"><div class="pf-ondate-val" style="color:#059669">' + fmtNum(odCol) + '</div><div class="pf-ondate-lbl">Collection</div></div>' +
         '<div class="pf-ondate-stat"><div class="pf-ondate-val" style="color:#34D399">' + fmtPct(odPct) + '</div><div class="pf-ondate-lbl">Coll %</div></div>' +
       '</div>' +
     '</div>';
@@ -805,7 +805,7 @@
       '<div class="pf-ondate-label">Tomorrow</div>' +
       '<div class="pf-ondate-stats">' +
         '<div class="pf-ondate-stat"><div class="pf-ondate-val">' + fmtNum(tmDem) + '</div><div class="pf-ondate-lbl">Demand</div></div>' +
-        '<div class="pf-ondate-stat"><div class="pf-ondate-val" style="color:#4F8CFF">' + fmtNum(tmCol) + '</div><div class="pf-ondate-lbl">Collection</div></div>' +
+        '<div class="pf-ondate-stat"><div class="pf-ondate-val" style="color:#059669">' + fmtNum(tmCol) + '</div><div class="pf-ondate-lbl">Collection</div></div>' +
         '<div class="pf-ondate-stat"><div class="pf-ondate-val" style="color:#34D399">' + fmtPct(tmPct) + '</div><div class="pf-ondate-lbl">Coll %</div></div>' +
       '</div>' +
     '</div>';
@@ -889,10 +889,10 @@
         var portfolioTab = document.getElementById('portfolioTab');
         if (!portfolioTab || !portfolioTab.classList.contains('active')) return;
 
-        card.style.background = 'rgba(79,140,255,0.12)';
+        card.style.background = '#ECFDF5';
         card.style.pointerEvents = 'none';
         var arrow = card.querySelector('.emp-sub-arrow');
-        if (arrow) arrow.innerHTML = '<div style="width:16px;height:16px;border:2px solid rgba(79,140,255,0.2);border-top-color:#4F8CFF;border-radius:50%;animation:spin .7s linear infinite;"></div>';
+        if (arrow) arrow.innerHTML = '<div style="width:16px;height:16px;border:2px solid #A7F3D0;border-top-color:#059669;border-radius:50%;animation:spin .7s linear infinite;"></div>';
 
         if (card.dataset.childRole) {
           pushRoleNav(card.dataset.childRole, card.dataset.childLocation);
