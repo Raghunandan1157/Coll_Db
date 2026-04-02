@@ -12,26 +12,23 @@ SSH_KEY=~/.ssh/aws-ec2.pem
 EC2_HOST=ec2-user@52.66.163.52
 ```
 
-## Deploy After Edits
-After making changes locally, ALWAYS deploy to EC2:
-
-```bash
-# Sync all files to EC2 (excludes node_modules, .git, data)
-rsync -avz --exclude='node_modules' --exclude='.git' --exclude='data' --exclude='*.bak*' \
-  -e "ssh -i ~/.ssh/aws-ec2.pem" \
-  ./ ec2-user@52.66.163.52:~/Coll_Db/
-
-# Restart server (only needed if server/index.js changed)
-ssh -i ~/.ssh/aws-ec2.pem ec2-user@52.66.163.52 "pm2 restart all"
-```
-
-For HTML/CSS/JS-only changes, rsync is enough — no restart needed.
-For server/index.js changes, MUST restart PM2 after rsync.
-
-## After Every Commit
-1. Run the rsync command above to deploy
-2. If server code changed, restart PM2
-3. Verify at https://growwithme.navachetanalivelihoods.com
+## Deploy Rules
+- Do NOT auto-deploy after edits. Only edit files locally.
+- Deploy ONLY when the user explicitly says to **commit and push to GitHub**.
+- When the user says to commit/push, do ALL three steps in sequence:
+  1. `git add` + `git commit` + `git push origin master`
+  2. Rsync to EC2:
+     ```bash
+     rsync -avz --exclude='node_modules' --exclude='.git' --exclude='data' --exclude='*.bak*' \
+       -e "ssh -i ~/.ssh/aws-ec2.pem" \
+       ./ ec2-user@52.66.163.52:~/Coll_Db/
+     ```
+  3. If `server/index.js` was changed, restart PM2:
+     ```bash
+     ssh -i ~/.ssh/aws-ec2.pem ec2-user@52.66.163.52 "pm2 restart all"
+     ```
+- For HTML/CSS/JS-only changes, rsync is enough — no PM2 restart needed.
+- For server/index.js changes, MUST restart PM2 after rsync.
 
 ## Key Files
 | File | Purpose |
