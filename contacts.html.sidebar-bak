@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="NLPL Employee Directory - Search and browse employee information">
+    <meta name="author" content="NLPL">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="theme-color" content="#F8FAFC">
+
+    <meta property="og:title" content="NLPL Employee Directory">
+    <meta property="og:description" content="Search and browse the NLPL employee directory">
+    <meta property="og:type" content="website">
+
+    <title>NLPL | Employee Directory</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <script src="/socket.io/socket.io.js"></script>
+
+    <style>
+        :root {
+            --bg-deep: #F8FAFC;
+            --bg-surface: #FFFFFF;
+            --primary: #059669;
+            --primary-light: #10B981;
+            --accent: #0EA5E9;
+            --accent-glow: rgba(14, 165, 233, 0.3);
+
+            --text-main: #1E293B;
+            --text-sub: #475569;
+            --text-muted: #94A3B8;
+
+            --card-bg: #FFFFFF;
+            --card-border: #E2E8F0;
+            --card-hover-bg: #F8FAFC;
+            --glass-blur: blur(12px);
+
+            --glow-primary: 0 4px 16px rgba(5, 150, 105, 0.12);
+            --glow-accent: 0 4px 16px rgba(14, 165, 233, 0.12);
+            --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+
+            --ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--bg-deep);
+            color: var(--text-main);
+            min-height: 100vh;
+            line-height: 1.6;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        .back-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            background: #FFFFFF;
+            border: 1px solid #E2E8F0;
+            border-radius: 100px;
+            color: #1E293B;
+            text-decoration: none;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        }
+
+        .back-btn:hover {
+            background: #F0FDF4;
+            border-color: #A7F3D0;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(5, 150, 105, 0.12);
+        }
+
+        .back-btn svg {
+            width: 16px; height: 16px;
+            fill: none; stroke: currentColor; stroke-width: 2;
+            stroke-linecap: round; stroke-linejoin: round;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 80px 24px 40px;
+            position: relative;
+        }
+
+        h1, h2, h3 {
+            font-family: 'Outfit', sans-serif;
+            letter-spacing: -0.02em;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 60px;
+            position: relative;
+            animation: slideDown 0.8s var(--ease-out-back);
+        }
+
+        .text-logo {
+            display: inline-block;
+            margin-bottom: 24px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 2.8rem;
+            font-weight: 700;
+            letter-spacing: 0.15em;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: floatLogo 6s ease-in-out infinite;
+            position: relative;
+        }
+
+        .text-logo::after {
+            content: '';
+            position: absolute;
+            bottom: -6px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+            border-radius: 2px;
+        }
+
+        @keyframes floatLogo {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        h1 {
+            font-size: 3.5rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: #1E293B;
+        }
+
+        .subtitle {
+            font-size: 1.125rem;
+            color: var(--text-sub);
+            max-width: 600px;
+            margin: 0 auto 40px;
+            font-weight: 300;
+        }
+
+        .search-container {
+            position: relative;
+            max-width: 640px;
+            margin: 0 auto;
+            z-index: 10;
+        }
+
+        .search-box {
+            position: relative;
+            background: #FFFFFF;
+            border-radius: 24px;
+            padding: 8px;
+            border: 1px solid var(--card-border);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+        }
+
+        .search-box:focus-within {
+            transform: translateY(-2px) scale(1.01);
+            border-color: var(--primary-light);
+            box-shadow: 0 8px 24px rgba(5, 150, 105, 0.12);
+        }
+
+        .search-icon-wrapper {
+            width: 48px; height: 48px;
+            display: flex; align-items: center; justify-content: center;
+            color: var(--text-muted);
+            font-size: 1.2rem;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-main);
+            font-size: 1.1rem;
+            padding: 12px 16px 12px 0;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            outline: none;
+        }
+
+        input[type="text"]::placeholder {
+            color: var(--text-muted);
+            opacity: 0.7;
+        }
+
+        .stats-badge {
+            margin-top: 24px;
+            display: inline-flex;
+            gap: 24px;
+            padding: 8px 20px;
+            background: #FFFFFF;
+            border-radius: 100px;
+            border: 1px solid var(--card-border);
+            font-size: 0.9rem;
+            color: var(--text-sub);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            animation: fadeIn 1s ease-out 0.4s backwards;
+        }
+
+        .stat-value {
+            color: var(--primary);
+            font-weight: 700;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 24px;
+            perspective: 1000px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 24px;
+            padding: 24px;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            opacity: 0;
+            animation: cardEnter 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+            box-shadow: var(--shadow-card);
+        }
+
+        .card:hover {
+            transform: translateY(-8px) scale(1.02);
+            background: var(--card-hover-bg);
+            border-color: #A7F3D0;
+            box-shadow: 0 12px 24px rgba(0,0,0,0.08),
+                        0 0 0 1px rgba(5, 150, 105, 0.1);
+            z-index: 2;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.4s ease;
+        }
+
+        .card:hover::before { transform: scaleX(1); }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .avatar {
+            width: 64px; height: 64px;
+            border-radius: 18px;
+            background: linear-gradient(135deg, #F0FDF4, #ECFDF5);
+            color: var(--primary);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.5rem; font-weight: 700;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            position: relative;
+            border: 1px solid #A7F3D0;
+        }
+
+        .avatar::after {
+            content: '';
+            position: absolute;
+            bottom: -2px; right: -2px;
+            width: 14px; height: 14px;
+            background: #10b981;
+            border: 3px solid #fff;
+            border-radius: 50%;
+        }
+
+        .card-info { flex: 1; min-width: 0; }
+
+        .card h3 {
+            font-size: 1.25rem;
+            color: var(--text-main);
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .role-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            border-radius: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border: 1px solid transparent;
+            transition: all 0.3s ease;
+            cursor: help;
+        }
+
+        .role-vip {
+            background: #FEF3C7;
+            color: #B45309;
+            border-color: #FDE68A;
+        }
+
+        .role-mgmt {
+            background: #FCE7F3;
+            color: #BE185D;
+            border-color: #F9A8D4;
+        }
+
+        .role-field {
+            background: #ECFDF5;
+            color: #047857;
+            border-color: #A7F3D0;
+        }
+
+        .role-base {
+            background: #EEF2FF;
+            color: #4338CA;
+            border-color: #C7D2FE;
+        }
+
+        .card-body {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .detail-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--text-sub);
+            font-size: 0.95rem;
+            padding: 8px;
+            border-radius: 8px;
+            transition: background 0.2s;
+        }
+
+        .detail-row:hover { background: #F8FAFC; }
+
+        .icon-box {
+            width: 32px; height: 32px;
+            background: #F1F5F9;
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1rem;
+            color: var(--text-muted);
+        }
+
+        .card-actions {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid var(--card-border);
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .btn-call {
+            padding: 10px 20px;
+            background: linear-gradient(135deg, var(--primary), #047857);
+            color: white;
+            text-decoration: none;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(5, 150, 105, 0.2);
+            border: none;
+        }
+
+        .btn-call:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(5, 150, 105, 0.3);
+            filter: brightness(1.05);
+        }
+
+        .empty-state {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 80px 20px;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        .empty-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            opacity: 0.5;
+            display: inline-block;
+        }
+
+        .spinner {
+            width: 50px; height: 50px;
+            border: 3px solid #E2E8F0;
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 24px;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 80px;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            border-top: 1px solid var(--card-border);
+            padding-top: 40px;
+        }
+
+        footer a {
+            color: var(--text-sub);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        footer a:hover { color: var(--primary); }
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes cardEnter {
+            from { opacity: 0; transform: translateY(30px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        @media (max-width: 600px) {
+            h1 { font-size: 2.2rem; }
+            .grid { grid-template-columns: 1fr; }
+            .search-box { margin: 0 10px; }
+            .text-logo { font-size: 2rem; }
+            .back-btn { top: 12px; right: 12px; padding: 6px 12px; font-size: 0.75rem; }
+        }
+    </style>
+</head>
+
+<body>
+<script>
+(function(){
+  var isEmp = !!localStorage.getItem('employeeId') || localStorage.getItem('roleAuth') === 'true';
+  var isAdmin = localStorage.getItem('adminAuth') === 'true';
+  if (!isEmp && !isAdmin) { window.location.href = 'index.html'; }
+})();
+</script>
+    <button id="sidebar-toggle-btn" class="back-btn" aria-label="Open menu" style="font-size:20px;line-height:1;cursor:pointer;border:1px solid #E2E8F0;">&#9776;</button>
+
+    <div class="container">
+        <header>
+            <div class="text-logo">NLPL</div>
+            <h1>NLPL Team Directory</h1>
+            <p class="subtitle">Connect with your colleagues across the organization.</p>
+
+            <div class="search-container">
+                <div class="search-box">
+                    <div class="search-icon-wrapper">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    </div>
+                    <input type="text" id="searchInput" placeholder="Find by name, role, ID, or location..." autocomplete="off">
+                </div>
+            </div>
+
+            <div class="stats-badge" id="statsBar">
+                <span>Total: <span class="stat-value" id="totalCount">-</span></span>
+                <span>Showing: <span class="stat-value" id="displayedCount">-</span></span>
+            </div>
+        </header>
+
+        <main id="resultsGrid" class="grid">
+            <div class="empty-state">
+                <div class="spinner"></div>
+                <p>Syncing employee data...</p>
+            </div>
+        </main>
+
+        <footer>
+            <p>&copy; 2026 NLPL. Powered by <a href="https://www.postgresql.org" target="_blank" rel="noopener">PostgreSQL</a></p>
+        </footer>
+    </div>
+
+    <script>
+        var CONFIG = { animationStaggerDelay: 50 };
+
+        var App = {
+            socket: null,
+            state: { total: 0, debounce: null, lastQuery: '' },
+            ui: {},
+
+            init: function() {
+                this.socket = io();
+                var self = this;
+
+                this.ui = {
+                    input: document.getElementById('searchInput'),
+                    grid: document.getElementById('resultsGrid'),
+                    total: document.getElementById('totalCount'),
+                    displayed: document.getElementById('displayedCount')
+                };
+
+                this.ui.input.addEventListener('input', function(e) { self.handleSearch(e); });
+
+                // Real-time: auto-refresh when DB changes
+                this.socket.on('db_change', function(data) {
+                    if (data.table === 'employees') {
+                        self.fetchData(self.state.lastQuery);
+                        self.fetchTotal();
+                    }
+                });
+
+                this.fetchTotal();
+                this.fetchData('');
+            },
+
+            handleSearch: function(e) {
+                var self = this;
+                clearTimeout(this.state.debounce);
+                this.state.debounce = setTimeout(function() {
+                    self.fetchData(e.target.value.trim());
+                }, 300);
+            },
+
+            fetchTotal: async function() {
+                try {
+                    var res = await fetch('/api/employees/count');
+                    var data = await res.json();
+                    this.state.total = data.count;
+                    this.ui.total.textContent = data.count;
+                } catch(e) {}
+            },
+
+            fetchData: async function(query) {
+                this.state.lastQuery = query;
+                this.renderLoading();
+
+                try {
+                    var url = '/api/employees' + (query ? '?q=' + encodeURIComponent(query) : '');
+                    var res = await fetch(url);
+                    var data = await res.json();
+
+                    this.updateStats(data.length);
+                    this.renderCards(data);
+                } catch (err) {
+                    console.error(err);
+                    this.renderError("Connection Failed", "Could not retrieve employee data.");
+                }
+            },
+
+            updateStats: function(count) {
+                this.ui.total.textContent = this.state.total || '-';
+                this.ui.displayed.textContent = count;
+            },
+
+            renderLoading: function() {
+                this.ui.grid.innerHTML =
+                    '<div class="empty-state">' +
+                        '<div class="spinner"></div>' +
+                        '<p style="color:var(--text-muted)">Searching directory...</p>' +
+                    '</div>';
+            },
+
+            renderError: function(title, msg) {
+                this.ui.grid.innerHTML =
+                    '<div class="empty-state">' +
+                        '<div class="empty-icon">&#9888;&#65039;</div>' +
+                        '<h3>' + this.safe(title) + '</h3>' +
+                        '<p>' + this.safe(msg) + '</p>' +
+                    '</div>';
+            },
+
+            renderCards: function(employees) {
+                if (!employees.length) {
+                    this.ui.grid.innerHTML =
+                        '<div class="empty-state">' +
+                            '<div class="empty-icon">&#128301;</div>' +
+                            '<h3>No matches found</h3>' +
+                            '<p>Try searching for a different name, role, or location.</p>' +
+                        '</div>';
+                    return;
+                }
+
+                var self = this;
+                var html = employees.map(function(emp, index) {
+                    var delay = index * CONFIG.animationStaggerDelay;
+                    var roleInfo = self.getRoleConfig(emp.role);
+
+                    var card =
+                        '<div class="card" style="animation-delay: ' + delay + 'ms">' +
+                            '<div class="card-header">' +
+                                '<div class="avatar">' + self.getInitials(emp.name) + '</div>' +
+                                '<div class="card-info">' +
+                                    '<h3>' + self.safe(emp.name) + '</h3>' +
+                                    '<span class="role-pill ' + roleInfo.cls + '" title="' + self.safe(roleInfo.full) + '">' +
+                                        self.safe(emp.role || 'Team Member') +
+                                    '</span>' +
+                                '</div>' +
+                            '</div>' +
+                            '<div class="card-body">' +
+                                '<div class="detail-row">' +
+                                    '<div class="icon-box">&#127380;</div>' +
+                                    '<span>' + self.safe(emp.emp_id || '\u2014') + '</span>' +
+                                '</div>' +
+                                '<div class="detail-row">' +
+                                    '<div class="icon-box">&#128205;</div>' +
+                                    '<span>' + self.safe(emp.location || 'Remote') + '</span>' +
+                                '</div>' +
+                                '<div class="detail-row">' +
+                                    '<div class="icon-box">&#128222;</div>' +
+                                    '<span>' + self.safe(emp.mobile || '\u2014') + '</span>' +
+                                '</div>' +
+                            '</div>';
+
+                    if (emp.mobile) {
+                        card +=
+                            '<div class="card-actions">' +
+                                '<a href="tel:' + self.safe(emp.mobile) + '" class="btn-call">' +
+                                    '<span>Call Now</span>' +
+                                '</a>' +
+                            '</div>';
+                    }
+
+                    card += '</div>';
+                    return card;
+                }).join('');
+
+                this.ui.grid.innerHTML = html;
+            },
+
+            getRoleConfig: function(role) {
+                if (!role) return { cls: 'role-base', full: 'Team Member' };
+
+                var r = role.toUpperCase();
+
+                if (['DIRECTOR', 'LEADER', 'RM', 'DM', 'ZM', 'VP', 'CEO'].some(function(x) { return r.indexOf(x) !== -1; })) {
+                    var vipMap = { 'RM': 'Regional Manager', 'DM': 'District Manager', 'ZM': 'Zonal Manager' };
+                    return { cls: 'role-vip', full: vipMap[r] || role };
+                }
+
+                if (['BM', 'ABM', 'MANAGER', 'ACM', 'BSM'].some(function(x) { return r.indexOf(x) !== -1; })) {
+                    var mgmtMap = { 'BM': 'Branch Manager', 'ABM': 'Asst. Branch Manager', 'ACM': 'Area Credit Manager', 'BSM': 'Business Sales Manager' };
+                    return { cls: 'role-mgmt', full: mgmtMap[r] || role };
+                }
+
+                if (['FO', 'DOE', 'ROE', 'TSM', 'RVO', 'IA', 'AUDIT'].some(function(x) { return r.indexOf(x) !== -1; })) {
+                    var fieldMap = { 'FO': 'Field Officer', 'DOE': 'Data Entry Operator', 'ROE': 'Regional Ops Exec' };
+                    return { cls: 'role-field', full: fieldMap[r] || role };
+                }
+
+                return { cls: 'role-base', full: role };
+            },
+
+            getInitials: function(name) {
+                if (!name) return '?';
+                return name.split(' ')
+                    .map(function(n) { return n[0]; })
+                    .slice(0, 2)
+                    .join('')
+                    .toUpperCase();
+            },
+
+            safe: function(text) {
+                if (!text) return text;
+                return text.toString().replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', function() { App.init(); });
+    </script>
+
+<!-- Sidebar Overlay + Panel -->
+<div id="sidebarOverlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.3);z-index:9998;opacity:0;visibility:hidden;transition:opacity .3s,visibility .3s;"></div>
+<div id="sidebarPanel" style="position:fixed;top:0;right:0;bottom:0;width:280px;max-width:85vw;background:#FFFFFF;border-left:1px solid #E2E8F0;z-index:9999;transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;font-family:inherit;box-shadow:-4px 0 24px rgba(0,0,0,0.08);">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 20px 14px;border-bottom:1px solid #E2E8F0;">
+    <span style="color:#1E293B;font-size:16px;font-weight:600;">Menu</span>
+    <button id="sidebarCloseBtn" style="background:none;border:none;color:#94A3B8;font-size:24px;cursor:pointer;padding:0 4px;line-height:1;">&times;</button>
+  </div>
+  <nav style="padding:12px 0;flex:1;overflow-y:auto;">
+    <a href="employee.html" style="display:flex;align-items:center;gap:14px;padding:14px 20px;color:#1E293B;text-decoration:none;font-size:15px;font-weight:500;transition:background .2s;" onmouseover="this.style.background='#F0FDF4'" onmouseout="this.style.background=''">
+      <span style="font-size:20px;width:28px;text-align:center;">&#127968;</span>
+      <span>Home</span>
+    </a>
+    <a href="contacts.html" style="display:flex;align-items:center;gap:14px;padding:14px 20px;color:#059669;text-decoration:none;font-size:15px;font-weight:500;background:#ECFDF5;border-left:3px solid #059669;padding-left:17px;" >
+      <span style="font-size:20px;width:28px;text-align:center;">&#128199;</span>
+      <span>Contacts</span>
+    </a>
+    <a href="locator.html" style="display:flex;align-items:center;gap:14px;padding:14px 20px;color:#1E293B;text-decoration:none;font-size:15px;font-weight:500;transition:background .2s;" onmouseover="this.style.background='#F0FDF4'" onmouseout="this.style.background=''">
+      <span style="font-size:20px;width:28px;text-align:center;">&#128205;</span>
+      <span>Branch Locator</span>
+    </a>
+  </nav>
+  <div style="padding:16px 20px;border-top:1px solid #E2E8F0;margin-top:auto;">
+    <button onclick="['adminAuth','employeeId','employeeName','roleAuth','roleName','roleLocation','roleNavStack'].forEach(function(k){localStorage.removeItem(k)});window.location.href='index.html';" style="display:flex;align-items:center;gap:12px;width:100%;padding:14px 16px;background:#FEF2F2;border:1px solid #FECACA;border-radius:12px;color:#EF4444;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;transition:all .2s;" onmouseover="this.style.background='#FEE2E2';this.style.borderColor='#FCA5A5'" onmouseout="this.style.background='#FEF2F2';this.style.borderColor='#FECACA'">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      <span>Logout</span>
+    </button>
+  </div>
+</div>
+<script>
+(function(){
+  var ov=document.getElementById('sidebarOverlay'),pn=document.getElementById('sidebarPanel');
+  document.getElementById('sidebar-toggle-btn').addEventListener('click',function(){ov.style.opacity='1';ov.style.visibility='visible';pn.style.transform='translateX(0)';});
+  function close(){ov.style.opacity='0';ov.style.visibility='hidden';pn.style.transform='translateX(100%)';}
+  document.getElementById('sidebarCloseBtn').addEventListener('click',close);
+  ov.addEventListener('click',close);
+})();
+</script>
+</body>
+</html>

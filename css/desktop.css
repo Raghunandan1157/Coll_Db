@@ -1,0 +1,1403 @@
+/* ============================================================
+   DESKTOP.CSS — Desktop/Laptop Overrides for Financial Dashboard
+   Supplementary to styles.css (mobile-first base).
+   All rules scoped inside @media (min-width: 768px) unless noted.
+   ============================================================ */
+
+/* ============================================================
+   A. UTILITY GRID CLASSES (used by JS-generated markup)
+   ============================================================ */
+
+@media (min-width: 768px) {
+  .desktop-grid-2 {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+
+  .desktop-grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+}
+
+/* ============================================================
+   B. GLOBAL LAYOUT & TYPOGRAPHY
+   Note: NO body padding here — the sidebar layout handles spacing.
+   ============================================================ */
+
+@media (min-width: 768px) {
+  body {
+    font-size: 10pt;
+  }
+
+  header h1 {
+    font-size: 24pt;
+  }
+
+  .section-title {
+    font-size: 15pt;
+  }
+
+  /* Centered content container */
+  .content-wrapper {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+}
+
+/* ============================================================
+   C. DESKTOP SIDEBAR NAVIGATION
+   Persistent left sidebar visible only on desktop.
+   Replaces the mobile bottom tab bar.
+   Class names match employee.html.new exactly:
+     .desktop-layout, .desktop-sidebar, .desktop-sidebar-brand,
+     .desktop-sidebar-appname, .desktop-sidebar-nav,
+     .desktop-sidebar-item, .desktop-sidebar-icon,
+     .desktop-sidebar-label, .desktop-sidebar-footer,
+     .desktop-sidebar-logout
+   ============================================================ */
+
+@media (min-width: 768px) {
+  /* Flex container wrapping sidebar + main */
+  .desktop-layout {
+    display: flex;
+    min-height: 100vh;
+  }
+
+  /* -- Persistent sidebar -- */
+  .desktop-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 240px;
+    height: 100vh;
+    background: #FFFFFF;
+    border-right: 1px solid #E2E8F0;
+    box-shadow: 2px 0 12px rgba(0, 0, 0, 0.04);
+    display: flex;
+    flex-direction: column;
+    z-index: 200;
+    overflow-y: auto;
+  }
+
+  /* Brand area at top of sidebar */
+  .desktop-sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 20px 20px 16px;
+    border-bottom: 1px solid #E2E8F0;
+  }
+
+  .desktop-sidebar-appname {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1E293B;
+    white-space: nowrap;
+    letter-spacing: -0.3px;
+  }
+
+  /* Navigation list */
+  .desktop-sidebar-nav {
+    flex: 1;
+    padding: 12px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  /* Individual nav item */
+  .desktop-sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #64748B;
+    cursor: pointer;
+    text-decoration: none;
+    border-left: 3px solid transparent;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .desktop-sidebar-item:hover {
+    background: #F8FAFC;
+    color: #1E293B;
+  }
+
+  .desktop-sidebar-item.active {
+    background: #F0FDF4;
+    color: #059669;
+    border-left-color: #059669;
+    font-weight: 600;
+  }
+
+  .desktop-sidebar-item.active .desktop-sidebar-icon svg {
+    stroke: #059669;
+  }
+
+  /* Icon wrapper */
+  .desktop-sidebar-icon {
+    width: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .desktop-sidebar-icon svg {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    transition: stroke 0.15s ease;
+  }
+
+  /* Label text */
+  .desktop-sidebar-label {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Footer area with logout */
+  .desktop-sidebar-footer {
+    padding: 16px 20px;
+    border-top: 1px solid #E2E8F0;
+    margin-top: auto;
+  }
+
+  .desktop-sidebar-logout {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 12px 14px;
+    background: #FEF2F2;
+    border: 1px solid #FECACA;
+    border-radius: 10px;
+    color: #EF4444;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .desktop-sidebar-logout:hover {
+    background: #FEE2E2;
+    border-color: #FCA5A5;
+  }
+
+  /* -- Main content area pushed right of sidebar -- */
+  .desktop-main {
+    margin-left: 240px;
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+
+  /* Emp app inside desktop-main */
+  .desktop-main .emp-app {
+    flex: 1;
+    max-width: none;
+    padding: 0 24px 24px;
+  }
+
+  /* Header inside desktop-main */
+  .desktop-main .emp-header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: #F8FAFC;
+    padding: 12px 24px 6px;
+    margin-bottom: 0;
+  }
+
+  /* Hide the mobile hamburger button on desktop */
+  .desktop-main #sidebar-toggle-btn {
+    display: none;
+  }
+
+  /* -- Hide mobile bottom tab bar on desktop -- */
+  .desktop-main .emp-tab-bar {
+    display: none !important;
+  }
+
+  /* -- Hide mobile sidebar overlay + panel on desktop -- */
+  .sidebar-overlay,
+  .sidebar-panel {
+    display: none !important;
+  }
+}
+
+
+/* ============================================================
+   C2. COMPACT SIDEBAR (tablets & small laptops: 768-1199px)
+   Shows icons only; labels hidden. Expands on hover.
+   ============================================================ */
+@media (min-width: 768px) and (max-width: 1199px) {
+  .desktop-sidebar {
+    width: 68px;
+    transition: width 0.25s ease;
+    overflow: hidden;
+  }
+  .desktop-sidebar:hover {
+    width: 240px;
+    box-shadow: 4px 0 24px rgba(0,0,0,0.08);
+  }
+
+  .desktop-sidebar-brand {
+    padding: 16px 14px;
+    justify-content: center;
+    gap: 10px;
+    overflow: hidden;
+  }
+  .desktop-sidebar:hover .desktop-sidebar-brand {
+    justify-content: flex-start;
+    padding: 20px 20px 16px;
+  }
+  .desktop-sidebar-appname {
+    opacity: 0;
+    width: 0;
+    overflow: hidden;
+    transition: opacity 0.2s ease, width 0.2s ease;
+  }
+  .desktop-sidebar:hover .desktop-sidebar-appname {
+    opacity: 1;
+    width: auto;
+  }
+
+  .desktop-sidebar-item {
+    padding: 12px 22px;
+    justify-content: center;
+    gap: 0;
+    border-left-width: 3px;
+  }
+  .desktop-sidebar:hover .desktop-sidebar-item {
+    justify-content: flex-start;
+    gap: 12px;
+    padding: 12px 20px;
+  }
+
+  .desktop-sidebar-label {
+    opacity: 0;
+    width: 0;
+    overflow: hidden;
+    transition: opacity 0.2s ease, width 0.2s ease;
+  }
+  .desktop-sidebar:hover .desktop-sidebar-label {
+    opacity: 1;
+    width: auto;
+  }
+
+  .desktop-sidebar-footer {
+    padding: 12px 10px;
+  }
+  .desktop-sidebar:hover .desktop-sidebar-footer {
+    padding: 16px 20px;
+  }
+  .desktop-sidebar-logout span {
+    opacity: 0;
+    width: 0;
+    overflow: hidden;
+    transition: opacity 0.2s ease;
+  }
+  .desktop-sidebar:hover .desktop-sidebar-logout span {
+    opacity: 1;
+    width: auto;
+  }
+  .desktop-sidebar-logout {
+    justify-content: center;
+    padding: 12px 10px;
+  }
+  .desktop-sidebar:hover .desktop-sidebar-logout {
+    justify-content: flex-start;
+    padding: 12px 14px;
+  }
+
+
+
+  /* compact active */
+  .desktop-sidebar-item.active {
+    background: #ECFDF5 !important;
+    color: #059669 !important;
+    border-right: 3px solid #059669;
+    font-weight: 600;
+  }
+  .desktop-sidebar-item.active .desktop-sidebar-icon svg {
+    stroke: #059669 !important;
+  }
+
+  .desktop-main {
+    margin-left: 68px;
+    transition: margin-left 0.25s ease;
+  }
+}
+
+/* Mobile: keep desktop sidebar hidden, layout is normal block */
+@media (max-width: 767px) {
+  .desktop-layout {
+    display: block;
+  }
+  .desktop-sidebar {
+    display: none !important;
+  }
+  .desktop-main {
+    margin-left: 0;
+  }
+}
+
+/* ============================================================
+   D. LOGIN PAGE — Desktop Split Layout
+   HTML classes: .desktop-login-layout, .desktop-hero,
+   .desktop-hero-content, .desktop-hero-icon, .hero-chart,
+   .hero-chart-bar, .desktop-hero-title, .desktop-hero-tagline,
+   .desktop-hero-features, .desktop-hero-feature,
+   .desktop-hero-feature-icon, .desktop-hero-footer,
+   .desktop-login-panel
+   ============================================================ */
+
+@media (min-width: 768px) {
+  /* Two-panel layout: hero left, login right */
+  .desktop-login-layout {
+    display: flex;
+    min-height: 100vh;
+  }
+
+  /* Left hero/branding panel */
+  .desktop-hero {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    width: 45%;
+    min-width: 380px;
+    background: linear-gradient(135deg, #1E293B 0%, #334155 50%, #1E293B 100%);
+    color: #FFFFFF;
+    padding: 48px 40px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .desktop-hero::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle at 30% 70%, rgba(5, 150, 105, 0.08) 0%, transparent 50%);
+    pointer-events: none;
+  }
+
+  .desktop-hero-content {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    max-width: 360px;
+  }
+
+  /* CSS chart illustration */
+  .desktop-hero-icon {
+    margin-bottom: 32px;
+  }
+
+  .hero-chart {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 8px;
+    height: 80px;
+  }
+
+  .hero-chart-bar {
+    width: 18px;
+    border-radius: 4px 4px 0 0;
+    background: rgba(5, 150, 105, 0.6);
+    transition: height 0.6s ease;
+  }
+
+  .hero-chart-bar-1 {
+    height: 30px;
+    background: rgba(5, 150, 105, 0.4);
+    animation: heroBarGrow 1.2s ease-out 0.1s both;
+  }
+
+  .hero-chart-bar-2 {
+    height: 55px;
+    background: rgba(5, 150, 105, 0.55);
+    animation: heroBarGrow 1.2s ease-out 0.2s both;
+  }
+
+  .hero-chart-bar-3 {
+    height: 40px;
+    background: rgba(5, 150, 105, 0.5);
+    animation: heroBarGrow 1.2s ease-out 0.3s both;
+  }
+
+  .hero-chart-bar-4 {
+    height: 70px;
+    background: #059669;
+    animation: heroBarGrow 1.2s ease-out 0.4s both;
+  }
+
+  @keyframes heroBarGrow {
+    from {
+      height: 0;
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  .desktop-hero-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    letter-spacing: -0.5px;
+  }
+
+  .desktop-hero-tagline {
+    font-size: 15px;
+    color: rgba(255, 255, 255, 0.7);
+    line-height: 1.6;
+    margin-bottom: 32px;
+  }
+
+  .desktop-hero-features {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    text-align: left;
+  }
+
+  .desktop-hero-feature {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.85);
+  }
+
+  .desktop-hero-feature-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(5, 150, 105, 0.25);
+    color: #34D399;
+    font-size: 13px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .desktop-hero-footer {
+    position: relative;
+    z-index: 1;
+    margin-top: auto;
+    padding-top: 32px;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.4);
+  }
+
+  /* Right login panel */
+  .desktop-login-panel {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #F8FAFC;
+    min-height: 100vh;
+  }
+
+  .desktop-login-panel .login-wrap {
+    padding: 48px;
+    width: 100%;
+    max-width: 520px;
+  }
+
+  .desktop-login-panel .search-card {
+    border-radius: 16px;
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.06);
+  }
+}
+
+/* Narrower screens: stack login layout */
+@media (max-width: 767px) {
+  .desktop-login-layout {
+    display: block;
+  }
+  .desktop-hero {
+    display: none;
+  }
+  .desktop-login-panel {
+    min-height: 100vh;
+  }
+}
+
+/* ============================================================
+   E. EMPLOYEE DASHBOARD — Desktop Layout Enhancements
+   ============================================================ */
+
+@media (min-width: 768px) {
+  body.emp-dark {
+    font-size: 14px;
+  }
+
+  /* --- Header --- */
+  .emp-header {
+    /* margin reduced — sticky header handles spacing */
+    margin-bottom: 4px;
+  }
+
+  .emp-header-left h1 {
+    font-size: 30px;
+  }
+
+  .emp-subtitle {
+    font-size: 15px;
+  }
+
+  .emp-last-updated {
+    font-size: 12px;
+  }
+
+  /* --- Date Badge --- */
+  .emp-date-badge {
+    font-size: 14px;
+    padding: 10px 18px;
+  }
+
+  /* --- Snapshot Cards in a Row --- */
+  .emp-snapshot {
+    border-radius: 18px;
+    padding: 28px 32px;
+    margin-bottom: 24px;
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+  }
+
+  .emp-snapshot:hover {
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+    transform: translateY(-2px);
+  }
+
+  .emp-snapshot-label {
+    font-size: 12px;
+    margin-bottom: 18px;
+  }
+
+  .emp-snapshot-row {
+    gap: 24px;
+  }
+
+  .emp-snap-val {
+    font-size: 40px;
+  }
+
+  .emp-snap-lbl {
+    font-size: 13px;
+  }
+
+  .emp-snap-unit {
+    font-size: 16px;
+  }
+
+  /* --- Section Title --- */
+  .emp-section-title {
+    font-size: 12px;
+    letter-spacing: 2px;
+    margin-bottom: 16px;
+  }
+
+  /* --- General Card Hover Effect --- */
+  .emp-card {
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+  }
+
+  .emp-card:hover {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+    transform: translateY(-2px);
+  }
+
+  /* --- Reg DPD Summary Row Layout --- */
+  .emp-reg-summary {
+    border-radius: 18px;
+    padding: 24px 32px;
+    margin-bottom: 16px;
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+  }
+
+  .emp-reg-summary:hover {
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+    transform: translateY(-2px);
+  }
+
+  .emp-reg-label {
+    font-size: 17px;
+  }
+
+  .emp-reg-val {
+    font-size: 24px;
+  }
+
+  .emp-reg-lbl {
+    font-size: 11px;
+  }
+}
+
+/* ============================================================
+   F. DPD BUCKET CARDS — 2x2 Grid
+   ============================================================ */
+
+@media (min-width: 768px) {
+  .emp-buckets,
+  .emp-bucket-list {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+
+  .emp-bucket-card {
+    border-radius: 16px;
+    padding: 22px 24px;
+    transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+  }
+
+  .emp-bucket-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.1);
+    border-color: #94A3B8;
+  }
+
+  .emp-bucket-name {
+    font-size: 16px;
+  }
+
+  .emp-bucket-sub {
+    font-size: 13px;
+  }
+
+  .emp-bucket-val {
+    font-size: 24px;
+  }
+
+  .emp-bucket-lbl {
+    font-size: 10px;
+  }
+}
+
+/* ============================================================
+   G. SUB-UNIT DRILL-DOWN CARDS — 2-3 Column Grid
+   ============================================================ */
+
+@media (min-width: 768px) {
+  .emp-sub-list {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .emp-sub-list {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* ============================================================
+   H. PORTFOLIO TAB — Desktop Enhancements
+   ============================================================ */
+
+@media (min-width: 768px) {
+  .pf-view-toggle {
+    max-width: 360px;
+    margin-bottom: 20px;
+  }
+
+  .pf-view-btn {
+    font-size: 14px;
+    padding: 12px 20px;
+  }
+
+  .pf-header-top {
+    flex-wrap: nowrap;
+  }
+
+  .pf-rank-badge {
+    font-size: 16px;
+    padding: 6px 16px;
+  }
+
+  .pf-perf-badge {
+    font-size: 13px;
+    padding: 6px 16px;
+  }
+
+  /* Reg demand card */
+  .pf-reg-card {
+    border-radius: 18px;
+    padding: 28px;
+    margin-bottom: 16px;
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+  }
+
+  .pf-reg-card:hover {
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+    transform: translateY(-2px);
+  }
+
+  .pf-reg-val {
+    font-size: 26px;
+  }
+
+  .pf-reg-lbl {
+    font-size: 11px;
+  }
+
+  /* NPA card */
+  .pf-npa-card {
+    border-radius: 16px;
+    padding: 24px 28px;
+    margin-bottom: 16px;
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+  }
+
+  .pf-npa-card:hover {
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+    transform: translateY(-2px);
+  }
+
+  .pf-npa-val {
+    font-size: 22px;
+  }
+
+  .pf-npa-lbl {
+    font-size: 10px;
+  }
+
+  /* On-date grid */
+  .pf-ondate-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .pf-ondate-card {
+    border-radius: 16px;
+    padding: 20px;
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+  }
+
+  .pf-ondate-card:hover {
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+    transform: translateY(-2px);
+  }
+
+  .pf-ondate-label {
+    font-size: 12px;
+  }
+
+  .pf-ondate-val {
+    font-size: 18px;
+  }
+}
+
+/* ============================================================
+   I. ADMIN PANEL — Desktop Layout
+   HTML classes: .admin-header-bar, .admin-header-inner,
+   .admin-header-title, .admin-header-actions,
+   .btn-header-logout, .btn-sidebar-toggle,
+   .admin-page-wrapper, .admin-content-container,
+   .admin-section, .upload-grid, .upload-card
+   ============================================================ */
+
+@media (min-width: 768px) {
+  /* Admin uses its own header bar, not a sidebar */
+  .admin-header-bar {
+    padding: 0 24px;
+  }
+
+  .admin-header-inner {
+    height: 64px;
+  }
+
+  .admin-header-title {
+    font-size: 22px;
+  }
+
+  /* Show the inline header logout on desktop */
+  .btn-header-logout {
+    display: flex;
+  }
+
+  /* Hide the hamburger toggle on desktop */
+  .btn-sidebar-toggle {
+    display: none;
+  }
+
+  .admin-page-wrapper {
+    padding: 32px 24px;
+  }
+
+  .admin-content-container {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .admin-section {
+    margin-bottom: 40px;
+  }
+
+  /* Upload cards side by side (3 col from admin HTML) */
+  .upload-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+  }
+
+  .upload-card {
+    padding: 20px;
+    gap: 14px;
+  }
+
+  .upload-card-label {
+    font-size: 16px;
+    gap: 10px;
+  }
+
+  .upload-card-icon {
+    font-size: 22px;
+  }
+
+  .upload-card .upload-zone {
+    min-height: 150px;
+    padding: 24px 16px;
+    transition: border-color 0.2s, background 0.2s, box-shadow 0.2s, transform 0.2s;
+  }
+
+  .upload-card .upload-zone:hover {
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+    transform: translateY(-2px);
+  }
+
+  .upload-card .upload-text {
+    font-size: 14px;
+  }
+
+  .upload-card .upload-subtext {
+    font-size: 12px;
+  }
+
+  /* Upload status */
+  .card-upload-status {
+    font-size: 12px;
+    padding: 10px 14px;
+  }
+
+  /* Hide mobile sidebar overlay + panel on admin desktop too */
+  .sidebar-overlay,
+  .sidebar-panel {
+    display: none !important;
+  }
+}
+
+/* ============================================================
+   J. TABLES — Better Horizontal Space Usage
+   ============================================================ */
+
+@media (min-width: 768px) {
+  table.report-table {
+    font-size: 10pt;
+  }
+
+  table.report-table th,
+  table.report-table td {
+    padding: 6px 12px;
+  }
+
+  /* Employee list table */
+  .employee-list-table {
+    font-size: 10pt;
+  }
+
+  .employee-list-table th {
+    font-size: 10pt;
+    padding: 12px 16px;
+    background: #F8FAFC;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  .employee-list-table td {
+    padding: 10px 16px;
+    font-size: 10pt;
+  }
+
+  .employee-list-table tr {
+    transition: background 0.15s ease;
+  }
+
+  .employee-list-table tr:hover td {
+    background: #F1F5F9;
+  }
+
+  /* Report table - better sizing on desktop */
+  .report-container {
+    padding-bottom: 48px;
+  }
+
+  /* Sheet tabs */
+  .sheet-tabs {
+    margin-bottom: 20px;
+  }
+
+  .sheet-tab {
+    padding: 10px 24px;
+    font-size: 11pt;
+  }
+
+  /* Grand total row */
+  tr.row-grand-total td {
+    font-size: 11pt;
+    padding: 8px 12px;
+  }
+
+  /* Section divider */
+  tr.row-divider td {
+    font-size: 16pt;
+    padding: 10px 12px;
+  }
+
+  /* Title row */
+  tr.row-title td {
+    font-size: 12pt;
+  }
+
+  /* Font utility classes */
+  .font-header {
+    font-size: 13pt;
+  }
+
+  .font-title {
+    font-size: 16pt;
+  }
+}
+
+/* ============================================================
+   K. SEARCH / FILTER CARD (Login page)
+   ============================================================ */
+
+@media (min-width: 768px) {
+  .search-card {
+    max-width: 600px;
+    padding: 24px 32px;
+    border-radius: 14px;
+  }
+}
+
+/* ============================================================
+   L. JS-GENERATED DESKTOP CLASSES
+   Used by collection.js and analytical.js:
+     .desktop-content-area, .desktop-card,
+     .desktop-sub-card, .desktop-pills-row
+   ============================================================ */
+
+@media (min-width: 768px) {
+  .desktop-content-area {
+    max-width: 1100px;
+  }
+
+  .desktop-card {
+    border-radius: 16px;
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+  }
+
+  .desktop-card:hover {
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+    transform: translateY(-2px);
+  }
+
+  .desktop-sub-card {
+    transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+  }
+
+  .desktop-sub-card:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    transform: translateY(-1px);
+    border-color: #A7F3D0;
+  }
+
+  .desktop-pills-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+}
+
+/* ============================================================
+   M. CARDS — Universal Hover Effects & will-change
+   ============================================================ */
+
+@media (min-width: 768px) {
+  .emp-snapshot,
+  .emp-bucket-card,
+  .emp-reg-summary,
+  .emp-card,
+  .pf-reg-card,
+  .pf-npa-card,
+  .pf-ondate-card,
+  .desktop-card,
+  .desktop-sub-card,
+  .upload-card .upload-zone {
+    will-change: transform, box-shadow;
+  }
+}
+
+/* ============================================================
+   N. WIDER BREAKPOINT REFINEMENTS (1100px+)
+   ============================================================ */
+
+@media (min-width: 1100px) {
+  .upload-card .upload-zone {
+    min-height: 170px;
+    padding: 32px 24px;
+  }
+
+  .upload-card {
+    padding: 24px;
+  }
+}
+
+/* ============================================================
+   O. WIDER BREAKPOINT REFINEMENTS (1200px+)
+   ============================================================ */
+
+@media (min-width: 1200px) {
+  /* Wider sidebar for very large screens */
+  .desktop-sidebar {
+    width: 260px;
+  }
+
+  .desktop-main {
+    margin-left: 260px;
+  }
+
+  /* 3-column bucket grid on wide screens */
+  .emp-buckets,
+  .emp-bucket-list {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+
+  /* Expand snapshot values further */
+  .emp-snap-val {
+    font-size: 44px;
+  }
+
+  .emp-reg-val {
+    font-size: 28px;
+  }
+
+  /* Wider NPA layout */
+  .pf-npa-val {
+    font-size: 24px;
+  }
+
+  .pf-reg-val {
+    font-size: 28px;
+  }
+
+  /* On-date grid can go to 4 columns if enough cards */
+  .pf-ondate-grid {
+    gap: 20px;
+  }
+
+  /* Employee list table gets more breathing room */
+  .employee-list-table th,
+  .employee-list-table td {
+    padding: 12px 20px;
+  }
+}
+
+/* ============================================================
+   P. SCROLLBAR STYLING (Desktop Only)
+   ============================================================ */
+
+@media (min-width: 768px) {
+  /* Thin custom scrollbar for Webkit browsers */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #F1F5F9;
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #CBD5E1;
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #94A3B8;
+  }
+
+  /* Firefox */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #CBD5E1 #F1F5F9;
+  }
+}
+
+/* ============================================================
+   Q. TRANSITIONS & POLISH
+   ============================================================ */
+
+@media (min-width: 768px) {
+  /* Smooth tab content transitions */
+  .emp-tab-content.active {
+    animation: desktopFadeIn 0.25s ease-out forwards;
+  }
+
+  @keyframes desktopFadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Focus-visible outlines for accessibility */
+  .btn-primary:focus-visible,
+  .btn-logout:focus-visible,
+  .emp-tab-item:focus-visible,
+  .pf-view-btn:focus-visible,
+  .desktop-sidebar-item:focus-visible,
+  .desktop-sidebar-logout:focus-visible {
+    outline: 2px solid #4a90d9;
+    outline-offset: 2px;
+  }
+
+  /* Smooth link/button transitions */
+  a,
+  button {
+    transition: color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  }
+}
+
+/* ============================================================
+   P. COLLECTION TAB — Desktop Layout Fixes
+   ============================================================ */
+@media (min-width: 768px) {
+  /* Ensure collection content uses full width */
+  #collectionContent .desktop-content-area {
+    max-width: 1200px;
+    padding: 0 8px;
+  }
+
+  /* Snapshot row — horizontal on desktop */
+  #collectionContent .emp-snapshot-row {
+    display: flex;
+    gap: 24px;
+    align-items: center;
+  }
+
+  /* Regular demand card — wider layout */
+  #collectionContent .pf-reg-card {
+    padding: 24px 28px;
+  }
+  #collectionContent .pf-reg-main {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+  }
+
+  /* DPD bucket cards — 3 columns on larger screens */
+  #collectionContent .emp-buckets {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+
+  /* NPA card wider */
+  #collectionContent .pf-npa-card {
+    padding: 24px 28px;
+  }
+
+  /* Team/sub-unit cards — 3 columns */
+  #collectionContent .emp-team-section .desktop-grid-3 {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+}
+
+@media (min-width: 1200px) {
+  #collectionContent .desktop-content-area {
+    max-width: 1400px;
+  }
+  #collectionContent .emp-buckets {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* ============================================================
+   Q. BUCKET CARDS — Desktop Layout Fix
+   ============================================================ */
+@media (min-width: 768px) {
+  #collectionContent .emp-bucket-card {
+    flex-wrap: wrap;
+    padding: 18px 20px;
+    gap: 10px;
+  }
+  #collectionContent .emp-bucket-card .emp-bucket-indicator {
+    height: 28px;
+    align-self: center;
+  }
+  #collectionContent .emp-bucket-card .emp-bucket-info {
+    overflow: visible;
+    min-width: auto;
+    flex: 0 0 auto;
+  }
+  #collectionContent .emp-bucket-card .emp-bucket-name {
+    white-space: nowrap;
+    font-size: 14px;
+    display: inline;
+  }
+  #collectionContent .emp-bucket-card .emp-bucket-sub {
+    white-space: nowrap;
+    font-size: 11px;
+    display: inline;
+    margin-left: 6px;
+  }
+  #collectionContent .emp-bucket-card .emp-bucket-stats {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: nowrap;
+    width: 100%;
+  }
+  #collectionContent .emp-bucket-card .emp-bucket-stat {
+    min-width: auto;
+    flex: 1;
+  }
+}
+
+/* ============================================================
+   R. MOBILE RESET — Undo desktop overrides for phones
+   ============================================================ */
+@media (max-width: 767px) {
+  #collectionContent .emp-buckets {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+  }
+  #collectionContent .emp-bucket-card {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+    padding: 14px 16px !important;
+  }
+  #collectionContent .emp-bucket-card .emp-bucket-indicator {
+    display: none !important;
+  }
+  #collectionContent .emp-bucket-card .emp-bucket-info {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    overflow: visible !important;
+    min-width: auto !important;
+    border-bottom: 1px solid #F1F5F9;
+    padding-bottom: 8px;
+  }
+  #collectionContent .emp-bucket-card .emp-bucket-name {
+    font-size: 14px !important;
+    white-space: nowrap !important;
+  }
+  #collectionContent .emp-bucket-card .emp-bucket-sub {
+    font-size: 11px !important;
+    margin-left: 0 !important;
+    color: #94A3B8;
+  }
+  #collectionContent .emp-bucket-card .emp-bucket-stats {
+    display: flex !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+    gap: 8px !important;
+  }
+  #collectionContent .emp-bucket-card .emp-bucket-stat {
+    flex: 1 !important;
+    min-width: auto !important;
+  }
+  #collectionContent .desktop-content-area {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+  #collectionContent .pf-reg-main {
+    display: flex !important;
+    flex-wrap: wrap !important;
+  }
+  #collectionContent .emp-snapshot-row {
+    display: flex !important;
+    flex-wrap: wrap !important;
+  }
+  #collectionContent .emp-team-section .desktop-grid-3 {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+  }
+}
+
+
+
+
+
+/* ============================================================
+   T. COMPACT LAYOUT — Portfolio & Disbursement
+   ============================================================ */
+@media (min-width: 768px) {
+  /* Tab content sits right under header */
+  .desktop-main .emp-tab-content {
+    padding-top: 0;
+  }
+  
+  /* Reduce top padding on the app container */  
+  .desktop-main .emp-app {
+    padding-top: 0;
+  }
+  
+  /* Header: minimal bottom spacing */
+  .desktop-main .emp-header {
+    padding-bottom: 4px;
+  }
+}
+
+/* U. COMPACT DESKTOP LAYOUT — eliminate gap below sticky header */
+@media (min-width: 768px) {
+  .desktop-main .emp-app {
+    padding-top: 0 !important;
+  }
+  .desktop-main .emp-header {
+    padding: 8px 24px 4px !important;
+    margin-bottom: 0 !important;
+  }
+  /* Pull tab content up to sit tight under header */
+  .desktop-main .emp-tab-content.active {
+    margin-top: -16px !important;
+  }
+}

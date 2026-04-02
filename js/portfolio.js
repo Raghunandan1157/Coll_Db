@@ -1,0 +1,464 @@
+/**
+ * portfolio.js — Portfolio tab renderer (month-wise).
+ * Shows: Month selector, product pills, bucket summary table,
+ * and hierarchical drill-down (same as collection).
+ *
+ * Data source: /api/portfolio/* (portfolio_month_wise DB)
+ * Container: portfolioContent
+ */
+(function () {
+
+  /* ========== Session ========== */
+  var session = getEmployeeSession();
+
+  /* ========== Formatters ========== */
+  function fmtNum(v) {
+    if (v == null || v === '' || v === '-') return '-';
+    var n = typeof v === 'string' ? parseFloat(v) : v;
+    if (typeof n !== 'number' || !isFinite(n)) return String(v);
+    if (Number.isInteger(n)) return n.toLocaleString('en-IN');
+    return n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function fmtAmt(v) {
+    var n = numVal(v);
+    if (n === 0) return '-';
+    if (n >= 10000000) return '\u20B9' + (n / 10000000).toFixed(2) + ' Cr';
+    if (n >= 100000) return '\u20B9' + (n / 100000).toFixed(2) + ' L';
+    if (n >= 1000) return '\u20B9' + (n / 1000).toFixed(2) + ' K';
+    return '\u20B9' + n.toLocaleString('en-IN');
+  }
+  function numVal(v) {
+    if (typeof v === 'number' && isFinite(v)) return v;
+    if (typeof v === 'string') { var p = parseFloat(v); return isFinite(p) ? p : 0; }
+    return 0;
+  }
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return '&#' + c.charCodeAt(0) + ';'; }); }
+
+  /* ========== API ========== */
+  function apiFetch(url) {
+    return fetch(url).then(function (r) {
+      if (!r.ok) throw new Error('API ' + r.status);
+      return r.json();
+    });
+  }
+
+  /* ========== State ========== */
+  var _pf = window._pf = {
+    view: localStorage.getItem('pfView') || 'overall',
+    months: [],
+    month: localStorage.getItem('pfMonth') || '',
+    product: localStorage.getItem('pfProduct') || 'all',
+    summary: null,
+    children: [],
+    pos: null,
+    posChildren: []
+  };
+
+  /* ========== Query builders ========== */
+  function summaryParams() {
+    var p = [];
+    if (_pf.view !== 'fy' && _pf.month) p.push('month=' + encodeURIComponent(_pf.month));
+    if (_pf.product && _pf.product !== 'all') p.push('product_type=' + encodeURIComponent(_pf.product.toUpperCase()));
+    if (session.role === 'RM' && session.location) p.push('region=' + encodeURIComponent(session.location));
+    else if (session.role === 'DM' && session.location) p.push('district=' + encodeURIComponent(session.location));
+    else if (session.role === 'BM' && session.location) p.push('branch=' + encodeURIComponent(session.location));
+    else if ((!session.role || session.role === 'FO') && session.id) p.push('emp_id=' + encodeURIComponent(session.id));
+    return p.length ? '?' + p.join('&') : '';
+  }
+
+  function childrenUrl() {
+    var pt = (_pf.product && _pf.product !== 'all') ? _pf.product.toUpperCase() : '';
+    var base = [];
+    if (_pf.view !== 'fy' && _pf.month) base.push('month=' + encodeURIComponent(_pf.month));
+    if (pt) base.push('product_type=' + encodeURIComponent(pt));
+    var apiBase = _pf.view === 'fy' ? '/api/fy' : '/api/portfolio';
+
+    if (session.role === 'CEO') return apiBase + '/by-region' + (base.length ? '?' + base.join('&') : '');
+    if (session.role === 'RM' && session.location) {
+      base.push('region=' + encodeURIComponent(session.location));
+      return apiBase + '/by-district?' + base.join('&');
+    }
+    if (session.role === 'DM' && session.location) {
+      base.push('district=' + encodeURIComponent(session.location));
+      return apiBase + '/by-branch?' + base.join('&');
+    }
+    if (session.role === 'BM' && session.location) {
+      base.push('branch=' + encodeURIComponent(session.location));
+      return apiBase + '/by-employee?' + base.join('&');
+    }
+    return null;
+  }
+
+  /* ========== Bucket computation ========== */
+  function computeBuckets(d) {
+    var regAcc = numVal(d.regular_demand);
+    var pos = _pf.pos || {};
+    var regAmt = numVal(pos.regular_pos) || numVal(d.regular_pos) || numVal(d.regular_demand_amt);
+    var sma0Acc = numVal(d.demand_1_30);
+    var sma0Amt = numVal(pos.sma0_pos) || numVal(d.sma0_pos) || numVal(d.demand_1_30_amt);
+    var sma1Acc = numVal(d.demand_31_60);
+    var sma1Amt = numVal(pos.sma1_pos) || numVal(d.sma1_pos) || numVal(d.demand_31_60_amt);
+    var sma2Acc = numVal(d.pnpa_demand);
+    var sma2Amt = numVal(pos.pnpa_pos) || numVal(d.pnpa_pos) || numVal(d.pnpa_demand_amt);
+    var npaAcc = numVal(d.npa_cases);
+    var npaAmt = numVal(pos.npa_pos) || numVal(d.npa_pos) || numVal(d.npa_act_amt);
+
+    var totalAcc = regAcc + sma0Acc + sma1Acc + sma2Acc + npaAcc;
+    var totalAmt = regAmt + sma0Amt + sma1Amt + sma2Amt + npaAmt;
+
+    function pct(v, t) { return t > 0 ? ((v / t) * 100).toFixed(2) + '%' : '-'; }
+
+    return [
+      { bucket: 'Regular',     acc: regAcc,   amt: regAmt,   pctAcc: pct(regAcc, totalAcc),  pctAmt: pct(regAmt, totalAmt),  color: '#10B981' },
+      { bucket: 'SMA-0',       acc: sma0Acc,  amt: sma0Amt,  pctAcc: pct(sma0Acc, totalAcc), pctAmt: pct(sma0Amt, totalAmt), color: '#34D399' },
+      { bucket: 'SMA-1',       acc: sma1Acc,  amt: sma1Amt,  pctAcc: pct(sma1Acc, totalAcc), pctAmt: pct(sma1Amt, totalAmt), color: '#FBBF24' },
+      { bucket: 'SMA-2',       acc: sma2Acc,  amt: sma2Amt,  pctAcc: pct(sma2Acc, totalAcc), pctAmt: pct(sma2Amt, totalAmt), color: '#FB923C' },
+      { bucket: 'NPA',         acc: npaAcc,   amt: npaAmt,   pctAcc: pct(npaAcc, totalAcc),  pctAmt: pct(npaAmt, totalAmt),  color: '#F87171' },
+      { bucket: 'Grand Total', acc: totalAcc, amt: totalAmt, pctAcc: '100%',                  pctAmt: '100%',                  color: '#6366F1', bold: true }
+    ];
+  }
+
+  /* ========== Load & Render ========== */
+  window.loadPortfolio = function() { loadAndRender(); };
+  function loadAndRender() {
+    var container = document.getElementById('portfolioContent');
+    container.innerHTML = '<div style="text-align:center;padding:80px 20px;">' +
+      '<div style="width:32px;height:32px;border:3px solid #E2E8F0;border-top-color:#6366F1;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 12px;"></div>' +
+      '<div style="color:#64748B;font-size:14px;">Loading portfolio data...</div></div>';
+
+    // Load months first if not yet loaded
+    var monthPromise = _pf.months.length ? Promise.resolve() : apiFetch('/api/portfolio/months').then(function (m) {
+      _pf.months = m;
+      if (!_pf.month && m.length) {
+        // Pick latest month that has data: try from end, check summary
+        var candidateIdx = m.length - 1;
+        function tryMonth(idx) {
+          if (idx < 0) { _pf.month = m[m.length - 1].month_label; localStorage.setItem('pfMonth', _pf.month); return Promise.resolve(); }
+          var label = m[idx].month_label;
+          return apiFetch('/api/portfolio/summary?month=' + encodeURIComponent(label)).then(function(d) {
+            var hasData = d && Object.keys(d).some(function(k) { return d[k] !== null && d[k] !== 0 && d[k] !== '0' && d[k] !== '0.00'; });
+            if (hasData) { _pf.month = label; localStorage.setItem('pfMonth', label); return; }
+            return tryMonth(idx - 1);
+          });
+        }
+        return tryMonth(candidateIdx);
+      }
+    });
+
+    monthPromise.then(function () {
+      var apiBase = _pf.view === 'fy' ? '/api/fy' : '/api/portfolio';
+      var summUrl = apiBase + '/summary' + summaryParams();
+      var chUrl = childrenUrl();
+      var promises = [apiFetch(summUrl)];
+      if (chUrl && session.role && session.role !== 'FO') promises.push(apiFetch(chUrl));
+      else promises.push(Promise.resolve([]));
+
+      // Fetch POS data from branch_pos table
+      var posParams = [];
+      if (session.role === 'RM' && session.location) posParams.push('region=' + encodeURIComponent(session.location));
+      else if (session.role === 'DM' && session.location) posParams.push('district=' + encodeURIComponent(session.location));
+      else if (session.role === 'BM' && session.location) posParams.push('branch=' + encodeURIComponent(session.location));
+      // POS always at company/branch level — no emp_id filter
+      if (_pf.view === 'fy') { if (_pf.month) posParams.push('month=' + encodeURIComponent(_pf.month)); else if (_pf.months.length) posParams.push('month=' + encodeURIComponent(_pf.months[_pf.months.length-1].month_label)); } else if (_pf.month) { posParams.push('month=' + encodeURIComponent(_pf.month)); } if (_pf.product && _pf.product !== 'all') posParams.push('product_type=' + encodeURIComponent(_pf.product.toUpperCase())); var posBase = '/api/portfolio/pos-summary'; var posUrl = posBase + (posParams.length ? '?' + posParams.join('&') : '');
+      promises.push(apiFetch(posUrl));
+
+      // POS by child unit
+      var posChildUrl = null;
+      if (session.role === 'CEO') posChildUrl = '/api/portfolio/pos-by-region' + (function(){ var m = _pf.view === 'fy' ? (_pf.months.length ? _pf.months[_pf.months.length-1].month_label : '') : _pf.month; return m ? '?month=' + encodeURIComponent(m) : ''; })();
+      else if (session.role === 'RM' && session.location) posChildUrl = '/api/portfolio/pos-by-district?'+ ((function(){ var m = _pf.view === 'fy' ? (_pf.months.length ? _pf.months[_pf.months.length-1].month_label : '') : _pf.month; return m ? 'month=' + encodeURIComponent(m) + '&' : ''; })()) + 'region=' + encodeURIComponent(session.location);
+      else if (session.role === 'DM' && session.location) posChildUrl = '/api/portfolio/pos-by-branch?' + ((function(){ var m = _pf.view === 'fy' ? (_pf.months.length ? _pf.months[_pf.months.length-1].month_label : '') : _pf.month; return m ? 'month=' + encodeURIComponent(m) + '&' : ''; })()) + 'district=' + encodeURIComponent(session.location);
+      if (posChildUrl) promises.push(apiFetch(posChildUrl));
+      else promises.push(Promise.resolve([]));
+
+      return Promise.all(promises);
+    }).then(function (res) {
+      _pf.summary = res[0];
+      _pf.children = res[1] || [];
+      _pf.pos = res[2] || {};
+      _pf.posChildren = res[3] || [];
+
+      // Fallback chain for FO with no data
+      var needsSummaryFallback = false;
+      var needsPosFallback = false;
+      var s = _pf.summary;
+      if ((!session.role || session.role === 'FO') && session.id) {
+        var hasData = s && (parseInt(s.regular_demand||0) > 0 || parseInt(s.demand_1_30||0) > 0 || parseInt(s.npa_cases||0) > 0);
+        // No summary fallback — keep employee's actual account data (0 is fine)
+        // POS always company-level, no fallback needed
+      }
+
+      var fallbacks = [];
+      var monthParam = _pf.view !== 'fy' && _pf.month ? 'month=' + encodeURIComponent(_pf.month) : '';
+      if (needsSummaryFallback) {
+        fallbacks.push(apiFetch('/api/portfolio/summary' + (monthParam ? '?' + monthParam : '')).then(function(d) { _pf.summary = d; }));
+      }
+      if (needsPosFallback) {
+        fallbacks.push(apiFetch('/api/portfolio/pos-summary' + (monthParam ? '?' + monthParam : '')).then(function(d) { _pf.pos = d || {}; }));
+      }
+
+      if (fallbacks.length > 0) {
+        Promise.all(fallbacks).then(function() { render(); }).catch(function() { render(); });
+      } else {
+        render();
+      }
+    }).catch(function (err) {
+      console.error('Portfolio load failed:', err);
+      container.innerHTML = noDataHtml('Failed to load portfolio data.');
+    });
+  }
+
+  function render() {
+    var container = document.getElementById('portfolioContent');
+    var d = _pf.summary;
+
+    if (!d || (typeof d === 'object' && Object.keys(d).length === 0)) {
+      container.innerHTML = '<div class="desktop-content-area">' + viewToggleHtml() + monthSelectorHtml() + productPillsHtml() + noDataHtml('No portfolio data for this selection.') + '</div>';
+      attachHandlers();
+      return;
+    }
+
+    var html = '';
+    html += viewToggleHtml();
+    html += monthSelectorHtml();
+    html += productPillsHtml();
+    html += summaryCardsHtml(d);
+    html += bucketTableHtml(d);
+
+    // Sub-units (hierarchical drill-down)
+    var children = _pf.children || [];
+    if (session.role && session.role !== 'FO' && children.length > 0) {
+      var childRoleMap = { CEO: 'RM', RM: 'DM', DM: 'BM', BM: 'FO' };
+      var childRole = childRoleMap[session.role];
+      if (childRole) {
+        children.sort(function (a, b) {
+          var tA = numVal(a.regular_demand) + numVal(a.demand_1_30) + numVal(a.demand_31_60) + numVal(a.pnpa_demand) + numVal(a.npa_cases);
+          var tB = numVal(b.regular_demand) + numVal(b.demand_1_30) + numVal(b.demand_31_60) + numVal(b.pnpa_demand) + numVal(b.npa_cases);
+          return tB - tA;
+        });
+        html += subUnitsHtml(children, childRole);
+      }
+    }
+
+    container.innerHTML = '<div class="desktop-content-area">' + html + '</div>';
+    attachHandlers();
+  }
+
+  /* ========== HTML Builders ========== */
+
+  function noDataHtml(msg) {
+    return '<div style="text-align:center;padding:80px 20px;">' +
+      '<div style="font-size:36px;margin-bottom:12px;">&#128202;</div>' +
+      '<div style="color:#64748B;font-size:14px;">' + (msg || 'No portfolio data available.') + '</div></div>';
+  }
+
+  function viewToggleHtml() {
+    var ov = _pf.view === 'overall';
+    return '<div class="pf-view-toggle emp-fade">' +
+      '<button class="pf-view-btn' + (ov ? ' active' : '') + '" data-pf-view="overall">OverAll</button>' +
+      '<button class="pf-view-btn' + (!ov ? ' active' : '') + '" data-pf-view="fy">FY 25-26</button>' +
+    '</div>';
+  }
+
+  function monthSelectorHtml() { return ""; }
+
+  function productPillsHtml() {
+    var pills = [
+      { key: 'all', label: 'All' },
+      { key: 'igl', label: 'IGL' },
+      { key: 'fig', label: 'FIG' },
+      { key: 'il',  label: 'IL' }
+    ];
+    var html = '<div class="emp-fade" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;">';
+    for (var i = 0; i < pills.length; i++) {
+      var p = pills[i];
+      var active = _pf.product === p.key;
+      html += '<button data-pf-product="' + p.key + '" style="' +
+        'padding:6px 16px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:none;transition:all .2s;' +
+        (active ? 'background:#6366F1;color:#fff;' : 'background:#F1F5F9;color:#64748B;') +
+      '">' + p.label + '</button>';
+    }
+    html += '</div>';
+    return html;
+  }
+
+  function summaryCardsHtml(d) {
+    var buckets = computeBuckets(d);
+    var grand = buckets[buckets.length - 1];
+    return '<div class="emp-fade" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">' +
+      '<div style="background:linear-gradient(135deg,#6366F1,#818CF8);border-radius:14px;padding:18px 20px;color:#fff;">' +
+        '<div style="font-size:12px;opacity:.8;margin-bottom:4px;">Total Account</div>' +
+        '<div style="font-size:24px;font-weight:700;">' + fmtNum(grand.acc) + '</div>' +
+      '</div>' +
+      '<div style="background:linear-gradient(135deg,#6366F1,#818CF8);border-radius:14px;padding:18px 20px;color:#fff;">' +
+        '<div style="font-size:12px;opacity:.8;margin-bottom:4px;">POS (Amount)</div>' +
+        '<div style="font-size:24px;font-weight:700;">' + fmtAmt(grand.amt) + '</div>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function bucketTableHtml(d) {
+    var buckets = computeBuckets(d);
+    var html = '<div class="emp-fade" style="background:#fff;border-radius:14px;box-shadow:0 1px 4px rgba(0,0,0,.06);overflow:hidden;margin-bottom:16px;">' +
+      '<div style="padding:14px 16px;border-bottom:1px solid #F1F5F9;font-weight:700;font-size:14px;color:#1E293B;">Bucket-wise Portfolio</div>' +
+      '<div style="overflow-x:auto;">' +
+      '<table style="width:100%;border-collapse:collapse;font-size:13px;">' +
+      '<thead><tr style="background:#F8FAFC;">' +
+        '<th style="padding:10px 14px;text-align:left;color:#64748B;font-weight:600;white-space:nowrap;">Bucket</th>' +
+        '<th style="padding:10px 14px;text-align:right;color:#64748B;font-weight:600;white-space:nowrap;">Account</th>' +
+        '<th style="padding:10px 14px;text-align:right;color:#64748B;font-weight:600;white-space:nowrap;">% Contrib</th>' +
+        '<th style="padding:10px 14px;text-align:right;color:#64748B;font-weight:600;white-space:nowrap;">POS (Amount)</th>' +
+        '<th style="padding:10px 14px;text-align:right;color:#64748B;font-weight:600;white-space:nowrap;">% Contrib</th>' +
+      '</tr></thead><tbody>';
+
+    for (var i = 0; i < buckets.length; i++) {
+      var b = buckets[i];
+      var isGrand = b.bold;
+      var bg = isGrand ? 'background:#F8FAFC;' : '';
+      var fw = isGrand ? 'font-weight:700;' : '';
+      html += '<tr style="border-bottom:1px solid #F1F5F9;' + bg + '">' +
+        '<td style="padding:10px 14px;' + fw + '"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + b.color + ';margin-right:8px;vertical-align:middle;"></span>' + esc(b.bucket) + '</td>' +
+        '<td style="padding:10px 14px;text-align:right;' + fw + '">' + fmtNum(b.acc) + '</td>' +
+        '<td style="padding:10px 14px;text-align:right;' + fw + 'color:' + b.color + ';">' + b.pctAcc + '</td>' +
+        '<td style="padding:10px 14px;text-align:right;' + fw + '">' + fmtAmt(b.amt) + '</td>' +
+        '<td style="padding:10px 14px;text-align:right;' + fw + 'color:' + b.color + ';">' + b.pctAmt + '</td>' +
+      '</tr>';
+    }
+
+    html += '</tbody></table></div></div>';
+    return html;
+  }
+
+  function subUnitsHtml(children, childRole) {
+    if (!children.length) return '';
+    var roleLabel = { RM: 'Regions', DM: 'Districts', BM: 'Branches', FO: 'Officers' };
+    var avType = { RM: 'region', DM: 'district', BM: 'branch', FO: 'officer' };
+    var label = roleLabel[childRole] || 'Team';
+    var av = avType[childRole] || 'branch';
+
+    var html = '<div class="emp-team-section">' +
+      '<div class="emp-team-title">' + label + '<span class="emp-team-count">' + children.length + '</span></div>' +
+      '<div class="desktop-grid-3">';
+
+    for (var i = 0; i < children.length; i++) {
+      var ch = children[i];
+      var totalAcc = numVal(ch.regular_demand) + numVal(ch.demand_1_30) + numVal(ch.demand_31_60) + numVal(ch.pnpa_demand) + numVal(ch.npa_cases);
+      // Match POS from posChildren by region/district/branch name
+      var childKey = ch.region_name || ch.district_name || ch.branch_name || '';
+      var posChild = (_pf.posChildren || []).find(function(p) {
+        return (p.region_name || p.district_name || p.branch_name || '') === childKey;
+      });
+      var totalAmt = posChild ? numVal(posChild.total_pos) : (numVal(ch.total_pos) || (numVal(ch.regular_demand_amt) + numVal(ch.demand_1_30_amt) + numVal(ch.demand_31_60_amt) + numVal(ch.pnpa_demand_amt) + numVal(ch.npa_act_amt)));
+
+      var childName = '';
+      var dataAttr = '';
+      if (childRole === 'RM') childName = ch.region_name || '';
+      else if (childRole === 'DM') childName = ch.district_name || '';
+      else if (childRole === 'BM') childName = ch.branch_name || '';
+      else if (childRole === 'FO') childName = ch.officer_name || ch.name || '';
+
+      if (childRole === 'FO') {
+        dataAttr = 'data-emp-id="' + esc(ch.emp_id || '') + '" data-emp-name="' + esc(childName) + '"';
+      } else {
+        dataAttr = 'data-child-role="' + esc(childRole) + '" data-child-location="' + esc(childName) + '"';
+      }
+
+      var initial = childName.charAt(0).toUpperCase();
+      // Color based on NPA ratio: low NPA = green
+      var npaRatio = totalAcc > 0 ? numVal(ch.npa_cases) / totalAcc : 0;
+      var pctColor = npaRatio <= 0.02 ? '#34D399' : npaRatio <= 0.05 ? '#FBBF24' : '#F87171';
+
+      html += '<div class="emp-sub-card desktop-sub-card" ' + dataAttr + '>' +
+        '<div class="emp-sub-avatar ' + av + '">' + initial + '</div>' +
+        '<div class="emp-sub-info">' +
+          '<div class="emp-sub-name">' + esc(childName) + '</div>' +
+          '<div class="emp-sub-meta">' +
+            '<span>A/c: ' + fmtNum(totalAcc) + '</span>' +
+            '<span>POS: ' + fmtAmt(totalAmt) + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="emp-sub-pct" style="color:' + pctColor + '">' + fmtNum(numVal(ch.npa_cases)) + ' NPA</div>' +
+        '<div class="emp-sub-arrow">&#8250;</div>' +
+      '</div>';
+    }
+
+    html += '</div></div>';
+    return html;
+  }
+
+  /* ========== Event Handlers ========== */
+  var _pfHandlersAttached = false;
+
+  function attachHandlers() {
+    var container = document.getElementById('portfolioContent');
+    if (!container) return;
+
+    // View toggle
+    container.querySelectorAll('[data-pf-view]').forEach(function (btn) {
+      btn.onclick = function () {
+        _pf.view = btn.dataset.pfView;
+        localStorage.setItem('pfView', _pf.view);
+        loadAndRender();
+      };
+    });
+
+    // Month selector
+    container.querySelectorAll('[data-pf-month]').forEach(function (btn) {
+      btn.onclick = function () {
+        _pf.month = btn.dataset.pfMonth;
+        localStorage.setItem('pfMonth', _pf.month);
+        loadAndRender();
+      };
+    });
+
+    // Product pills
+    container.querySelectorAll('[data-pf-product]').forEach(function (pill) {
+      pill.onclick = function () {
+        _pf.product = pill.dataset.pfProduct;
+        localStorage.setItem('pfProduct', _pf.product);
+        loadAndRender();
+      };
+    });
+
+    // Sub-unit drill-down
+    if (!_pfHandlersAttached) {
+      _pfHandlersAttached = true;
+      container.addEventListener('click', function (ev) {
+        var card = ev.target.closest('.emp-sub-card');
+        if (!card) return;
+        var portfolioTab = document.getElementById('portfolioTab');
+        if (!portfolioTab || !portfolioTab.classList.contains('active')) return;
+
+        card.style.background = '#EEF2FF';
+        card.style.pointerEvents = 'none';
+        var arrow = card.querySelector('.emp-sub-arrow');
+        if (arrow) arrow.innerHTML = '<div style="width:16px;height:16px;border:2px solid #C7D2FE;border-top-color:#6366F1;border-radius:50%;animation:spin .7s linear infinite;"></div>';
+
+        if (card.dataset.childRole) {
+          pushRoleNav(card.dataset.childRole, card.dataset.childLocation);
+          window.location.reload();
+        } else if (card.dataset.empId) {
+          var stack = getRoleNavStack();
+          var current = getEmployeeSession();
+          stack.push({ role: current.role, location: current.location, name: current.name, id: current.id });
+          localStorage.setItem('roleNavStack', JSON.stringify(stack));
+          localStorage.removeItem('roleAuth');
+          localStorage.removeItem('roleName');
+          localStorage.removeItem('roleLocation');
+          localStorage.setItem('employeeId', card.dataset.empId);
+          localStorage.setItem('employeeName', card.dataset.empName);
+          window.location.reload();
+        }
+      });
+    }
+  }
+
+  /* ========== Entry point ========== */
+  window._loadPortfolioTab = function () {
+    try {
+      loadAndRender();
+    } catch (err) {
+      console.error('Portfolio load failed:', err);
+      document.getElementById('portfolioContent').innerHTML = noDataHtml('Failed to load portfolio data.');
+    }
+  };
+})();

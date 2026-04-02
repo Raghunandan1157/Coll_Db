@@ -1,0 +1,1872 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#F8FAFC">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
+  <title>Employee Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css?v=2">
+  <link rel="stylesheet" href="css/desktop.css?v=4">
+
+<style>
+  /* When dailyreports tab is active, hide the sticky header to reclaim space */
+  #dailyreportsTab.active ~ .emp-header,
+  body.dr-active .emp-header { display: none !important; }
+  #dailyreportsTab #dailyReportsContent { margin-top: 0; }
+</style>
+</head>
+<body class="emp-dark">
+
+<div class="desktop-layout">
+
+  <!-- Desktop Sidebar (hidden on mobile via CSS) -->
+  <aside class="desktop-sidebar">
+    <div class="desktop-sidebar-brand">
+      <svg width="28" height="28" viewBox="0 0 100 100"><text y=".9em" font-size="80">📊</text></svg>
+      <span class="desktop-sidebar-appname">NLPL Dashboard</span>
+    </div>
+    <nav class="desktop-sidebar-nav">
+      <a href="javascript:void(0)" class="desktop-sidebar-item active" data-dtab="collection" onclick="switchEmpTab('collection')">
+        <span class="desktop-sidebar-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+        </span>
+        <span class="desktop-sidebar-label">Collection</span>
+      </a>
+      <a href="javascript:void(0)" class="desktop-sidebar-item" data-dtab="portfolio" onclick="switchEmpTab('portfolio')">
+        <span class="desktop-sidebar-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+        </span>
+        <span class="desktop-sidebar-label">Portfolio</span>
+      </a>
+      <a href="javascript:void(0)" class="desktop-sidebar-item" data-dtab="disbursement" onclick="switchEmpTab('disbursement')">
+        <span class="desktop-sidebar-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        </span>
+        <span class="desktop-sidebar-label">Disbursement</span>
+      </a>
+      <a href="javascript:void(0)" class="desktop-sidebar-item" data-dtab="hourly" onclick="switchEmpTab('hourly')">
+        <span class="desktop-sidebar-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </span>
+        <span class="desktop-sidebar-label">Hourly</span>
+      </a>
+      <a href="javascript:void(0)" class="desktop-sidebar-item" data-dtab="analytical" onclick="switchEmpTab('analytical')">
+        <span class="desktop-sidebar-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        </span>
+        <span class="desktop-sidebar-label">Analytical Tool</span>
+      </a>
+      <div style="border-top:1px solid #E2E8F0;margin:8px 16px;"></div>
+      <a href="contacts.html" class="desktop-sidebar-item">
+        <span class="desktop-sidebar-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </span>
+        <span class="desktop-sidebar-label">Contacts</span>
+      </a>
+      <a href="locator.html" class="desktop-sidebar-item">
+        <span class="desktop-sidebar-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+        </span>
+        <span class="desktop-sidebar-label">Branch Locator</span>
+      </a>
+      <a href="javascript:void(0)" class="desktop-sidebar-item" data-dtab="dailyreports" onclick="if(typeof switchEmpTab==='function')switchEmpTab('dailyreports')">
+        <span class="desktop-sidebar-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
+        <span class="desktop-sidebar-label">Daily Reports</span>
+      </a>
+    </nav>
+    <div class="desktop-sidebar-footer">
+      <button class="desktop-sidebar-logout" id="desktop-logout-btn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        <span>Logout</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main content area -->
+  <div class="desktop-main">
+
+    <div class="emp-app">
+      <div class="emp-header">
+        <div class="emp-header-left">
+          <div>
+            <h1 id="emp-header-title">Collection</h1>
+            <div class="emp-subtitle" id="emp-subtitle"></div>
+            <div class="emp-last-updated" id="lastUpdated"></div>
+          </div>
+        </div>
+        <div class="emp-header-right">
+          <div style="display:flex;align-items:center;gap:4px;">
+            <button id="datePrevBtn" onclick="navigateDate(-1)" style="display:none;width:28px;height:28px;border:1px solid #E2E8F0;border-radius:8px;background:#fff;cursor:pointer;font-size:14px;color:#059669;font-weight:700;">&larr;</button>
+            <div class="emp-date-badge" id="dateBadge" onclick="openCalendarPopup()" style="cursor:pointer;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              <span id="dateBadgeText"></span>
+              </div>
+            <button id="dateNextBtn" onclick="navigateDate(1)" style="display:none;width:28px;height:28px;border:1px solid #E2E8F0;border-radius:8px;background:#fff;cursor:pointer;font-size:14px;color:#059669;font-weight:700;">&rarr;</button>
+          </div>
+          </div>
+          <button class="emp-logout-btn" id="sidebar-toggle-btn" aria-label="Open menu" style="font-size:18px;line-height:1;">
+            &#9776;
+          </button>
+        </div>
+      </div>
+
+      <div id="breadcrumbBar" class="emp-breadcrumb-bar" style="display:none;"></div>
+
+      <div class="emp-tab-content active" id="portfolioTab">
+        <div id="portfolioContent">
+          <div style="text-align:center;padding:60px 20px;">
+            <div style="width:28px;height:28px;border:3px solid #E2E8F0;border-top-color:#059669;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px;"></div>
+            <p style="color:#64748B;font-size:13px;">Loading portfolio data...</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="emp-tab-content" id="disbursementTab">
+        <div id="disbursementContent">
+          <div style="text-align:center;padding:60px 20px;">
+            <div style="width:28px;height:28px;border:3px solid #E2E8F0;border-top-color:#059669;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px;"></div>
+            <p style="color:#64748B;font-size:13px;">Loading disbursement data...</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="emp-tab-content" id="collectionTab">
+        <div id="collectionContent">
+          <div style="text-align:center;padding:60px 20px;">
+            <div style="width:28px;height:28px;border:3px solid #E2E8F0;border-top-color:#059669;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px;"></div>
+            <p style="color:#64748B;font-size:13px;">Loading collection data...</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="emp-tab-content" id="hourlyTab">
+        <div id="hourlyContent">
+          <div style="text-align:center;padding:60px 20px;">
+            <div style="width:28px;height:28px;border:3px solid #E2E8F0;border-top-color:#059669;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px;"></div>
+            <p style="color:#64748B;font-size:13px;">Loading hourly data...</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="emp-tab-content" id="analyticalTab">
+        <div id="analyticalContent"></div>
+      </div>
+
+      <div class="emp-tab-content" id="dailyreportsTab">
+        <div id="dailyReportsContent" style="max-width:1200px;padding:0 8px;margin-top:0;">
+          
+          <!-- Top bar -->
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <div>
+              <h2 style="font-size:20px;font-weight:700;color:#1E293B;margin:0;">Daily Reports</h2>
+              <p style="font-size:13px;color:#64748B;margin:4px 0 0;" id="drSubtitle">Branch-level daily planning &amp; achievement reports</p>
+            </div>
+            <a href="daily-reports.html" target="_blank" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:#F0FDF4;color:#059669;border:1px solid #A7F3D0;border-radius:8px;font-size:12px;font-weight:600;text-decoration:none;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              Open Full App
+            </a>
+          </div>
+
+          <!-- BM Branch Card (only visible for BM role) -->
+          <div id="drBranchCard" style="display:none;margin-bottom:16px;">
+            <div style="background:linear-gradient(135deg,#059669,#10B981);border-radius:14px;padding:20px 24px;color:#fff;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                <div>
+                  <div style="font-size:12px;opacity:0.8;text-transform:uppercase;letter-spacing:1px;">Your Branch</div>
+                  <div id="drBranchName" style="font-size:22px;font-weight:700;margin-top:4px;">—</div>
+                </div>
+                <div style="width:48px;height:48px;background:rgba(255,255,255,0.2);border-radius:12px;display:flex;align-items:center;justify-content:center;">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                </div>
+              </div>
+              <div id="drBranchStats" style="display:flex;gap:24px;flex-wrap:wrap;">
+                <div><div style="font-size:11px;opacity:0.7;">Plan Status</div><div style="font-size:18px;font-weight:700;" id="drPlanStatus">Not Set</div></div>
+                <div><div style="font-size:11px;opacity:0.7;">Today&apos;s Date</div><div style="font-size:18px;font-weight:700;" id="drTodayDate">—</div></div>
+                <div><div style="font-size:11px;opacity:0.7;">Achievement</div><div style="font-size:18px;font-weight:700;" id="drAchievement">Not Set</div></div>
+              </div>
+            </div>
+
+            <!-- BM Quick Actions -->
+            <div style="display:flex;gap:10px;margin-top:12px;">
+              <button onclick="window._drOpenPlanEntry()" style="flex:1;padding:12px;border-radius:10px;border:2px solid #059669;background:#F0FDF4;color:#059669;font-weight:600;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                Enter Today&apos;s Plan
+              </button>
+              <button onclick="window._drOpenAchievementEntry()" style="flex:1;padding:12px;border-radius:10px;border:none;background:#059669;color:#fff;font-weight:600;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                Enter Achievement
+              </button>
+            </div>
+          </div>
+
+          <!-- Report Builder Card -->
+          <div style="background:#fff;border:1px solid #E2E8F0;border-radius:14px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+            <div style="padding:16px 20px;border-bottom:1px solid #F1F5F9;display:flex;justify-content:space-between;align-items:center;">
+              <div style="font-size:16px;font-weight:700;color:#1E293B;">📊 Custom Report Builder</div>
+              <div style="font-size:12px;color:#94A3B8;">Select date &amp; level to generate reports</div>
+            </div>
+
+            <!-- Date + Level row -->
+            <div style="padding:16px 20px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:16px;border-bottom:1px solid #F1F5F9;">
+              <div>
+                <div style="font-size:13px;font-weight:600;color:#475569;margin-bottom:10px;">1. Select Date Range</div>
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                  <button onclick="window._drSetDate(-1)" style="padding:8px 16px;border-radius:8px;border:1px solid #E2E8F0;background:#fff;color:#334155;font-weight:500;font-size:13px;cursor:pointer;">Yesterday</button>
+                  <button onclick="window._drSetDate(0)" id="drBtnToday" style="padding:8px 16px;border-radius:8px;border:none;background:#6366F1;color:#fff;font-weight:600;font-size:13px;cursor:pointer;">Today</button>
+                  <button onclick="window._drSetDate(1)" style="padding:8px 16px;border-radius:8px;border:1px solid #E2E8F0;background:#fff;color:#334155;font-weight:500;font-size:13px;cursor:pointer;">Tomorrow</button>
+                  <input type="date" id="drDateInput" style="padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;color:#334155;" onchange="window._drDate=this.value">
+                </div>
+              </div>
+              <div>
+                <div style="font-size:13px;font-weight:600;color:#475569;margin-bottom:10px;">2. Report Level</div>
+                <div style="display:flex;gap:8px;" id="drLevelBtns">
+                  <button onclick="window._drSetLevel('REGION')" class="dr-lvl active" style="padding:8px 18px;border-radius:8px;border:none;background:#6366F1;color:#fff;font-weight:600;font-size:13px;cursor:pointer;">Region Level</button>
+                  <button onclick="window._drSetLevel('DISTRICT')" class="dr-lvl" style="padding:8px 18px;border-radius:8px;border:1px solid #E2E8F0;background:#fff;color:#334155;font-weight:500;font-size:13px;cursor:pointer;">District Level</button>
+                  <button onclick="window._drSetLevel('BRANCH')" class="dr-lvl" style="padding:8px 18px;border-radius:8px;border:1px solid #E2E8F0;background:#fff;color:#334155;font-weight:500;font-size:13px;cursor:pointer;">Branch Level</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div style="padding:16px 20px;display:flex;justify-content:center;gap:12px;flex-wrap:wrap;">
+              <button onclick="window._drGeneratePlan()" style="padding:12px 28px;border-radius:10px;border:2px solid #6366F1;background:#fff;color:#6366F1;font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                Generate Plan Report
+              </button>
+              <button onclick="window._drGenerateBoth()" style="padding:12px 36px;border-radius:10px;border:none;background:linear-gradient(135deg,#6366F1,#4F46E5);color:#fff;font-size:16px;font-weight:600;cursor:pointer;box-shadow:0 4px 12px rgba(99,102,241,0.3);display:flex;align-items:center;gap:8px;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Generate Plan &amp; Achievement Reports
+              </button>
+            </div>
+          </div>
+
+          <!-- Status -->
+          <div id="drStatus" style="margin-top:12px;padding:12px 16px;border-radius:10px;background:#F8FAFC;border:1px solid #E2E8F0;font-size:13px;color:#64748B;display:none;"></div>
+
+        </div>
+      </div>
+
+      <script>
+      // Daily Reports inline logic
+      (function(){
+        // Role-aware rendering
+        var session = window.getEmployeeSession ? getEmployeeSession() : {};
+        var role = session.role || localStorage.getItem('roleName') || 'CEO';
+        var location = session.location || localStorage.getItem('roleLocation') || '';
+        
+        // BM: show branch card
+        if (role === 'BM' || role === 'FO') {
+          var card = document.getElementById('drBranchCard');
+          if (card) card.style.display = 'block';
+          var nameEl = document.getElementById('drBranchName');
+          if (nameEl) nameEl.textContent = location || 'Your Branch';
+          var subEl = document.getElementById('drSubtitle');
+          if (subEl) subEl.textContent = 'Manage your branch daily plan & achievements';
+          
+          // Set today's date
+          var now = new Date();
+          var dateStr = now.toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'});
+          var todayEl = document.getElementById('drTodayDate');
+          if (todayEl) todayEl.textContent = dateStr;
+          
+          // Check plan status from API
+          var isoToday = now.toISOString().split('T')[0];
+          fetch('/api/daily-plan/exists?table=reports&date=' + isoToday + '&branch=' + encodeURIComponent(location))
+            .then(function(r){return r.json();})
+            .then(function(d){
+              var el = document.getElementById('drPlanStatus');
+              if (el) el.textContent = d.exists ? '✓ Set' : 'Pending';
+              if (el && d.exists) el.style.color = '#D1FAE5';
+            }).catch(function(){});
+          
+          fetch('/api/daily-plan/exists?table=achievements&date=' + isoToday + '&branch=' + encodeURIComponent(location))
+            .then(function(r){return r.json();})
+            .then(function(d){
+              var el = document.getElementById('drAchievement');
+              if (el) el.textContent = d.exists ? '✓ Entered' : 'Pending';
+              if (el && d.exists) el.style.color = '#D1FAE5';
+            }).catch(function(){});
+        }
+        
+        // DM: update subtitle
+        if (role === 'DM') {
+          var subEl = document.getElementById('drSubtitle');
+          if (subEl) subEl.textContent = 'View reports for ' + (location || 'your district');
+        }
+        
+        // Open plan entry in full app
+        window._drOpenPlanEntry = function() {
+          openDrBranchModal(location, 'reports');
+        };
+        window._drOpenAchievementEntry = function() {
+          openDrBranchModal(location, 'achievements');
+        };
+        var drDate = new Date().toISOString().split('T')[0];
+        var drLevel = 'REGION';
+        var dateInput = document.getElementById('drDateInput');
+        if (dateInput) dateInput.value = drDate;
+        window._drDate = drDate;
+
+        window._drSetDate = function(offset) {
+          var d = new Date(); d.setDate(d.getDate() + offset);
+          drDate = d.toISOString().split('T')[0];
+          window._drDate = drDate;
+          if (dateInput) dateInput.value = drDate;
+          // Update button styles
+          document.querySelectorAll('#dailyreportsTab button').forEach(function(b) {
+            if (b.textContent.trim() === 'Yesterday' || b.textContent.trim() === 'Today' || b.textContent.trim() === 'Tomorrow') {
+              b.style.background = '#fff'; b.style.color = '#334155'; b.style.border = '1px solid #E2E8F0';
+            }
+          });
+          var labels = {'-1':'Yesterday','0':'Today','1':'Tomorrow'};
+          var clicked = document.querySelector('#dailyreportsTab button');
+          document.querySelectorAll('#dailyreportsTab button').forEach(function(b) {
+            if (b.textContent.trim() === labels[offset]) {
+              b.style.background = '#6366F1'; b.style.color = '#fff'; b.style.border = 'none';
+            }
+          });
+        };
+
+        window._drSetLevel = function(level) {
+          drLevel = level;
+          document.querySelectorAll('#drLevelBtns button').forEach(function(b) {
+            b.style.background = '#fff'; b.style.color = '#334155'; b.style.border = '1px solid #E2E8F0';
+          });
+          document.querySelectorAll('#drLevelBtns button').forEach(function(b) {
+            if (b.textContent.trim().toLowerCase().indexOf(level.toLowerCase()) >= 0) {
+              b.style.background = '#6366F1'; b.style.color = '#fff'; b.style.border = 'none';
+            }
+          });
+        };
+
+        window._drGeneratePlan = function() {
+          _drBuildReportTable(window._drDate || drDate, drLevel, 'plan');
+        };
+
+        window._drGenerateBoth = function() {
+          _drBuildReportTable(window._drDate || drDate, drLevel, 'both');
+        };
+      })();
+      </script>
+
+      <div id="no-data" class="hidden" style="text-align:center;padding:80px 20px;">
+        <p style="color:#64748B;font-size:14px;">No report data available.<br>Contact your administrator.</p>
+      </div>
+    </div>
+
+    <div class="emp-tab-bar">
+      <div class="emp-tab-item active" data-tab="portfolio" onclick="switchEmpTab('portfolio')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+        Portfolio
+      </div>
+      <div class="emp-tab-item" data-tab="disbursement" onclick="switchEmpTab('disbursement')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        Disbursement
+      </div>
+      <div class="emp-tab-item" data-tab="collection" onclick="switchEmpTab('collection')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+        Collection
+      </div>
+      <div class="emp-tab-item" data-tab="hourly" onclick="switchEmpTab('hourly')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Hourly
+      </div>
+    </div>
+
+  </div><!-- /.desktop-main -->
+
+</div><!-- /.desktop-layout -->
+
+  <!-- Sidebar Overlay + Panel (mobile hamburger menu) -->
+  <div id="sidebarOverlay" class="sidebar-overlay"></div>
+  <div id="sidebarPanel" class="sidebar-panel">
+    <div class="sidebar-header">
+      <span class="sidebar-title">Menu</span>
+      <button class="sidebar-close-btn" id="sidebarCloseBtn" aria-label="Close menu">&times;</button>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="javascript:void(0)" class="sidebar-nav-item" data-sidebar-tab="home" onclick="closeSidebar(); switchEmpTab('collection');">
+        <span class="sidebar-nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
+        <span class="sidebar-nav-label">Collection</span>
+      </a>
+      <a href="javascript:void(0)" class="sidebar-nav-item" data-sidebar-tab="portfolio" onclick="closeSidebar(); switchEmpTab('portfolio');">
+        <span class="sidebar-nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span>
+        <span class="sidebar-nav-label">Portfolio</span>
+      </a>
+      <a href="javascript:void(0)" class="sidebar-nav-item" data-sidebar-tab="disbursement" onclick="closeSidebar(); switchEmpTab('disbursement');">
+        <span class="sidebar-nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
+        <span class="sidebar-nav-label">Disbursement</span>
+      </a>
+      <a href="javascript:void(0)" class="sidebar-nav-item" data-sidebar-tab="hourly" onclick="closeSidebar(); switchEmpTab('hourly');">
+        <span class="sidebar-nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+        <span class="sidebar-nav-label">Hourly</span>
+      </a>
+      <a href="javascript:void(0)" id="analyticalNavItem" class="sidebar-nav-item" data-sidebar-tab="analytical" onclick="closeSidebar(); switchEmpTab('analytical');">
+        <span class="sidebar-nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>
+        <span class="sidebar-nav-label">Analytical Tool</span>
+      </a>
+      <a href="contacts.html" class="sidebar-nav-item">
+        <span class="sidebar-nav-icon">&#128199;</span>
+        <span class="sidebar-nav-label">Contacts</span>
+      </a>
+      <a href="locator.html" class="sidebar-nav-item">
+        <span class="sidebar-nav-icon">&#128205;</span>
+        <span class="sidebar-nav-label">NLPL Branch Locator</span>
+      </a>
+      <a href="javascript:void(0)" class="sidebar-nav-item" data-sidebar-tab="dailyreports" onclick="closeSidebar(); switchEmpTab('dailyreports');">
+        <span class="sidebar-nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
+        <span class="sidebar-nav-label">Daily Reports</span>
+      </a>
+      <a href="javascript:void(0)" id="greetingsNavItem" class="sidebar-nav-item" onclick="closeSidebar();">
+        <span class="sidebar-nav-icon">&#128075;</span>
+        <span class="sidebar-nav-label">Greetings</span>
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <button class="sidebar-logout-btn" id="logout-btn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        <span>Logout</span>
+      </button>
+    </div>
+  </div>
+
+  <style>
+    /* Product filter pills */
+    .emp-product-filter {
+      display: flex;
+      gap: 8px;
+      padding: 16px 0 4px;
+    }
+    .emp-product-pill {
+      padding: 6px 18px;
+      border-radius: 20px;
+      border: 1px solid #E2E8F0;
+      background: #F8FAFC;
+      color: #64748B;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+    .emp-product-pill:hover {
+      background: #F0FDF4;
+      border-color: #A7F3D0;
+      color: #475569;
+    }
+    .emp-product-pill.active {
+      background: #ECFDF5;
+      border-color: #059669;
+      color: #059669;
+    }
+
+    /* Breadcrumbs */
+    .emp-breadcrumb-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 20px;
+      font-size: 12px;
+      color: #64748B;
+      overflow-x: auto;
+      white-space: nowrap;
+      -webkit-overflow-scrolling: touch;
+    }
+    .emp-breadcrumb-bar::-webkit-scrollbar { display: none; }
+    .emp-bc-item {
+      cursor: pointer;
+      color: #059669;
+      font-weight: 500;
+      transition: opacity 0.15s;
+    }
+    .emp-bc-item:hover { opacity: 0.8; }
+    .emp-bc-item.current {
+      color: #1E293B;
+      cursor: default;
+      font-weight: 600;
+    }
+    .emp-bc-sep { color: #CBD5E1; margin: 0 2px; }
+
+    /* Sub-unit cards */
+    .emp-team-section { margin-top: 18px; }
+    .emp-team-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #1E293B;
+      margin-bottom: 10px;
+      padding: 0 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .emp-team-count {
+      font-size: 11px;
+      font-weight: 500;
+      color: #64748B;
+      background: #F1F5F9;
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+    .emp-sub-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 16px;
+      background: #FFFFFF;
+      border: 1px solid #E2E8F0;
+      border-radius: 14px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: all 0.15s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .emp-sub-card:hover {
+      background: #F0FDF4;
+      border-color: #A7F3D0;
+    }
+    .emp-sub-card:active {
+      background: #ECFDF5;
+      transform: scale(0.99);
+    }
+    .emp-sub-avatar {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+    .emp-sub-avatar.region { background: #F3E8FF; color: #7C3AED; }
+    .emp-sub-avatar.district { background: #DBEAFE; color: #2563EB; }
+    .emp-sub-avatar.branch { background: #ECFDF5; color: #059669; }
+    .emp-sub-avatar.officer { background: #FEF3C7; color: #D97706; }
+    .emp-sub-info { flex: 1; min-width: 0; }
+    .emp-sub-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: #1E293B;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .emp-sub-meta {
+      font-size: 11px;
+      color: #64748B;
+      margin-top: 2px;
+      display: flex;
+      gap: 12px;
+    }
+    .emp-sub-pct {
+      font-size: 13px;
+      font-weight: 600;
+      flex-shrink: 0;
+      min-width: 42px;
+      text-align: right;
+    }
+    .emp-sub-arrow {
+      color: #CBD5E1;
+      font-size: 18px;
+      flex-shrink: 0;
+      transition: transform 0.15s;
+    }
+    .emp-sub-card:hover .emp-sub-arrow {
+      transform: translateX(2px);
+      color: #059669;
+    }
+
+    .sidebar-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.3);
+      z-index: 9998;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+    }
+    .sidebar-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+    .sidebar-panel {
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: 280px;
+      max-width: 85vw;
+      background: #FFFFFF;
+      border-left: 1px solid #E2E8F0;
+      z-index: 9999;
+      transform: translateX(100%);
+      transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+      display: flex;
+      flex-direction: column;
+      font-family: inherit;
+      box-shadow: -4px 0 24px rgba(0,0,0,0.08);
+    }
+    .sidebar-panel.active {
+      transform: translateX(0);
+    }
+    .sidebar-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 20px 14px;
+      border-bottom: 1px solid #E2E8F0;
+    }
+    .sidebar-title {
+      color: #1E293B;
+      font-size: 16px;
+      font-weight: 600;
+    }
+    .sidebar-close-btn {
+      background: none;
+      border: none;
+      color: #94A3B8;
+      font-size: 24px;
+      cursor: pointer;
+      padding: 0 4px;
+      line-height: 1;
+      transition: color 0.2s ease;
+    }
+    .sidebar-close-btn:hover {
+      color: #1E293B;
+    }
+    .sidebar-nav {
+      overflow-y: auto;
+      padding: 12px 0;
+      flex: 1;
+    }
+    .sidebar-nav-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 20px;
+      color: #1E293B;
+      text-decoration: none;
+      font-size: 15px;
+      font-weight: 500;
+      border-radius: 0;
+      transition: background 0.2s ease;
+    }
+    .sidebar-nav-item:hover {
+      background: #F0FDF4;
+    }
+    .sidebar-nav-item.active {
+      background: #ECFDF5;
+      color: #059669;
+      border-left: 3px solid #059669;
+      padding-left: 17px;
+    }
+    .sidebar-nav-item.active .sidebar-nav-icon svg {
+      stroke: #059669;
+    }
+    .sidebar-nav-icon {
+      font-size: 20px;
+      width: 28px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    .sidebar-nav-label {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .sidebar-footer {
+      padding: 16px 20px;
+      border-top: 1px solid #E2E8F0;
+      margin-top: auto;
+    }
+    .sidebar-logout-btn {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      padding: 14px 16px;
+      background: #FEF2F2;
+      border: 1px solid #FECACA;
+      border-radius: 12px;
+      color: #EF4444;
+      font-size: 15px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .sidebar-logout-btn:hover {
+      background: #FEE2E2;
+      border-color: #FCA5A5;
+    }
+
+    /* ===== Desktop sidebar styles (hidden on mobile by default) ===== */
+    .desktop-sidebar {
+      display: none;
+    }
+
+    /* ===== Desktop (>= 768px) ===== */
+    @media (min-width: 768px) {
+      .desktop-layout {
+        display: flex;
+        min-height: 100vh;
+      }
+
+      /* Critical sidebar positioning - works regardless of external CSS */
+      .desktop-sidebar {
+        position: fixed;
+        left: 0;
+        top: 0;
+        width: 240px;
+        height: 100vh;
+        background: #fff;
+        border-right: 1px solid #E2E8F0;
+        display: flex;
+        flex-direction: column;
+        z-index: 200;
+        overflow-y: auto;
+      }
+
+      .desktop-sidebar-brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 20px 20px 16px;
+        border-bottom: 1px solid #E2E8F0;
+      }
+
+      .desktop-sidebar-appname {
+        font-size: 16px;
+        font-weight: 700;
+        color: #1E293B;
+        white-space: nowrap;
+      }
+
+      .desktop.sidebar-nav {
+      overflow-y: auto;
+        flex: 1;
+        padding: 12px 0;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .desktop-sidebar-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 20px;
+        color: #475569;
+        text-decoration: none;
+        font-size: 14px;
+        font-weight: 500;
+        border-radius: 0;
+        transition: background 0.2s ease, color 0.2s ease;
+        cursor: pointer;
+      }
+
+      .desktop-sidebar-item:hover {
+        background: #F0FDF4;
+        color: #059669;
+      }
+
+      .desktop-sidebar-item.active {
+        background: #ECFDF5;
+        color: #059669;
+        border-right: 3px solid #059669;
+        font-weight: 600;
+      }
+
+      .desktop-sidebar-item.active .desktop-sidebar-icon svg {
+        stroke: #059669;
+      }
+
+      .desktop-sidebar-icon {
+        width: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+
+      .desktop-sidebar-label {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .desktop-sidebar-footer {
+        padding: 16px 20px;
+        border-top: 1px solid #E2E8F0;
+        margin-top: auto;
+      }
+
+      .desktop-sidebar-logout {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        padding: 12px 14px;
+        background: #FEF2F2;
+        border: 1px solid #FECACA;
+        border-radius: 10px;
+        color: #EF4444;
+        font-size: 14px;
+        font-weight: 600;
+        font-family: inherit;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .desktop-sidebar-logout:hover {
+        background: #FEE2E2;
+        border-color: #FCA5A5;
+      }
+
+      /* Main content pushed right of sidebar */
+      .desktop-main {
+        margin-left: 240px;
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+      }
+
+      .desktop-main .emp-app {
+        flex: 1;
+        padding: 0 24px 24px;
+      }
+
+      .desktop-main .emp-header {
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        background: #F8FAFC;
+        padding: 8px 24px 0;
+        margin-bottom: 0;
+      }
+
+      /* Hide the mobile hamburger button on desktop */
+      #sidebar-toggle-btn {
+        display: none !important;
+      }
+
+      /* Hide the mobile bottom tab bar on desktop */
+      .emp-tab-bar {
+        display: none !important;
+      }
+
+      /* Hide the mobile sidebar overlay + panel on desktop */
+      .sidebar-overlay,
+      .sidebar-panel {
+        display: none !important;
+      }
+    }
+
+    /* ===== Mobile (< 768px) ===== */
+    @media (max-width: 767px) {
+      .desktop-layout {
+        display: block;
+      }
+      .desktop-sidebar {
+        display: none;
+      }
+      .desktop-main {
+        margin-left: 0;
+        
+      }
+    }
+      </style>
+
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <script src="js/employeeParser.js?v=25"></script>
+  <script src="js/storage.js?v=25"></script>
+  <script src="js/auth.js?v=25"></script>
+  <script src="js/portfolio.js?v=38"></script>
+  <script src="js/collection.js?v=33"></script>
+  <script src="js/hourly.js?v=25"></script>
+  <script src="js/disbursement.js?v=35"></script>
+  <script src="js/analytical.js?v=25"></script>
+  <script src="js/employee.js?v=36"></script>
+  <script>if('serviceWorker' in navigator && location.protocol !== 'file:'){navigator.serviceWorker.register('./sw.js');}</script>
+  <script>
+  (function(){
+    var overlay = document.getElementById('sidebarOverlay');
+    var panel = document.getElementById('sidebarPanel');
+    var toggleBtn = document.getElementById('sidebar-toggle-btn');
+    var closeBtn = document.getElementById('sidebarCloseBtn');
+
+    function openSidebar() {
+      overlay.classList.add('active');
+      panel.classList.add('active');
+    }
+    function closeSidebar() {
+      overlay.classList.remove('active');
+      panel.classList.remove('active');
+    }
+    window.closeSidebar = closeSidebar;
+
+    toggleBtn.addEventListener('click', openSidebar);
+    closeBtn.addEventListener('click', closeSidebar);
+    overlay.addEventListener('click', closeSidebar);
+
+    // Desktop sidebar: sync active state on tab switch
+    // Use direct click handlers on sidebar items (reliable, no race conditions)
+    document.querySelectorAll('.desktop-sidebar-item[data-dtab]').forEach(function(item) {
+      item.addEventListener('click', function() {
+        document.querySelectorAll('.desktop-sidebar-item[data-dtab]').forEach(function(el) {
+          el.classList.remove('active');
+        });
+        item.classList.add('active');
+      });
+    });
+
+    // Desktop logout button
+    var desktopLogoutBtn = document.getElementById('desktop-logout-btn');
+    if (desktopLogoutBtn) {
+      desktopLogoutBtn.onclick = function() {
+        if (typeof logout === 'function') logout();
+      };
+    }
+  })();
+  </script>
+
+
+<!-- Month Picker Popup (for Portfolio & Disbursement) -->
+<div id="monthPickerOverlay" style="display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,0.35);backdrop-filter:blur(2px);justify-content:center;align-items:center;">
+  <div id="monthPickerPanel" style="background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,0.15);max-width:420px;width:92%;max-height:80vh;overflow-y:auto;padding:20px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <span id="monthPickerTitle" style="font-size:16px;font-weight:700;color:#1E293B;">Select Month</span>
+      <button onclick="closeMonthPicker()" style="background:none;border:none;font-size:22px;color:#94A3B8;cursor:pointer;line-height:1;">&times;</button>
+    </div>
+    <div id="monthPickerGrid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;"></div>
+  </div>
+</div>
+
+<!-- Calendar Popup -->
+<style>
+.calendar-overlay{position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,0.5);display:none;align-items:center;justify-content:center;}
+.calendar-overlay.show{display:flex;}
+.calendar-modal{background:#fff;border-radius:16px;padding:24px;width:340px;max-width:90vw;box-shadow:0 25px 50px rgba(0,0,0,0.15);}
+.calendar-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.calendar-title{font-size:18px;font-weight:700;color:#1E293B;}
+.calendar-close{width:32px;height:32px;border:none;background:#F1F5F9;border-radius:8px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#64748B;}
+.calendar-close:hover{background:#FEE2E2;color:#EF4444;}
+.calendar-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.calendar-nav-btn{border:none;background:#F1F5F9;border-radius:8px;padding:6px 12px;cursor:pointer;font-weight:600;color:#64748B;font-size:14px;}
+.calendar-nav-btn:hover{background:#E2E8F0;}
+.calendar-month{font-size:15px;font-weight:700;color:#1E293B;}
+.calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center;}
+.calendar-dow{font-size:11px;font-weight:600;color:#94A3B8;padding:4px 0;}
+.calendar-day{padding:8px 0;border-radius:8px;font-size:13px;font-weight:500;color:#CBD5E1;cursor:default;border:none;background:transparent;}
+.calendar-day.has-data{color:#1E293B;background:#F0FDF4;cursor:pointer;font-weight:600;border:1px solid #A7F3D0;}
+.calendar-day.has-data:hover{background:#DCFCE7;transform:scale(1.05);}
+.calendar-day.selected{background:#059669!important;color:#fff!important;border-color:#059669!important;}
+.calendar-day.today{box-shadow:inset 0 0 0 2px #059669;}
+.calendar-actions{margin-top:16px;display:flex;gap:8px;justify-content:center;}
+.calendar-actions button{padding:8px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .2s;}
+.calendar-latest-btn{background:#059669;color:#fff;}
+.calendar-latest-btn:hover{background:#047857;}
+.calendar-clear-btn{background:#F1F5F9;color:#64748B;}
+.calendar-clear-btn:hover{background:#E2E8F0;}
+.calendar-status{text-align:center;padding:8px;font-size:12px;color:#64748B;margin-top:8px;}
+</style>
+
+<div class="calendar-overlay" id="calendarOverlay">
+  <div class="calendar-modal">
+    <div class="calendar-header">
+      <span class="calendar-title">Select Date</span>
+      <button class="calendar-close" onclick="closeCalendarPopup()">&times;</button>
+    </div>
+    <div class="calendar-nav">
+      <button class="calendar-nav-btn" onclick="calNavMonth(-1)">&larr;</button>
+      <span class="calendar-month" id="calMonthLabel"></span>
+      <button class="calendar-nav-btn" onclick="calNavMonth(1)">&rarr;</button>
+    </div>
+    <div class="calendar-grid" id="calGrid"></div>
+    <div class="calendar-actions">
+      <button class="calendar-latest-btn" onclick="selectCalDate(null)">Latest (Today)</button>
+    </div>
+    <div class="calendar-status" id="calStatus"></div>
+  </div>
+</div>
+
+<script>
+var _calDates = [];
+var _calYear = 2026;
+var _calMonth = 2; // 0-indexed: March=2
+var _calLoaded = false;
+
+function openCalendarPopup() {
+  // Check which tab is active
+  var activeTab = localStorage.getItem('activeTab') || 'collection';
+  
+  // Portfolio or Disbursement — open month picker instead
+  if (activeTab === 'portfolio' || activeTab === 'disbursement') {
+    openMonthPicker(activeTab);
+    return;
+  }
+  
+  // Only allow daily calendar in Collection tab
+  var collContent = document.getElementById('collectionContent');
+  if (!collContent || collContent.offsetParent === null) return;
+  document.getElementById('calendarOverlay').classList.add('show');
+  if (!_calLoaded) {
+    _calLoaded = true;
+    document.getElementById('calStatus').textContent = 'Loading dates...';
+    fetch('/api/daily/dates').then(function(r){return r.json();}).then(function(dates){
+      _calDates = (dates||[]).map(function(d){return d.substring(0,10);});
+      // Set calendar to month of most recent date
+      if (_calDates.length) {
+        var parts = _calDates[0].split('-');
+        _calYear = parseInt(parts[0]);
+        _calMonth = parseInt(parts[1]) - 1;
+      }
+      renderCalendar();
+      document.getElementById('calStatus').textContent = _calDates.length + ' dates available';
+    }).catch(function(){
+      document.getElementById('calStatus').textContent = 'Failed to load dates';
+    });
+  } else {
+    renderCalendar();
+  }
+}
+
+function closeCalendarPopup() {
+  document.getElementById('calendarOverlay').classList.remove('show');
+}
+
+function calNavMonth(dir) {
+  _calMonth += dir;
+  if (_calMonth < 0) { _calMonth = 11; _calYear--; }
+  if (_calMonth > 11) { _calMonth = 0; _calYear++; }
+  renderCalendar();
+}
+
+function renderCalendar() {
+  var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  document.getElementById('calMonthLabel').textContent = months[_calMonth] + ' ' + _calYear;
+  var grid = document.getElementById('calGrid');
+  var html = '';
+  var dows = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+  for (var i=0;i<7;i++) html += '<div class="calendar-dow">'+dows[i]+'</div>';
+
+  var firstDay = new Date(_calYear, _calMonth, 1).getDay();
+  var daysInMonth = new Date(_calYear, _calMonth+1, 0).getDate();
+  var today = new Date();
+  var todayStr = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+
+  // Get current selection from collection state
+  var selectedDate = (window._collState && window._collState.date) ? window._collState.date : null;
+
+  for (var i=0;i<firstDay;i++) html += '<div class="calendar-day"></div>';
+  for (var d=1;d<=daysInMonth;d++) {
+    var dateStr = _calYear+'-'+String(_calMonth+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+    var hasData = _calDates.indexOf(dateStr) !== -1;
+    var isToday = dateStr === todayStr;
+    var isSelected = dateStr === selectedDate;
+    var cls = 'calendar-day';
+    if (hasData) cls += ' has-data';
+    if (isToday) cls += ' today';
+    if (isSelected) cls += ' selected';
+    if (hasData) {
+      html += '<button class="'+cls+'" onclick="selectCalDate(this.dataset.d)" data-d="'+dateStr+'">'+d+'</button>';
+    } else {
+      html += '<div class="'+cls+'">'+d+'</div>';
+    }
+  }
+  grid.innerHTML = html;
+}
+
+function selectCalDate(date) {
+  closeCalendarPopup();
+  if (window._collState) window._collState.date = date;
+  var badge = document.getElementById('dateBadgeText');
+  if (badge) {
+    if (date) {
+      var p = date.split('-');
+      badge.textContent = p[2] + '-' + p[1] + '-' + p[0];
+    } else {
+      var now = new Date();
+      badge.textContent = String(now.getDate()).padStart(2,'0') + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + now.getFullYear();
+    }
+  }
+  // Force reload with small delay to ensure state is set
+  setTimeout(function() {
+    if (window._reloadCollection) window._reloadCollection();
+  }, 50);
+}
+
+</script>
+
+
+<script>
+function navigateDate(dir) {
+  if (!_calDates || !_calDates.length) return;
+  var sorted = _calDates.slice().sort();
+  var current = window._collState ? window._collState.date : null;
+  if (!current) {
+    // No date selected — go to latest or earliest
+    selectCalDate(dir > 0 ? sorted[sorted.length-1] : sorted[0]);
+    return;
+  }
+  var idx = sorted.indexOf(current);
+  if (idx === -1) {
+    selectCalDate(dir > 0 ? sorted[sorted.length-1] : sorted[0]);
+    return;
+  }
+  var newIdx = idx + dir;
+  if (newIdx >= 0 && newIdx < sorted.length) {
+    selectCalDate(sorted[newIdx]);
+  }
+}
+
+// Show/hide arrows based on active tab — hook into switchEmpTab reliably
+(function() {
+  var _hookInterval = setInterval(function() {
+    if (typeof window.switchEmpTab === 'function' && !window._arrowHooked) {
+      window._arrowHooked = true;
+      var _realSwitch = window.switchEmpTab;
+      window.switchEmpTab = function(tab) {
+        _realSwitch(tab);
+        updateArrowVisibility(tab);
+      };
+      clearInterval(_hookInterval);
+      // Apply for current tab immediately
+      var saved = localStorage.getItem('activeTab') || 'collection';
+      updateArrowVisibility(saved);
+    }
+  }, 50);
+  setTimeout(function() { clearInterval(_hookInterval); }, 10000);
+  // Also fire on DOMContentLoaded as backup
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() {
+      setTimeout(function() {
+        var saved = localStorage.getItem('activeTab') || 'collection';
+        updateArrowVisibility(saved);
+      }, 500);
+    });
+  } else {
+    setTimeout(function() {
+      var saved = localStorage.getItem('activeTab') || 'collection';
+      updateArrowVisibility(saved);
+    }, 500);
+  }
+})();
+
+function updateArrowVisibility(tab) {
+  var prev = document.getElementById('datePrevBtn');
+  var next = document.getElementById('dateNextBtn');
+  var badge = document.getElementById('dateBadge');
+  var badgeText = document.getElementById('dateBadgeText');
+  
+  if (prev && next) {
+    var showArrows = (tab === 'collection');
+    prev.style.display = showArrows ? '' : 'none';
+    next.style.display = showArrows ? '' : 'none';
+  }
+  
+  // Update badge text based on tab
+  if (badge && badgeText) {
+    if (tab === 'portfolio') {
+      var pfMonth = localStorage.getItem('pfMonth') || '';
+      badgeText.textContent = pfMonth || 'All';
+      badge.style.cursor = 'pointer';
+      badge.style.opacity = '1';
+    } else if (tab === 'disbursement') {
+      var dbMonth = localStorage.getItem('dbMonth') || '';
+      badgeText.textContent = dbMonth || 'All Months';
+      badge.style.cursor = 'pointer';
+      badge.style.opacity = '1';
+    } else if (tab === 'collection') {
+      // Restore date text
+      var d = new Date();
+      if (window._collState && window._collState.date) {
+        var parts = window._collState.date.split('-');
+        badgeText.textContent = parts[2] + '-' + parts[1] + '-' + parts[0];
+      }
+      badge.style.cursor = 'pointer';
+      badge.style.opacity = '1';
+    } else {
+      // Hourly, analytical — dim the badge
+      badge.style.opacity = '0.4';
+      badge.style.cursor = 'default';
+    }
+  }
+}
+
+// Also show arrows on page load if collection tab
+// Preload dates for arrow navigation
+fetch('/api/daily/dates').then(function(r){return r.json();}).then(function(dates){
+  _calDates = (dates||[]).map(function(d){return d.substring(0,10);});
+  _calLoaded = true;
+}).catch(function(){});
+
+// Keyboard arrows
+document.addEventListener('keydown', function(e) {
+  var collContent = document.getElementById('collectionContent');
+  if (!collContent || collContent.offsetParent === null) return;
+  if (e.key === 'ArrowLeft') { navigateDate(-1); e.preventDefault(); }
+  if (e.key === 'ArrowRight') { navigateDate(1); e.preventDefault(); }
+});
+
+
+// ── Month Picker (Portfolio & Disbursement) ──
+function openMonthPicker(tab) {
+  var overlay = document.getElementById('monthPickerOverlay');
+  var grid = document.getElementById('monthPickerGrid');
+  var title = document.getElementById('monthPickerTitle');
+  if (!overlay || !grid) return;
+  
+  var months = [];
+  var currentMonth = '';
+  var color = '';
+  
+  if (tab === 'portfolio') {
+    if (window._pf && window._pf.months) {
+      months = window._pf.months.map(function(m) { return m.month_label; });
+    }
+    currentMonth = localStorage.getItem('pfMonth') || '';
+    color = '#6366F1';
+    title.textContent = 'Portfolio — Select Month';
+    // Add "All" option for portfolio too
+    months = [''].concat(months);
+  } else if (tab === 'disbursement') {
+    if (window._db && window._db.months) {
+      months = window._db.months.slice();
+    }
+    currentMonth = localStorage.getItem('dbMonth') || '';
+    color = '#F59E0B';
+    title.textContent = 'Disbursement — Select Month';
+    months = [''].concat(months);
+  }
+  
+  // FY month-to-year suffix map (Apr=25, May=25...Mar=26)
+  var fyYearMap = {APR:'25',MAY:'25',JUN:'25',JUL:'25',AUG:'25',SEP:'25',OCT:'25',NOV:'25',DEC:'25',JAN:'26',FEB:'26',MAR:'26'};
+  
+  if (!months.length) {
+    grid.innerHTML = '<div style="text-align:center;padding:24px;color:#94A3B8;font-size:14px;grid-column:1/-1;">No months available yet.<br>Open the tab first to load data.</div>';
+  } else {
+    var html = '';
+    for (var i = 0; i < months.length; i++) {
+      var m = months[i];
+      var label = m || 'All';
+      // Add year suffix
+      if (m && fyYearMap[m.toUpperCase()]) {
+        label = m + '_' + fyYearMap[m.toUpperCase()];
+      }
+      var isActive = m === currentMonth;
+      var isAll = !m;
+      html += '<button data-mp-month="' + (m || '') + '" style="' +
+        'padding:10px 8px;border-radius:10px;font-size:13px;font-weight:600;' +
+        'cursor:pointer;border:none;transition:all .15s;text-align:center;' +
+        (isAll ? 'grid-column:1/-1;' : '') +
+        (isActive 
+          ? 'background:' + color + ';color:#fff;box-shadow:0 2px 8px ' + color + '40;'
+          : 'background:#F8FAFC;color:#1E293B;') +
+      '">' + escHtml(label) + '</button>';
+    }
+    grid.innerHTML = html;
+  }
+  
+  overlay.style.display = 'flex';
+  
+  // Attach click handlers
+  grid.querySelectorAll('[data-mp-month]').forEach(function(btn) {
+    btn.onclick = function() {
+      var selected = btn.dataset.mpMonth;
+      if (tab === 'portfolio') {
+        localStorage.setItem('pfMonth', selected);
+        if (window._pf) { window._pf.month = selected; }
+        // Trigger portfolio reload
+        if (typeof window.loadPortfolio === 'function') window.loadPortfolio();
+        else if (typeof window.switchEmpTab === 'function') window.switchEmpTab('portfolio');
+      } else if (tab === 'disbursement') {
+        localStorage.setItem('dbMonth', selected);
+        if (window._db) { window._db.month = selected; }
+        // Trigger disbursement reload
+        if (typeof window.loadDisbursement === 'function') window.loadDisbursement();
+        else if (typeof window.switchEmpTab === 'function') window.switchEmpTab('disbursement');
+      }
+      closeMonthPicker();
+      // Update badge
+      updateArrowVisibility(tab);
+    };
+  });
+}
+
+function closeMonthPicker() {
+  var overlay = document.getElementById('monthPickerOverlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
+function escHtml(s) {
+  var d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+// Close month picker on overlay click
+document.addEventListener('click', function(e) {
+  var overlay = document.getElementById('monthPickerOverlay');
+  if (overlay && overlay.style.display === 'flex' && e.target === overlay) {
+    closeMonthPicker();
+  }
+});
+
+</script>
+
+
+
+
+<!-- Daily Reports Branch Detail Modal (native) -->
+<div id="drBranchModal" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.4);backdrop-filter:blur(2px);overflow-y:auto;padding:20px;">
+  <div style="max-width:900px;margin:0 auto;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,0.15);">
+    <!-- Header -->
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 24px;border-bottom:1px solid #E2E8F0;">
+      <span id="drModalTitle" style="font-size:18px;font-weight:700;color:#1E293B;">Branch — Details</span>
+      <button onclick="closeDrBranchModal()" style="background:none;border:none;font-size:28px;color:#94A3B8;cursor:pointer;line-height:1;">&times;</button>
+    </div>
+    
+    <!-- Form -->
+    <div style="padding:20px 24px;">
+      <!-- Row 1: FTOD + 1-30 DPD + Disbursement -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px;">
+        
+        <!-- FTOD -->
+        <div style="border:1px solid #E2E8F0;border-radius:12px;padding:16px;">
+          <h4 style="text-align:center;font-size:13px;font-weight:700;color:#6366F1;margin:0 0 12px;">FTOD — ACCOUNTS</h4>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <label style="font-size:12px;font-weight:600;color:#475569;">Actual FTOD Account</label>
+            <input id="dr_ftod_actual" type="number" placeholder="0" style="padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;">
+            <label style="font-size:12px;font-weight:600;color:#475569;">FTOD Collection Plan</label>
+            <input id="dr_ftod_plan" type="number" placeholder="0" style="padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;">
+          </div>
+        </div>
+        
+        <!-- 1-30 DPD -->
+        <div style="border:1px solid #F59E0B40;border-radius:12px;padding:16px;background:#FFFBEB20;">
+          <h4 style="text-align:center;font-size:13px;font-weight:700;color:#F59E0B;margin:0 0 12px;">1-30 DPD</h4>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <label style="font-size:12px;font-weight:600;color:#475569;">Actual Account</label>
+            <input id="dr_dpd_1_30_actual" type="number" placeholder="0" style="padding:8px 12px;border:1px solid #F59E0B40;border-radius:8px;font-size:14px;">
+            <label style="font-size:12px;font-weight:600;color:#475569;">Collection Plan</label>
+            <input id="dr_dpd_1_30_plan" type="number" placeholder="0" style="padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;">
+          </div>
+        </div>
+        
+        <!-- Disbursement Targets -->
+        <div style="border:1px solid #E2E8F0;border-radius:12px;padding:16px;">
+          <h4 style="text-align:center;font-size:13px;font-weight:700;color:#475569;margin:0 0 12px;">DISBURSEMENT TARGETS</h4>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <label style="font-size:11px;color:#64748B;">IGL (Accounts)</label>
+            <input id="dr_disb_igl_acc" type="number" placeholder="0" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">
+            <label style="font-size:11px;color:#64748B;">IGL (Amount)</label>
+            <input id="dr_disb_igl_amt" type="number" placeholder="0" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">
+            <label style="font-size:11px;color:#64748B;">FIG (Accounts)</label>
+            <input id="dr_disb_fig_acc" type="number" placeholder="0" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">
+            <label style="font-size:11px;color:#64748B;">FIG (Amount)</label>
+            <input id="dr_disb_fig_amt" type="number" placeholder="0" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">
+            <label style="font-size:11px;color:#64748B;">IL (Accounts)</label>
+            <input id="dr_disb_il_acc" type="number" placeholder="0" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">
+            <label style="font-size:11px;color:#64748B;">IL (Amount)</label>
+            <input id="dr_disb_il_amt" type="number" placeholder="0" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">
+          </div>
+        </div>
+      </div>
+      
+      <!-- Row 2: 31-60 + 61-90 + KYC -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px;">
+        
+        <!-- 31-60 DPD -->
+        <div style="border:1px solid #EF444440;border-radius:12px;padding:16px;background:#FEF2F220;">
+          <h4 style="text-align:center;font-size:13px;font-weight:700;color:#EF4444;margin:0 0 12px;">31-60 DPD</h4>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <label style="font-size:12px;font-weight:600;color:#475569;">Actual Account</label>
+            <input id="dr_dpd_31_60_actual" type="number" placeholder="0" style="padding:8px 12px;border:1px solid #EF444440;border-radius:8px;font-size:14px;">
+            <label style="font-size:12px;font-weight:600;color:#475569;">Collection Plan</label>
+            <input id="dr_dpd_31_60_plan" type="number" placeholder="0" style="padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;">
+          </div>
+        </div>
+        
+        <!-- 61-90 DPD -->
+        <div style="border:1px solid #DC262640;border-radius:12px;padding:16px;background:#FEF2F210;">
+          <h4 style="text-align:center;font-size:13px;font-weight:700;color:#DC2626;margin:0 0 12px;">61-90 DPD</h4>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <label style="font-size:12px;font-weight:600;color:#475569;">Actual Account</label>
+            <input id="dr_dpd_61_90_actual" type="number" placeholder="0" style="padding:8px 12px;border:1px solid #DC262640;border-radius:8px;font-size:14px;">
+            <label style="font-size:12px;font-weight:600;color:#475569;">Collection Plan</label>
+            <input id="dr_dpd_61_90_plan" type="number" placeholder="0" style="padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;">
+          </div>
+        </div>
+        
+        <!-- KYC Sourcing -->
+        <div style="border:1px solid #E2E8F0;border-radius:12px;padding:16px;">
+          <h4 style="text-align:center;font-size:13px;font-weight:700;color:#475569;margin:0 0 12px;">KYC SOURCING</h4>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <label style="font-size:11px;color:#64748B;">IGL</label>
+            <input id="dr_kyc_igl" type="number" placeholder="0" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">
+            <label style="font-size:11px;color:#64748B;">FIG</label>
+            <input id="dr_kyc_fig" type="number" placeholder="0" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">
+            <label style="font-size:11px;color:#64748B;">IL</label>
+            <input id="dr_kyc_il" type="number" placeholder="0" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">
+          </div>
+        </div>
+      </div>
+      
+      <!-- Row 3: NPA + FY Non-Starter -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+        <div style="border:1px solid #E2E8F0;border-radius:12px;padding:16px;">
+          <h4 style="text-align:center;font-size:13px;font-weight:700;color:#6366F1;margin:0 0 12px;">NPA ACCOUNTS</h4>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div><label style="font-size:12px;font-weight:600;color:#475569;">NPA Activation</label>
+            <input id="dr_npa_activation" type="number" placeholder="0" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;margin-top:4px;"></div>
+            <div><label style="font-size:12px;font-weight:600;color:#475569;">NPA Closure</label>
+            <input id="dr_npa_closure" type="number" placeholder="0" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;margin-top:4px;"></div>
+          </div>
+        </div>
+        <div style="border:1px solid #E2E8F0;border-radius:12px;padding:16px;">
+          <h4 style="text-align:center;font-size:13px;font-weight:700;color:#6366F1;margin:0 0 12px;">FY NON-STARTER ACCOUNTS</h4>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div><label style="font-size:12px;font-weight:600;color:#475569;">Non-Starter Accounts</label>
+            <input id="dr_fy_non_start_acc" type="number" placeholder="0" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;margin-top:4px;"></div>
+            <div><label style="font-size:12px;font-weight:600;color:#475569;">Collection Plan</label>
+            <input id="dr_fy_non_start_plan" type="number" placeholder="0" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;margin-top:4px;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Footer -->
+    <div style="display:flex;justify-content:flex-end;gap:10px;padding:16px 24px;border-top:1px solid #E2E8F0;background:#F8FAFC;border-radius:0 0 16px 16px;">
+      <button onclick="closeDrBranchModal()" style="padding:10px 20px;border:1px solid #E2E8F0;border-radius:8px;background:#fff;color:#475569;font-weight:500;cursor:pointer;">Cancel</button>
+      <button onclick="saveDrBranchData()" style="padding:10px 24px;border:none;border-radius:8px;background:#059669;color:#fff;font-weight:600;cursor:pointer;">Save &amp; Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var _drCurrentBranch = '';
+var _drCurrentTable = 'reports';
+
+function openDrBranchModal(branchName, table) {
+  _drCurrentBranch = branchName;
+  _drCurrentTable = table || 'reports';
+  document.getElementById('drModalTitle').textContent = branchName + ' — Details';
+  // Clear all fields
+  document.querySelectorAll('#drBranchModal input[type=number]').forEach(function(el) { el.value = ''; });
+  // Load existing data
+  var today = new Date().toISOString().split('T')[0];
+  fetch('/api/daily-plan/exists?table=' + _drCurrentTable + '&date=' + today + '&branch=' + encodeURIComponent(branchName))
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if (d.exists) {
+        fetch('/api/daily-plan/' + (_drCurrentTable === 'achievements' ? 'achievements' : 'reports') + '?from=' + today + '&to=' + today + '&branch=' + encodeURIComponent(branchName))
+          .then(function(r){return r.json();})
+          .then(function(result){
+            if (result.data && result.data.length) {
+              var row = result.data[0];
+              var map = {ftod_actual:'dr_ftod_actual',ftod_plan:'dr_ftod_plan',dpd_1_30_actual:'dr_dpd_1_30_actual',dpd_1_30_plan:'dr_dpd_1_30_plan',dpd_31_60_actual:'dr_dpd_31_60_actual',dpd_31_60_plan:'dr_dpd_31_60_plan',dpd_61_90_actual:'dr_dpd_61_90_actual',dpd_61_90_plan:'dr_dpd_61_90_plan',npa_activation:'dr_npa_activation',npa_closure:'dr_npa_closure',fy_non_start_acc:'dr_fy_non_start_acc',fy_non_start_plan:'dr_fy_non_start_plan',disb_igl_acc:'dr_disb_igl_acc',disb_igl_amt:'dr_disb_igl_amt',disb_fig_acc:'dr_disb_fig_acc',disb_fig_amt:'dr_disb_fig_amt',disb_il_acc:'dr_disb_il_acc',disb_il_amt:'dr_disb_il_amt',kyc_igl:'dr_kyc_igl',kyc_fig:'dr_kyc_fig',kyc_il:'dr_kyc_il'};
+              Object.keys(map).forEach(function(k){
+                var el = document.getElementById(map[k]);
+                if (el && row[k] != null) el.value = row[k];
+              });
+            }
+          });
+      }
+    });
+  document.getElementById('drBranchModal').style.display = 'block';
+}
+
+function closeDrBranchModal() {
+  document.getElementById('drBranchModal').style.display = 'none';
+}
+
+function saveDrBranchData() {
+  var today = new Date().toISOString().split('T')[0];
+  var session = window.getEmployeeSession ? getEmployeeSession() : {};
+  var data = {
+    branch_name: _drCurrentBranch,
+    date: today,
+    region: '', district: '', dm_name: '',
+    ftod_actual: Number(document.getElementById('dr_ftod_actual').value) || 0,
+    ftod_plan: Number(document.getElementById('dr_ftod_plan').value) || 0,
+    dpd_1_30_actual: Number(document.getElementById('dr_dpd_1_30_actual').value) || 0,
+    dpd_1_30_plan: Number(document.getElementById('dr_dpd_1_30_plan').value) || 0,
+    dpd_31_60_actual: Number(document.getElementById('dr_dpd_31_60_actual').value) || 0,
+    dpd_31_60_plan: Number(document.getElementById('dr_dpd_31_60_plan').value) || 0,
+    dpd_61_90_actual: Number(document.getElementById('dr_dpd_61_90_actual').value) || 0,
+    dpd_61_90_plan: Number(document.getElementById('dr_dpd_61_90_plan').value) || 0,
+    npa_activation: Number(document.getElementById('dr_npa_activation').value) || 0,
+    npa_closure: Number(document.getElementById('dr_npa_closure').value) || 0,
+    fy_non_start_acc: Number(document.getElementById('dr_fy_non_start_acc').value) || 0,
+    fy_non_start_plan: Number(document.getElementById('dr_fy_non_start_plan').value) || 0,
+    disb_igl_acc: Number(document.getElementById('dr_disb_igl_acc').value) || 0,
+    disb_igl_amt: Number(document.getElementById('dr_disb_igl_amt').value) || 0,
+    disb_fig_acc: Number(document.getElementById('dr_disb_fig_acc').value) || 0,
+    disb_fig_amt: Number(document.getElementById('dr_disb_fig_amt').value) || 0,
+    disb_il_acc: Number(document.getElementById('dr_disb_il_acc').value) || 0,
+    disb_il_amt: Number(document.getElementById('dr_disb_il_amt').value) || 0,
+    kyc_igl: Number(document.getElementById('dr_kyc_igl').value) || 0,
+    kyc_fig: Number(document.getElementById('dr_kyc_fig').value) || 0,
+    kyc_il: Number(document.getElementById('dr_kyc_il').value) || 0,
+  };
+  fetch('/api/daily-plan/save', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ table: _drCurrentTable, data: data })
+  }).then(function(r){return r.json();}).then(function(result){
+    if (result.success) {
+      closeDrBranchModal();
+      // Update plan status on card
+      var el = document.getElementById('drPlanStatus');
+      if (el) el.textContent = '✓ Set';
+    } else {
+      alert('Save failed: ' + (result.error || 'Unknown error'));
+    }
+  }).catch(function(e){ alert('Save error: ' + e.message); });
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeDrBranchModal();
+});
+</script>
+
+
+
+<!-- Daily Reports Table Modal (native) -->
+<div id="drReportModal" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.4);backdrop-filter:blur(2px);overflow-y:auto;padding:20px;">
+  <div style="max-width:1000px;margin:0 auto;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,0.15);">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 24px;border-bottom:1px solid #E2E8F0;">
+      <span id="drReportTitle" style="font-size:18px;font-weight:700;color:#1E293B;">Report</span>
+      <button onclick="document.getElementById('drReportModal').style.display='none'" style="background:none;border:none;font-size:28px;color:#94A3B8;cursor:pointer;line-height:1;">&times;</button>
+    </div>
+    <div id="drReportBody" style="padding:20px 24px;overflow-x:auto;"></div>
+    <div style="display:flex;gap:12px;padding:16px 24px;border-top:1px solid #E2E8F0;justify-content:center;flex-wrap:wrap;">
+      <button onclick="_drDownloadImage()" style="flex:1;max-width:200px;padding:12px 16px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;color:#334155;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download
+      </button>
+      <button onclick="_drShareImage()" style="flex:1;max-width:200px;padding:12px 16px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;color:#334155;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+        Share Image
+      </button>
+      <button onclick="_drDownloadExcel()" style="flex:1;max-width:200px;padding:12px 16px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;color:#334155;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        Excel
+      </button>
+      <button onclick="_drCopyTable()" style="flex:1;max-width:200px;padding:12px 16px;border-radius:10px;border:none;background:linear-gradient(135deg,#6366F1,#4F46E5);color:#fff;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        Copy
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+// Branch hierarchy for report aggregation
+var _drHierarchy = {
+  'ANDRA PRADESH': ['BUDWAL','DHARMAVARAM','KADAPA','KADIRI'],
+  'DHARWAD': ['ATHANI','BADAMI','BAGALKOT','BAILHONGAL','BALLARI','BELAGAVI','CHIKKODI','DAVANAGERE','DHARWAD','GADAG','GAJENDRAGAD','GOKAK','HAGARIBOMMANAHALLI','HARAPANAHALLI','HARIHARA','HONNALI','HOSPET','HUBLI','HUBLI-2','HUVENAHADAGALLI','KALGHATGI','KHANAHOSAHALLI','KITTUR','KOTTURU','KUDATHINI','KUDLIGI','LAXMESHWAR','MUNDARAGI','MUDALAGI','NARAGUNDA','NIPPANI','RAMDURGA','SANDURU','SANTHEBENNURU','SIRUGUPPA','YARAGATTI'],
+  'KALBURGI': ['AFZALPUR','ALAND','ALMEL','AURAD','BASAVAKALYAN','BHALKI','BIDAR','BIDAR-2','CHADCHAN','CHINCHOLI','DEVADURGA','GANGAVATHI','HULSOOR','HUMNABAD','INDI','JAMAKHANDI','JEVARGI','KALABURAGI','KALAGI','KALBURGI-2','KAMALAPURA','KUSHTAGI','LINGSUGUR','LOKAPUR','MANVI','MUDDEBIHAL','RAICHUR','SEDAM','SHAHAPUR','SINDAGI','SINDHNUR','SIRWAR','TALIKOTI','TIKOTA','VIJAYAPUR','YADGIR','BAGALKOT','BILAGI','HUNGUND'],
+  'TELANGANA': ['GADWAL','KODANGAL','MAHABUB NAGAR','MARIKAL','NARAYANKHED','SANGAREDDY','TANDUR','ZAHEERABAD'],
+  'TUMKUR': ['AJJAMPURA','BAGEPALLI','BANGARPET','BETHAMANGALA','CHALLAKERE','CHANDAPURA','CHANNAGIRI','CHIKBALLAPURA','CHIKKAMAGALURU','CHIKKANAYAKANAHALLI','CHINTAMANI','CHITRADURGA','DABUSPET','DEVANAHALLI','DODDABALLAPURA','GOWRIBIDANUR','GUBBI','HEBBAL','HIRIYUR','HOLAKERE','HULIYAR','J P NAGAR','JAGALORE','KADUR','KENGERI','KOLAR','KOPPAL','KORATAGERE','KUNIGAL','MADHUGIRI','MALUR','MUDIGERE','NR PURA','PANCHANHALLI','SIRA','SRINIVASPURA','TARIKERE','TIPTUR','TUMKUR','TUREVEKERE']
+};
+
+function _drBuildReportTable(date, level, type) {
+  var title = (type === 'both' ? 'PLAN & ACHIEVEMENT' : 'PLAN') + ' — ' + level + ' — ' + _drFormatDate(date);
+  document.getElementById('drReportTitle').textContent = title;
+  
+  // Fetch data from API
+  fetch('/api/daily-plan/reports?from=' + date + '&to=' + date)
+    .then(function(r){return r.json();})
+    .then(function(planRes){
+      var planData = planRes.data || [];
+      
+      if (type === 'both') {
+        fetch('/api/daily-plan/achievements?from=' + date + '&to=' + date)
+          .then(function(r){return r.json();})
+          .then(function(achRes){
+            var achData = achRes.data || [];
+            _drRenderTable(title, level, planData, achData, type);
+          });
+      } else {
+        _drRenderTable(title, level, planData, [], type);
+      }
+    });
+  
+  document.getElementById('drReportModal').style.display = 'block';
+  document.getElementById('drReportBody').innerHTML = '<div style="text-align:center;padding:40px;color:#94A3B8;">Loading...</div>';
+}
+
+function _drRenderTable(title, level, planData, achData, type) {
+  var planMap = {}; planData.forEach(function(r){ planMap[r.branch_name] = r; });
+  var achMap = {}; achData.forEach(function(r){ achMap[r.branch_name] = r; });
+  
+  var rows = [];
+  if (level === 'REGION') {
+    Object.keys(_drHierarchy).sort().forEach(function(region){
+      var agg = _drAggregate(_drHierarchy[region], planMap);
+      agg.name = region; rows.push(agg);
+    });
+  } else {
+    Object.keys(_drHierarchy).sort().forEach(function(region){
+      _drHierarchy[region].forEach(function(br){
+        var p = planMap[br] || {};
+        rows.push({name:br, ftod:p.ftod_plan||0, feb:p.dpd_1_30_plan||0, pnpa:p.dpd_61_90_plan||0, npa_act:p.npa_activation||0, npa_clo:p.npa_closure||0, od:0, ns:p.fy_non_start_plan||0, disb_iglfig_acc:(p.disb_igl_acc||0)+(p.disb_fig_acc||0), disb_iglfig_amt:(p.disb_igl_amt||0)+(p.disb_fig_amt||0), disb_il_acc:p.disb_il_acc||0, disb_il_amt:p.disb_il_amt||0, kyc_figIgl:(p.kyc_igl||0)+(p.kyc_fig||0), kyc_il:p.kyc_il||0, kyc_npa:0});
+      });
+    });
+  }
+  
+  var gt = {name:'Grand Total',ftod:0,feb:0,pnpa:0,npa_act:0,npa_clo:0,od:0,ns:0,disb_iglfig_acc:0,disb_iglfig_amt:0,disb_il_acc:0,disb_il_amt:0,kyc_figIgl:0,kyc_il:0,kyc_npa:0};
+  rows.forEach(function(r){ Object.keys(gt).forEach(function(k){ if(k!=='name') gt[k]+=r[k]||0; }); });
+  
+  var v=function(n){return n?n.toLocaleString('en-IN'):'-';};
+  var a=function(n){return n?(n>=10000000?(n/10000000).toFixed(2)+'Cr':(n>=100000?(n/100000).toFixed(2)+'L':n.toLocaleString('en-IN'))):'-';};
+  
+  var s = 'border:1px solid #C0C0C0;padding:3px 4px;text-align:center;font-size:9px;white-space:nowrap;';
+  var h = '<div style="background:#fff;padding:8px;">';
+  h += '<table id="drReportTable" style="border-collapse:collapse;width:100%;font-size:10px;">';
+  
+  // Title row
+  h += '<tr><td colspan="16" style="'+s+'background:#E8F0FE;font-size:12px;font-weight:700;text-align:center;padding:6px;">'+title+'</td></tr>';
+  
+  // Header row 1 - group headers
+  h += '<tr style="font-weight:700;">';
+  h += '<td rowspan="2" style="'+s+'background:#F1F5F9;text-align:left;min-width:70px;">'+level+'</td>';
+  h += '<td style="'+s+'background:#DBEAFE;">FTOD</td>';
+  h += '<td style="'+s+'background:#BBF7D0;">FEB<br>Slipped</td>';
+  h += '<td style="'+s+'background:#FECACA;">PNPA</td>';
+  h += '<td colspan="2" style="'+s+'">NPA</td>';
+  h += '<td colspan="2" style="'+s+'background:#FEF9C3;">FY</td>';
+  h += '<td colspan="4" style="'+s+'background:#E9D5FF;">Disb</td>';
+  h += '<td colspan="3" style="'+s+'background:#FBCFE8;">KYC</td>';
+  h += '</tr>';
+  
+  // Header row 2 - sub headers
+  h += '<tr style="font-weight:600;font-size:9px;">';
+  h += '<td style="'+s+'">Plan</td>';
+  h += '<td style="'+s+'">Plan</td>';
+  h += '<td style="'+s+'">Plan</td>';
+  h += '<td style="'+s+'">Act</td><td style="'+s+'">Clo</td>';
+  h += '<td style="'+s+'">OD Acc</td><td style="'+s+'">NS Acc</td>';
+  h += '<td style="'+s+'">IGL&FIG<br>Acc</td><td style="'+s+'">IGL&FIG<br>Amt</td>';
+  h += '<td style="'+s+'">IL Acc</td><td style="'+s+'">IL Amt</td>';
+  h += '<td style="'+s+'">FIG&<br>IGL</td><td style="'+s+'">IL</td><td style="'+s+'">NPA</td>';
+  h += '</tr>';
+  
+  // Data rows
+  rows.forEach(function(r){
+    h += '<tr>';
+    h += '<td style="'+s+'text-align:left;font-weight:600;">'+r.name+'</td>';
+    h += '<td style="'+s+'">'+v(r.ftod)+'</td>';
+    h += '<td style="'+s+'">'+v(r.feb)+'</td>';
+    h += '<td style="'+s+'">'+v(r.pnpa)+'</td>';
+    h += '<td style="'+s+'">'+v(r.npa_act)+'</td>';
+    h += '<td style="'+s+'">'+v(r.npa_clo)+'</td>';
+    h += '<td style="'+s+'">'+v(r.od)+'</td>';
+    h += '<td style="'+s+'">'+v(r.ns)+'</td>';
+    h += '<td style="'+s+'">'+v(r.disb_iglfig_acc)+'</td>';
+    h += '<td style="'+s+'">'+a(r.disb_iglfig_amt)+'</td>';
+    h += '<td style="'+s+'">'+v(r.disb_il_acc)+'</td>';
+    h += '<td style="'+s+'">'+a(r.disb_il_amt)+'</td>';
+    h += '<td style="'+s+'">'+v(r.kyc_figIgl)+'</td>';
+    h += '<td style="'+s+'">'+v(r.kyc_il)+'</td>';
+    h += '<td style="'+s+'">'+v(r.kyc_npa)+'</td>';
+    h += '</tr>';
+  });
+  
+  // Grand Total
+  h += '<tr style="background:#FEF9C3;font-weight:700;">';
+  h += '<td style="'+s+'text-align:left;">Grand Total</td>';
+  h += '<td style="'+s+'">'+v(gt.ftod)+'</td>';
+  h += '<td style="'+s+'">'+v(gt.feb)+'</td>';
+  h += '<td style="'+s+'">'+v(gt.pnpa)+'</td>';
+  h += '<td style="'+s+'">'+v(gt.npa_act)+'</td>';
+  h += '<td style="'+s+'">'+v(gt.npa_clo)+'</td>';
+  h += '<td style="'+s+'">'+v(gt.od)+'</td>';
+  h += '<td style="'+s+'">'+v(gt.ns)+'</td>';
+  h += '<td style="'+s+'">'+v(gt.disb_iglfig_acc)+'</td>';
+  h += '<td style="'+s+'">'+a(gt.disb_iglfig_amt)+'</td>';
+  h += '<td style="'+s+'">'+v(gt.disb_il_acc)+'</td>';
+  h += '<td style="'+s+'">'+a(gt.disb_il_amt)+'</td>';
+  h += '<td style="'+s+'">'+v(gt.kyc_figIgl)+'</td>';
+  h += '<td style="'+s+'">'+v(gt.kyc_il)+'</td>';
+  h += '<td style="'+s+'">'+v(gt.kyc_npa)+'</td>';
+  h += '</tr></table></div>';
+  
+  document.getElementById('drReportBody').innerHTML = h;
+}
+
+function _drAggregate(branches, planMap) {
+  var r = {ftod:0,feb:0,pnpa:0,npa_act:0,npa_clo:0,od:0,ns:0,disb_iglfig_acc:0,disb_iglfig_amt:0,disb_il_acc:0,disb_il_amt:0,kyc_figIgl:0,kyc_il:0,kyc_npa:0};
+  branches.forEach(function(br){
+    var p = planMap[br] || {};
+    r.ftod += (p.ftod_plan||0);
+    r.feb += (p.dpd_1_30_plan||0);
+    r.pnpa += (p.dpd_61_90_plan||0);
+    r.npa_act += (p.npa_activation||0);
+    r.npa_clo += (p.npa_closure||0);
+    r.ns += (p.fy_non_start_plan||0);
+    r.disb_iglfig_acc += (p.disb_igl_acc||0)+(p.disb_fig_acc||0);
+    r.disb_iglfig_amt += (p.disb_igl_amt||0)+(p.disb_fig_amt||0);
+    r.disb_il_acc += (p.disb_il_acc||0);
+    r.disb_il_amt += (p.disb_il_amt||0);
+    r.kyc_figIgl += (p.kyc_igl||0)+(p.kyc_fig||0);
+    r.kyc_il += (p.kyc_il||0);
+  });
+  return r;
+}
+
+function _drFormatDate(iso) {
+  var d = new Date(iso);
+  return String(d.getDate()).padStart(2,'0') + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + d.getFullYear();
+}
+
+function _drCopyTable() {
+  var body = document.getElementById('drReportBody');
+  if (!body) return;
+  var doCopy = function() {
+    _drCaptureTable(body).then(function(canvas) {
+      canvas.toBlob(function(blob) {
+        var btn = event.target.closest('button');
+        navigator.clipboard.write([new ClipboardItem({'image/png': blob})]).then(function() {
+          if (btn) { btn.style.background='#059669'; btn.style.color='#fff'; btn.style.borderColor='#059669'; var orig=btn.innerHTML; btn.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Copied!'; setTimeout(function(){ btn.style.background=''; btn.style.color=''; btn.style.borderColor=''; btn.innerHTML=orig; }, 2000); }
+        }).catch(function() {
+          var a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = 'daily_report.png';
+          a.click();
+        });
+      }, 'image/png');
+    });
+  };
+  if (typeof html2canvas === 'function') {
+    doCopy();
+  } else {
+    var s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+    s.onload = doCopy;
+    document.head.appendChild(s);
+  }
+}
+
+function _drDownloadExcel() {
+  var t = document.getElementById('drReportTable');
+  if (!t) return;
+  var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"></head><body>' + t.outerHTML + '</body></html>';
+  var blob = new Blob([html], {type:'application/vnd.ms-excel'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'daily_report.xls';
+  a.click();
+}
+
+function _drDownloadImage() {
+  var body = document.getElementById('drReportBody');
+  if (!body) return;
+  // Use html2canvas if available, otherwise fallback
+  if (typeof html2canvas === 'function') {
+    _drCaptureTable(body).then(function(canvas) {
+      var a = document.createElement('a'); a.href = canvas.toDataURL('image/png'); a.download = 'daily_report.png'; a.click();
+      var btn = document.querySelector('[onclick="_drDownloadImage()"]');
+      if (btn) { btn.style.background='#059669'; btn.style.color='#fff'; btn.style.borderColor='#059669'; var orig=btn.innerHTML; btn.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Downloaded!'; setTimeout(function(){ btn.style.background=''; btn.style.color=''; btn.style.borderColor=''; btn.innerHTML=orig; }, 2000); }
+    });
+  } else {
+    var s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+    s.onload = function() {
+      _drCaptureTable(body).then(function(canvas) {
+        var a = document.createElement('a'); a.href = canvas.toDataURL('image/png'); a.download = 'daily_report.png'; a.click();
+        var btn = document.querySelector('[onclick="_drDownloadImage()"]');
+        if (btn) { btn.style.background='#059669'; btn.style.color='#fff'; var orig=btn.innerHTML; btn.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Downloaded!'; setTimeout(function(){ btn.style.background=''; btn.style.color=''; btn.innerHTML=orig; }, 2000); }
+      });
+    };
+    document.head.appendChild(s);
+  }
+}
+
+function _drShareImage() {
+  var body = document.getElementById('drReportBody');
+  if (!body) return;
+  var doShare = function() {
+    _drCaptureTable(body).then(function(canvas) {
+      canvas.toBlob(function(blob) {
+        if (navigator.share && navigator.canShare) {
+          var file = new File([blob], 'daily_report.png', {type:'image/png'});
+          navigator.share({title:'Daily Report', files:[file]}).catch(function(){});
+        } else {
+          // Fallback: copy to clipboard
+          navigator.clipboard.write([new ClipboardItem({'image/png': blob})]).then(function() {
+            var btn = document.querySelector('[onclick="_drShareImage()"]');
+            if (btn) { btn.style.background='#059669'; btn.style.color='#fff'; btn.style.borderColor='#059669'; var orig=btn.innerHTML; btn.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Copied!'; setTimeout(function(){ btn.style.background=''; btn.style.color=''; btn.style.borderColor=''; btn.innerHTML=orig; }, 2000); }
+          }).catch(function(){
+            var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'daily_report.png'; a.click();
+          });
+        }
+      }, 'image/png');
+    });
+  };
+  if (typeof html2canvas === 'function') {
+    doShare();
+  } else {
+    var s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+    s.onload = doShare;
+    document.head.appendChild(s);
+  }
+}
+
+
+function _drCaptureTable(body) {
+  // Temporarily expand modal to full table width for capture
+  var modal = document.getElementById('drReportModal');
+  var modalInner = modal ? modal.firstElementChild : null;
+  var oldOverflow = body.style.overflow;
+  var oldMaxW = modalInner ? modalInner.style.maxWidth : '';
+  var oldW = body.style.width;
+  var oldPos = modal ? modal.style.overflow : '';
+  
+  // Remove scroll constraints
+  body.style.overflow = 'visible';
+  body.style.width = 'auto';
+  if (modalInner) modalInner.style.maxWidth = 'none';
+  if (modal) modal.style.overflow = 'visible';
+  
+  var tableEl = document.getElementById('drReportTable');
+  var captureWidth = tableEl ? tableEl.scrollWidth + 40 : body.scrollWidth;
+  
+  return html2canvas(body, {
+    scale: 2,
+    backgroundColor: '#ffffff',
+    width: captureWidth,
+    windowWidth: captureWidth,
+    scrollX: 0,
+    scrollY: -window.scrollY
+  }).then(function(canvas) {
+    // Restore
+    body.style.overflow = oldOverflow;
+    body.style.width = oldW;
+    if (modalInner) modalInner.style.maxWidth = oldMaxW;
+    if (modal) modal.style.overflow = oldPos;
+    return canvas;
+  });
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    document.getElementById('drReportModal').style.display = 'none';
+    closeDrBranchModal();
+  }
+});
+</script>
+
+</body>
+</html>

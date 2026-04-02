@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#F8FAFC">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
+  <title>Employee Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/desktop.css">
+</head>
+<body class="emp-dark">
+
+<div class="desktop-layout">
+
+  <!-- Desktop Sidebar (hidden on mobile via CSS) -->
+  <aside class="desktop-sidebar">
+    <div class="desktop-sidebar-brand">
+      <svg width="28" height="28" viewBox="0 0 100 100"><text y=".9em" font-size="80">📊</text></svg>
+      <span class="desktop-sidebar-appname">NLPL Dashboard</span>
+    </div>
+    <nav class="desktop-sidebar-nav">
+      <a href="javascript:void(0)" class="desktop-sidebar-item active" data-dtab="collection" onclick="switchEmpTab('collection')">
+        <span class="desktop-sidebar-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+        </span>
+        <span class="desktop-sidebar-label">Collection</span>
+      </a>
+      <a href="javascript:void(0)" class="desktop-sidebar-item" data-dtab="portfolio" onclick="switchEmpTab('portfolio')">
+        <span class="desktop-sidebar-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+        </span>
+        <span class="desktop-sidebar-label">Portfolio</span>
+      </a>
+      <a href="javascript:void(0)" class="desktop-sidebar-item" data-dtab="disbursement" onclick="switchEmpTab('disbursement')">
+        <span class="desktop-sidebar-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        </span>
+        <span class="desktop-sidebar-label">Disbursement</span>
+      </a>
+      <a href="javascript:void(0)" class="desktop-sidebar-item" data-dtab="hourly" onclick="switchEmpTab('hourly')">
+        <span class="desktop-sidebar-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </span>
+        <span class="desktop-sidebar-label">Hourly</span>
+      </a>
+      <a href="javascript:void(0)" class="desktop-sidebar-item" data-dtab="analytical" onclick="switchEmpTab('analytical')">
+        <span class="desktop-sidebar-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        </span>
+        <span class="desktop-sidebar-label">Analytical Tool</span>
+      </a>
+      <div style="border-top:1px solid #E2E8F0;margin:8px 16px;"></div>
+      <a href="contacts.html" class="desktop-sidebar-item">
+        <span class="desktop-sidebar-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </span>
+        <span class="desktop-sidebar-label">Contacts</span>
+      </a>
+      <a href="locator.html" class="desktop-sidebar-item">
+        <span class="desktop-sidebar-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+        </span>
+        <span class="desktop-sidebar-label">Branch Locator</span>
+      </a>
+    </nav>
+    <div class="desktop-sidebar-footer">
+      <button class="desktop-sidebar-logout" id="desktop-logout-btn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        <span>Logout</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main content area -->
+  <div class="desktop-main">
+
+    <div class="emp-app">
+      <div class="emp-header">
+        <div class="emp-header-left">
+          <div>
+            <h1 id="emp-header-title">Collection</h1>
+            <div class="emp-subtitle" id="emp-subtitle"></div>
+            <div class="emp-last-updated" id="lastUpdated"></div>
+          </div>
+        </div>
+        <div class="emp-header-right">
+          <div style="display:flex;align-items:center;gap:4px;">
+            <button id="datePrevBtn" onclick="navigateDate(-1)" style="display:none;width:28px;height:28px;border:1px solid #E2E8F0;border-radius:8px;background:#fff;cursor:pointer;font-size:14px;color:#059669;font-weight:700;">&larr;</button>
+            <div class="emp-date-badge" id="dateBadge" onclick="openCalendarPopup()" style="cursor:pointer;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              <span id="dateBadgeText"></span>
+              </div>
+            <button id="dateNextBtn" onclick="navigateDate(1)" style="display:none;width:28px;height:28px;border:1px solid #E2E8F0;border-radius:8px;background:#fff;cursor:pointer;font-size:14px;color:#059669;font-weight:700;">&rarr;</button>
+          </div>
+          </div>
+          <button class="emp-logout-btn" id="sidebar-toggle-btn" aria-label="Open menu" style="font-size:18px;line-height:1;">
+            &#9776;
+          </button>
+        </div>
+      </div>
+
+      <div id="breadcrumbBar" class="emp-breadcrumb-bar" style="display:none;"></div>
+
+      <div class="emp-tab-content active" id="portfolioTab">
+        <div id="portfolioContent">
+          <div style="text-align:center;padding:60px 20px;">
+            <div style="width:28px;height:28px;border:3px solid #E2E8F0;border-top-color:#059669;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px;"></div>
+            <p style="color:#64748B;font-size:13px;">Loading portfolio data...</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="emp-tab-content" id="disbursementTab">
+        <div id="disbursementContent">
+          <div style="text-align:center;padding:60px 20px;">
+            <div style="width:28px;height:28px;border:3px solid #E2E8F0;border-top-color:#059669;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px;"></div>
+            <p style="color:#64748B;font-size:13px;">Loading disbursement data...</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="emp-tab-content" id="collectionTab">
+        <div id="collectionContent">
+          <div style="text-align:center;padding:60px 20px;">
+            <div style="width:28px;height:28px;border:3px solid #E2E8F0;border-top-color:#059669;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px;"></div>
+            <p style="color:#64748B;font-size:13px;">Loading collection data...</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="emp-tab-content" id="hourlyTab">
+        <div id="hourlyContent">
+          <div style="text-align:center;padding:60px 20px;">
+            <div style="width:28px;height:28px;border:3px solid #E2E8F0;border-top-color:#059669;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px;"></div>
+            <p style="color:#64748B;font-size:13px;">Loading hourly data...</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="emp-tab-content" id="analyticalTab">
+        <div id="analyticalContent"></div>
+      </div>
+
+      <div id="no-data" class="hidden" style="text-align:center;padding:80px 20px;">
+        <p style="color:#64748B;font-size:14px;">No report data available.<br>Contact your administrator.</p>
+      </div>
+    </div>
+
+    <div class="emp-tab-bar">
+      <div class="emp-tab-item active" data-tab="portfolio" onclick="switchEmpTab('portfolio')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+        Portfolio
+      </div>
+      <div class="emp-tab-item" data-tab="disbursement" onclick="switchEmpTab('disbursement')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        Disbursement
+      </div>
+      <div class="emp-tab-item" data-tab="collection" onclick="switchEmpTab('collection')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+        Collection
+      </div>
+      <div class="emp-tab-item" data-tab="hourly" onclick="switchEmpTab('hourly')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Hourly
+      </div>
+    </div>
+
+  </div><!-- /.desktop-main -->
+
+</div><!-- /.desktop-layout -->
+
+  <!-- Sidebar Overlay + Panel (mobile hamburger menu) -->
+  <div id="sidebarOverlay" class="sidebar-overlay"></div>
+  <div id="sidebarPanel" class="sidebar-panel">
+    <div class="sidebar-header">
+      <span class="sidebar-title">Menu</span>
+      <button class="sidebar-close-btn" id="sidebarCloseBtn" aria-label="Close menu">&times;</button>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="javascript:void(0)" class="sidebar-nav-item" data-sidebar-tab="home" onclick="closeSidebar(); switchEmpTab('collection');">
+        <span class="sidebar-nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
+        <span class="sidebar-nav-label">Home</span>
+      </a>
+      <a href="javascript:void(0)" class="sidebar-nav-item" data-sidebar-tab="portfolio" onclick="closeSidebar(); switchEmpTab('portfolio');">
+        <span class="sidebar-nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span>
+        <span class="sidebar-nav-label">Portfolio</span>
+      </a>
+      <a href="javascript:void(0)" class="sidebar-nav-item" data-sidebar-tab="disbursement" onclick="closeSidebar(); switchEmpTab('disbursement');">
+        <span class="sidebar-nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
+        <span class="sidebar-nav-label">Disbursement</span>
+      </a>
+      <a href="javascript:void(0)" class="sidebar-nav-item" data-sidebar-tab="hourly" onclick="closeSidebar(); switchEmpTab('hourly');">
+        <span class="sidebar-nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+        <span class="sidebar-nav-label">Hourly</span>
+      </a>
+      <a href="javascript:void(0)" id="analyticalNavItem" class="sidebar-nav-item" data-sidebar-tab="analytical" onclick="closeSidebar(); switchEmpTab('analytical');">
+        <span class="sidebar-nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>
+        <span class="sidebar-nav-label">Analytical Tool</span>
+      </a>
+      <a href="contacts.html" class="sidebar-nav-item">
+        <span class="sidebar-nav-icon">&#128199;</span>
+        <span class="sidebar-nav-label">Contacts</span>
+      </a>
+      <a href="locator.html" class="sidebar-nav-item">
+        <span class="sidebar-nav-icon">&#128205;</span>
+        <span class="sidebar-nav-label">NLPL Branch Locator</span>
+      </a>
+      <a href="javascript:void(0)" id="greetingsNavItem" class="sidebar-nav-item" onclick="closeSidebar();">
+        <span class="sidebar-nav-icon">&#128075;</span>
+        <span class="sidebar-nav-label">Greetings</span>
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <button class="sidebar-logout-btn" id="logout-btn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        <span>Logout</span>
+      </button>
+    </div>
+  </div>
+
+  <style>
+    /* Product filter pills */
+    .emp-product-filter {
+      display: flex;
+      gap: 8px;
+      padding: 16px 0 4px;
+    }
+    .emp-product-pill {
+      padding: 6px 18px;
+      border-radius: 20px;
+      border: 1px solid #E2E8F0;
+      background: #F8FAFC;
+      color: #64748B;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+    .emp-product-pill:hover {
+      background: #F0FDF4;
+      border-color: #A7F3D0;
+      color: #475569;
+    }
+    .emp-product-pill.active {
+      background: #ECFDF5;
+      border-color: #059669;
+      color: #059669;
+    }
+
+    /* Breadcrumbs */
+    .emp-breadcrumb-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 20px;
+      font-size: 12px;
+      color: #64748B;
+      overflow-x: auto;
+      white-space: nowrap;
+      -webkit-overflow-scrolling: touch;
+    }
+    .emp-breadcrumb-bar::-webkit-scrollbar { display: none; }
+    .emp-bc-item {
+      cursor: pointer;
+      color: #059669;
+      font-weight: 500;
+      transition: opacity 0.15s;
+    }
+    .emp-bc-item:hover { opacity: 0.8; }
+    .emp-bc-item.current {
+      color: #1E293B;
+      cursor: default;
+      font-weight: 600;
+    }
+    .emp-bc-sep { color: #CBD5E1; margin: 0 2px; }
+
+    /* Sub-unit cards */
+    .emp-team-section { margin-top: 18px; }
+    .emp-team-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #1E293B;
+      margin-bottom: 10px;
+      padding: 0 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .emp-team-count {
+      font-size: 11px;
+      font-weight: 500;
+      color: #64748B;
+      background: #F1F5F9;
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+    .emp-sub-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 16px;
+      background: #FFFFFF;
+      border: 1px solid #E2E8F0;
+      border-radius: 14px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: all 0.15s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .emp-sub-card:hover {
+      background: #F0FDF4;
+      border-color: #A7F3D0;
+    }
+    .emp-sub-card:active {
+      background: #ECFDF5;
+      transform: scale(0.99);
+    }
+    .emp-sub-avatar {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+    .emp-sub-avatar.region { background: #F3E8FF; color: #7C3AED; }
+    .emp-sub-avatar.district { background: #DBEAFE; color: #2563EB; }
+    .emp-sub-avatar.branch { background: #ECFDF5; color: #059669; }
+    .emp-sub-avatar.officer { background: #FEF3C7; color: #D97706; }
+    .emp-sub-info { flex: 1; min-width: 0; }
+    .emp-sub-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: #1E293B;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .emp-sub-meta {
+      font-size: 11px;
+      color: #64748B;
+      margin-top: 2px;
+      display: flex;
+      gap: 12px;
+    }
+    .emp-sub-pct {
+      font-size: 13px;
+      font-weight: 600;
+      flex-shrink: 0;
+      min-width: 42px;
+      text-align: right;
+    }
+    .emp-sub-arrow {
+      color: #CBD5E1;
+      font-size: 18px;
+      flex-shrink: 0;
+      transition: transform 0.15s;
+    }
+    .emp-sub-card:hover .emp-sub-arrow {
+      transform: translateX(2px);
+      color: #059669;
+    }
+
+    .sidebar-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.3);
+      z-index: 9998;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+    }
+    .sidebar-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+    .sidebar-panel {
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: 280px;
+      max-width: 85vw;
+      background: #FFFFFF;
+      border-left: 1px solid #E2E8F0;
+      z-index: 9999;
+      transform: translateX(100%);
+      transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+      display: flex;
+      flex-direction: column;
+      font-family: inherit;
+      box-shadow: -4px 0 24px rgba(0,0,0,0.08);
+    }
+    .sidebar-panel.active {
+      transform: translateX(0);
+    }
+    .sidebar-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 20px 14px;
+      border-bottom: 1px solid #E2E8F0;
+    }
+    .sidebar-title {
+      color: #1E293B;
+      font-size: 16px;
+      font-weight: 600;
+    }
+    .sidebar-close-btn {
+      background: none;
+      border: none;
+      color: #94A3B8;
+      font-size: 24px;
+      cursor: pointer;
+      padding: 0 4px;
+      line-height: 1;
+      transition: color 0.2s ease;
+    }
+    .sidebar-close-btn:hover {
+      color: #1E293B;
+    }
+    .sidebar-nav {
+      overflow-y: auto;
+      padding: 12px 0;
+      flex: 1;
+    }
+    .sidebar-nav-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 20px;
+      color: #1E293B;
+      text-decoration: none;
+      font-size: 15px;
+      font-weight: 500;
+      border-radius: 0;
+      transition: background 0.2s ease;
+    }
+    .sidebar-nav-item:hover {
+      background: #F0FDF4;
+    }
+    .sidebar-nav-item.active {
+      background: #ECFDF5;
+      color: #059669;
+      border-left: 3px solid #059669;
+      padding-left: 17px;
+    }
+    .sidebar-nav-item.active .sidebar-nav-icon svg {
+      stroke: #059669;
+    }
+    .sidebar-nav-icon {
+      font-size: 20px;
+      width: 28px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    .sidebar-nav-label {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .sidebar-footer {
+      padding: 16px 20px;
+      border-top: 1px solid #E2E8F0;
+      margin-top: auto;
+    }
+    .sidebar-logout-btn {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      padding: 14px 16px;
+      background: #FEF2F2;
+      border: 1px solid #FECACA;
+      border-radius: 12px;
+      color: #EF4444;
+      font-size: 15px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .sidebar-logout-btn:hover {
+      background: #FEE2E2;
+      border-color: #FCA5A5;
+    }
+
+    /* ===== Desktop sidebar styles (hidden on mobile by default) ===== */
+    .desktop-sidebar {
+      display: none;
+    }
+
+    /* ===== Desktop (>= 768px) ===== */
+    @media (min-width: 768px) {
+      .desktop-layout {
+        display: flex;
+        min-height: 100vh;
+      }
+
+      /* Critical sidebar positioning - works regardless of external CSS */
+      .desktop-sidebar {
+        position: fixed;
+        left: 0;
+        top: 0;
+        width: 240px;
+        height: 100vh;
+        background: #fff;
+        border-right: 1px solid #E2E8F0;
+        display: flex;
+        flex-direction: column;
+        z-index: 200;
+        overflow-y: auto;
+      }
+
+      .desktop-sidebar-brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 20px 20px 16px;
+        border-bottom: 1px solid #E2E8F0;
+      }
+
+      .desktop-sidebar-appname {
+        font-size: 16px;
+        font-weight: 700;
+        color: #1E293B;
+        white-space: nowrap;
+      }
+
+      .desktop.sidebar-nav {
+      overflow-y: auto;
+        flex: 1;
+        padding: 12px 0;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .desktop-sidebar-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 20px;
+        color: #475569;
+        text-decoration: none;
+        font-size: 14px;
+        font-weight: 500;
+        border-radius: 0;
+        transition: background 0.2s ease, color 0.2s ease;
+        cursor: pointer;
+      }
+
+      .desktop-sidebar-item:hover {
+        background: #F0FDF4;
+        color: #059669;
+      }
+
+      .desktop-sidebar-item.active {
+        background: #ECFDF5;
+        color: #059669;
+        border-right: 3px solid #059669;
+        font-weight: 600;
+      }
+
+      .desktop-sidebar-item.active .desktop-sidebar-icon svg {
+        stroke: #059669;
+      }
+
+      .desktop-sidebar-icon {
+        width: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+
+      .desktop-sidebar-label {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .desktop-sidebar-footer {
+        padding: 16px 20px;
+        border-top: 1px solid #E2E8F0;
+        margin-top: auto;
+      }
+
+      .desktop-sidebar-logout {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        padding: 12px 14px;
+        background: #FEF2F2;
+        border: 1px solid #FECACA;
+        border-radius: 10px;
+        color: #EF4444;
+        font-size: 14px;
+        font-weight: 600;
+        font-family: inherit;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .desktop-sidebar-logout:hover {
+        background: #FEE2E2;
+        border-color: #FCA5A5;
+      }
+
+      /* Main content pushed right of sidebar */
+      .desktop-main {
+        margin-left: 240px;
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+      }
+
+      .desktop-main .emp-app {
+        flex: 1;
+        padding: 0 24px 24px;
+      }
+
+      .desktop-main .emp-header {
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        background: inherit;
+        padding: 20px 24px 12px;
+      }
+
+      /* Hide the mobile hamburger button on desktop */
+      #sidebar-toggle-btn {
+        display: none !important;
+      }
+
+      /* Hide the mobile bottom tab bar on desktop */
+      .emp-tab-bar {
+        display: none !important;
+      }
+
+      /* Hide the mobile sidebar overlay + panel on desktop */
+      .sidebar-overlay,
+      .sidebar-panel {
+        display: none !important;
+      }
+    }
+
+    /* ===== Mobile (< 768px) ===== */
+    @media (max-width: 767px) {
+      .desktop-layout {
+        display: block;
+      }
+      .desktop-sidebar {
+        display: none;
+      }
+      .desktop-main {
+        margin-left: 0;
+      }
+    }
+  </style>
+
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <script src="js/employeeParser.js?v=25"></script>
+  <script src="js/storage.js?v=25"></script>
+  <script src="js/auth.js?v=25"></script>
+  <script src="js/portfolio.js?v=35"></script>
+  <script src="js/collection.js?v=32"></script>
+  <script src="js/hourly.js?v=25"></script>
+  <script src="js/disbursement.js?v=32"></script>
+  <script src="js/analytical.js?v=25"></script>
+  <script src="js/employee.js?v=25"></script>
+  <script>if('serviceWorker' in navigator && location.protocol !== 'file:'){navigator.serviceWorker.register('./sw.js');}</script>
+  <script>
+  (function(){
+    var overlay = document.getElementById('sidebarOverlay');
+    var panel = document.getElementById('sidebarPanel');
+    var toggleBtn = document.getElementById('sidebar-toggle-btn');
+    var closeBtn = document.getElementById('sidebarCloseBtn');
+
+    function openSidebar() {
+      overlay.classList.add('active');
+      panel.classList.add('active');
+    }
+    function closeSidebar() {
+      overlay.classList.remove('active');
+      panel.classList.remove('active');
+    }
+    window.closeSidebar = closeSidebar;
+
+    toggleBtn.addEventListener('click', openSidebar);
+    closeBtn.addEventListener('click', closeSidebar);
+    overlay.addEventListener('click', closeSidebar);
+
+    // Desktop sidebar: sync active state on tab switch
+    // Use direct click handlers on sidebar items (reliable, no race conditions)
+    document.querySelectorAll('.desktop-sidebar-item[data-dtab]').forEach(function(item) {
+      item.addEventListener('click', function() {
+        document.querySelectorAll('.desktop-sidebar-item[data-dtab]').forEach(function(el) {
+          el.classList.remove('active');
+        });
+        item.classList.add('active');
+      });
+    });
+
+    // Desktop logout button
+    var desktopLogoutBtn = document.getElementById('desktop-logout-btn');
+    if (desktopLogoutBtn) {
+      desktopLogoutBtn.onclick = function() {
+        if (typeof logout === 'function') logout();
+      };
+    }
+  })();
+  </script>
+
+<!-- Calendar Popup -->
+<style>
+.calendar-overlay{position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,0.5);display:none;align-items:center;justify-content:center;}
+.calendar-overlay.show{display:flex;}
+.calendar-modal{background:#fff;border-radius:16px;padding:24px;width:340px;max-width:90vw;box-shadow:0 25px 50px rgba(0,0,0,0.15);}
+.calendar-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.calendar-title{font-size:18px;font-weight:700;color:#1E293B;}
+.calendar-close{width:32px;height:32px;border:none;background:#F1F5F9;border-radius:8px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#64748B;}
+.calendar-close:hover{background:#FEE2E2;color:#EF4444;}
+.calendar-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.calendar-nav-btn{border:none;background:#F1F5F9;border-radius:8px;padding:6px 12px;cursor:pointer;font-weight:600;color:#64748B;font-size:14px;}
+.calendar-nav-btn:hover{background:#E2E8F0;}
+.calendar-month{font-size:15px;font-weight:700;color:#1E293B;}
+.calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center;}
+.calendar-dow{font-size:11px;font-weight:600;color:#94A3B8;padding:4px 0;}
+.calendar-day{padding:8px 0;border-radius:8px;font-size:13px;font-weight:500;color:#CBD5E1;cursor:default;border:none;background:transparent;}
+.calendar-day.has-data{color:#1E293B;background:#F0FDF4;cursor:pointer;font-weight:600;border:1px solid #A7F3D0;}
+.calendar-day.has-data:hover{background:#DCFCE7;transform:scale(1.05);}
+.calendar-day.selected{background:#059669!important;color:#fff!important;border-color:#059669!important;}
+.calendar-day.today{box-shadow:inset 0 0 0 2px #059669;}
+.calendar-actions{margin-top:16px;display:flex;gap:8px;justify-content:center;}
+.calendar-actions button{padding:8px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .2s;}
+.calendar-latest-btn{background:#059669;color:#fff;}
+.calendar-latest-btn:hover{background:#047857;}
+.calendar-clear-btn{background:#F1F5F9;color:#64748B;}
+.calendar-clear-btn:hover{background:#E2E8F0;}
+.calendar-status{text-align:center;padding:8px;font-size:12px;color:#64748B;margin-top:8px;}
+</style>
+
+<div class="calendar-overlay" id="calendarOverlay">
+  <div class="calendar-modal">
+    <div class="calendar-header">
+      <span class="calendar-title">Select Date</span>
+      <button class="calendar-close" onclick="closeCalendarPopup()">&times;</button>
+    </div>
+    <div class="calendar-nav">
+      <button class="calendar-nav-btn" onclick="calNavMonth(-1)">&larr;</button>
+      <span class="calendar-month" id="calMonthLabel"></span>
+      <button class="calendar-nav-btn" onclick="calNavMonth(1)">&rarr;</button>
+    </div>
+    <div class="calendar-grid" id="calGrid"></div>
+    <div class="calendar-actions">
+      <button class="calendar-latest-btn" onclick="selectCalDate(null)">Latest (Today)</button>
+    </div>
+    <div class="calendar-status" id="calStatus"></div>
+  </div>
+</div>
+
+<script>
+var _calDates = [];
+var _calYear = 2026;
+var _calMonth = 2; // 0-indexed: March=2
+var _calLoaded = false;
+
+function openCalendarPopup() {
+  // Only allow in Collection tab
+  var collContent = document.getElementById('collectionContent');
+  if (!collContent || collContent.offsetParent === null) return;
+  document.getElementById('calendarOverlay').classList.add('show');
+  if (!_calLoaded) {
+    _calLoaded = true;
+    document.getElementById('calStatus').textContent = 'Loading dates...';
+    fetch('/api/daily/dates').then(function(r){return r.json();}).then(function(dates){
+      _calDates = (dates||[]).map(function(d){return d.substring(0,10);});
+      // Set calendar to month of most recent date
+      if (_calDates.length) {
+        var parts = _calDates[0].split('-');
+        _calYear = parseInt(parts[0]);
+        _calMonth = parseInt(parts[1]) - 1;
+      }
+      renderCalendar();
+      document.getElementById('calStatus').textContent = _calDates.length + ' dates available';
+    }).catch(function(){
+      document.getElementById('calStatus').textContent = 'Failed to load dates';
+    });
+  } else {
+    renderCalendar();
+  }
+}
+
+function closeCalendarPopup() {
+  document.getElementById('calendarOverlay').classList.remove('show');
+}
+
+function calNavMonth(dir) {
+  _calMonth += dir;
+  if (_calMonth < 0) { _calMonth = 11; _calYear--; }
+  if (_calMonth > 11) { _calMonth = 0; _calYear++; }
+  renderCalendar();
+}
+
+function renderCalendar() {
+  var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  document.getElementById('calMonthLabel').textContent = months[_calMonth] + ' ' + _calYear;
+  var grid = document.getElementById('calGrid');
+  var html = '';
+  var dows = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+  for (var i=0;i<7;i++) html += '<div class="calendar-dow">'+dows[i]+'</div>';
+
+  var firstDay = new Date(_calYear, _calMonth, 1).getDay();
+  var daysInMonth = new Date(_calYear, _calMonth+1, 0).getDate();
+  var today = new Date();
+  var todayStr = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+
+  // Get current selection from collection state
+  var selectedDate = (window._collState && window._collState.date) ? window._collState.date : null;
+
+  for (var i=0;i<firstDay;i++) html += '<div class="calendar-day"></div>';
+  for (var d=1;d<=daysInMonth;d++) {
+    var dateStr = _calYear+'-'+String(_calMonth+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+    var hasData = _calDates.indexOf(dateStr) !== -1;
+    var isToday = dateStr === todayStr;
+    var isSelected = dateStr === selectedDate;
+    var cls = 'calendar-day';
+    if (hasData) cls += ' has-data';
+    if (isToday) cls += ' today';
+    if (isSelected) cls += ' selected';
+    if (hasData) {
+      html += '<button class="'+cls+'" onclick="selectCalDate(this.dataset.d)" data-d="'+dateStr+'">'+d+'</button>';
+    } else {
+      html += '<div class="'+cls+'">'+d+'</div>';
+    }
+  }
+  grid.innerHTML = html;
+}
+
+function selectCalDate(date) {
+  closeCalendarPopup();
+  if (window._collState) window._collState.date = date;
+  var badge = document.getElementById('dateBadgeText');
+  if (badge) {
+    if (date) {
+      var p = date.split('-');
+      badge.textContent = p[2] + '-' + p[1] + '-' + p[0];
+    } else {
+      var now = new Date();
+      badge.textContent = String(now.getDate()).padStart(2,'0') + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + now.getFullYear();
+    }
+  }
+  // Force reload with small delay to ensure state is set
+  setTimeout(function() {
+    if (window._reloadCollection) window._reloadCollection();
+  }, 50);
+}
+
+</script>
+
+
+<script>
+function navigateDate(dir) {
+  if (!_calDates || !_calDates.length) return;
+  var sorted = _calDates.slice().sort();
+  var current = window._collState ? window._collState.date : null;
+  if (!current) {
+    // No date selected — go to latest or earliest
+    selectCalDate(dir > 0 ? sorted[sorted.length-1] : sorted[0]);
+    return;
+  }
+  var idx = sorted.indexOf(current);
+  if (idx === -1) {
+    selectCalDate(dir > 0 ? sorted[sorted.length-1] : sorted[0]);
+    return;
+  }
+  var newIdx = idx + dir;
+  if (newIdx >= 0 && newIdx < sorted.length) {
+    selectCalDate(sorted[newIdx]);
+  }
+}
+
+// Show/hide arrows based on active tab
+var _origSwitchForArrows = window.switchEmpTab;
+var _arrowInterval = setInterval(function() {
+  if (typeof window.switchEmpTab === 'function' && window.switchEmpTab !== _origSwitchForArrows) {
+    var realSwitch = window.switchEmpTab;
+    window.switchEmpTab = function(tab) {
+      realSwitch(tab);
+      updateArrowVisibility(tab);
+    };
+    clearInterval(_arrowInterval);
+    // Check current tab
+    var saved = localStorage.getItem('activeTab');
+    updateArrowVisibility(saved || 'collection');
+  }
+}, 100);
+setTimeout(function() { clearInterval(_arrowInterval); }, 5000);
+
+function updateArrowVisibility(tab) {
+  var prev = document.getElementById('datePrevBtn');
+  var next = document.getElementById('dateNextBtn');
+  if (prev && next) {
+    var show = (tab === 'collection');
+    prev.style.display = show ? '' : 'none';
+    next.style.display = show ? '' : 'none';
+  }
+}
+
+// Also show arrows on page load if collection tab
+document.addEventListener('DOMContentLoaded', function() {
+  var saved = localStorage.getItem('activeTab');
+  if (saved === 'collection' || !saved) updateArrowVisibility('collection');
+  // Preload dates for arrow navigation
+  fetch('/api/daily/dates').then(function(r){return r.json();}).then(function(dates){
+    _calDates = (dates||[]).map(function(d){return d.substring(0,10);});
+    _calLoaded = true;
+  }).catch(function(){});
+});
+
+// Keyboard arrows
+document.addEventListener('keydown', function(e) {
+  var collContent = document.getElementById('collectionContent');
+  if (!collContent || collContent.offsetParent === null) return;
+  if (e.key === 'ArrowLeft') { navigateDate(-1); e.preventDefault(); }
+  if (e.key === 'ArrowRight') { navigateDate(1); e.preventDefault(); }
+});
+</script>
+
+</body>
+</html>

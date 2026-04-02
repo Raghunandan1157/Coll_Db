@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#F8FAFC">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
+  <title>Daily Collection Report</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:#F8FAFC; --surface:#FFFFFF; --border:#E2E8F0;
+      --text:#1E293B; --muted:#64748B; --accent:#059669;
+    }
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+
+    /* === Mobile-first: single column, hero hidden === */
+    .desktop-login-layout{display:flex;flex-direction:column;min-height:100vh;}
+    .desktop-hero{display:none;}
+    .desktop-login-panel{flex:1;display:flex;align-items:center;justify-content:center;}
+
+    .login-wrap{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;width:100%;}
+    .login-box{width:100%;max-width:420px;position:relative;z-index:1;}
+
+    .brand{text-align:center;margin-bottom:36px;}
+    .brand h1{font-family:'Playfair Display',serif;font-size:32px;letter-spacing:-0.5px;color:var(--text);}
+    .brand p{font-size:14px;color:var(--muted);margin-top:6px;font-weight:500;}
+
+    /* Search */
+    .search-card{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:32px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.05),0 2px 4px -1px rgba(0,0,0,0.03);}
+    .search-box{position:relative;margin-bottom:8px;}
+    .search-box svg{position:absolute;left:16px;top:50%;transform:translateY(-50%);width:18px;height:18px;color:var(--muted);pointer-events:none;transition:color 0.2s;}
+    .search-input{
+      width:100%;padding:16px 16px 16px 46px;border:1px solid var(--border);
+      border-radius:14px;background:#F1F5F9;color:var(--text);font-size:16px;
+      font-family:inherit;outline:none;transition:all 0.2s;
+    }
+    .search-input::placeholder{color:#94A3B8;}
+    .search-input:focus{border-color:rgba(5,150,105,0.4);box-shadow:0 0 0 4px rgba(5,150,105,0.1);background:#fff;}
+    .search-box:focus-within svg{color:var(--accent);}
+
+    /* Results */
+    .results{
+      border-radius:14px;overflow:hidden;
+      border:1px solid var(--border);background:var(--surface);
+      max-height:350px;overflow-y:auto;
+      transition:all 0.2s;
+    }
+    .results:empty{border:none;}
+    .results::-webkit-scrollbar{width:3px;}
+    .results::-webkit-scrollbar-thumb{background:rgba(0,0,0,0.12);border-radius:3px;}
+
+    .emp-row{
+      display:flex;align-items:center;gap:14px;padding:14px 18px;
+      cursor:pointer;transition:background 0.15s;
+      border-bottom:1px solid #F1F5F9;
+    }
+    .emp-row:last-child{border-bottom:none;}
+    .emp-row:hover,.emp-row:focus{background:#F0FDF4;outline:none;}
+    .emp-row:active{background:#DCFCE7;}
+
+    .avatar{
+      width:40px;height:40px;border-radius:12px;
+      display:flex;align-items:center;justify-content:center;
+      font-weight:700;font-size:15px;flex-shrink:0;
+    }
+    .avatar-emp{background:#ECFDF5;color:#059669;}
+    .avatar-admin{background:#FEF3C7;color:#D97706;}
+    .avatar-ceo{background:#FEF3C7;color:#D97706;}
+    .avatar-rm{background:#F3E8FF;color:#7C3AED;}
+    .avatar-dm{background:#DBEAFE;color:#2563EB;}
+    .avatar-bm{background:#ECFDF5;color:#059669;}
+
+    .emp-detail{flex:1;min-width:0;}
+    .emp-name{font-size:14px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .emp-id{font-size:11px;color:var(--muted);margin-top:1px;}
+
+    .row-arrow{color:#CBD5E1;font-size:20px;flex-shrink:0;transition:transform 0.2s;}
+    .emp-row:hover .row-arrow{transform:translateX(2px);color:var(--accent);}
+
+    /* Highlight matched text */
+    mark{background:none;color:var(--accent);font-weight:700;}
+
+    /* Status */
+    .status{text-align:center;padding:24px 16px;color:var(--muted);font-size:13px;}
+    .status-icon{font-size:32px;margin-bottom:8px;display:block;}
+
+    /* Badge */
+    .emp-badge{display:inline-flex;align-items:center;padding:6px 16px;border-radius:100px;background:#ECFDF5;border:1px solid #A7F3D0;}
+    .emp-badge .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);margin-right:8px;}
+    .emp-badge span{color:var(--accent);font-weight:600;font-size:13px;}
+
+    /* Hint */
+    .hint{text-align:center;color:#94A3B8;font-size:12px;margin-top:16px;font-style:italic;font-weight:500;}
+
+    /* Footer */
+    .login-footer{padding-top:24px;}
+    .login-footer nav{display:flex;justify-content:center;gap:24px;font-size:13px;font-weight:600;color:#94A3B8;}
+    .login-footer a{color:#94A3B8;text-decoration:none;transition:color 0.2s;}
+    .login-footer a:hover{color:var(--accent);}
+    .login-footer .sep{color:#E2E8F0;}
+
+    /* Spinner */
+    .spinner{width:28px;height:28px;border:3px solid #E2E8F0;border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+
+    /* === Hero chart bar illustration (shared styles) === */
+    .hero-chart{
+      display:flex;align-items:flex-end;justify-content:center;gap:10px;
+      height:80px;padding:0 10px;
+    }
+    .hero-chart-bar{
+      width:20px;border-radius:6px 6px 0 0;
+      animation:heroBarGrow 1s ease-out forwards;
+      transform-origin:bottom;
+    }
+    .hero-chart-bar-1{height:40%;background:rgba(255,255,255,0.5);animation-delay:0s;}
+    .hero-chart-bar-2{height:65%;background:rgba(255,255,255,0.7);animation-delay:0.15s;}
+    .hero-chart-bar-3{height:85%;background:rgba(255,255,255,0.85);animation-delay:0.3s;}
+    .hero-chart-bar-4{height:55%;background:rgba(255,255,255,0.6);animation-delay:0.45s;}
+    @keyframes heroBarGrow{
+      0%{transform:scaleY(0);opacity:0;}
+      100%{transform:scaleY(1);opacity:1;}
+    }
+
+    /* === Desktop layout (>=768px): two-column side by side === */
+    @media(min-width:768px){
+      .desktop-login-layout{
+        flex-direction:row;
+        min-height:100vh;
+      }
+
+      /* Left hero panel */
+      .desktop-hero{
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        justify-content:center;
+        width:50%;
+        min-height:100vh;
+        background:linear-gradient(135deg,#065F46 0%,#059669 50%,#10B981 100%);
+        color:#fff;
+        padding:48px 40px;
+        position:relative;
+        overflow:hidden;
+      }
+      .desktop-hero::before{
+        content:'';
+        position:absolute;
+        top:-50%;right:-50%;
+        width:100%;height:100%;
+        background:radial-gradient(circle,rgba(255,255,255,0.06) 0%,transparent 70%);
+        pointer-events:none;
+      }
+
+      .desktop-hero-content{
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        text-align:center;
+        position:relative;
+        z-index:1;
+        max-width:400px;
+      }
+      .desktop-hero-icon{
+        margin-bottom:32px;
+        background:rgba(255,255,255,0.12);
+        border-radius:20px;
+        padding:24px 32px;
+      }
+      .desktop-hero-title{
+        font-family:'Playfair Display',serif;
+        font-size:34px;
+        letter-spacing:-0.5px;
+        margin-bottom:12px;
+        line-height:1.2;
+      }
+      .desktop-hero-tagline{
+        font-size:16px;
+        opacity:0.85;
+        margin-bottom:36px;
+        line-height:1.5;
+      }
+      .desktop-hero-features{
+        display:flex;
+        flex-direction:column;
+        gap:14px;
+        text-align:left;
+        width:100%;
+      }
+      .desktop-hero-feature{
+        display:flex;
+        align-items:center;
+        gap:12px;
+        font-size:15px;
+        opacity:0.9;
+      }
+      .desktop-hero-feature-icon{
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        width:28px;height:28px;
+        background:rgba(255,255,255,0.18);
+        border-radius:50%;
+        font-size:14px;
+        flex-shrink:0;
+      }
+      .desktop-hero-footer{
+        position:absolute;
+        bottom:24px;
+        left:0;right:0;
+        text-align:center;
+        font-size:12px;
+        opacity:0.5;
+      }
+
+      /* Right login panel */
+      .desktop-login-panel{
+        width:50%;
+        min-height:100vh;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        background:var(--bg);
+      }
+      .login-wrap{
+        min-height:auto;
+        padding:40px;
+      }
+    }
+
+    /* Large desktop refinements */
+    @media(min-width:1200px){
+      .desktop-hero-title{font-size:40px;}
+      .desktop-hero-tagline{font-size:17px;}
+      .desktop-hero-icon{padding:28px 36px;}
+      .hero-chart{height:100px;gap:14px;}
+      .hero-chart-bar{width:24px;}
+    }
+  </style>
+  <link rel="stylesheet" href="css/desktop.css">
+</head>
+<body>
+  <div class="desktop-login-layout">
+    <!-- Left: Hero/branding panel (visible only on desktop via inline media query) -->
+    <div class="desktop-hero">
+      <div class="desktop-hero-content">
+        <div class="desktop-hero-icon">
+          <!-- CSS-only chart illustration -->
+          <div class="hero-chart">
+            <div class="hero-chart-bar hero-chart-bar-1"></div>
+            <div class="hero-chart-bar hero-chart-bar-2"></div>
+            <div class="hero-chart-bar hero-chart-bar-3"></div>
+            <div class="hero-chart-bar hero-chart-bar-4"></div>
+          </div>
+        </div>
+        <h2 class="desktop-hero-title">Daily Collection Report</h2>
+        <p class="desktop-hero-tagline">Manage your team's collection performance</p>
+        <div class="desktop-hero-features">
+          <div class="desktop-hero-feature">
+            <span class="desktop-hero-feature-icon">&#10003;</span>
+            <span>Real-time collection tracking</span>
+          </div>
+          <div class="desktop-hero-feature">
+            <span class="desktop-hero-feature-icon">&#10003;</span>
+            <span>Region, district &amp; branch insights</span>
+          </div>
+          <div class="desktop-hero-feature">
+            <span class="desktop-hero-feature-icon">&#10003;</span>
+            <span>Role-based dashboards</span>
+          </div>
+        </div>
+      </div>
+      <div class="desktop-hero-footer">
+        <p>&copy; 2026 Daily Collection Report</p>
+      </div>
+    </div>
+
+    <!-- Right: Login/search card (always visible) -->
+    <div class="desktop-login-panel">
+      <div class="login-wrap">
+        <div class="login-box">
+          <div class="brand">
+            <h1>Collection Report</h1>
+            <p>Empowering Employees</p>
+          </div>
+
+          <div class="search-card">
+            <div class="search-box">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input class="search-input" id="search" type="text" placeholder="Type your name or ID..." autocomplete="off" autofocus>
+            </div>
+
+            <div class="results" id="results"></div>
+            <div class="status" id="status"><div class="spinner"></div>Loading employees...</div>
+            <div class="hint" id="hint"></div>
+          </div>
+
+          <div class="login-footer">
+            <nav>
+              <a href="https://wa.me/918792320623" target="_blank">Support</a>
+              <span class="sep">|</span>
+              <a href="#">Internal Portal</a>
+              <span class="sep">|</span>
+              <a href="#">Privacy Policy</a>
+            </nav>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <script src="js/employeeParser.js?v=25"></script>
+  <script src="js/storage.js?v=25"></script>
+  <script src="js/auth.js?v=25"></script>
+  <script>
+  (function () {
+    if (typeof isAdminAuthenticated === 'function' && isAdminAuthenticated()) {
+      window.location.href = 'admin.html'; return;
+    }
+    if (typeof isEmployeeAuthenticated === 'function' && isEmployeeAuthenticated()) {
+      window.location.href = 'employee.html'; return;
+    }
+
+    var allEmployees = [];
+    var search = document.getElementById('search');
+    var results = document.getElementById('results');
+    var status = document.getElementById('status');
+    var hint = document.getElementById('hint');
+
+    // Cached location data for role-based login
+    var _locationData = null;
+    var _locationLoading = false;
+
+    function _parseLocationData() {
+      if (_locationData) return Promise.resolve(_locationData);
+      if (_locationLoading) {
+        return new Promise(function (resolve) {
+          var check = setInterval(function () {
+            if (_locationData) { clearInterval(check); resolve(_locationData); }
+          }, 100);
+        });
+      }
+      _locationLoading = true;
+      return fetch('/api/collection/by-region')
+        .then(function (res) { return res.json(); })
+        .then(function (regions) {
+          return fetch('/api/collection/by-district').then(function (res) { return res.json(); })
+            .then(function (districts) {
+              return fetch('/api/collection/by-branch').then(function (res) { return res.json(); })
+                .then(function (branches) {
+                  _locationData = {
+                    regions: regions.map(function (r) { return r.region_name; }),
+                    districts: districts.map(function (d) { return d.district_name; }),
+                    branches: branches.map(function (b) { return b.branch_name; })
+                  };
+                  _locationLoading = false;
+                  return _locationData;
+                });
+            });
+        })
+        .catch(function (err) {
+          console.error('Location fetch error:', err);
+          _locationLoading = false;
+          return { regions: [], districts: [], branches: [] };
+        });
+    }
+
+    // Load employees from server API
+    fetch('/api/employees')
+    .then(function (res) { return res.json(); })
+    .then(function (data) {
+      var emps = data.map(function (e) {
+        return { id: e.emp_id, name: e.name, branch: e.branch, district: e.district, region: e.region };
+      });
+      if (!emps || !emps.length) {
+        status.innerHTML = '<span class="status-icon">&#128203;</span>No employees found.<br>Admin must upload a report first.';
+        return;
+      }
+      emps.sort(function (a, b) { return a.name.localeCompare(b.name); });
+      allEmployees = emps;
+      status.innerHTML = '<div class="emp-badge"><span class="dot"></span><span>' + emps.length + ' employees loaded</span></div>';
+      hint.textContent = 'Start typing to find yourself';
+      search.focus();
+    })
+    .catch(function (err) {
+      console.error('Employee load error:', err);
+      status.innerHTML = '<span class="status-icon">&#9888;</span>Failed to load employees.<br><small style="color:#94A3B8">Pull to refresh or check connection.</small>';
+    });
+
+    function esc(s) { return s.replace(/[&<>"']/g, function (c) { return '&#' + c.charCodeAt(0) + ';'; }); }
+
+    function highlight(text, q) {
+      if (!q) return esc(text);
+      var idx = text.toUpperCase().indexOf(q.toUpperCase());
+      if (idx === -1) return esc(text);
+      return esc(text.slice(0, idx)) + '<mark>' + esc(text.slice(idx, idx + q.length)) + '</mark>' + esc(text.slice(idx + q.length));
+    }
+
+    // Render role rows (CEO/RM/DM/BM)
+    function renderRoleRow(role, name, subtitle, filterQ) {
+      var avatarClass = 'avatar-' + role.toLowerCase();
+      var icon = role === 'CEO' ? '&#9733;' : role.charAt(0);
+      var displayName = filterQ ? highlight(name, filterQ) : esc(name);
+      return '<div class="emp-row" data-role="' + esc(role) + '" data-location="' + esc(name) + '" tabindex="0">' +
+        '<div class="avatar ' + avatarClass + '">' + icon + '</div>' +
+        '<div class="emp-detail">' +
+          '<div class="emp-name">' + displayName + '</div>' +
+          '<div class="emp-id">' + esc(subtitle) + '</div>' +
+        '</div>' +
+        '<div class="row-arrow">&#8250;</div>' +
+      '</div>';
+    }
+
+    var _roleSearchPending = false;
+
+    search.addEventListener('input', function () {
+      var q = this.value.trim();
+      if (q.length < 1) {
+        results.innerHTML = '';
+        status.style.display = '';
+        hint.style.display = '';
+        return;
+      }
+      status.style.display = 'none';
+      hint.style.display = 'none';
+
+      var qu = q.toUpperCase();
+
+      // --- CEO keyword ---
+      if (qu === 'CEO') {
+        results.innerHTML = renderRoleRow('CEO', 'Overall', 'CEO \u2014 Overall View', '');
+        return;
+      }
+
+      // --- RM / DM / BM keywords ---
+      var roleMatch = qu.match(/^(RM|DM|BM)\s*(.*)/);
+      if (roleMatch) {
+        var role = roleMatch[1];
+        var filter = roleMatch[2].trim();
+        results.innerHTML = '<div class="status"><div class="spinner"></div>Loading locations...</div>';
+        _roleSearchPending = true;
+        _parseLocationData().then(function (data) {
+          if (!_roleSearchPending) return;
+          var list;
+          var subtitle;
+          if (role === 'RM') { list = data.regions; subtitle = 'Regional Manager'; }
+          else if (role === 'DM') { list = data.districts; subtitle = 'District Manager'; }
+          else { list = data.branches; subtitle = 'Branch Manager'; }
+
+          if (filter) {
+            list = list.filter(function (n) { return n.toUpperCase().includes(filter); });
+          }
+
+          if (!list.length) {
+            results.innerHTML = '<div class="status">No locations found</div>';
+            return;
+          }
+
+          results.innerHTML = list.map(function (name) {
+            return renderRoleRow(role, name, subtitle + ' \u2014 ' + name, filter);
+          }).join('');
+        });
+        return;
+      }
+
+      // Cancel any pending role search
+      _roleSearchPending = false;
+
+      // --- Admin keyword ---
+      var isAdmin = qu === 'ADMIN';
+
+      var matches = [];
+      if (isAdmin) {
+        matches.push({ id: '__admin__', name: 'Admin Panel', isAdmin: true });
+      }
+
+      var emps = allEmployees.filter(function (e) {
+        return e.name.toUpperCase().includes(qu) || String(e.id).toUpperCase().includes(qu);
+      }).slice(0, 25);
+
+      matches = matches.concat(emps);
+
+      if (!matches.length) {
+        results.innerHTML = '<div class="status">No matches found</div>';
+        return;
+      }
+
+      results.innerHTML = matches.map(function (e) {
+        if (e.isAdmin) {
+          return '<div class="emp-row" data-admin="1" tabindex="0">' +
+            '<div class="avatar avatar-admin">&#9881;</div>' +
+            '<div class="emp-detail">' +
+              '<div class="emp-name">Admin Panel</div>' +
+              '<div class="emp-id">Manage reports & employees</div>' +
+            '</div>' +
+            '<div class="row-arrow">&#8250;</div>' +
+          '</div>';
+        }
+        var initial = e.name.charAt(0).toUpperCase();
+        return '<div class="emp-row" data-id="' + esc(String(e.id)) + '" data-empname="' + esc(e.name) + '" tabindex="0">' +
+          '<div class="avatar avatar-emp">' + initial + '</div>' +
+          '<div class="emp-detail">' +
+            '<div class="emp-name">' + highlight(e.name, q) + '</div>' +
+            '<div class="emp-id">ID: ' + highlight(String(e.id), q) + '</div>' +
+          '</div>' +
+          '<div class="row-arrow">&#8250;</div>' +
+        '</div>';
+      }).join('');
+    });
+
+    // Keyboard nav
+    search.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        var first = results.querySelector('.emp-row');
+        if (first) first.focus();
+      }
+    });
+
+    results.addEventListener('keydown', function (e) {
+      var row = e.target.closest('.emp-row');
+      if (!row) return;
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        var next = row.nextElementSibling;
+        if (next && next.classList.contains('emp-row')) next.focus();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        var prev = row.previousElementSibling;
+        if (prev && prev.classList.contains('emp-row')) prev.focus();
+        else search.focus();
+      } else if (e.key === 'Enter') {
+        row.click();
+      }
+    });
+
+    // Click to login
+    results.addEventListener('click', function (ev) {
+      var row = ev.target.closest('.emp-row');
+      if (!row) return;
+
+      // Admin
+      if (row.dataset.admin === '1') {
+        var pass = prompt('Enter admin passcode:');
+        if (pass) {
+          authenticateAdmin(pass).then(function (ok) {
+            if (ok) window.location.href = 'admin.html';
+            else alert('Incorrect passcode.');
+          });
+        }
+        return;
+      }
+
+      // Role-based login (CEO/RM/DM/BM)
+      if (row.dataset.role) {
+        row.style.background = '#DCFCE7';
+        row.style.pointerEvents = 'none';
+        clearRoleNavStack();
+        setRoleSession(row.dataset.role, row.dataset.location);
+        window.location.href = 'employee.html';
+        return;
+      }
+
+      // Employee — direct sync navigation (no async/IndexedDB dependency)
+      row.style.background = '#DCFCE7';
+      row.style.pointerEvents = 'none';
+      clearRoleNavStack();
+      localStorage.setItem('employeeId', row.dataset.id);
+      localStorage.setItem('employeeName', row.dataset.empname || row.querySelector('.emp-name')?.textContent || row.dataset.id);
+      window.location.href = 'employee.html';
+    });
+  })();
+  </script>
+  <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js');}</script>
+
+</body>
+</html>
