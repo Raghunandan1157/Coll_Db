@@ -108,6 +108,9 @@
             <button id="dateNextBtn" onclick="navigateDate(1)" style="display:none;width:28px;height:28px;border:1px solid #E2E8F0;border-radius:8px;background:#fff;cursor:pointer;font-size:14px;color:#059669;font-weight:700;">&rarr;</button>
           </div>
           </div>
+          <button id="shareBtn" onclick="shareCurrentTab()" aria-label="Share" style="width:34px;height:34px;border:1px solid #E2E8F0;border-radius:10px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6366F1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+          </button>
           <button class="emp-logout-btn" id="sidebar-toggle-btn" aria-label="Open menu" style="font-size:18px;line-height:1;">
             &#9776;
           </button>
@@ -1866,6 +1869,135 @@ document.addEventListener('keydown', function(e) {
     closeDrBranchModal();
   }
 });
+</script>
+
+<div id="shareToast" style="display:none;position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1E293B;color:#fff;padding:12px 24px;border-radius:12px;font-size:14px;font-weight:600;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,.2);transition:opacity .3s;"></div>
+<script>
+(function(){
+  function fmtIN(n){if(!n||!isFinite(n))return'0';var s=Math.round(n).toString();var afterDec='';var num=s;if(num.length>3){var last3=num.substring(num.length-3);var rest=num.substring(0,num.length-3);rest=rest.replace(/\B(?=(\d{2})+(?!\d))/g,',');return rest+','+last3+afterDec;}return num+afterDec;}
+  function fmtCr(n){if(!n||!isFinite(n))return'-';var v=parseFloat(n);if(v>=10000000)return(v/10000000).toFixed(2)+' Cr';if(v>=100000)return(v/100000).toFixed(2)+' L';return fmtIN(v);}
+  function pct(a,b){return b>0?((a/b)*100).toFixed(1)+'%':'-';}
+  function nv(v){var n=parseFloat(v);return isFinite(n)?n:0;}
+
+  function getActiveTab(){return localStorage.getItem('activeTab')||'collection';}
+
+  function extractCollectionText(){
+    var s=window._collState;if(!s||!s.summaryData)return null;
+    var d=s.summaryData;
+    var date=s.date||'Overall';
+    var lines=['COLLECTION REPORT - '+date,''];
+    lines.push('Regular Demand: '+fmtIN(d.regular_demand));
+    lines.push('Regular Collection: '+fmtIN(d.regular_collection));
+    lines.push('FTOD: '+fmtIN(nv(d.regular_demand)-nv(d.regular_collection)));
+    lines.push('Collection %: '+pct(nv(d.regular_collection),nv(d.regular_demand)));
+    lines.push('');
+    lines.push('1-30 DPD: '+fmtIN(d.demand_1_30)+' / '+fmtIN(d.collection_1_30)+' ('+pct(nv(d.collection_1_30),nv(d.demand_1_30))+')');
+    lines.push('31-60 DPD: '+fmtIN(d.demand_31_60)+' / '+fmtIN(d.collection_31_60)+' ('+pct(nv(d.collection_31_60),nv(d.demand_31_60))+')');
+    lines.push('PNPA: '+fmtIN(d.pnpa_demand)+' / '+fmtIN(d.pnpa_collection)+' ('+pct(nv(d.pnpa_collection),nv(d.pnpa_demand))+')');
+    lines.push('NPA Cases: '+fmtIN(d.npa_cases));
+    lines.push('NPA Activation: '+fmtIN(d.npa_act_acc)+' Acc, '+fmtCr(d.npa_act_amt)+' Amt');
+    lines.push('NPA Closure: '+fmtIN(d.npa_clo_acc)+' Acc, '+fmtCr(d.npa_clo_amt)+' Amt');
+    if(s.childrenData&&s.childrenData.length){
+      lines.push('');
+      lines.push('--- Sub-units ---');
+      s.childrenData.forEach(function(c){
+        var name=c.region_name||c.district_name||c.branch_name||c.name||'';
+        lines.push(name+': D:'+fmtIN(c.regular_demand)+' C:'+fmtIN(c.regular_collection)+' ('+pct(nv(c.regular_collection),nv(c.regular_demand))+')');
+      });
+    }
+    return{title:'Collection Report - '+date,text:lines.join('\n')};
+  }
+
+  function extractPortfolioText(){
+    var pf=window._pf;if(!pf||!pf.summary)return null;
+    var d=pf.summary;var pos=pf.pos||{};
+    var month=pf.month||'';
+    var lines=['PORTFOLIO REPORT'+(month?' - '+month:''),''];
+    lines.push('Regular: '+fmtIN(d.regular_demand)+' Acc, POS: '+fmtCr(pos.regular_pos||d.regular_pos));
+    lines.push('SMA-0 (1-30): '+fmtIN(d.demand_1_30)+' Acc, POS: '+fmtCr(pos.sma0_pos||d.sma0_pos));
+    lines.push('SMA-1 (31-60): '+fmtIN(d.demand_31_60)+' Acc, POS: '+fmtCr(pos.sma1_pos||d.sma1_pos));
+    lines.push('SMA-2 (61-90): '+fmtIN(d.pnpa_demand)+' Acc, POS: '+fmtCr(pos.pnpa_pos||d.pnpa_pos));
+    lines.push('NPA: '+fmtIN(d.npa_cases)+' Acc, POS: '+fmtCr(pos.npa_pos||d.npa_pos));
+    var totalAcc=nv(d.regular_demand)+nv(d.demand_1_30)+nv(d.demand_31_60)+nv(d.pnpa_demand)+nv(d.npa_cases);
+    var totalPos=nv(pos.regular_pos||d.regular_pos)+nv(pos.sma0_pos||d.sma0_pos)+nv(pos.sma1_pos||d.sma1_pos)+nv(pos.pnpa_pos||d.pnpa_pos)+nv(pos.npa_pos||d.npa_pos);
+    lines.push('');
+    lines.push('Total: '+fmtIN(totalAcc)+' Acc, POS: '+fmtCr(totalPos));
+    if(pf.posChildren&&pf.posChildren.length){
+      lines.push('');
+      lines.push('--- Regions ---');
+      pf.posChildren.forEach(function(c){
+        var name=c.region_name||c.district_name||c.branch_name||'';
+        lines.push(name+': POS '+fmtCr(c.total_pos));
+      });
+    }
+    return{title:'Portfolio Report'+(month?' - '+month:''),text:lines.join('\n')};
+  }
+
+  function extractDisbursementText(){
+    var el=document.getElementById('disbursementContent');
+    if(!el)return null;
+    var tables=el.querySelectorAll('table');
+    if(!tables.length)return{title:'Disbursement Report',text:'Disbursement data not loaded.'};
+    var lines=['DISBURSEMENT REPORT',''];
+    tables.forEach(function(t){
+      var rows=t.querySelectorAll('tr');
+      rows.forEach(function(r){
+        var cells=r.querySelectorAll('th,td');
+        var vals=[];cells.forEach(function(c){vals.push(c.textContent.trim());});
+        lines.push(vals.join(' | '));
+      });
+      lines.push('');
+    });
+    return{title:'Disbursement Report',text:lines.join('\n')};
+  }
+
+  function extractHourlyText(){
+    var el=document.getElementById('hourlyContent');
+    if(!el)return null;
+    var tables=el.querySelectorAll('table');
+    if(!tables.length)return{title:'Hourly Report',text:'Hourly data not loaded.'};
+    var lines=['HOURLY REPORT',''];
+    tables.forEach(function(t){
+      var rows=t.querySelectorAll('tr');
+      rows.forEach(function(r){
+        var cells=r.querySelectorAll('th,td');
+        var vals=[];cells.forEach(function(c){vals.push(c.textContent.trim());});
+        lines.push(vals.join(' | '));
+      });
+      lines.push('');
+    });
+    return{title:'Hourly Report',text:lines.join('\n')};
+  }
+
+  function showToast(msg){
+    var t=document.getElementById('shareToast');
+    t.textContent=msg;t.style.display='block';t.style.opacity='1';
+    setTimeout(function(){t.style.opacity='0';setTimeout(function(){t.style.display='none';},300);},2000);
+  }
+
+  window.shareCurrentTab=function(){
+    var tab=getActiveTab();
+    var data=null;
+    if(tab==='collection')data=extractCollectionText();
+    else if(tab==='portfolio')data=extractPortfolioText();
+    else if(tab==='disbursement')data=extractDisbursementText();
+    else if(tab==='hourly')data=extractHourlyText();
+    if(!data){showToast('No data to share');return;}
+
+    var isMobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    if(isMobile&&navigator.share){
+      navigator.share({title:data.title,text:data.text}).catch(function(){});
+    }else{
+      navigator.clipboard.writeText(data.text).then(function(){
+        showToast('Copied to clipboard');
+      }).catch(function(){
+        var ta=document.createElement('textarea');ta.value=data.text;ta.style.position='fixed';ta.style.opacity='0';
+        document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);
+        showToast('Copied to clipboard');
+      });
+    }
+  };
+})();
 </script>
 
 </body>
