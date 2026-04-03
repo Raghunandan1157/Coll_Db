@@ -159,7 +159,8 @@
       else if (session.role === 'DM' && session.location) posParams.push('district=' + encodeURIComponent(session.location));
       else if (session.role === 'BM' && session.location) posParams.push('branch=' + encodeURIComponent(session.location));
       // POS always at company/branch level — no emp_id filter
-      if (_pf.view === 'fy') { if (_pf.month) posParams.push('month=' + encodeURIComponent(_pf.month)); else if (_pf.months.length) posParams.push('month=' + encodeURIComponent(_pf.months[_pf.months.length-1].month_label)); } else if (_pf.month) { posParams.push('month=' + encodeURIComponent(_pf.month)); } if (_pf.product && _pf.product !== 'all') posParams.push('product_type=' + encodeURIComponent(_pf.product.toUpperCase())); var posBase = '/api/portfolio/pos-summary'; var posUrl = posBase + (posParams.length ? '?' + posParams.join('&') : '');
+      var posMonth = _pf.month || (_pf.months.length ? _pf.months[_pf.months.length-1].month_label : '');
+      if (_pf.view === 'fy') { if (posMonth) posParams.push('month=' + encodeURIComponent(posMonth)); } else if (posMonth) { posParams.push('month=' + encodeURIComponent(posMonth)); } if (_pf.product && _pf.product !== 'all') posParams.push('product_type=' + encodeURIComponent(_pf.product.toUpperCase())); var posBase = '/api/portfolio/pos-summary'; var posUrl = posBase + (posParams.length ? '?' + posParams.join('&') : '');
       promises.push(apiFetch(posUrl));
 
       // POS by child unit
