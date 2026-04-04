@@ -93,13 +93,31 @@
   /* ---------- Breadcrumbs ---------- */
   function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return '&#' + c.charCodeAt(0) + ';'; }); }
 
+  // Floating back button
+  window.goBackOneLevel = function() {
+    var stack = getRoleNavStack();
+    if (!stack.length) return;
+    if (localStorage.getItem('returnToAnalytical')) {
+      localStorage.removeItem('returnToAnalytical');
+      localStorage.setItem('openAnalytical', 'true');
+    }
+    popRoleNav();
+    window.location.reload();
+  };
+
   function renderBreadcrumbs() {
     var navStack = getRoleNavStack();
     var bar = document.getElementById('breadcrumbBar');
+    var floatBtn = document.getElementById('floatingBackBtn');
     if (!bar) return;
-    if (!navStack.length) { bar.style.display = 'none'; return; }
+    if (!navStack.length) {
+      bar.style.display = 'none';
+      if (floatBtn) floatBtn.style.display = 'none';
+      return;
+    }
     bar.style.display = '';
-    var html = '';
+    if (floatBtn) floatBtn.style.display = 'block';
+    var html = '<span class="emp-bc-back" onclick="goBackOneLevel()" style="cursor:pointer;padding:4px 10px;border-radius:6px;background:#059669;color:#fff;font-weight:700;font-size:13px;margin-right:4px;">&#8592; Back</span>';
     for (var i = 0; i < navStack.length; i++) {
       var item = navStack[i];
       var label = item.role === 'CEO' ? 'CEO' : item.location || item.name || item.role;
@@ -176,7 +194,7 @@
         switchEmpTab('analytical');
       } else {
         var savedTab = localStorage.getItem('activeTab');
-        var validTabs = ['portfolio', 'disbursement', 'collection', 'hourly', 'analytical'];
+        var validTabs = ['portfolio', 'disbursement', 'collection', 'hourly', 'analytical', 'settings'];
         switchEmpTab(savedTab && validTabs.indexOf(savedTab) !== -1 ? savedTab : 'collection');
       }
     } catch (err) {
@@ -190,7 +208,7 @@
   }
 
   // Tab switching (global for onclick)
-  var tabTitles = { portfolio: 'Portfolio', disbursement: 'Disbursement', collection: 'Collection', hourly: 'Hourly', analytical: 'Analytical Tool', dailyreports: 'Daily Reports' };
+  var tabTitles = { portfolio: 'Portfolio', disbursement: 'Disbursement', collection: 'Collection', hourly: 'Hourly', analytical: 'Analytical Tool', dailyreports: 'Daily Reports', settings: 'Settings' };
   window.switchEmpTab = function (tab) {
     // Switch tab content
     document.querySelectorAll('.emp-tab-content').forEach(function (tc) {
