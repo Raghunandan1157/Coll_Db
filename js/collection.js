@@ -11,6 +11,9 @@
   /* ========== Session ========== */
   var session = getEmployeeSession();
 
+  /* ========== Structure helper ========== */
+  function isNewStructure() { return window.getDataStructure && window.getDataStructure() === 'new'; }
+
   /* ========== Formatters ========== */
   function fmtNum(v) {
     if (v == null || v === '' || v === '-') return '-';
@@ -54,14 +57,28 @@
     if (productType && productType !== 'all') {
       params.push('product_type=' + encodeURIComponent(productType.toUpperCase()));
     }
-    if (session.role === 'RM' && session.location) {
-      params.push('region=' + encodeURIComponent(session.location));
-    } else if (session.role === 'DM' && session.location) {
-      params.push('district=' + encodeURIComponent(session.location));
-    } else if (session.role === 'BM' && session.location) {
-      params.push('branch=' + encodeURIComponent(session.location));
-    } else if ((!session.role || session.role === 'FO') && session.id) {
-      params.push('emp_id=' + encodeURIComponent(session.id));
+    if (isNewStructure()) {
+      if (session.role === 'SM' && session.location) {
+        params.push('state=' + encodeURIComponent(session.location));
+      } else if (session.role === 'DvM' && session.location) {
+        params.push('division=' + encodeURIComponent(session.location));
+      } else if (session.role === 'AM' && session.location) {
+        params.push('area=' + encodeURIComponent(session.location));
+      } else if (session.role === 'BM' && session.location) {
+        params.push('branch=' + encodeURIComponent(session.location));
+      } else if ((!session.role || session.role === 'FO') && session.id) {
+        params.push('emp_id=' + encodeURIComponent(session.id));
+      }
+    } else {
+      if (session.role === 'RM' && session.location) {
+        params.push('region=' + encodeURIComponent(session.location));
+      } else if (session.role === 'DM' && session.location) {
+        params.push('district=' + encodeURIComponent(session.location));
+      } else if (session.role === 'BM' && session.location) {
+        params.push('branch=' + encodeURIComponent(session.location));
+      } else if ((!session.role || session.role === 'FO') && session.id) {
+        params.push('emp_id=' + encodeURIComponent(session.id));
+      }
     }
     return params.length ? '?' + params.join('&') : '';
   }
@@ -70,23 +87,47 @@
   function subUnitsUrl(productType) {
     var pt = (productType && productType !== 'all') ? productType.toUpperCase() : '';
     var ptParam = pt ? 'product_type=' + encodeURIComponent(pt) : '';
-    var apiBase = _collState.date ? '/api/daily' : (_collState.view === 'fy' ? '/api/fy' : '/api/collection');
     var dateParam = _collState.date ? 'date=' + encodeURIComponent(_collState.date) + '&' : '';
 
+    if (isNewStructure()) {
+      var v2Base = '/api/v2/collection';
+      if (session.role === 'CEO') {
+        return v2Base + '/by-state?' + dateParam + (ptParam || '');
+      }
+      if (session.role === 'SM' && session.location) {
+        var p = [ptParam, 'state=' + encodeURIComponent(session.location)].filter(Boolean);
+        return v2Base + '/by-division?' + dateParam + p.join('&');
+      }
+      if (session.role === 'DvM' && session.location) {
+        var p2 = [ptParam, 'division=' + encodeURIComponent(session.location)].filter(Boolean);
+        return v2Base + '/by-area?' + dateParam + p2.join('&');
+      }
+      if (session.role === 'AM' && session.location) {
+        var p3 = [ptParam, 'area=' + encodeURIComponent(session.location)].filter(Boolean);
+        return v2Base + '/by-branch?' + dateParam + p3.join('&');
+      }
+      if (session.role === 'BM' && session.location) {
+        var p4 = [ptParam, 'branch=' + encodeURIComponent(session.location)].filter(Boolean);
+        return v2Base + '/by-employee?' + dateParam + p4.join('&');
+      }
+      return null;
+    }
+
+    var apiBase = _collState.date ? '/api/daily' : (_collState.view === 'fy' ? '/api/fy' : '/api/collection');
     if (session.role === 'CEO') {
       return apiBase + '/by-region?' + dateParam + (ptParam || '');
     }
     if (session.role === 'RM' && session.location) {
-      var p = [ptParam, 'region=' + encodeURIComponent(session.location)].filter(Boolean);
-      return apiBase + '/by-district?' + dateParam + p.join('&');
+      var rp = [ptParam, 'region=' + encodeURIComponent(session.location)].filter(Boolean);
+      return apiBase + '/by-district?' + dateParam + rp.join('&');
     }
     if (session.role === 'DM' && session.location) {
-      var p2 = [ptParam, 'district=' + encodeURIComponent(session.location)].filter(Boolean);
-      return apiBase + '/by-branch?' + dateParam + p2.join('&');
+      var dp = [ptParam, 'district=' + encodeURIComponent(session.location)].filter(Boolean);
+      return apiBase + '/by-branch?' + dateParam + dp.join('&');
     }
     if (session.role === 'BM' && session.location) {
-      var p3 = [ptParam, 'branch=' + encodeURIComponent(session.location)].filter(Boolean);
-      return apiBase + '/by-employee?' + dateParam + p3.join('&');
+      var bp = [ptParam, 'branch=' + encodeURIComponent(session.location)].filter(Boolean);
+      return apiBase + '/by-employee?' + dateParam + bp.join('&');
     }
     return null;
   }
@@ -105,7 +146,9 @@
       '<div style="color:#64748B;font-size:14px;">Loading collection data...</div></div>';
 
     var product = _collState.product;
-    var apiBase = _collState.date ? '/api/daily' : (_collState.view === 'fy' ? '/api/fy' : '/api/collection');
+    var apiBase = isNewStructure()
+      ? '/api/v2/collection'
+      : (_collState.date ? '/api/daily' : (_collState.view === 'fy' ? '/api/fy' : '/api/collection'));
     var params = summaryParams(product);
     if (_collState.date) {
       params += (params ? '&' : '?') + 'date=' + encodeURIComponent(_collState.date);
@@ -179,7 +222,9 @@
     // Sub-units
     var children = _collState.childrenData || [];
     if (session.role && session.role !== 'FO' && children.length > 0) {
-      var childRoleMap = { CEO: 'RM', RM: 'DM', DM: 'BM', BM: 'FO' };
+      var childRoleMap = isNewStructure()
+        ? { CEO: 'SM', SM: 'DvM', DvM: 'AM', AM: 'BM', BM: 'FO' }
+        : { CEO: 'RM', RM: 'DM', DM: 'BM', BM: 'FO' };
       var childRole = childRoleMap[session.role];
       if (childRole) {
         // Sort children by collection percentage descending
@@ -437,8 +482,12 @@
 
   function subUnitsHtml(children, childRole) {
     if (!children.length) return '';
-    var roleLabel = { RM: 'Regions', DM: 'Districts', BM: 'Branches', FO: 'Officers' };
-    var avType = { RM: 'region', DM: 'district', BM: 'branch', FO: 'officer' };
+    var roleLabel = isNewStructure()
+      ? { SM: 'States', DvM: 'Divisions', AM: 'Areas', BM: 'Branches', FO: 'Officers' }
+      : { RM: 'Regions', DM: 'Districts', BM: 'Branches', FO: 'Officers' };
+    var avType = isNewStructure()
+      ? { SM: 'state', DvM: 'division', AM: 'area', BM: 'branch', FO: 'officer' }
+      : { RM: 'region', DM: 'district', BM: 'branch', FO: 'officer' };
     var label = roleLabel[childRole] || 'Team';
     var av = avType[childRole] || 'branch';
 
@@ -457,14 +506,28 @@
       // Determine the display name and data attributes based on child role
       var childName = '';
       var dataAttr = '';
-      if (childRole === 'RM') {
-        childName = ch.region_name || '';
-      } else if (childRole === 'DM') {
-        childName = ch.district_name || '';
-      } else if (childRole === 'BM') {
-        childName = ch.branch_name || '';
-      } else if (childRole === 'FO') {
-        childName = ch.name || '';
+      if (isNewStructure()) {
+        if (childRole === 'SM') {
+          childName = ch.state_name || '';
+        } else if (childRole === 'DvM') {
+          childName = ch.division_name || '';
+        } else if (childRole === 'AM') {
+          childName = ch.area_name || '';
+        } else if (childRole === 'BM') {
+          childName = ch.branch_name || '';
+        } else if (childRole === 'FO') {
+          childName = ch.name || '';
+        }
+      } else {
+        if (childRole === 'RM') {
+          childName = ch.region_name || '';
+        } else if (childRole === 'DM') {
+          childName = ch.district_name || '';
+        } else if (childRole === 'BM') {
+          childName = ch.branch_name || '';
+        } else if (childRole === 'FO') {
+          childName = ch.name || '';
+        }
       }
 
       if (childRole === 'FO') {

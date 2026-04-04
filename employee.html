@@ -58,18 +58,13 @@
     transition: border-color .15s, background .15s;
     background: #fff;
   }
-  .settings-option:hover:not(.disabled) {
+  .settings-option:hover {
     border-color: #059669;
     background: #F0FDF4;
   }
   .settings-option.active {
     border-color: #059669;
     background: #F0FDF4;
-  }
-  .settings-option.disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
-    background: #F8FAFC;
   }
   .settings-option-radio {
     width: 18px;
@@ -118,17 +113,6 @@
     border-radius: 20px;
     background: #D1FAE5;
     color: #059669;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.3px;
-  }
-  .settings-coming-badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 2px 8px;
-    border-radius: 20px;
-    background: #F1F5F9;
-    color: #94A3B8;
     font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.3px;
@@ -305,17 +289,17 @@
                   <div class="settings-option-radio-dot"></div>
                 </div>
                 <div class="settings-option-body">
-                  <div class="settings-option-label">FY 2025-26 Structure <span class="settings-active-badge">Active</span></div>
+                  <div class="settings-option-label">FY 2025-26 Structure <span class="settings-active-badge" id="structureOldBadge">Active</span></div>
                   <div class="settings-option-hierarchy">Region → District → Branch → Employee</div>
                 </div>
               </div>
-              <!-- Option 2: New Structure (coming soon) -->
-              <div class="settings-option disabled" id="structureNew">
+              <!-- Option 2: FY 2026-27 Structure -->
+              <div class="settings-option" id="structureNew">
                 <div class="settings-option-radio">
                   <div class="settings-option-radio-dot"></div>
                 </div>
                 <div class="settings-option-body">
-                  <div class="settings-option-label">New Structure <span class="settings-coming-badge">Coming Soon</span></div>
+                  <div class="settings-option-label">FY 2026-27 Structure <span class="settings-active-badge" id="structureNewBadge" style="display:none;">Active</span></div>
                   <div class="settings-option-hierarchy">Region → Division → Area → Branch → Employee</div>
                 </div>
               </div>
@@ -1070,12 +1054,12 @@
   <script src="js/storage.js?v=25"></script>
   <script src="js/auth.js?v=25"></script>
   <script src="js/portfolio.js?v=39"></script>
-  <script src="js/collection.js?v=33"></script>
+  <script src="js/collection.js?v=34"></script>
   <script src="js/hourly.js?v=25"></script>
   <script src="js/disbursement.js?v=35"></script>
   <script src="js/analytical.js?v=25"></script>
   <script src="js/employee.js?v=38"></script>
-  <script src="js/settings.js?v=1"></script>
+  <script src="js/settings.js?v=2"></script>
   <script>if('serviceWorker' in navigator && location.protocol !== 'file:'){navigator.serviceWorker.register('./sw.js');}</script>
   <script>
   (function(){

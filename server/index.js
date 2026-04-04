@@ -2051,6 +2051,216 @@ app.post("/api/portfolio/upload", dashboardAuth, upload.single("file"), async (r
     client.release();
   }
 });
+// ========== V2 COLLECTION API (State → Division → Area → Branch → Employee) ==========
+
+const V2_JOIN = `
+    FROM v2_employee_performance ep
+    JOIN product_types pt ON ep.product_type_id = pt.product_type_id
+    JOIN v2_employees e ON ep.emp_id = e.emp_id
+    JOIN v2_branches b ON e.branch_id = b.branch_id
+    JOIN v2_areas a ON b.area_id = a.area_id
+    JOIN v2_divisions dv ON a.division_id = dv.division_id
+    JOIN v2_states s ON dv.state_id = s.state_id`;
+
+const V2_SELECT_METRICS = `
+      SUM(ep.regular_demand)::int AS regular_demand, SUM(ep.regular_collection)::int AS regular_collection,
+      SUM(ep.demand_1_30)::int AS demand_1_30, SUM(ep.collection_1_30)::int AS collection_1_30,
+      SUM(ep.demand_31_60)::int AS demand_31_60, SUM(ep.collection_31_60)::int AS collection_31_60,
+      SUM(ep.pnpa_demand)::int AS pnpa_demand, SUM(ep.pnpa_collection)::int AS pnpa_collection,
+      SUM(ep.npa_cases)::int AS npa_cases, SUM(ep.npa_act_acc)::int AS npa_act_acc, SUM(ep.npa_act_amt) AS npa_act_amt,
+      SUM(ep.npa_clo_acc)::int AS npa_clo_acc, SUM(ep.npa_clo_amt) AS npa_clo_amt,
+      SUM(ep.on_date_demand)::int AS on_date_demand, SUM(ep.on_date_collection)::int AS on_date_collection,
+      SUM(ep.regular_demand_amt) AS regular_demand_amt, SUM(ep.regular_collection_amt) AS regular_collection_amt,
+      SUM(ep.demand_1_30_amt) AS demand_1_30_amt, SUM(ep.collection_1_30_amt) AS collection_1_30_amt,
+      SUM(ep.demand_31_60_amt) AS demand_31_60_amt, SUM(ep.collection_31_60_amt) AS collection_31_60_amt,
+      SUM(ep.pnpa_demand_amt) AS pnpa_demand_amt, SUM(ep.pnpa_collection_amt) AS pnpa_collection_amt,
+      SUM(ep.on_date_demand_amt) AS on_date_demand_amt, SUM(ep.on_date_collection_amt) AS on_date_collection_amt`;
+
+function buildV2CollectionQuery(groupCol) {
+  return `SELECT ${groupCol ? groupCol + "," : ""} ${V2_SELECT_METRICS} ${V2_JOIN}`;
+}
+
+function buildV2Where(filters) {
+  const where = [];
+  const params = [];
+  let idx = 1;
+  if (filters.product_type && filters.product_type !== "All") {
+    where.push(`pt.product_type_name = $${idx++}`); params.push(filters.product_type);
+  }
+  if (filters.state) { where.push(`s.state_name = $${idx++}`); params.push(filters.state); }
+  if (filters.division) { where.push(`dv.division_name = $${idx++}`); params.push(filters.division); }
+  if (filters.area) { where.push(`a.area_name = $${idx++}`); params.push(filters.area); }
+  if (filters.branch) { where.push(`b.branch_name = $${idx++}`); params.push(filters.branch); }
+  if (filters.emp_id) { where.push(`e.emp_id = $${idx++}`); params.push(filters.emp_id); }
+  return { clause: where.length ? " WHERE " + where.join(" AND ") : "", params };
+}
+
+app.get("/api/v2/collection/summary", async (req, res) => {
+  try {
+    const { clause, params } = buildV2Where(req.query);
+    const sql = buildV2CollectionQuery(null) + clause;
+    const result = await pool.query(sql, params);
+    res.json(result.rows[0] || {});
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get("/api/v2/collection/by-state", async (req, res) => {
+  try {
+    const { clause, params } = buildV2Where(req.query);
+    const sql = buildV2CollectionQuery("s.state_name") + clause + " GROUP BY s.state_name ORDER BY s.state_name";
+    const result = await pool.query(sql, params);
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get("/api/v2/collection/by-division", async (req, res) => {
+  try {
+    const { clause, params } = buildV2Where(req.query);
+    const sql = buildV2CollectionQuery("dv.division_name, s.state_name") + clause + " GROUP BY dv.division_name, s.state_name ORDER BY dv.division_name";
+    const result = await pool.query(sql, params);
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get("/api/v2/collection/by-area", async (req, res) => {
+  try {
+    const { clause, params } = buildV2Where(req.query);
+    const sql = buildV2CollectionQuery("a.area_name, dv.division_name") + clause + " GROUP BY a.area_name, dv.division_name ORDER BY a.area_name";
+    const result = await pool.query(sql, params);
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get("/api/v2/collection/by-branch", async (req, res) => {
+  try {
+    const { clause, params } = buildV2Where(req.query);
+    const sql = buildV2CollectionQuery("b.branch_name, a.area_name") + clause + " GROUP BY b.branch_name, a.area_name ORDER BY b.branch_name";
+    const result = await pool.query(sql, params);
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get("/api/v2/collection/by-employee", async (req, res) => {
+  try {
+    const { clause, params } = buildV2Where(req.query);
+    const sql = buildV2CollectionQuery("e.emp_id, e.officer_name AS name, b.branch_name") + clause + " GROUP BY e.emp_id, e.officer_name, b.branch_name ORDER BY e.officer_name";
+    const result = await pool.query(sql, params);
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ========== V2 HOURLY API ==========
+
+const V2_HOURLY_JOIN = `
+    FROM v2_employee_performance ep
+    JOIN product_types pt ON ep.product_type_id = pt.product_type_id
+    JOIN v2_employees e ON ep.emp_id = e.emp_id
+    JOIN v2_branches b ON e.branch_id = b.branch_id
+    JOIN v2_areas a ON b.area_id = a.area_id
+    JOIN v2_divisions dv ON a.division_id = dv.division_id
+    JOIN v2_states s ON dv.state_id = s.state_id`;
+
+function buildV2HourlyQuery(groupCol) {
+  return `SELECT ${groupCol ? groupCol + "," : ""} ${V2_SELECT_METRICS} ${V2_HOURLY_JOIN}`;
+}
+
+app.get("/api/v2/hourly/summary", async (req, res) => {
+  try {
+    const { clause, params } = buildV2Where(req.query);
+    const sql = buildV2HourlyQuery(null) + clause;
+    const result = await pool.query(sql, params);
+    res.json(result.rows[0] || {});
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get("/api/v2/hourly/by-state", async (req, res) => {
+  try {
+    const { clause, params } = buildV2Where(req.query);
+    const sql = buildV2HourlyQuery("s.state_name") + clause + " GROUP BY s.state_name ORDER BY s.state_name";
+    const result = await pool.query(sql, params);
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get("/api/v2/hourly/by-division", async (req, res) => {
+  try {
+    const { clause, params } = buildV2Where(req.query);
+    const sql = buildV2HourlyQuery("dv.division_name, s.state_name") + clause + " GROUP BY dv.division_name, s.state_name ORDER BY dv.division_name";
+    const result = await pool.query(sql, params);
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get("/api/v2/hourly/by-area", async (req, res) => {
+  try {
+    const { clause, params } = buildV2Where(req.query);
+    const sql = buildV2HourlyQuery("a.area_name, dv.division_name") + clause + " GROUP BY a.area_name, dv.division_name ORDER BY a.area_name";
+    const result = await pool.query(sql, params);
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get("/api/v2/hourly/by-branch", async (req, res) => {
+  try {
+    const { clause, params } = buildV2Where(req.query);
+    const sql = buildV2HourlyQuery("b.branch_name, a.area_name") + clause + " GROUP BY b.branch_name, a.area_name ORDER BY b.branch_name";
+    const result = await pool.query(sql, params);
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get("/api/v2/hourly/by-employee", async (req, res) => {
+  try {
+    const { clause, params } = buildV2Where(req.query);
+    const sql = buildV2HourlyQuery("e.emp_id, e.officer_name AS name, b.branch_name") + clause + " GROUP BY e.emp_id, e.officer_name, b.branch_name ORDER BY e.officer_name";
+    const result = await pool.query(sql, params);
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ========== V2 HIERARCHY LOOKUP ENDPOINTS ==========
+
+app.get("/api/v2/states", async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM v2_states ORDER BY state_name");
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get("/api/v2/divisions", async (req, res) => {
+  try {
+    const where = [];
+    const params = [];
+    if (req.query.state) {
+      where.push(`s.state_name = $1`);
+      params.push(req.query.state);
+    }
+    const sql = `SELECT dv.division_id, dv.division_name, s.state_name
+      FROM v2_divisions dv JOIN v2_states s ON dv.state_id = s.state_id`
+      + (where.length ? " WHERE " + where.join(" AND ") : "")
+      + " ORDER BY dv.division_name";
+    const result = await pool.query(sql, params);
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get("/api/v2/areas", async (req, res) => {
+  try {
+    const where = [];
+    const params = [];
+    if (req.query.division) {
+      where.push(`dv.division_name = $1`);
+      params.push(req.query.division);
+    }
+    const sql = `SELECT a.area_id, a.area_name, dv.division_name
+      FROM v2_areas a JOIN v2_divisions dv ON a.division_id = dv.division_id`
+      + (where.length ? " WHERE " + where.join(" AND ") : "")
+      + " ORDER BY a.area_name";
+    const result = await pool.query(sql, params);
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 server.listen(PORT, "0.0.0.0", async () => {
   await startPgListener();
   console.log("Server running on http://0.0.0.0:" + PORT);

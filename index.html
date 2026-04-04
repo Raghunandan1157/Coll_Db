@@ -104,6 +104,20 @@
     .login-footer a:hover{color:var(--accent);}
     .login-footer .sep{color:#E2E8F0;}
 
+    /* Structure banner */
+    .structure-banner{
+      display:flex;align-items:center;justify-content:center;gap:8px;
+      margin-bottom:20px;padding:7px 14px;border-radius:100px;
+      font-size:12px;font-weight:600;cursor:pointer;text-decoration:none;
+      transition:opacity 0.2s;
+    }
+    .structure-banner:hover{opacity:0.8;}
+    .structure-banner.old{background:#EFF6FF;color:#2563EB;border:1px solid #BFDBFE;}
+    .structure-banner.new{background:#F0FDF4;color:#059669;border:1px solid #A7F3D0;}
+    .structure-banner .dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+    .structure-banner.old .dot{background:#2563EB;}
+    .structure-banner.new .dot{background:#059669;}
+
     /* Spinner */
     .spinner{width:28px;height:28px;border:3px solid #E2E8F0;border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px;}
     @keyframes spin{to{transform:rotate(360deg);}}
@@ -284,6 +298,12 @@
     <div class="desktop-login-panel">
       <div class="login-wrap">
         <div class="login-box">
+          <a id="structureBanner" href="employee.html#settings" class="structure-banner old">
+            <span class="dot"></span>
+            <span id="structureBannerLabel">FY 2025-26 Structure</span>
+            <span style="opacity:0.6;font-weight:400">&#9998; Change</span>
+          </a>
+
           <div class="brand">
             <h1>Collection Report</h1>
             <p>Empowering Employees</p>
@@ -317,6 +337,7 @@
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <script src="js/employeeParser.js?v=25"></script>
   <script src="js/storage.js?v=25"></script>
+  <script src="js/settings.js?v=25"></script>
   <script src="js/auth.js?v=25"></script>
   <script>
   (function () {
@@ -327,13 +348,27 @@
       window.location.href = 'employee.html'; return;
     }
 
+    // --- Structure banner ---
+    var _isNew = (typeof getDataStructure === 'function') && getDataStructure() === 'new';
+    var banner = document.getElementById('structureBanner');
+    var bannerLabel = document.getElementById('structureBannerLabel');
+    if (banner && bannerLabel) {
+      if (_isNew) {
+        banner.className = 'structure-banner new';
+        bannerLabel.textContent = 'FY 2026-27 Structure';
+      } else {
+        banner.className = 'structure-banner old';
+        bannerLabel.textContent = 'FY 2025-26 Structure';
+      }
+    }
+
     var allEmployees = [];
     var search = document.getElementById('search');
     var results = document.getElementById('results');
     var status = document.getElementById('status');
     var hint = document.getElementById('hint');
 
-    // Cached location data for role-based login
+    // Cached location data for role-based login (old structure)
     var _locationData = null;
     var _locationLoading = false;
 
@@ -371,6 +406,25 @@
         });
     }
 
+    // Cached location data for new structure
+    var _newLocationCache = {};
+    function _fetchNewLocations(endpoint, key) {
+      if (_newLocationCache[key]) return Promise.resolve(_newLocationCache[key]);
+      return fetch(endpoint)
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+          var list = Array.isArray(data) ? data.map(function (r) {
+            return r.state_name || r.division_name || r.area_name || r.branch_name || r.name || String(r);
+          }) : [];
+          _newLocationCache[key] = list;
+          return list;
+        })
+        .catch(function (err) {
+          console.error('New location fetch error:', err);
+          return [];
+        });
+    }
+
     // Load employees from server API
     fetch('/api/employees')
     .then(function (res) { return res.json(); })
@@ -385,7 +439,9 @@
       emps.sort(function (a, b) { return a.name.localeCompare(b.name); });
       allEmployees = emps;
       status.innerHTML = '<div class="emp-badge"><span class="dot"></span><span>' + emps.length + ' employees loaded</span></div>';
-      hint.textContent = 'Start typing to find yourself';
+      hint.textContent = _isNew
+        ? 'Type CEO / SM / DvM / AM / BM or your name'
+        : 'Start typing to find yourself';
       search.focus();
     })
     .catch(function (err) {
@@ -402,12 +458,22 @@
       return esc(text.slice(0, idx)) + '<mark>' + esc(text.slice(idx, idx + q.length)) + '</mark>' + esc(text.slice(idx + q.length));
     }
 
-    // Render role rows (CEO/RM/DM/BM)
-    function renderRoleRow(role, name, subtitle, filterQ) {
+    // Render role rows
+    function renderRoleRow(role, name, subtitle, filterQ, extraData) {
       var avatarClass = 'avatar-' + role.toLowerCase();
+      // Map new role abbreviations to known avatar classes
+      if (role === 'SM') avatarClass = 'avatar-rm';
+      else if (role === 'DvM') avatarClass = 'avatar-dm';
+      else if (role === 'AM') avatarClass = 'avatar-bm';
       var icon = role === 'CEO' ? '&#9733;' : role.charAt(0);
       var displayName = filterQ ? highlight(name, filterQ) : esc(name);
-      return '<div class="emp-row" data-role="' + esc(role) + '" data-location="' + esc(name) + '" tabindex="0">' +
+      var extraAttrs = '';
+      if (extraData) {
+        Object.keys(extraData).forEach(function (k) {
+          extraAttrs += ' data-' + k + '="' + esc(String(extraData[k])) + '"';
+        });
+      }
+      return '<div class="emp-row" data-role="' + esc(role) + '" data-location="' + esc(name) + '"' + extraAttrs + ' tabindex="0">' +
         '<div class="avatar ' + avatarClass + '">' + icon + '</div>' +
         '<div class="emp-detail">' +
           '<div class="emp-name">' + displayName + '</div>' +
@@ -432,13 +498,44 @@
 
       var qu = q.toUpperCase();
 
-      // --- CEO keyword ---
+      // --- CEO keyword (same for both structures) ---
       if (qu === 'CEO') {
         results.innerHTML = renderRoleRow('CEO', 'Overall', 'CEO \u2014 Overall View', '');
         return;
       }
 
-      // --- RM / DM / BM keywords ---
+      // --- New structure role keywords: SM, DVM, AM ---
+      if (_isNew) {
+        var newRoleMatch = qu.match(/^(SM|DVM|DvM|AM)\s*(.*)/i);
+        if (newRoleMatch) {
+          var rawRole = newRoleMatch[1].toUpperCase();
+          var filter = newRoleMatch[2].trim();
+          var roleKey, endpoint, subtitle, displayRole;
+          if (rawRole === 'SM') {
+            roleKey = 'states'; endpoint = '/api/v2/collection/by-state';
+            subtitle = 'State Manager'; displayRole = 'SM';
+          } else if (rawRole === 'DVM') {
+            roleKey = 'divisions'; endpoint = '/api/v2/collection/by-division';
+            subtitle = 'Division Manager'; displayRole = 'DvM';
+          } else {
+            roleKey = 'areas'; endpoint = '/api/v2/collection/by-area';
+            subtitle = 'Area Manager'; displayRole = 'AM';
+          }
+          results.innerHTML = '<div class="status"><div class="spinner"></div>Loading locations...</div>';
+          _roleSearchPending = true;
+          _fetchNewLocations(endpoint, roleKey).then(function (list) {
+            if (!_roleSearchPending) return;
+            if (filter) list = list.filter(function (n) { return n.toUpperCase().includes(filter); });
+            if (!list.length) { results.innerHTML = '<div class="status">No locations found</div>'; return; }
+            results.innerHTML = list.map(function (name) {
+              return renderRoleRow(displayRole, name, subtitle + ' \u2014 ' + name, filter, { structure: 'new' });
+            }).join('');
+          });
+          return;
+        }
+      }
+
+      // --- Old structure role keywords: RM / DM / BM (always available) ---
       var roleMatch = qu.match(/^(RM|DM|BM)\s*(.*)/);
       if (roleMatch) {
         var role = roleMatch[1];
@@ -497,7 +594,7 @@
             '<div class="avatar avatar-admin">&#9881;</div>' +
             '<div class="emp-detail">' +
               '<div class="emp-name">Admin Panel</div>' +
-              '<div class="emp-id">Manage reports & employees</div>' +
+              '<div class="emp-id">Manage reports &amp; employees</div>' +
             '</div>' +
             '<div class="row-arrow">&#8250;</div>' +
           '</div>';
@@ -557,12 +654,12 @@
         return;
       }
 
-      // Role-based login (CEO/RM/DM/BM)
+      // Role-based login (CEO/RM/DM/BM/SM/DvM/AM)
       if (row.dataset.role) {
         row.style.background = '#DCFCE7';
         row.style.pointerEvents = 'none';
         clearRoleNavStack();
-        setRoleSession(row.dataset.role, row.dataset.location);
+        setRoleSession(row.dataset.role, row.dataset.location, row.dataset.structure || null);
         window.location.href = 'employee.html';
         return;
       }

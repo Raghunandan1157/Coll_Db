@@ -103,10 +103,26 @@ async function authenticateEmployee(employeeId) {
   return {id: employeeId, name: employeeId};
 }
 
-function setRoleSession(role, location) {
+function isNewStructure() {
+  return localStorage.getItem('dataStructure') === 'new';
+}
+
+function setRoleSession(role, location, structure) {
   localStorage.setItem('roleAuth', 'true');
   localStorage.setItem('roleName', role);
   localStorage.setItem('roleLocation', location);
+  // Store which structure this session uses so downstream pages can branch correctly
+  var struct = structure || localStorage.getItem('dataStructure') || 'fy2025-26';
+  localStorage.setItem('roleStructure', struct);
+  // For new-structure roles, map location to the appropriate level key
+  if (struct === 'new') {
+    localStorage.removeItem('roleState');
+    localStorage.removeItem('roleDivision');
+    localStorage.removeItem('roleArea');
+    if (role === 'SM') localStorage.setItem('roleState', location);
+    else if (role === 'DvM') localStorage.setItem('roleDivision', location);
+    else if (role === 'AM') localStorage.setItem('roleArea', location);
+  }
 }
 
 function pushRoleNav(childRole, childLocation) {
@@ -189,14 +205,22 @@ function getEmployeeSession() {
       id: null,
       name: localStorage.getItem('roleLocation') || '',
       role: role,
-      location: localStorage.getItem('roleLocation') || ''
+      location: localStorage.getItem('roleLocation') || '',
+      structure: localStorage.getItem('roleStructure') || 'fy2025-26',
+      state: localStorage.getItem('roleState') || null,
+      division: localStorage.getItem('roleDivision') || null,
+      area: localStorage.getItem('roleArea') || null
     };
   }
   return {
     id: localStorage.getItem('employeeId'),
     name: localStorage.getItem('employeeName'),
     role: 'FO',
-    location: ''
+    location: '',
+    structure: localStorage.getItem('dataStructure') || 'fy2025-26',
+    state: null,
+    division: null,
+    area: null
   };
 }
 
@@ -207,6 +231,10 @@ function logout() {
   localStorage.removeItem('roleAuth');
   localStorage.removeItem('roleName');
   localStorage.removeItem('roleLocation');
+  localStorage.removeItem('roleStructure');
+  localStorage.removeItem('roleState');
+  localStorage.removeItem('roleDivision');
+  localStorage.removeItem('roleArea');
   localStorage.removeItem('roleNavStack');
   localStorage.removeItem('activeTab');
   localStorage.removeItem('analView');

@@ -1,5 +1,5 @@
 /**
- * settings.js — Settings tab: data structure toggle with localStorage persistence.
+ * settings.js v2 — Settings tab: data structure toggle with localStorage persistence.
  * Vanilla JS, no frameworks. Matches coding patterns from employee.js / collection.js.
  */
 (function () {
@@ -33,14 +33,20 @@
   function updateUI(value) {
     var oldBtn = document.getElementById('structureOld');
     var newBtn = document.getElementById('structureNew');
+    var oldBadge = document.getElementById('structureOldBadge');
+    var newBadge = document.getElementById('structureNewBadge');
     if (!oldBtn || !newBtn) return;
 
     if (value === 'fy2025-26') {
       oldBtn.classList.add('active');
       newBtn.classList.remove('active');
+      if (oldBadge) oldBadge.style.display = '';
+      if (newBadge) newBadge.style.display = 'none';
     } else {
       newBtn.classList.add('active');
       oldBtn.classList.remove('active');
+      if (newBadge) newBadge.style.display = '';
+      if (oldBadge) oldBadge.style.display = 'none';
     }
   }
 
@@ -49,8 +55,9 @@
   function setDataStructure(value) {
     localStorage.setItem(STORAGE_KEY, value);
     updateUI(value);
-    var label = value === 'fy2025-26' ? 'FY 2025-26' : 'New Structure';
-    showToast('Structure changed to ' + label);
+    var label = value === 'fy2025-26' ? 'FY 2025-26 Structure' : 'FY 2026-27 Structure';
+    showToast('Switched to ' + label + '. Reload tabs to see changes.');
+    window.dispatchEvent(new CustomEvent('structureChanged', { detail: { structure: value } }));
   }
 
   /* ========== initSettings ========== */
@@ -70,7 +77,7 @@
 
     if (newBtn) {
       newBtn.onclick = function () {
-        showToast('New Structure — Coming Soon');
+        setDataStructure('new');
       };
     }
   }
