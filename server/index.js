@@ -80,6 +80,464 @@ function normalizeDistrict(name) {
   return DISTRICT_NORMALIZE[n] || n;
 }
 
+// ========== BRANCH V2 MAP (ESAF hierarchy: state → division → area) ==========
+const BRANCH_V2_MAP = {
+  'DHARWAD': {state: 'KARNATAKA', division: 'HUBLI', area: 'DHARWAD'},
+  'HUBLI': {state: 'KARNATAKA', division: 'HUBLI', area: 'DHARWAD'},
+  'GADAG': {state: 'KARNATAKA', division: 'HUBLI', area: 'GADAG'},
+  'LAXMESHWAR': {state: 'KARNATAKA', division: 'HUBLI', area: 'GADAG'},
+  'BELAGAVI': {state: 'KARNATAKA', division: 'BELAGAVI', area: 'BELAGAVI'},
+  'GOKAK': {state: 'KARNATAKA', division: 'BELAGAVI', area: 'BELAGAVI'},
+  'ATHANI': {state: 'KARNATAKA', division: 'BELAGAVI', area: 'CHIKKODI'},
+  'JAMAKHANDI': {state: 'KARNATAKA', division: 'BELAGAVI', area: 'BAGALKOT'},
+  'YARAGATTI': {state: 'KARNATAKA', division: 'BELAGAVI', area: 'BELAGAVI'},
+  'MUDALAGI': {state: 'KARNATAKA', division: 'BELAGAVI', area: 'CHIKKODI'},
+  'CHIKKODI': {state: 'KARNATAKA', division: 'BELAGAVI', area: 'CHIKKODI'},
+  'NIPPANI': {state: 'KARNATAKA', division: 'BELAGAVI', area: 'CHIKKODI'},
+  'BAGALKOT': {state: 'KARNATAKA', division: 'BELAGAVI', area: 'BAGALKOT'},
+  'RAMDURGA': {state: 'KARNATAKA', division: 'HUBLI', area: 'BADAMI'},
+  'KITTUR': {state: 'KARNATAKA', division: 'BELAGAVI', area: 'BELAGAVI'},
+  'BADAMI': {state: 'KARNATAKA', division: 'HUBLI', area: 'BADAMI'},
+  'LOKAPUR': {state: 'KARNATAKA', division: 'BELAGAVI', area: 'BAGALKOT'},
+  'KOPPAL': {state: 'KARNATAKA', division: 'HUBLI', area: 'KUSHTAGI'},
+  'GANGAVATHI': {state: 'KARNATAKA', division: 'HUBLI', area: 'KUSHTAGI'},
+  'GAJENDRAGAD': {state: 'KARNATAKA', division: 'HUBLI', area: 'BADAMI'},
+  'MUNDARAGI': {state: 'KARNATAKA', division: 'HUBLI', area: 'GADAG'},
+  'BHALKI': {state: 'KARNATAKA', division: 'BIDAR', area: 'BIDAR'},
+  'AFZALPUR': {state: 'KARNATAKA', division: 'KALBURGI', area: 'KALBURGI'},
+  'CHINCHOLI': {state: 'KARNATAKA', division: 'BIDAR', area: 'SEDAM'},
+  'JEVARGI': {state: 'KARNATAKA', division: 'KALBURGI', area: 'KALBURGI'},
+  'KALABURAGI': {state: 'KARNATAKA', division: 'KALBURGI', area: 'KALBURGI'},
+  'HULIYAR': {state: 'KARNATAKA', division: 'TUMKUR', area: 'TIPTUR'},
+  'HUNGUND': {state: 'KARNATAKA', division: 'HUBLI', area: 'KUSHTAGI'},
+  'MALUR': {state: 'KARNATAKA', division: 'DODDABALLAPURA', area: 'KOLAR'},
+  'SRINIVASPURA': {state: 'KARNATAKA', division: 'DODDABALLAPURA', area: 'CHIKBALLAPURA'},
+  'BANGARPET': {state: 'KARNATAKA', division: 'DODDABALLAPURA', area: 'KOLAR'},
+  'BASAVAKALYAN': {state: 'KARNATAKA', division: 'BIDAR', area: 'HUMNABAD'},
+  'BIDAR': {state: 'KARNATAKA', division: 'BIDAR', area: 'BIDAR'},
+  'DEVADURGA': {state: 'KARNATAKA', division: 'KALBURGI', area: 'SHAHAPUR'},
+  'GUBBI': {state: 'KARNATAKA', division: 'TUMKUR', area: 'TIPTUR'},
+  'HUMNABAD': {state: 'KARNATAKA', division: 'BIDAR', area: 'HUMNABAD'},
+  'KOLAR': {state: 'KARNATAKA', division: 'DODDABALLAPURA', area: 'KOLAR'},
+  'KORATAGERE': {state: 'KARNATAKA', division: 'TUMKUR', area: 'TUMKUR'},
+  'KUNIGAL': {state: 'KARNATAKA', division: 'TUMKUR', area: 'TUMKUR'},
+  'YADGIR': {state: 'KARNATAKA', division: 'KALBURGI', area: 'SHAHAPUR'},
+  'MADHUGIRI': {state: 'KARNATAKA', division: 'TUMKUR', area: 'TUMKUR'},
+  'MANVI': {state: 'KARNATAKA', division: 'BIDAR', area: 'LINGSUGUR'},
+  'RAICHUR': {state: 'KARNATAKA', division: 'BIDAR', area: 'LINGSUGUR'},
+  'SEDAM': {state: 'KARNATAKA', division: 'BIDAR', area: 'SEDAM'},
+  'SHAHAPUR': {state: 'KARNATAKA', division: 'KALBURGI', area: 'SHAHAPUR'},
+  'SINDHNUR': {state: 'KARNATAKA', division: 'BIDAR', area: 'LINGSUGUR'},
+  'SIRA': {state: 'KARNATAKA', division: 'TUMKUR', area: 'TUMKUR'},
+  'TIPTUR': {state: 'KARNATAKA', division: 'TUMKUR', area: 'TIPTUR'},
+  'TUMKUR': {state: 'KARNATAKA', division: 'TUMKUR', area: 'TUMKUR'},
+  'TUREVEKERE': {state: 'KARNATAKA', division: 'TUMKUR', area: 'TIPTUR'},
+  'LINGSUGUR': {state: 'KARNATAKA', division: 'BIDAR', area: 'LINGSUGUR'},
+  'BALLARI': {state: 'KARNATAKA', division: 'HOSPET', area: 'BALLARI'},
+  'KHANAHOSAHALLI': {state: 'KARNATAKA', division: 'HOSPET', area: 'KOTTURU'},
+  'SIRUGUPPA': {state: 'KARNATAKA', division: 'HOSPET', area: 'BALLARI'},
+  'HAGARIBOMMANAHALLI': {state: 'KARNATAKA', division: 'HOSPET', area: 'HOSPET'},
+  'HARAPANAHALLI': {state: 'KARNATAKA', division: 'HOSPET', area: 'KOTTURU'},
+  'HOSPET': {state: 'KARNATAKA', division: 'HOSPET', area: 'HOSPET'},
+  'KUDLIGI': {state: 'KARNATAKA', division: 'HOSPET', area: 'HOSPET'},
+  'HEBBAL': {state: 'KARNATAKA', division: 'DODDABALLAPURA', area: 'BANGALORE URBAN'},
+  'J P NAGAR': {state: 'KARNATAKA', division: 'DODDABALLAPURA', area: 'BANGALORE URBAN'},
+  'DABUSPET': {state: 'KARNATAKA', division: 'TUMKUR', area: 'TUMKUR'},
+  'DEVANAHALLI': {state: 'KARNATAKA', division: 'DODDABALLAPURA', area: 'DODDABALLAPURA'},
+  'DODDABALLAPURA': {state: 'KARNATAKA', division: 'DODDABALLAPURA', area: 'DODDABALLAPURA'},
+  'CHIKBALLAPURA': {state: 'KARNATAKA', division: 'DODDABALLAPURA', area: 'CHIKBALLAPURA'},
+  'CHINTAMANI': {state: 'KARNATAKA', division: 'DODDABALLAPURA', area: 'CHIKBALLAPURA'},
+  'GOWRIBIDANUR': {state: 'KARNATAKA', division: 'DODDABALLAPURA', area: 'DODDABALLAPURA'},
+  'CHIKKAMAGALURU': {state: 'KARNATAKA', division: 'TUMKUR', area: 'CHIKKAMAGALURU'},
+  'KADUR': {state: 'KARNATAKA', division: 'CHITRADURGA', area: 'KADUR'},
+  'MUDIGERE': {state: 'KARNATAKA', division: 'TUMKUR', area: 'CHIKKAMAGALURU'},
+  'TARIKERE': {state: 'KARNATAKA', division: 'CHITRADURGA', area: 'KADUR'},
+  'CHITRADURGA': {state: 'KARNATAKA', division: 'CHITRADURGA', area: 'CHITRADURGA'},
+  'HOSADURGA': {state: 'KARNATAKA', division: 'CHITRADURGA', area: 'CHITRADURGA'},
+  'CHANNAGIRI': {state: 'KARNATAKA', division: 'CHITRADURGA', area: 'CHITRADURGA'},
+  'DAVANAGERE': {state: 'KARNATAKA', division: 'CHITRADURGA', area: 'DAVANAGERE'},
+  'HONNALI': {state: 'KARNATAKA', division: 'CHITRADURGA', area: 'DAVANAGERE'},
+  'CHADCHAN': {state: 'KARNATAKA', division: 'KALBURGI', area: 'INDI'},
+  'INDI': {state: 'KARNATAKA', division: 'KALBURGI', area: 'INDI'},
+  'MUDDEBIHAL': {state: 'KARNATAKA', division: 'KALBURGI', area: 'VIJAYAPUR'},
+  'SINDAGI': {state: 'KARNATAKA', division: 'KALBURGI', area: 'VIJAYAPUR'},
+  'TALIKOTI': {state: 'KARNATAKA', division: 'KALBURGI', area: 'VIJAYAPUR'},
+  'VIJAYAPUR': {state: 'KARNATAKA', division: 'KALBURGI', area: 'VIJAYAPUR'},
+  'NARAGUNDA': {state: 'KARNATAKA', division: 'HUBLI', area: 'BADAMI'},
+  'BILAGI': {state: 'KARNATAKA', division: 'BELAGAVI', area: 'BAGALKOT'},
+  'KUSHTAGI': {state: 'KARNATAKA', division: 'HUBLI', area: 'KUSHTAGI'},
+  'SANDURU': {state: 'KARNATAKA', division: 'HOSPET', area: 'BALLARI'},
+  'HIRIYUR': {state: 'KARNATAKA', division: 'CHITRADURGA', area: 'CHITRADURGA'},
+  'CHANDAPURA': {state: 'KARNATAKA', division: 'DODDABALLAPURA', area: 'BANGALORE URBAN'},
+  'BAGEPALLI': {state: 'KARNATAKA', division: 'DODDABALLAPURA', area: 'CHIKBALLAPURA'},
+  'AJJAMPURA': {state: 'KARNATAKA', division: 'CHITRADURGA', area: 'KADUR'},
+  'JAGALORE': {state: 'KARNATAKA', division: 'HOSPET', area: 'KOTTURU'},
+  'HARIHARA': {state: 'KARNATAKA', division: 'CHITRADURGA', area: 'DAVANAGERE'},
+  'KOTTURU': {state: 'KARNATAKA', division: 'HOSPET', area: 'KOTTURU'},
+  'AURAD': {state: 'KARNATAKA', division: 'BIDAR', area: 'BIDAR'},
+  'KALBURGI-2': {state: 'KARNATAKA', division: 'KALBURGI', area: 'KALBURGI'},
+  'KALGHATGI': {state: 'KARNATAKA', division: 'HUBLI', area: 'DHARWAD'},
+  'ALAND': {state: 'KARNATAKA', division: 'KALBURGI', area: 'KALBURGI'},
+  'CHIKKANAYAKANAHALLI': {state: 'KARNATAKA', division: 'TUMKUR', area: 'TIPTUR'},
+  'CHALLAKERE': {state: 'KARNATAKA', division: 'CHITRADURGA', area: 'CHITRADURGA'},
+  'KUDATHINI': {state: 'KARNATAKA', division: 'HOSPET', area: 'BALLARI'},
+  'BETHAMANGALA': {state: 'KARNATAKA', division: 'DODDABALLAPURA', area: 'KOLAR'},
+  'HUBLI-2': {state: 'KARNATAKA', division: 'HUBLI', area: 'DHARWAD'},
+  'HULSOOR': {state: 'KARNATAKA', division: 'BIDAR', area: 'HUMNABAD'},
+  'TIKOTA': {state: 'KARNATAKA', division: 'KALBURGI', area: 'VIJAYAPUR'},
+  'KAMALAPURA': {state: 'KARNATAKA', division: 'BIDAR', area: 'HUMNABAD'},
+  'KALAGI': {state: 'KARNATAKA', division: 'BIDAR', area: 'SEDAM'},
+  'BAILHONGAL': {state: 'KARNATAKA', division: 'BELAGAVI', area: 'BELAGAVI'},
+  'NR PURA': {state: 'KARNATAKA', division: 'TUMKUR', area: 'CHIKKAMAGALURU'},
+  'PANCHANHALLI': {state: 'KARNATAKA', division: 'CHITRADURGA', area: 'KADUR'},
+  'HOLAKERE': {state: 'KARNATAKA', division: 'CHITRADURGA', area: 'CHITRADURGA'},
+  'SANTHEBENNURU': {state: 'KARNATAKA', division: 'CHITRADURGA', area: 'DAVANAGERE'},
+  'KADAPA': {state: 'ANDRA PRADESH', division: 'ANDRA PRADESH', area: 'KADAPA'},
+  'BUDWAL': {state: 'ANDRA PRADESH', division: 'ANDRA PRADESH', area: 'KADAPA'},
+  'KADIRI': {state: 'ANDRA PRADESH', division: 'ANDRA PRADESH', area: 'KADAPA'},
+  'DHARMAVARAM': {state: 'ANDRA PRADESH', division: 'ANDRA PRADESH', area: 'KADAPA'},
+  'BIDAR-2': {state: 'KARNATAKA', division: 'BIDAR', area: 'BIDAR'},
+  'KENGERI': {state: 'KARNATAKA', division: 'DODDABALLAPURA', area: 'BANGALORE URBAN'},
+  'SIRWAR': {state: 'KARNATAKA', division: 'BIDAR', area: 'LINGSUGUR'},
+  'HUVENAHADAGALLI': {state: 'KARNATAKA', division: 'HOSPET', area: 'HOSPET'},
+  'ZAHEERABAD': {state: 'TELANGANA', division: 'TELANGANA', area: 'SANGAREDDY'},
+  'ALMEL': {state: 'KARNATAKA', division: 'KALBURGI', area: 'INDI'},
+  'SANGAREDDY': {state: 'TELANGANA', division: 'TELANGANA', area: 'SANGAREDDY'},
+  'NARAYANKHED': {state: 'TELANGANA', division: 'TELANGANA', area: 'SANGAREDDY'},
+  'KODANGAL': {state: 'TELANGANA', division: 'TELANGANA', area: 'SANGAREDDY'},
+  'TANDUR': {state: 'TELANGANA', division: 'TELANGANA', area: 'MAHABOOBNAGAR'},
+  'MAHABUB NAGAR': {state: 'TELANGANA', division: 'TELANGANA', area: 'MAHABOOBNAGAR'},
+  'GADWAL': {state: 'TELANGANA', division: 'TELANGANA', area: 'MAHABOOBNAGAR'},
+  'MARIKAL': {state: 'TELANGANA', division: 'TELANGANA', area: 'MAHABOOBNAGAR'},
+};
+
+// ========== V2 TABLE POPULATION HELPERS ==========
+
+async function populateV2Tables(client) {
+  await client.query("BEGIN");
+  try {
+    const { rows } = await client.query(`
+      SELECT b.branch_name, e.emp_id, e.officer_name,
+             ep.product_type_id,
+             ep.regular_demand, ep.regular_collection,
+             ep.demand_1_30, ep.collection_1_30,
+             ep.demand_31_60, ep.collection_31_60,
+             ep.pnpa_demand, ep.pnpa_collection,
+             ep.npa_cases, ep.npa_act_acc, ep.npa_act_amt,
+             ep.npa_clo_acc, ep.npa_clo_amt,
+             ep.on_date_demand, ep.on_date_collection,
+             ep.regular_demand_amt, ep.regular_collection_amt,
+             ep.demand_1_30_amt, ep.collection_1_30_amt,
+             ep.demand_31_60_amt, ep.collection_31_60_amt,
+             ep.pnpa_demand_amt, ep.pnpa_collection_amt,
+             ep.on_date_demand_amt, ep.on_date_collection_amt
+      FROM employee_performance ep
+      JOIN employees e ON ep.emp_id = e.emp_id
+      JOIN branches b ON e.branch_id = b.branch_id
+    `);
+
+    await client.query(`TRUNCATE v2_employee_performance, v2_employees, v2_branches, v2_areas, v2_divisions, v2_states RESTART IDENTITY CASCADE`);
+
+    const statesMap = {}, divisionsMap = {}, areasMap = {}, branchesMap = {};
+    const employeesInserted = new Set();
+
+    for (const row of rows) {
+      const key = (row.branch_name || '').trim().toUpperCase();
+      const info = BRANCH_V2_MAP[key] || {state: 'UNMAPPED', division: 'UNMAPPED', area: 'UNMAPPED'};
+
+      if (!statesMap[info.state]) {
+        const r = await client.query('INSERT INTO v2_states (state_name) VALUES ($1) RETURNING state_id', [info.state]);
+        statesMap[info.state] = r.rows[0].state_id;
+      }
+      const stateId = statesMap[info.state];
+
+      const divKey = stateId + '|' + info.division;
+      if (!divisionsMap[divKey]) {
+        const r = await client.query('INSERT INTO v2_divisions (division_name, state_id) VALUES ($1,$2) RETURNING division_id', [info.division, stateId]);
+        divisionsMap[divKey] = r.rows[0].division_id;
+      }
+      const divId = divisionsMap[divKey];
+
+      const areaKey = divId + '|' + info.area;
+      if (!areasMap[areaKey]) {
+        const r = await client.query('INSERT INTO v2_areas (area_name, division_id) VALUES ($1,$2) RETURNING area_id', [info.area, divId]);
+        areasMap[areaKey] = r.rows[0].area_id;
+      }
+      const areaId = areasMap[areaKey];
+
+      const branchKey = areaId + '|' + key;
+      if (!branchesMap[branchKey]) {
+        const r = await client.query('INSERT INTO v2_branches (branch_name, area_id) VALUES ($1,$2) RETURNING branch_id', [row.branch_name.trim() || 'UNKNOWN', areaId]);
+        branchesMap[branchKey] = r.rows[0].branch_id;
+      }
+      const branchId = branchesMap[branchKey];
+
+      if (!employeesInserted.has(row.emp_id)) {
+        await client.query(
+          'INSERT INTO v2_employees (emp_id, officer_name, branch_id) VALUES ($1,$2,$3) ON CONFLICT (emp_id) DO NOTHING',
+          [row.emp_id, row.officer_name, branchId]
+        );
+        employeesInserted.add(row.emp_id);
+      }
+
+      await client.query(
+        `INSERT INTO v2_employee_performance (emp_id, product_type_id,
+          regular_demand, regular_collection, demand_1_30, collection_1_30,
+          demand_31_60, collection_31_60, pnpa_demand, pnpa_collection,
+          npa_cases, npa_act_acc, npa_act_amt, npa_clo_acc, npa_clo_amt,
+          on_date_demand, on_date_collection,
+          regular_demand_amt, regular_collection_amt, demand_1_30_amt, collection_1_30_amt,
+          demand_31_60_amt, collection_31_60_amt, pnpa_demand_amt, pnpa_collection_amt,
+          on_date_demand_amt, on_date_collection_amt)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27)
+        ON CONFLICT (emp_id, product_type_id) DO UPDATE SET
+          regular_demand=EXCLUDED.regular_demand, regular_collection=EXCLUDED.regular_collection,
+          demand_1_30=EXCLUDED.demand_1_30, collection_1_30=EXCLUDED.collection_1_30,
+          demand_31_60=EXCLUDED.demand_31_60, collection_31_60=EXCLUDED.collection_31_60,
+          pnpa_demand=EXCLUDED.pnpa_demand, pnpa_collection=EXCLUDED.pnpa_collection,
+          npa_cases=EXCLUDED.npa_cases, npa_act_acc=EXCLUDED.npa_act_acc, npa_act_amt=EXCLUDED.npa_act_amt,
+          npa_clo_acc=EXCLUDED.npa_clo_acc, npa_clo_amt=EXCLUDED.npa_clo_amt,
+          on_date_demand=EXCLUDED.on_date_demand, on_date_collection=EXCLUDED.on_date_collection,
+          regular_demand_amt=EXCLUDED.regular_demand_amt, regular_collection_amt=EXCLUDED.regular_collection_amt,
+          demand_1_30_amt=EXCLUDED.demand_1_30_amt, collection_1_30_amt=EXCLUDED.collection_1_30_amt,
+          demand_31_60_amt=EXCLUDED.demand_31_60_amt, collection_31_60_amt=EXCLUDED.collection_31_60_amt,
+          pnpa_demand_amt=EXCLUDED.pnpa_demand_amt, pnpa_collection_amt=EXCLUDED.pnpa_collection_amt,
+          on_date_demand_amt=EXCLUDED.on_date_demand_amt, on_date_collection_amt=EXCLUDED.on_date_collection_amt`,
+        [row.emp_id, row.product_type_id,
+         row.regular_demand, row.regular_collection, row.demand_1_30, row.collection_1_30,
+         row.demand_31_60, row.collection_31_60, row.pnpa_demand, row.pnpa_collection,
+         row.npa_cases, row.npa_act_acc, row.npa_act_amt, row.npa_clo_acc, row.npa_clo_amt,
+         row.on_date_demand, row.on_date_collection,
+         row.regular_demand_amt, row.regular_collection_amt, row.demand_1_30_amt, row.collection_1_30_amt,
+         row.demand_31_60_amt, row.collection_31_60_amt, row.pnpa_demand_amt, row.pnpa_collection_amt,
+         row.on_date_demand_amt, row.on_date_collection_amt]
+      );
+    }
+
+    await client.query("COMMIT");
+    console.log(`V2 tables populated: ${Object.keys(statesMap).length} states, ${Object.keys(divisionsMap).length} divisions, ${Object.keys(areasMap).length} areas, ${Object.keys(branchesMap).length} branches, ${employeesInserted.size} employees`);
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw err;
+  }
+}
+
+async function populateV2PortfolioTables(client) {
+  await client.query("BEGIN");
+  try {
+    const { rows } = await client.query(`
+      SELECT pp.month_id, pp.emp_id, pp.product_type_id,
+             pp.regular_demand, pp.regular_collection,
+             pp.demand_1_30, pp.collection_1_30,
+             pp.demand_31_60, pp.collection_31_60,
+             pp.pnpa_demand, pp.pnpa_collection,
+             pp.npa_cases, pp.npa_act_acc, pp.npa_act_amt,
+             pp.npa_clo_acc, pp.npa_clo_amt,
+             pp.on_date_demand, pp.on_date_collection,
+             pp.regular_demand_amt, pp.regular_collection_amt,
+             pp.demand_1_30_amt, pp.collection_1_30_amt,
+             pp.demand_31_60_amt, pp.collection_31_60_amt,
+             pp.pnpa_demand_amt, pp.pnpa_collection_amt,
+             pp.on_date_demand_amt, pp.on_date_collection_amt,
+             pp.regular_pos, pp.sma0_pos, pp.sma1_pos,
+             pp.pnpa_pos, pp.npa_pos, pp.total_pos,
+             e.officer_name, b.branch_name
+      FROM portfolio_performance pp
+      JOIN employees e ON pp.emp_id = e.emp_id
+      JOIN branches b ON e.branch_id = b.branch_id
+    `);
+
+    await client.query(`
+      TRUNCATE v2_employee_pos, v2_branch_pos, v2_fy_performance,
+               v2_portfolio_performance, v2_employees, v2_branches,
+               v2_areas, v2_divisions, v2_states
+      RESTART IDENTITY CASCADE
+    `);
+
+    // Build unique employee set from all portfolio data
+    const uniqueEmployees = {};
+    for (const row of rows) {
+      if (!uniqueEmployees[row.emp_id]) {
+        uniqueEmployees[row.emp_id] = {officerName: row.officer_name, branchName: row.branch_name};
+      }
+    }
+
+    const statesMap = {}, divisionsMap = {}, areasMap = {}, branchesMap = {};
+    const employeesInserted = new Set();
+
+    for (const [empId, {officerName, branchName}] of Object.entries(uniqueEmployees)) {
+      const key = (branchName || '').trim().toUpperCase();
+      const info = BRANCH_V2_MAP[key] || {state: 'UNMAPPED', division: 'UNMAPPED', area: 'UNMAPPED'};
+
+      if (!statesMap[info.state]) {
+        const r = await client.query('INSERT INTO v2_states (state_name) VALUES ($1) RETURNING state_id', [info.state]);
+        statesMap[info.state] = r.rows[0].state_id;
+      }
+      const stateId = statesMap[info.state];
+
+      const divKey = stateId + '|' + info.division;
+      if (!divisionsMap[divKey]) {
+        const r = await client.query('INSERT INTO v2_divisions (division_name, state_id) VALUES ($1,$2) RETURNING division_id', [info.division, stateId]);
+        divisionsMap[divKey] = r.rows[0].division_id;
+      }
+      const divId = divisionsMap[divKey];
+
+      const areaKey = divId + '|' + info.area;
+      if (!areasMap[areaKey]) {
+        const r = await client.query('INSERT INTO v2_areas (area_name, division_id) VALUES ($1,$2) RETURNING area_id', [info.area, divId]);
+        areasMap[areaKey] = r.rows[0].area_id;
+      }
+      const areaId = areasMap[areaKey];
+
+      const branchKey = areaId + '|' + key;
+      if (!branchesMap[branchKey]) {
+        const r = await client.query('INSERT INTO v2_branches (branch_name, area_id) VALUES ($1,$2) RETURNING branch_id', [(branchName || '').trim() || 'UNKNOWN', areaId]);
+        branchesMap[branchKey] = r.rows[0].branch_id;
+      }
+      const branchId = branchesMap[branchKey];
+
+      if (!employeesInserted.has(empId)) {
+        await client.query(
+          'INSERT INTO v2_employees (emp_id, officer_name, branch_id) VALUES ($1,$2,$3) ON CONFLICT (emp_id) DO NOTHING',
+          [empId, officerName, branchId]
+        );
+        employeesInserted.add(empId);
+      }
+    }
+
+    // Copy all portfolio_performance to v2_portfolio_performance
+    for (const row of rows) {
+      await client.query(
+        `INSERT INTO v2_portfolio_performance (month_id, emp_id, product_type_id,
+          regular_demand, regular_collection, demand_1_30, collection_1_30,
+          demand_31_60, collection_31_60, pnpa_demand, pnpa_collection,
+          npa_cases, npa_act_acc, npa_act_amt, npa_clo_acc, npa_clo_amt,
+          on_date_demand, on_date_collection,
+          regular_demand_amt, regular_collection_amt, demand_1_30_amt, collection_1_30_amt,
+          demand_31_60_amt, collection_31_60_amt, pnpa_demand_amt, pnpa_collection_amt,
+          on_date_demand_amt, on_date_collection_amt,
+          regular_pos, sma0_pos, sma1_pos, pnpa_pos, npa_pos, total_pos)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34)
+        ON CONFLICT (month_id, emp_id, product_type_id) DO UPDATE SET
+          regular_demand=EXCLUDED.regular_demand, regular_collection=EXCLUDED.regular_collection,
+          demand_1_30=EXCLUDED.demand_1_30, collection_1_30=EXCLUDED.collection_1_30,
+          demand_31_60=EXCLUDED.demand_31_60, collection_31_60=EXCLUDED.collection_31_60,
+          pnpa_demand=EXCLUDED.pnpa_demand, pnpa_collection=EXCLUDED.pnpa_collection,
+          npa_cases=EXCLUDED.npa_cases, npa_act_acc=EXCLUDED.npa_act_acc, npa_act_amt=EXCLUDED.npa_act_amt,
+          npa_clo_acc=EXCLUDED.npa_clo_acc, npa_clo_amt=EXCLUDED.npa_clo_amt,
+          on_date_demand=EXCLUDED.on_date_demand, on_date_collection=EXCLUDED.on_date_collection,
+          regular_demand_amt=EXCLUDED.regular_demand_amt, regular_collection_amt=EXCLUDED.regular_collection_amt,
+          demand_1_30_amt=EXCLUDED.demand_1_30_amt, collection_1_30_amt=EXCLUDED.collection_1_30_amt,
+          demand_31_60_amt=EXCLUDED.demand_31_60_amt, collection_31_60_amt=EXCLUDED.collection_31_60_amt,
+          pnpa_demand_amt=EXCLUDED.pnpa_demand_amt, pnpa_collection_amt=EXCLUDED.pnpa_collection_amt,
+          on_date_demand_amt=EXCLUDED.on_date_demand_amt, on_date_collection_amt=EXCLUDED.on_date_collection_amt,
+          regular_pos=EXCLUDED.regular_pos, sma0_pos=EXCLUDED.sma0_pos, sma1_pos=EXCLUDED.sma1_pos,
+          pnpa_pos=EXCLUDED.pnpa_pos, npa_pos=EXCLUDED.npa_pos, total_pos=EXCLUDED.total_pos`,
+        [row.month_id, row.emp_id, row.product_type_id,
+         row.regular_demand, row.regular_collection, row.demand_1_30, row.collection_1_30,
+         row.demand_31_60, row.collection_31_60, row.pnpa_demand, row.pnpa_collection,
+         row.npa_cases, row.npa_act_acc, row.npa_act_amt, row.npa_clo_acc, row.npa_clo_amt,
+         row.on_date_demand, row.on_date_collection,
+         row.regular_demand_amt, row.regular_collection_amt, row.demand_1_30_amt, row.collection_1_30_amt,
+         row.demand_31_60_amt, row.collection_31_60_amt, row.pnpa_demand_amt, row.pnpa_collection_amt,
+         row.on_date_demand_amt, row.on_date_collection_amt,
+         row.regular_pos, row.sma0_pos, row.sma1_pos, row.pnpa_pos, row.npa_pos, row.total_pos]
+      );
+    }
+
+    // Sync fy_performance → v2_fy_performance
+    try {
+      const { rows: fyRows } = await client.query(`
+        SELECT fp.emp_id, fp.product_type_id,
+               fp.regular_demand, fp.regular_collection, fp.demand_1_30, fp.collection_1_30,
+               fp.demand_31_60, fp.collection_31_60, fp.pnpa_demand, fp.pnpa_collection,
+               fp.npa_cases, fp.npa_act_acc, fp.npa_act_amt, fp.npa_clo_acc, fp.npa_clo_amt,
+               fp.on_date_demand, fp.on_date_collection,
+               fp.regular_demand_amt, fp.regular_collection_amt, fp.demand_1_30_amt, fp.collection_1_30_amt,
+               fp.demand_31_60_amt, fp.collection_31_60_amt, fp.pnpa_demand_amt, fp.pnpa_collection_amt,
+               fp.on_date_demand_amt, fp.on_date_collection_amt,
+               fp.regular_pos, fp.sma0_pos, fp.sma1_pos, fp.pnpa_pos, fp.npa_pos, fp.total_pos
+        FROM fy_performance fp WHERE fp.emp_id IN (SELECT emp_id FROM v2_employees)
+      `);
+      for (const fyRow of fyRows) {
+        await client.query(
+          `INSERT INTO v2_fy_performance (emp_id, product_type_id,
+            regular_demand, regular_collection, demand_1_30, collection_1_30,
+            demand_31_60, collection_31_60, pnpa_demand, pnpa_collection,
+            npa_cases, npa_act_acc, npa_act_amt, npa_clo_acc, npa_clo_amt,
+            on_date_demand, on_date_collection,
+            regular_demand_amt, regular_collection_amt, demand_1_30_amt, collection_1_30_amt,
+            demand_31_60_amt, collection_31_60_amt, pnpa_demand_amt, pnpa_collection_amt,
+            on_date_demand_amt, on_date_collection_amt,
+            regular_pos, sma0_pos, sma1_pos, pnpa_pos, npa_pos, total_pos)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33)
+          ON CONFLICT (emp_id, product_type_id) DO NOTHING`,
+          [fyRow.emp_id, fyRow.product_type_id,
+           fyRow.regular_demand, fyRow.regular_collection, fyRow.demand_1_30, fyRow.collection_1_30,
+           fyRow.demand_31_60, fyRow.collection_31_60, fyRow.pnpa_demand, fyRow.pnpa_collection,
+           fyRow.npa_cases, fyRow.npa_act_acc, fyRow.npa_act_amt, fyRow.npa_clo_acc, fyRow.npa_clo_amt,
+           fyRow.on_date_demand, fyRow.on_date_collection,
+           fyRow.regular_demand_amt, fyRow.regular_collection_amt, fyRow.demand_1_30_amt, fyRow.collection_1_30_amt,
+           fyRow.demand_31_60_amt, fyRow.collection_31_60_amt, fyRow.pnpa_demand_amt, fyRow.pnpa_collection_amt,
+           fyRow.on_date_demand_amt, fyRow.on_date_collection_amt,
+           fyRow.regular_pos, fyRow.sma0_pos, fyRow.sma1_pos, fyRow.pnpa_pos, fyRow.npa_pos, fyRow.total_pos]
+        );
+      }
+    } catch (fyErr) {
+      console.error("v2_fy_performance sync warning:", fyErr.message);
+    }
+
+    // Sync branch_pos → v2_branch_pos
+    try {
+      const { rows: bpRows } = await client.query(`
+        SELECT bp.month_id, bp.branch_name, bp.product_name,
+               bp.regular_pos, bp.sma0_pos, bp.sma1_pos, bp.pnpa_pos, bp.npa_pos, bp.total_pos
+        FROM branch_pos bp
+      `);
+      for (const bpRow of bpRows) {
+        const key = (bpRow.branch_name || '').trim().toUpperCase();
+        const info = BRANCH_V2_MAP[key] || {state: 'UNMAPPED', division: 'UNMAPPED', area: 'UNMAPPED'};
+        await client.query(
+          `INSERT INTO v2_branch_pos (month_id, state_name, division_name, area_name, branch_name, product_name,
+            regular_pos, sma0_pos, sma1_pos, pnpa_pos, npa_pos, total_pos)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+          ON CONFLICT (month_id, state_name, division_name, area_name, branch_name, product_name) DO NOTHING`,
+          [bpRow.month_id, info.state, info.division, info.area, bpRow.branch_name, bpRow.product_name,
+           bpRow.regular_pos, bpRow.sma0_pos, bpRow.sma1_pos, bpRow.pnpa_pos, bpRow.npa_pos, bpRow.total_pos]
+        );
+      }
+    } catch (bpErr) {
+      console.error("v2_branch_pos sync warning:", bpErr.message);
+    }
+
+    // Sync employee_pos → v2_employee_pos
+    try {
+      const { rows: epPosRows } = await client.query(`
+        SELECT ep.month_id, ep.emp_id, ep.regular_pos, ep.sma0_pos, ep.sma1_pos,
+               ep.pnpa_pos, ep.npa_pos, ep.total_pos
+        FROM employee_pos ep WHERE ep.emp_id IN (SELECT emp_id FROM v2_employees)
+      `);
+      for (const epRow of epPosRows) {
+        await client.query(
+          `INSERT INTO v2_employee_pos (month_id, emp_id, regular_pos, sma0_pos, sma1_pos, pnpa_pos, npa_pos, total_pos)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+          ON CONFLICT (month_id, emp_id) DO NOTHING`,
+          [epRow.month_id, epRow.emp_id, epRow.regular_pos, epRow.sma0_pos, epRow.sma1_pos,
+           epRow.pnpa_pos, epRow.npa_pos, epRow.total_pos]
+        );
+      }
+    } catch (epErr) {
+      console.error("v2_employee_pos sync warning:", epErr.message);
+    }
+
+    await client.query("COMMIT");
+    console.log(`V2 portfolio tables populated: ${Object.keys(statesMap).length} states, ${Object.keys(divisionsMap).length} divisions, ${Object.keys(areasMap).length} areas, ${Object.keys(branchesMap).length} branches, ${employeesInserted.size} employees, ${rows.length} performance rows`);
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw err;
+  }
+}
+
 app.use(express.static(path.join(__dirname, "..")));
 
 // ========== UPLOAD LOCK ==========
@@ -309,6 +767,13 @@ app.post("/api/upload", upload.single("file"), async (req, res) => {
 
     const empCount = Object.keys(employees).length;
     const perfCount = (await pool.query("SELECT count(*) FROM employee_performance")).rows[0].count;
+
+    // Auto-populate v2 tables (non-blocking: failures log but don't affect upload response)
+    try {
+      await populateV2Tables(client);
+    } catch (v2Err) {
+      console.error("V2 table population error (non-fatal):", v2Err.message);
+    }
 
     res.json({
       success: true,
@@ -2042,6 +2507,13 @@ app.post("/api/portfolio/upload", dashboardAuth, upload.single("file"), async (r
         console.error("EMP_POS parse error:", e.message);
       }
     }
+    // Auto-populate v2 portfolio tables (non-blocking: failures log but don't affect upload response)
+    try {
+      await populateV2PortfolioTables(client);
+    } catch (v2Err) {
+      console.error("V2 portfolio table population error (non-fatal):", v2Err.message);
+    }
+
     res.json({ success: true, month: monthLabel, sheets: wb.SheetNames, inserted, skipped, fyInserted });
   } catch (err) {
     await client.query("ROLLBACK").catch(() => {});

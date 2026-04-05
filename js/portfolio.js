@@ -11,6 +11,9 @@
   /* ========== Session ========== */
   var session = getEmployeeSession();
 
+  /* ========== Structure helper ========== */
+  function isNewStructure() { return window.getDataStructure && window.getDataStructure() === 'new'; }
+
   /* ========== Formatters ========== */
   function fmtNum(v) {
     if (v == null || v === '' || v === '-') return '-';
@@ -59,10 +62,18 @@
     var p = [];
     if (_pf.view !== 'fy' && _pf.month) p.push('month=' + encodeURIComponent(_pf.month));
     if (_pf.product && _pf.product !== 'all') p.push('product_type=' + encodeURIComponent(_pf.product.toUpperCase()));
-    if (session.role === 'RM' && session.location) p.push('region=' + encodeURIComponent(session.location));
-    else if (session.role === 'DM' && session.location) p.push('district=' + encodeURIComponent(session.location));
-    else if (session.role === 'BM' && session.location) p.push('branch=' + encodeURIComponent(session.location));
-    else if ((!session.role || session.role === 'FO') && session.id) p.push('emp_id=' + encodeURIComponent(session.id));
+    if (isNewStructure()) {
+      if (session.role === 'SM' && session.location) p.push('state=' + encodeURIComponent(session.location));
+      else if (session.role === 'DvM' && session.location) p.push('division=' + encodeURIComponent(session.location));
+      else if (session.role === 'AM' && session.location) p.push('area=' + encodeURIComponent(session.location));
+      else if (session.role === 'BM' && session.location) p.push('branch=' + encodeURIComponent(session.location));
+      else if ((!session.role || session.role === 'FO') && session.id) p.push('emp_id=' + encodeURIComponent(session.id));
+    } else {
+      if (session.role === 'RM' && session.location) p.push('region=' + encodeURIComponent(session.location));
+      else if (session.role === 'DM' && session.location) p.push('district=' + encodeURIComponent(session.location));
+      else if (session.role === 'BM' && session.location) p.push('branch=' + encodeURIComponent(session.location));
+      else if ((!session.role || session.role === 'FO') && session.id) p.push('emp_id=' + encodeURIComponent(session.id));
+    }
     return p.length ? '?' + p.join('&') : '';
   }
 
@@ -71,8 +82,30 @@
     var base = [];
     if (_pf.view !== 'fy' && _pf.month) base.push('month=' + encodeURIComponent(_pf.month));
     if (pt) base.push('product_type=' + encodeURIComponent(pt));
-    var apiBase = _pf.view === 'fy' ? '/api/fy' : '/api/portfolio';
 
+    if (isNewStructure()) {
+      var v2Base = _pf.view === 'fy' ? '/api/v2/fy' : '/api/v2/portfolio';
+      if (session.role === 'CEO') return v2Base + '/by-state' + (base.length ? '?' + base.join('&') : '');
+      if (session.role === 'SM' && session.location) {
+        base.push('state=' + encodeURIComponent(session.location));
+        return v2Base + '/by-division?' + base.join('&');
+      }
+      if (session.role === 'DvM' && session.location) {
+        base.push('division=' + encodeURIComponent(session.location));
+        return v2Base + '/by-area?' + base.join('&');
+      }
+      if (session.role === 'AM' && session.location) {
+        base.push('area=' + encodeURIComponent(session.location));
+        return v2Base + '/by-branch?' + base.join('&');
+      }
+      if (session.role === 'BM' && session.location) {
+        base.push('branch=' + encodeURIComponent(session.location));
+        return v2Base + '/by-employee?' + base.join('&');
+      }
+      return null;
+    }
+
+    var apiBase = _pf.view === 'fy' ? '/api/fy' : '/api/portfolio';
     if (session.role === 'CEO') return apiBase + '/by-region' + (base.length ? '?' + base.join('&') : '');
     if (session.role === 'RM' && session.location) {
       base.push('region=' + encodeURIComponent(session.location));
@@ -127,7 +160,7 @@
       '<div style="color:#64748B;font-size:14px;">Loading portfolio data...</div></div>';
 
     // Load months first if not yet loaded
-    var monthPromise = _pf.months.length ? Promise.resolve() : apiFetch('/api/portfolio/months').then(function (m) {
+    var monthPromise = _pf.months.length ? Promise.resolve() : apiFetch(isNewStructure() ? '/api/v2/portfolio/months' : '/api/portfolio/months').then(function (m) {
       _pf.months = m;
       if (!_pf.month && m.length) {
         // Pick latest month that has data: try from end, check summary
@@ -135,7 +168,7 @@
         function tryMonth(idx) {
           if (idx < 0) { _pf.month = m[m.length - 1].month_label; localStorage.setItem('pfMonth', _pf.month); return Promise.resolve(); }
           var label = m[idx].month_label;
-          return apiFetch('/api/portfolio/summary?month=' + encodeURIComponent(label)).then(function(d) {
+          return apiFetch((isNewStructure() ? '/api/v2/portfolio' : '/api/portfolio') + '/summary?month=' + encodeURIComponent(label)).then(function(d) {
             var hasData = d && Object.keys(d).some(function(k) { return d[k] !== null && d[k] !== 0 && d[k] !== '0' && d[k] !== '0.00'; });
             if (hasData) { _pf.month = label; localStorage.setItem('pfMonth', label); return; }
             return tryMonth(idx - 1);
@@ -146,7 +179,9 @@
     });
 
     monthPromise.then(function () {
-      var apiBase = _pf.view === 'fy' ? '/api/fy' : '/api/portfolio';
+      var apiBase = isNewStructure()
+        ? (_pf.view === 'fy' ? '/api/v2/fy' : '/api/v2/portfolio')
+        : (_pf.view === 'fy' ? '/api/fy' : '/api/portfolio');
       var summUrl = apiBase + '/summary' + summaryParams();
       var chUrl = childrenUrl();
       var promises = [apiFetch(summUrl)];
@@ -155,19 +190,36 @@
 
       // Fetch POS data from branch_pos table
       var posParams = [];
-      if (session.role === 'RM' && session.location) posParams.push('region=' + encodeURIComponent(session.location));
-      else if (session.role === 'DM' && session.location) posParams.push('district=' + encodeURIComponent(session.location));
-      else if (session.role === 'BM' && session.location) posParams.push('branch=' + encodeURIComponent(session.location));
+      if (isNewStructure()) {
+        if (session.role === 'SM' && session.location) posParams.push('state=' + encodeURIComponent(session.location));
+        else if (session.role === 'DvM' && session.location) posParams.push('division=' + encodeURIComponent(session.location));
+        else if (session.role === 'AM' && session.location) posParams.push('area=' + encodeURIComponent(session.location));
+        else if (session.role === 'BM' && session.location) posParams.push('branch=' + encodeURIComponent(session.location));
+      } else {
+        if (session.role === 'RM' && session.location) posParams.push('region=' + encodeURIComponent(session.location));
+        else if (session.role === 'DM' && session.location) posParams.push('district=' + encodeURIComponent(session.location));
+        else if (session.role === 'BM' && session.location) posParams.push('branch=' + encodeURIComponent(session.location));
+      }
       // POS always at company/branch level — no emp_id filter
       var posMonth = _pf.month || (_pf.months.length ? _pf.months[_pf.months.length-1].month_label : '');
-      if (_pf.view === 'fy') { if (posMonth) posParams.push('month=' + encodeURIComponent(posMonth)); } else if (posMonth) { posParams.push('month=' + encodeURIComponent(posMonth)); } if (_pf.product && _pf.product !== 'all') posParams.push('product_type=' + encodeURIComponent(_pf.product.toUpperCase())); var posBase = '/api/portfolio/pos-summary'; var posUrl = posBase + (posParams.length ? '?' + posParams.join('&') : '');
+      if (_pf.view === 'fy') { if (posMonth) posParams.push('month=' + encodeURIComponent(posMonth)); } else if (posMonth) { posParams.push('month=' + encodeURIComponent(posMonth)); } if (_pf.product && _pf.product !== 'all') posParams.push('product_type=' + encodeURIComponent(_pf.product.toUpperCase())); var posBase = isNewStructure() ? '/api/v2/portfolio/pos-summary' : '/api/portfolio/pos-summary'; var posUrl = posBase + (posParams.length ? '?' + posParams.join('&') : '');
       promises.push(apiFetch(posUrl));
 
       // POS by child unit
       var posChildUrl = null;
-      if (session.role === 'CEO') posChildUrl = '/api/portfolio/pos-by-region' + (function(){ var m = _pf.view === 'fy' ? (_pf.months.length ? _pf.months[_pf.months.length-1].month_label : '') : _pf.month; return m ? '?month=' + encodeURIComponent(m) : ''; })();
-      else if (session.role === 'RM' && session.location) posChildUrl = '/api/portfolio/pos-by-district?'+ ((function(){ var m = _pf.view === 'fy' ? (_pf.months.length ? _pf.months[_pf.months.length-1].month_label : '') : _pf.month; return m ? 'month=' + encodeURIComponent(m) + '&' : ''; })()) + 'region=' + encodeURIComponent(session.location);
-      else if (session.role === 'DM' && session.location) posChildUrl = '/api/portfolio/pos-by-branch?' + ((function(){ var m = _pf.view === 'fy' ? (_pf.months.length ? _pf.months[_pf.months.length-1].month_label : '') : _pf.month; return m ? 'month=' + encodeURIComponent(m) + '&' : ''; })()) + 'district=' + encodeURIComponent(session.location);
+      if (isNewStructure()) {
+        var posV2Base = '/api/v2/portfolio';
+        var posM2 = _pf.view === 'fy' ? (_pf.months.length ? _pf.months[_pf.months.length-1].month_label : '') : _pf.month;
+        var posMParam2 = posM2 ? 'month=' + encodeURIComponent(posM2) : '';
+        if (session.role === 'CEO') posChildUrl = posV2Base + '/pos-by-state' + (posMParam2 ? '?' + posMParam2 : '');
+        else if (session.role === 'SM' && session.location) posChildUrl = posV2Base + '/pos-by-division?' + (posMParam2 ? posMParam2 + '&' : '') + 'state=' + encodeURIComponent(session.location);
+        else if (session.role === 'DvM' && session.location) posChildUrl = posV2Base + '/pos-by-area?' + (posMParam2 ? posMParam2 + '&' : '') + 'division=' + encodeURIComponent(session.location);
+        else if (session.role === 'AM' && session.location) posChildUrl = posV2Base + '/pos-by-branch?' + (posMParam2 ? posMParam2 + '&' : '') + 'area=' + encodeURIComponent(session.location);
+      } else {
+        if (session.role === 'CEO') posChildUrl = '/api/portfolio/pos-by-region' + (function(){ var m = _pf.view === 'fy' ? (_pf.months.length ? _pf.months[_pf.months.length-1].month_label : '') : _pf.month; return m ? '?month=' + encodeURIComponent(m) : ''; })();
+        else if (session.role === 'RM' && session.location) posChildUrl = '/api/portfolio/pos-by-district?'+ ((function(){ var m = _pf.view === 'fy' ? (_pf.months.length ? _pf.months[_pf.months.length-1].month_label : '') : _pf.month; return m ? 'month=' + encodeURIComponent(m) + '&' : ''; })()) + 'region=' + encodeURIComponent(session.location);
+        else if (session.role === 'DM' && session.location) posChildUrl = '/api/portfolio/pos-by-branch?' + ((function(){ var m = _pf.view === 'fy' ? (_pf.months.length ? _pf.months[_pf.months.length-1].month_label : '') : _pf.month; return m ? 'month=' + encodeURIComponent(m) + '&' : ''; })()) + 'district=' + encodeURIComponent(session.location);
+      }
       if (posChildUrl) promises.push(apiFetch(posChildUrl));
       else promises.push(Promise.resolve([]));
 
@@ -228,7 +280,9 @@
     // Sub-units (hierarchical drill-down)
     var children = _pf.children || [];
     if (session.role && session.role !== 'FO' && children.length > 0) {
-      var childRoleMap = { CEO: 'RM', RM: 'DM', DM: 'BM', BM: 'FO' };
+      var childRoleMap = isNewStructure()
+        ? { CEO: 'SM', SM: 'DvM', DvM: 'AM', AM: 'BM', BM: 'FO' }
+        : { CEO: 'RM', RM: 'DM', DM: 'BM', BM: 'FO' };
       var childRole = childRoleMap[session.role];
       if (childRole) {
         children.sort(function (a, b) {
@@ -331,8 +385,12 @@
 
   function subUnitsHtml(children, childRole) {
     if (!children.length) return '';
-    var roleLabel = { RM: 'Regions', DM: 'Districts', BM: 'Branches', FO: 'Officers' };
-    var avType = { RM: 'region', DM: 'district', BM: 'branch', FO: 'officer' };
+    var roleLabel = isNewStructure()
+      ? { SM: 'States', DvM: 'Divisions', AM: 'Areas', BM: 'Branches', FO: 'Officers' }
+      : { RM: 'Regions', DM: 'Districts', BM: 'Branches', FO: 'Officers' };
+    var avType = isNewStructure()
+      ? { SM: 'state', DvM: 'division', AM: 'area', BM: 'branch', FO: 'officer' }
+      : { RM: 'region', DM: 'district', BM: 'branch', FO: 'officer' };
     var label = roleLabel[childRole] || 'Team';
     var av = avType[childRole] || 'branch';
 
@@ -343,19 +401,31 @@
     for (var i = 0; i < children.length; i++) {
       var ch = children[i];
       var totalAcc = numVal(ch.regular_demand) + numVal(ch.demand_1_30) + numVal(ch.demand_31_60) + numVal(ch.pnpa_demand) + numVal(ch.npa_cases);
-      // Match POS from posChildren by region/district/branch name
-      var childKey = ch.region_name || ch.district_name || ch.branch_name || '';
+      // Match POS from posChildren by name
+      var childKey = isNewStructure()
+        ? (ch.state_name || ch.division_name || ch.area_name || ch.branch_name || '')
+        : (ch.region_name || ch.district_name || ch.branch_name || '');
       var posChild = (_pf.posChildren || []).find(function(p) {
-        return (p.region_name || p.district_name || p.branch_name || '') === childKey;
+        return (isNewStructure()
+          ? (p.state_name || p.division_name || p.area_name || p.branch_name || '')
+          : (p.region_name || p.district_name || p.branch_name || '')) === childKey;
       });
       var totalAmt = posChild ? numVal(posChild.total_pos) : (numVal(ch.total_pos) || (numVal(ch.regular_demand_amt) + numVal(ch.demand_1_30_amt) + numVal(ch.demand_31_60_amt) + numVal(ch.pnpa_demand_amt) + numVal(ch.npa_act_amt)));
 
       var childName = '';
       var dataAttr = '';
-      if (childRole === 'RM') childName = ch.region_name || '';
-      else if (childRole === 'DM') childName = ch.district_name || '';
-      else if (childRole === 'BM') childName = ch.branch_name || '';
-      else if (childRole === 'FO') childName = ch.officer_name || ch.name || '';
+      if (isNewStructure()) {
+        if (childRole === 'SM') childName = ch.state_name || '';
+        else if (childRole === 'DvM') childName = ch.division_name || '';
+        else if (childRole === 'AM') childName = ch.area_name || '';
+        else if (childRole === 'BM') childName = ch.branch_name || '';
+        else if (childRole === 'FO') childName = ch.officer_name || ch.name || '';
+      } else {
+        if (childRole === 'RM') childName = ch.region_name || '';
+        else if (childRole === 'DM') childName = ch.district_name || '';
+        else if (childRole === 'BM') childName = ch.branch_name || '';
+        else if (childRole === 'FO') childName = ch.officer_name || ch.name || '';
+      }
 
       if (childRole === 'FO') {
         dataAttr = 'data-emp-id="' + esc(ch.emp_id || '') + '" data-emp-name="' + esc(childName) + '"';

@@ -88,6 +88,8 @@
     });
   }
 
+  function isNewStructure() { return window.getDataStructure && window.getDataStructure() === 'new'; }
+
   function fetchBranches(productType, district) {
     var params = { product_type: productType };
     if (district) params.district = district;
@@ -108,6 +110,16 @@
     var params = { product_type: productType };
     if (branch) params.branch = branch;
     return apiFetch(buildQuery('/api/collection/by-employee', params));
+  }
+
+  /* ── v2 API helpers (new structure) ── */
+
+  function v2Fetch(path, params) {
+    return apiFetch(buildQuery('/api/v2/collection/' + path, params));
+  }
+
+  function fetchV2Employees(productType, branch) {
+    return apiFetch(buildQuery('/api/v2/collection/by-employee', { product_type: productType, branch: branch }));
   }
 
   /* ── Metric extraction from an API row ── */
@@ -142,6 +154,26 @@
       var col = numVal(r.regular_collection);
       data.push({
         name: (r.branch_name || '').toUpperCase(),
+        demand: dem,
+        collection: col,
+        balance: dem - col,
+        pct: dem > 0 ? (col / dem) * 100 : 0
+      });
+    }
+    data.sort(function (a, b) { return a.pct - b.pct; });
+    return data;
+  }
+
+  // Generic version of computeBranchData for any hierarchy level (new structure)
+  function computeEntityData(apiRows, nameField) {
+    var data = [];
+    for (var i = 0; i < apiRows.length; i++) {
+      var r = apiRows[i];
+      var dem = numVal(r.regular_demand);
+      var col = numVal(r.regular_collection);
+      var rawName = r[nameField] || '';
+      data.push({
+        name: rawName.toUpperCase(),
         demand: dem,
         collection: col,
         balance: dem - col,
@@ -337,22 +369,52 @@
     // Content based on active view
     if (view === 'branches') {
       var bd = _analState.branchData || [];
-      if (role === 'CEO') {
-        html += '<div class="desktop-grid-2">';
-        html += buildSectionHtml('Top 10 Branches', upArrow, 'top', bd.slice(-10).reverse());
-        html += '<div class="anal-divider"></div>';
-        html += buildSectionHtml('Bottom 10 Branches', downArrow, 'bottom', bd.slice(0, 10));
-        html += '</div>';
-      } else if (role === 'RM') {
-        html += '<div class="desktop-grid-2">';
-        html += buildSectionHtml('Top 10 Branches \u2014 ' + esc(location), upArrow, 'top', bd.slice(-10).reverse());
-        html += '</div>';
-      } else if (role === 'DM') {
-        html += '<div class="desktop-grid-2">';
-        html += buildSectionHtml('Top 5 Branches \u2014 ' + esc(location), upArrow, 'top', bd.slice(-5).reverse());
-        html += '<div class="anal-divider"></div>';
-        html += buildSectionHtml('Bottom 5 Branches \u2014 ' + esc(location), downArrow, 'bottom', bd.slice(0, 5));
-        html += '</div>';
+      if (isNewStructure()) {
+        // New hierarchy: CEO→State, SM→Division, DvM→Area, AM→Branch
+        var entityLabels = { CEO: 'States', SM: 'Divisions', DvM: 'Areas', AM: 'Branches' };
+        var entityLabel = entityLabels[role] || 'Branches';
+        var locSuffix = (role !== 'CEO' && location) ? ' \u2014 ' + esc(location) : '';
+        if (role === 'CEO') {
+          html += '<div class="desktop-grid-2">';
+          html += buildSectionHtml('Top 10 ' + entityLabel, upArrow, 'top', bd.slice(-10).reverse());
+          html += '<div class="anal-divider"></div>';
+          html += buildSectionHtml('Bottom 10 ' + entityLabel, downArrow, 'bottom', bd.slice(0, 10));
+          html += '</div>';
+        } else if (role === 'SM') {
+          html += '<div class="desktop-grid-2">';
+          html += buildSectionHtml('Top 10 ' + entityLabel + locSuffix, upArrow, 'top', bd.slice(-10).reverse());
+          html += '</div>';
+        } else if (role === 'DvM') {
+          html += '<div class="desktop-grid-2">';
+          html += buildSectionHtml('Top 10 ' + entityLabel + locSuffix, upArrow, 'top', bd.slice(-10).reverse());
+          html += '<div class="anal-divider"></div>';
+          html += buildSectionHtml('Bottom 10 ' + entityLabel + locSuffix, downArrow, 'bottom', bd.slice(0, 10));
+          html += '</div>';
+        } else if (role === 'AM') {
+          html += '<div class="desktop-grid-2">';
+          html += buildSectionHtml('Top 5 ' + entityLabel + locSuffix, upArrow, 'top', bd.slice(-5).reverse());
+          html += '<div class="anal-divider"></div>';
+          html += buildSectionHtml('Bottom 5 ' + entityLabel + locSuffix, downArrow, 'bottom', bd.slice(0, 5));
+          html += '</div>';
+        }
+      } else {
+        if (role === 'CEO') {
+          html += '<div class="desktop-grid-2">';
+          html += buildSectionHtml('Top 10 Branches', upArrow, 'top', bd.slice(-10).reverse());
+          html += '<div class="anal-divider"></div>';
+          html += buildSectionHtml('Bottom 10 Branches', downArrow, 'bottom', bd.slice(0, 10));
+          html += '</div>';
+        } else if (role === 'RM') {
+          html += '<div class="desktop-grid-2">';
+          html += buildSectionHtml('Top 10 Branches \u2014 ' + esc(location), upArrow, 'top', bd.slice(-10).reverse());
+          html += '</div>';
+        } else if (role === 'DM') {
+          html += '<div class="desktop-grid-2">';
+          html += buildSectionHtml('Top 5 Branches \u2014 ' + esc(location), upArrow, 'top', bd.slice(-5).reverse());
+          html += '<div class="anal-divider"></div>';
+          html += buildSectionHtml('Bottom 5 Branches \u2014 ' + esc(location), downArrow, 'bottom', bd.slice(0, 5));
+          html += '</div>';
+        }
       }
     } else if (view === 'fo') {
       var bk = _analState.foBucket;
@@ -399,25 +461,117 @@
     var role = _analState.role;
     var location = _analState.location;
     var pt = _analState.productType;
-    var params = { product_type: pt };
 
+    if (isNewStructure()) {
+      var params = { product_type: pt };
+      var endpoint, nameField;
+      if (role === 'CEO') {
+        endpoint = 'by-state'; nameField = 'state_name';
+      } else if (role === 'SM') {
+        params.state = location; endpoint = 'by-division'; nameField = 'division_name';
+      } else if (role === 'DvM') {
+        params.division = location; endpoint = 'by-area'; nameField = 'area_name';
+      } else if (role === 'AM') {
+        params.area = location; endpoint = 'by-branch'; nameField = 'branch_name';
+      } else {
+        _analState.branchData = []; return;
+      }
+      var apiRows = await v2Fetch(endpoint, params);
+      _analState.branchData = computeEntityData(apiRows, nameField);
+      return;
+    }
+
+    // Old structure
+    var params2 = { product_type: pt };
     if (role === 'RM') {
-      params.region = location;
+      params2.region = location;
     } else if (role === 'DM') {
-      params.district = location;
+      params2.district = location;
     }
     // CEO: no filter — all branches
-
-    var apiRows = await apiFetch(buildQuery('/api/collection/by-branch', params));
-    _analState.branchData = computeBranchData(apiRows);
+    var apiRows2 = await apiFetch(buildQuery('/api/collection/by-branch', params2));
+    _analState.branchData = computeBranchData(apiRows2);
   }
 
   async function loadFOData(bucket) {
     var role = _analState.role;
     var location = _analState.location;
     var pt = _analState.productType;
-    var params = { product_type: pt };
 
+    if (isNewStructure()) {
+      if (role === 'BM') {
+        var rows = await v2Fetch('by-employee', { product_type: pt, branch: location });
+        _analState.foData = computeFODataFromAPI(rows, bucket);
+        return;
+      }
+      if (role === 'AM') {
+        // Get branches in area, then employees for each branch
+        var areaBranches = await v2Fetch('by-branch', { product_type: pt, area: location });
+        var allEmpsAM = [];
+        for (var ab = 0; ab < areaBranches.length; ab++) {
+          var abName = areaBranches[ab].branch_name;
+          if (abName) {
+            var abEmps = await v2Fetch('by-employee', { product_type: pt, branch: abName });
+            allEmpsAM = allEmpsAM.concat(abEmps);
+          }
+        }
+        _analState.foData = computeFODataFromAPI(allEmpsAM, bucket);
+        return;
+      }
+      if (role === 'DvM') {
+        // Get areas in division, then branches, then employees
+        var divAreas = await v2Fetch('by-area', { product_type: pt, division: location });
+        var allEmpsDvM = [];
+        for (var da = 0; da < divAreas.length; da++) {
+          var daName = divAreas[da].area_name;
+          if (daName) {
+            var daBranches = await v2Fetch('by-branch', { product_type: pt, area: daName });
+            for (var dab = 0; dab < daBranches.length; dab++) {
+              var dabName = daBranches[dab].branch_name;
+              if (dabName) {
+                var dabEmps = await v2Fetch('by-employee', { product_type: pt, branch: dabName });
+                allEmpsDvM = allEmpsDvM.concat(dabEmps);
+              }
+            }
+          }
+        }
+        _analState.foData = computeFODataFromAPI(allEmpsDvM, bucket);
+        return;
+      }
+      if (role === 'SM') {
+        // Get divisions in state → areas → branches → employees
+        var stateDivs = await v2Fetch('by-division', { product_type: pt, state: location });
+        var allEmpsSM = [];
+        for (var sd = 0; sd < stateDivs.length; sd++) {
+          var sdName = stateDivs[sd].division_name;
+          if (sdName) {
+            var sdAreas = await v2Fetch('by-area', { product_type: pt, division: sdName });
+            for (var sda = 0; sda < sdAreas.length; sda++) {
+              var sdaName = sdAreas[sda].area_name;
+              if (sdaName) {
+                var sdaBranches = await v2Fetch('by-branch', { product_type: pt, area: sdaName });
+                for (var sdab = 0; sdab < sdaBranches.length; sdab++) {
+                  var sdabName = sdaBranches[sdab].branch_name;
+                  if (sdabName) {
+                    var sdabEmps = await v2Fetch('by-employee', { product_type: pt, branch: sdabName });
+                    allEmpsSM = allEmpsSM.concat(sdabEmps);
+                  }
+                }
+              }
+            }
+          }
+        }
+        _analState.foData = computeFODataFromAPI(allEmpsSM, bucket);
+        return;
+      }
+      // CEO: all employees
+      var ceoRows = await v2Fetch('by-employee', { product_type: pt });
+      _analState.foData = computeFODataFromAPI(ceoRows, bucket);
+      return;
+    }
+
+    // Old structure
+    var params = { product_type: pt };
     if (role === 'BM') {
       params.branch = location;
     } else if (role === 'DM') {
