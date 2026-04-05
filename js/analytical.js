@@ -371,7 +371,7 @@
       var bd = _analState.branchData || [];
       if (isNewStructure()) {
         // New hierarchy: CEO→State, SM→Division, DvM→Area, AM→Branch
-        var entityLabels = { CEO: 'States', SM: 'Divisions', DvM: 'Areas', AM: 'Branches' };
+        var entityLabels = { CEO: 'States', SM: 'Divisions', RM: 'Divisions', DvM: 'Areas', DM: 'Areas', AM: 'Branches' };
         var entityLabel = entityLabels[role] || 'Branches';
         var locSuffix = (role !== 'CEO' && location) ? ' \u2014 ' + esc(location) : '';
         if (role === 'CEO') {

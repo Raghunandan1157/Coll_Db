@@ -58,15 +58,16 @@
       params.push('product_type=' + encodeURIComponent(productType.toUpperCase()));
     }
     if (isNewStructure()) {
-      if (session.role === 'SM' && session.location) {
+      var r = session.role;
+      if ((r === 'SM' || r === 'RM') && session.location) {
         params.push('state=' + encodeURIComponent(session.location));
-      } else if (session.role === 'DvM' && session.location) {
+      } else if ((r === 'DvM' || r === 'DM') && session.location) {
         params.push('division=' + encodeURIComponent(session.location));
-      } else if (session.role === 'AM' && session.location) {
+      } else if (r === 'AM' && session.location) {
         params.push('area=' + encodeURIComponent(session.location));
-      } else if (session.role === 'BM' && session.location) {
+      } else if (r === 'BM' && session.location) {
         params.push('branch=' + encodeURIComponent(session.location));
-      } else if ((!session.role || session.role === 'FO') && session.id) {
+      } else if ((!r || r === 'FO') && session.id) {
         params.push('emp_id=' + encodeURIComponent(session.id));
       }
     } else {
@@ -90,22 +91,23 @@
 
     if (isNewStructure()) {
       var v2Base = '/api/v2/hourly';
-      if (session.role === 'CEO') {
+      var r = session.role;
+      if (r === 'CEO') {
         return v2Base + '/by-state' + (ptParam ? '?' + ptParam : '');
       }
-      if (session.role === 'SM' && session.location) {
+      if ((r === 'SM' || r === 'RM') && session.location) {
         var ns_p = [ptParam, 'state=' + encodeURIComponent(session.location)].filter(Boolean);
         return v2Base + '/by-division?' + ns_p.join('&');
       }
-      if (session.role === 'DvM' && session.location) {
+      if ((r === 'DvM' || r === 'DM') && session.location) {
         var ns_p2 = [ptParam, 'division=' + encodeURIComponent(session.location)].filter(Boolean);
         return v2Base + '/by-area?' + ns_p2.join('&');
       }
-      if (session.role === 'AM' && session.location) {
+      if (r === 'AM' && session.location) {
         var ns_p3 = [ptParam, 'area=' + encodeURIComponent(session.location)].filter(Boolean);
         return v2Base + '/by-branch?' + ns_p3.join('&');
       }
-      if (session.role === 'BM' && session.location) {
+      if (r === 'BM' && session.location) {
         var ns_p4 = [ptParam, 'branch=' + encodeURIComponent(session.location)].filter(Boolean);
         return v2Base + '/by-employee?' + ns_p4.join('&');
       }
@@ -210,7 +212,7 @@
     var children = _hourlyState.childrenData || [];
     if (session.role && session.role !== 'FO' && children.length > 0) {
       var childRoleMap = isNewStructure()
-        ? { CEO: 'SM', SM: 'DvM', DvM: 'AM', AM: 'BM', BM: 'FO' }
+        ? { CEO: 'SM', SM: 'DvM', RM: 'DvM', DvM: 'AM', DM: 'AM', AM: 'BM', BM: 'FO' }
         : { CEO: 'RM', RM: 'DM', DM: 'BM', BM: 'FO' };
       var childRole = childRoleMap[session.role];
       if (childRole) {

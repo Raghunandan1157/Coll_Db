@@ -63,11 +63,12 @@
     if (_pf.view !== 'fy' && _pf.month) p.push('month=' + encodeURIComponent(_pf.month));
     if (_pf.product && _pf.product !== 'all') p.push('product_type=' + encodeURIComponent(_pf.product.toUpperCase()));
     if (isNewStructure()) {
-      if (session.role === 'SM' && session.location) p.push('state=' + encodeURIComponent(session.location));
-      else if (session.role === 'DvM' && session.location) p.push('division=' + encodeURIComponent(session.location));
-      else if (session.role === 'AM' && session.location) p.push('area=' + encodeURIComponent(session.location));
-      else if (session.role === 'BM' && session.location) p.push('branch=' + encodeURIComponent(session.location));
-      else if ((!session.role || session.role === 'FO') && session.id) p.push('emp_id=' + encodeURIComponent(session.id));
+      var r = session.role;
+      if ((r === 'SM' || r === 'RM') && session.location) p.push('state=' + encodeURIComponent(session.location));
+      else if ((r === 'DvM' || r === 'DM') && session.location) p.push('division=' + encodeURIComponent(session.location));
+      else if (r === 'AM' && session.location) p.push('area=' + encodeURIComponent(session.location));
+      else if (r === 'BM' && session.location) p.push('branch=' + encodeURIComponent(session.location));
+      else if ((!r || r === 'FO') && session.id) p.push('emp_id=' + encodeURIComponent(session.id));
     } else {
       if (session.role === 'RM' && session.location) p.push('region=' + encodeURIComponent(session.location));
       else if (session.role === 'DM' && session.location) p.push('district=' + encodeURIComponent(session.location));
@@ -85,20 +86,21 @@
 
     if (isNewStructure()) {
       var v2Base = _pf.view === 'fy' ? '/api/v2/fy' : '/api/v2/portfolio';
-      if (session.role === 'CEO') return v2Base + '/by-state' + (base.length ? '?' + base.join('&') : '');
-      if (session.role === 'SM' && session.location) {
+      var r = session.role;
+      if (r === 'CEO') return v2Base + '/by-state' + (base.length ? '?' + base.join('&') : '');
+      if ((r === 'SM' || r === 'RM') && session.location) {
         base.push('state=' + encodeURIComponent(session.location));
         return v2Base + '/by-division?' + base.join('&');
       }
-      if (session.role === 'DvM' && session.location) {
+      if ((r === 'DvM' || r === 'DM') && session.location) {
         base.push('division=' + encodeURIComponent(session.location));
         return v2Base + '/by-area?' + base.join('&');
       }
-      if (session.role === 'AM' && session.location) {
+      if (r === 'AM' && session.location) {
         base.push('area=' + encodeURIComponent(session.location));
         return v2Base + '/by-branch?' + base.join('&');
       }
-      if (session.role === 'BM' && session.location) {
+      if (r === 'BM' && session.location) {
         base.push('branch=' + encodeURIComponent(session.location));
         return v2Base + '/by-employee?' + base.join('&');
       }
@@ -281,7 +283,7 @@
     var children = _pf.children || [];
     if (session.role && session.role !== 'FO' && children.length > 0) {
       var childRoleMap = isNewStructure()
-        ? { CEO: 'SM', SM: 'DvM', DvM: 'AM', AM: 'BM', BM: 'FO' }
+        ? { CEO: 'SM', SM: 'DvM', RM: 'DvM', DvM: 'AM', DM: 'AM', AM: 'BM', BM: 'FO' }
         : { CEO: 'RM', RM: 'DM', DM: 'BM', BM: 'FO' };
       var childRole = childRoleMap[session.role];
       if (childRole) {

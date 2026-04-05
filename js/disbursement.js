@@ -237,7 +237,7 @@
     var children = _db.children || [];
     if (session.role && session.role !== 'FO' && children.length > 0) {
       var childRoleMap = isNewStructure()
-        ? { CEO: 'SM', SM: 'DvM', DvM: 'AM', AM: 'BM', BM: 'FO' }
+        ? { CEO: 'SM', SM: 'DvM', RM: 'DvM', DvM: 'AM', DM: 'AM', AM: 'BM', BM: 'FO' }
         : { CEO: 'RM', RM: 'DM', DM: 'BM', BM: 'FO' };
       var childRole = childRoleMap[session.role];
       if (childRole) {

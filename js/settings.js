@@ -53,11 +53,17 @@
   /* ========== setDataStructure ========== */
 
   function setDataStructure(value) {
+    var current = localStorage.getItem(STORAGE_KEY) || DEFAULT_STRUCTURE;
+    if (value === current) return;
     localStorage.setItem(STORAGE_KEY, value);
     updateUI(value);
     var label = value === 'fy2025-26' ? 'FY 2025-26 Structure' : 'FY 2026-27 Structure';
-    showToast('Switched to ' + label + '. Reload tabs to see changes.');
-    window.dispatchEvent(new CustomEvent('structureChanged', { detail: { structure: value } }));
+    showToast('Switching to ' + label + '...');
+    // Reload page so all tab modules re-initialize with new structure
+    setTimeout(function () {
+      window.location.href = 'employee.html#settings';
+      window.location.reload();
+    }, 500);
   }
 
   /* ========== initSettings ========== */
