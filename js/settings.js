@@ -59,11 +59,25 @@
     updateUI(value);
     var label = value === 'fy2025-26' ? 'FY 2025-26 Structure' : 'FY 2026-27 Structure';
     showToast('Switching to ' + label + '...');
+    // Reset to original login role (pop entire drill-down stack)
+    var stack = [];
+    try { stack = JSON.parse(localStorage.getItem('roleNavStack') || '[]'); } catch (e) {}
+    if (stack.length) {
+      var root = stack[0]; // original login role
+      localStorage.setItem('roleName', root.role || 'CEO');
+      localStorage.setItem('roleLocation', root.location || '');
+      if (root.id) { localStorage.setItem('employeeId', root.id); localStorage.setItem('employeeName', root.name || ''); }
+      else { localStorage.removeItem('employeeId'); localStorage.removeItem('employeeName'); }
+    }
+    localStorage.removeItem('roleNavStack');
     // Clear stale state before reload
     localStorage.removeItem('pfMonth');
     localStorage.removeItem('activeTab');
     localStorage.removeItem('dbMonth');
     localStorage.removeItem('dbProduct');
+    localStorage.removeItem('roleState');
+    localStorage.removeItem('roleDivision');
+    localStorage.removeItem('roleArea');
     // Reload page so all tab modules re-initialize with new structure
     setTimeout(function () { window.location.reload(); }, 500);
   }
