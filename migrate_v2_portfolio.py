@@ -30,15 +30,15 @@ def load_esaf_mapping():
         if i == 0:  # header
             continue
         branch   = row[5]   # Col 6 = BRANCH NAME
-        state    = row[6]   # Col 7 = STATE
         area     = row[7]   # Col 8 = Area
         division = row[8]   # Col 9 = DIVISION
-        if not branch or not state or not division or not area:
+        region   = row[9]   # Col 10 = REGION (top level)
+        if not branch or not region or not division or not area:
             skipped += 1
             continue
         key = str(branch).strip().upper()
         mapping[key] = {
-            'state':    str(state).strip().upper(),
+            'state':    str(region).strip().upper(),   # "state" key = Region
             'division': str(division).strip().upper(),
             'area':     str(area).strip().upper(),
         }

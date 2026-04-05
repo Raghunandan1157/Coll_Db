@@ -388,7 +388,7 @@
   function subUnitsHtml(children, childRole) {
     if (!children.length) return '';
     var roleLabel = isNewStructure()
-      ? { SM: 'States', DvM: 'Divisions', AM: 'Areas', BM: 'Branches', FO: 'Officers' }
+      ? { SM: 'Regions', DvM: 'Divisions', AM: 'Areas', BM: 'Branches', FO: 'Officers' }
       : { RM: 'Regions', DM: 'Districts', BM: 'Branches', FO: 'Officers' };
     var avType = isNewStructure()
       ? { SM: 'state', DvM: 'division', AM: 'area', BM: 'branch', FO: 'officer' }

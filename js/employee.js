@@ -14,7 +14,7 @@
   } else if (session.role === 'BM') {
     subtitleEl.textContent = 'Branch Manager \u2014 ' + session.location;
   } else if (session.role === 'SM') {
-    subtitleEl.textContent = 'State Manager \u2014 ' + session.location;
+    subtitleEl.textContent = 'Regional Manager \u2014 ' + session.location;
   } else if (session.role === 'DvM') {
     subtitleEl.textContent = 'Division Manager \u2014 ' + session.location;
   } else if (session.role === 'AM') {

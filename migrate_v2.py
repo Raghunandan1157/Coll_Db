@@ -29,16 +29,16 @@ def load_esaf_mapping():
     for i, row in enumerate(ws.iter_rows(values_only=True)):
         if i == 0:  # header
             continue
-        branch = row[5]   # BRANCH NAME (new)
-        state  = row[6]   # STATE
-        area   = row[7]   # Area
-        division = row[8] # DIVISION
-        if not branch or not state or not division or not area:
+        branch   = row[5]   # BRANCH NAME (new)
+        area     = row[7]   # Area
+        division = row[8]   # DIVISION
+        region   = row[9]   # REGION (top level)
+        if not branch or not region or not division or not area:
             skipped += 1
             continue
         key = str(branch).strip().upper()
         mapping[key] = {
-            'state':    str(state).strip().upper(),
+            'state':    str(region).strip().upper(),   # "state" key = Region
             'division': str(division).strip().upper(),
             'area':     str(area).strip().upper(),
         }
