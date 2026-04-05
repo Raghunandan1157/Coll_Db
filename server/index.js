@@ -2261,6 +2261,285 @@ app.get("/api/v2/areas", async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ========== V2 PORTFOLIO API ENDPOINTS ==========
+
+app.get("/api/v2/portfolio/months", async (req, res) => {
+  try {
+    const result = await portfolioPool.query("SELECT month_label, sort_order FROM months ORDER BY sort_order");
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get("/api/v2/portfolio/product_types", async (req, res) => {
+  try {
+    const result = await portfolioPool.query("SELECT product_type_name FROM product_types ORDER BY product_type_id");
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+function buildV2PortfolioQuery(groupCol) {
+  return `SELECT ${groupCol ? groupCol + ',' : ''}
+    SUM(pp.regular_demand)::int AS regular_demand, SUM(pp.regular_collection)::int AS regular_collection,
+    SUM(pp.regular_pos) AS regular_pos, SUM(pp.sma0_pos) AS sma0_pos, SUM(pp.sma1_pos) AS sma1_pos,
+    SUM(pp.pnpa_pos) AS pnpa_pos, SUM(pp.npa_pos) AS npa_pos, SUM(pp.total_pos) AS total_pos,
+    SUM(pp.demand_1_30)::int AS demand_1_30, SUM(pp.collection_1_30)::int AS collection_1_30,
+    SUM(pp.demand_31_60)::int AS demand_31_60, SUM(pp.collection_31_60)::int AS collection_31_60,
+    SUM(pp.pnpa_demand)::int AS pnpa_demand, SUM(pp.pnpa_collection)::int AS pnpa_collection,
+    SUM(pp.npa_cases)::int AS npa_cases, SUM(pp.npa_act_acc)::int AS npa_act_acc, SUM(pp.npa_act_amt) AS npa_act_amt,
+    SUM(pp.npa_clo_acc)::int AS npa_clo_acc, SUM(pp.npa_clo_amt) AS npa_clo_amt,
+    SUM(pp.on_date_demand)::int AS on_date_demand, SUM(pp.on_date_collection)::int AS on_date_collection,
+    SUM(pp.regular_demand_amt) AS regular_demand_amt, SUM(pp.regular_collection_amt) AS regular_collection_amt,
+    SUM(pp.demand_1_30_amt) AS demand_1_30_amt, SUM(pp.collection_1_30_amt) AS collection_1_30_amt,
+    SUM(pp.demand_31_60_amt) AS demand_31_60_amt, SUM(pp.collection_31_60_amt) AS collection_31_60_amt,
+    SUM(pp.pnpa_demand_amt) AS pnpa_demand_amt, SUM(pp.pnpa_collection_amt) AS pnpa_collection_amt,
+    SUM(pp.on_date_demand_amt) AS on_date_demand_amt, SUM(pp.on_date_collection_amt) AS on_date_collection_amt
+  FROM v2_portfolio_performance pp
+  JOIN product_types pt ON pp.product_type_id = pt.product_type_id
+  JOIN months m ON pp.month_id = m.month_id
+  JOIN v2_employees e ON pp.emp_id = e.emp_id
+  JOIN v2_branches b ON e.branch_id = b.branch_id
+  JOIN v2_areas a ON b.area_id = a.area_id
+  JOIN v2_divisions dv ON a.division_id = dv.division_id
+  JOIN v2_states s ON dv.state_id = s.state_id`;
+}
+
+function buildV2PortfolioWhere(filters) {
+  const where = [];
+  const params = [];
+  let idx = 1;
+  if (filters.month) { where.push(`m.month_label = $${idx++}`); params.push(filters.month); }
+  if (filters.product_type && filters.product_type !== 'All') {
+    where.push(`pt.product_type_name = $${idx++}`); params.push(filters.product_type);
+  }
+  if (filters.state) { where.push(`s.state_name = $${idx++}`); params.push(filters.state); }
+  if (filters.division) { where.push(`dv.division_name = $${idx++}`); params.push(filters.division); }
+  if (filters.area) { where.push(`a.area_name = $${idx++}`); params.push(filters.area); }
+  if (filters.branch) { where.push(`b.branch_name = $${idx++}`); params.push(filters.branch); }
+  if (filters.emp_id) { where.push(`pp.emp_id = $${idx++}`); params.push(filters.emp_id); }
+  return { clause: where.length ? ' WHERE ' + where.join(' AND ') : '', params };
+}
+
+app.get("/api/v2/portfolio/summary", async (req, res) => {
+  try {
+    const base = buildV2PortfolioQuery(null);
+    const { clause, params } = buildV2PortfolioWhere(req.query);
+    const result = await portfolioPool.query(base + clause, params);
+    res.json(result.rows[0] || {});
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get("/api/v2/portfolio/by-state", async (req, res) => {
+  try {
+    const base = buildV2PortfolioQuery("s.state_name");
+    const { clause, params } = buildV2PortfolioWhere(req.query);
+    const result = await portfolioPool.query(base + clause + " GROUP BY s.state_name ORDER BY s.state_name", params);
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get("/api/v2/portfolio/by-division", async (req, res) => {
+  try {
+    const base = buildV2PortfolioQuery("dv.division_name, s.state_name");
+    const { clause, params } = buildV2PortfolioWhere(req.query);
+    const result = await portfolioPool.query(base + clause + " GROUP BY dv.division_name, s.state_name ORDER BY dv.division_name", params);
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get("/api/v2/portfolio/by-area", async (req, res) => {
+  try {
+    const base = buildV2PortfolioQuery("a.area_name, dv.division_name");
+    const { clause, params } = buildV2PortfolioWhere(req.query);
+    const result = await portfolioPool.query(base + clause + " GROUP BY a.area_name, dv.division_name ORDER BY a.area_name", params);
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get("/api/v2/portfolio/by-branch", async (req, res) => {
+  try {
+    const base = buildV2PortfolioQuery("b.branch_name, a.area_name");
+    const { clause, params } = buildV2PortfolioWhere(req.query);
+    const result = await portfolioPool.query(base + clause + " GROUP BY b.branch_name, a.area_name ORDER BY b.branch_name", params);
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get("/api/v2/portfolio/by-employee", async (req, res) => {
+  try {
+    const base = buildV2PortfolioQuery("e.emp_id, e.officer_name, b.branch_name");
+    const { clause, params } = buildV2PortfolioWhere(req.query);
+    const result = await portfolioPool.query(base + clause + " GROUP BY e.emp_id, e.officer_name, b.branch_name ORDER BY e.officer_name", params);
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+
+// ========== V2 Branch POS API ==========
+
+function buildV2PosWhere(filters) {
+  const where = [];
+  const params = [];
+  let idx = 1;
+  if (filters.month) {
+    where.push(`month_id=(SELECT month_id FROM months WHERE month_label=$${idx++})`);
+    params.push(filters.month);
+  }
+  if (filters.state) { where.push(`state_name=$${idx++}`); params.push(filters.state); }
+  if (filters.division) { where.push(`division_name=$${idx++}`); params.push(filters.division); }
+  if (filters.area) { where.push(`area_name=$${idx++}`); params.push(filters.area); }
+  if (filters.branch) { where.push(`branch_name=$${idx++}`); params.push(filters.branch); }
+  return { clause: where.length ? ' WHERE ' + where.join(' AND ') : '', params };
+}
+
+app.get("/api/v2/portfolio/pos-summary", async (req, res) => {
+  try {
+    const { clause, params } = buildV2PosWhere(req.query);
+    const result = await portfolioPool.query(
+      "SELECT SUM(regular_pos) AS regular_pos, SUM(sma0_pos) AS sma0_pos, SUM(sma1_pos) AS sma1_pos, SUM(pnpa_pos) AS pnpa_pos, SUM(npa_pos) AS npa_pos, SUM(total_pos) AS total_pos FROM v2_branch_pos" + clause, params
+    );
+    res.json(result.rows[0] || {});
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get("/api/v2/portfolio/pos-by-state", async (req, res) => {
+  try {
+    const { clause, params } = buildV2PosWhere(req.query);
+    const result = await portfolioPool.query(
+      "SELECT state_name, SUM(regular_pos) AS regular_pos, SUM(sma0_pos) AS sma0_pos, SUM(sma1_pos) AS sma1_pos, SUM(pnpa_pos) AS pnpa_pos, SUM(npa_pos) AS npa_pos, SUM(total_pos) AS total_pos FROM v2_branch_pos" + clause + " GROUP BY state_name ORDER BY state_name", params
+    );
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get("/api/v2/portfolio/pos-by-division", async (req, res) => {
+  try {
+    const { clause, params } = buildV2PosWhere(req.query);
+    const result = await portfolioPool.query(
+      "SELECT division_name, state_name, SUM(regular_pos) AS regular_pos, SUM(sma0_pos) AS sma0_pos, SUM(sma1_pos) AS sma1_pos, SUM(pnpa_pos) AS pnpa_pos, SUM(npa_pos) AS npa_pos, SUM(total_pos) AS total_pos FROM v2_branch_pos" + clause + " GROUP BY division_name, state_name ORDER BY division_name", params
+    );
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get("/api/v2/portfolio/pos-by-area", async (req, res) => {
+  try {
+    const { clause, params } = buildV2PosWhere(req.query);
+    const result = await portfolioPool.query(
+      "SELECT area_name, division_name, SUM(regular_pos) AS regular_pos, SUM(sma0_pos) AS sma0_pos, SUM(sma1_pos) AS sma1_pos, SUM(pnpa_pos) AS pnpa_pos, SUM(npa_pos) AS npa_pos, SUM(total_pos) AS total_pos FROM v2_branch_pos" + clause + " GROUP BY area_name, division_name ORDER BY area_name", params
+    );
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get("/api/v2/portfolio/pos-by-branch", async (req, res) => {
+  try {
+    const { clause, params } = buildV2PosWhere(req.query);
+    const result = await portfolioPool.query(
+      "SELECT branch_name, area_name, SUM(regular_pos) AS regular_pos, SUM(sma0_pos) AS sma0_pos, SUM(sma1_pos) AS sma1_pos, SUM(pnpa_pos) AS pnpa_pos, SUM(npa_pos) AS npa_pos, SUM(total_pos) AS total_pos FROM v2_branch_pos" + clause + " GROUP BY branch_name, area_name ORDER BY branch_name", params
+    );
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+
+// ========== V2 FY API ENDPOINTS ==========
+
+function buildV2FYQuery(groupCol) {
+  return `SELECT ${groupCol ? groupCol + ',' : ''}
+    SUM(fp.regular_demand)::int AS regular_demand, SUM(fp.regular_collection)::int AS regular_collection,
+    SUM(fp.regular_pos) AS regular_pos, SUM(fp.sma0_pos) AS sma0_pos, SUM(fp.sma1_pos) AS sma1_pos,
+    SUM(fp.pnpa_pos) AS pnpa_pos, SUM(fp.npa_pos) AS npa_pos, SUM(fp.total_pos) AS total_pos,
+    SUM(fp.demand_1_30)::int AS demand_1_30, SUM(fp.collection_1_30)::int AS collection_1_30,
+    SUM(fp.demand_31_60)::int AS demand_31_60, SUM(fp.collection_31_60)::int AS collection_31_60,
+    SUM(fp.pnpa_demand)::int AS pnpa_demand, SUM(fp.pnpa_collection)::int AS pnpa_collection,
+    SUM(fp.npa_cases)::int AS npa_cases, SUM(fp.npa_act_acc)::int AS npa_act_acc, SUM(fp.npa_act_amt) AS npa_act_amt,
+    SUM(fp.npa_clo_acc)::int AS npa_clo_acc, SUM(fp.npa_clo_amt) AS npa_clo_amt,
+    SUM(fp.on_date_demand)::int AS on_date_demand, SUM(fp.on_date_collection)::int AS on_date_collection,
+    SUM(fp.regular_demand_amt) AS regular_demand_amt, SUM(fp.regular_collection_amt) AS regular_collection_amt,
+    SUM(fp.demand_1_30_amt) AS demand_1_30_amt, SUM(fp.collection_1_30_amt) AS collection_1_30_amt,
+    SUM(fp.demand_31_60_amt) AS demand_31_60_amt, SUM(fp.collection_31_60_amt) AS collection_31_60_amt,
+    SUM(fp.pnpa_demand_amt) AS pnpa_demand_amt, SUM(fp.pnpa_collection_amt) AS pnpa_collection_amt,
+    SUM(fp.on_date_demand_amt) AS on_date_demand_amt, SUM(fp.on_date_collection_amt) AS on_date_collection_amt
+  FROM v2_fy_performance fp
+  JOIN product_types pt ON fp.product_type_id = pt.product_type_id
+  JOIN v2_employees e ON fp.emp_id = e.emp_id
+  JOIN v2_branches b ON e.branch_id = b.branch_id
+  JOIN v2_areas a ON b.area_id = a.area_id
+  JOIN v2_divisions dv ON a.division_id = dv.division_id
+  JOIN v2_states s ON dv.state_id = s.state_id`;
+}
+
+function buildV2FYWhere(filters) {
+  const where = [];
+  const params = [];
+  let idx = 1;
+  if (filters.product_type && filters.product_type !== 'All') {
+    where.push(`pt.product_type_name = $${idx++}`); params.push(filters.product_type);
+  }
+  if (filters.state) { where.push(`s.state_name = $${idx++}`); params.push(filters.state); }
+  if (filters.division) { where.push(`dv.division_name = $${idx++}`); params.push(filters.division); }
+  if (filters.area) { where.push(`a.area_name = $${idx++}`); params.push(filters.area); }
+  if (filters.branch) { where.push(`b.branch_name = $${idx++}`); params.push(filters.branch); }
+  if (filters.emp_id) { where.push(`fp.emp_id = $${idx++}`); params.push(filters.emp_id); }
+  return { clause: where.length ? ' WHERE ' + where.join(' AND ') : '', params };
+}
+
+app.get("/api/v2/fy/summary", async (req, res) => {
+  try {
+    const base = buildV2FYQuery(null);
+    const { clause, params } = buildV2FYWhere(req.query);
+    const sql = base.replace("SELECT ,", "SELECT ") + clause;
+    const result = await portfolioPool.query(sql, params);
+    res.json(result.rows[0] || {});
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get("/api/v2/fy/by-state", async (req, res) => {
+  try {
+    const base = buildV2FYQuery("s.state_name");
+    const { clause, params } = buildV2FYWhere(req.query);
+    const result = await portfolioPool.query(base + clause + " GROUP BY s.state_name ORDER BY s.state_name", params);
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get("/api/v2/fy/by-division", async (req, res) => {
+  try {
+    const base = buildV2FYQuery("dv.division_name, s.state_name");
+    const { clause, params } = buildV2FYWhere(req.query);
+    const result = await portfolioPool.query(base + clause + " GROUP BY dv.division_name, s.state_name ORDER BY dv.division_name", params);
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get("/api/v2/fy/by-area", async (req, res) => {
+  try {
+    const base = buildV2FYQuery("a.area_name, dv.division_name");
+    const { clause, params } = buildV2FYWhere(req.query);
+    const result = await portfolioPool.query(base + clause + " GROUP BY a.area_name, dv.division_name ORDER BY a.area_name", params);
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get("/api/v2/fy/by-branch", async (req, res) => {
+  try {
+    const base = buildV2FYQuery("b.branch_name, a.area_name");
+    const { clause, params } = buildV2FYWhere(req.query);
+    const result = await portfolioPool.query(base + clause + " GROUP BY b.branch_name, a.area_name ORDER BY b.branch_name", params);
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get("/api/v2/fy/by-employee", async (req, res) => {
+  try {
+    const base = buildV2FYQuery("e.emp_id, e.officer_name, b.branch_name");
+    const { clause, params } = buildV2FYWhere(req.query);
+    const result = await portfolioPool.query(base + clause + " GROUP BY e.emp_id, e.officer_name, b.branch_name ORDER BY e.officer_name", params);
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+
 server.listen(PORT, "0.0.0.0", async () => {
   await startPgListener();
   console.log("Server running on http://0.0.0.0:" + PORT);
