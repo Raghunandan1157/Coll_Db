@@ -62,7 +62,8 @@
     // Clear stale state before reload
     localStorage.removeItem('pfMonth');
     localStorage.removeItem('activeTab');
-    localStorage.setItem('roleStructure', value);
+    localStorage.removeItem('dbMonth');
+    localStorage.removeItem('dbProduct');
     // Reload page so all tab modules re-initialize with new structure
     setTimeout(function () { window.location.reload(); }, 500);
   }

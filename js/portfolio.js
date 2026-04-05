@@ -193,7 +193,7 @@
       // Fetch POS data from branch_pos table
       var posParams = [];
       if (isNewStructure()) {
-        if (session.role === 'SM' && session.location) posParams.push('state=' + encodeURIComponent(session.location));
+        if ((session.role === 'SM' || session.role === 'RM') && session.location) posParams.push('state=' + encodeURIComponent(session.location));
         else if (session.role === 'DvM' && session.location) posParams.push('division=' + encodeURIComponent(session.location));
         else if (session.role === 'AM' && session.location) posParams.push('area=' + encodeURIComponent(session.location));
         else if (session.role === 'BM' && session.location) posParams.push('branch=' + encodeURIComponent(session.location));
@@ -214,7 +214,7 @@
         var posM2 = _pf.view === 'fy' ? (_pf.months.length ? _pf.months[_pf.months.length-1].month_label : '') : _pf.month;
         var posMParam2 = posM2 ? 'month=' + encodeURIComponent(posM2) : '';
         if (session.role === 'CEO') posChildUrl = posV2Base + '/pos-by-state' + (posMParam2 ? '?' + posMParam2 : '');
-        else if (session.role === 'SM' && session.location) posChildUrl = posV2Base + '/pos-by-division?' + (posMParam2 ? posMParam2 + '&' : '') + 'state=' + encodeURIComponent(session.location);
+        else if ((session.role === 'SM' || session.role === 'RM') && session.location) posChildUrl = posV2Base + '/pos-by-division?' + (posMParam2 ? posMParam2 + '&' : '') + 'state=' + encodeURIComponent(session.location);
         else if (session.role === 'DvM' && session.location) posChildUrl = posV2Base + '/pos-by-area?' + (posMParam2 ? posMParam2 + '&' : '') + 'division=' + encodeURIComponent(session.location);
         else if (session.role === 'AM' && session.location) posChildUrl = posV2Base + '/pos-by-branch?' + (posMParam2 ? posMParam2 + '&' : '') + 'area=' + encodeURIComponent(session.location);
       } else {

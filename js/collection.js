@@ -91,7 +91,7 @@
     var dateParam = _collState.date ? 'date=' + encodeURIComponent(_collState.date) + '&' : '';
 
     if (isNewStructure()) {
-      var v2Base = '/api/v2/collection';
+      var v2Base = (_collState.view === 'fy') ? '/api/v2/fy' : '/api/v2/collection';
       var r = session.role;
       if (r === 'CEO') {
         var parts = [];
@@ -152,7 +152,7 @@
 
     var product = _collState.product;
     var apiBase = isNewStructure()
-      ? '/api/v2/collection'
+      ? (_collState.view === 'fy' ? '/api/v2/fy' : '/api/v2/collection')
       : (_collState.date ? '/api/daily' : (_collState.view === 'fy' ? '/api/fy' : '/api/collection'));
     var params = summaryParams(product);
     if (_collState.date) {
@@ -259,9 +259,10 @@
 
   function viewToggleHtml() {
     var ov = _collState.view === 'overall';
+    var fyLabel = (window.getDataStructure && window.getDataStructure() === 'new') ? 'FY 26-27' : 'FY 25-26';
     return '<div class="pf-view-toggle emp-fade">' +
       '<button class="pf-view-btn' + (ov ? ' active' : '') + '" data-coll-view="overall">OverAll</button>' +
-      '<button class="pf-view-btn' + (!ov ? ' active' : '') + '" data-coll-view="fy">FY 25-26</button>' +
+      '<button class="pf-view-btn' + (!ov ? ' active' : '') + '" data-coll-view="fy">' + fyLabel + '</button>' +
     '</div>';
   }
 

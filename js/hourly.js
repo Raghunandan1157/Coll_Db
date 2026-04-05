@@ -90,7 +90,7 @@
     var ptParam = pt ? 'product_type=' + encodeURIComponent(pt) : '';
 
     if (isNewStructure()) {
-      var v2Base = '/api/v2/hourly';
+      var v2Base = (_hourlyState.view === 'fy') ? '/api/v2/fy' : '/api/v2/hourly';
       var r = session.role;
       if (r === 'CEO') {
         return v2Base + '/by-state' + (ptParam ? '?' + ptParam : '');
@@ -145,7 +145,7 @@
       '<div style="color:#64748B;font-size:14px;">Loading hourly data...</div></div>';
 
     var product = _hourlyState.product;
-    var summaryUrl = (isNewStructure() ? '/api/v2/hourly' : '/api/hourly') + '/summary' + summaryParams(product);
+    var summaryUrl = (isNewStructure() ? (_hourlyState.view === 'fy' ? '/api/v2/fy' : '/api/v2/hourly') : '/api/hourly') + '/summary' + summaryParams(product);
     var childUrl = subUnitsUrl(product);
 
     var promises = [apiFetch(summaryUrl)];
@@ -241,9 +241,10 @@
 
   function viewToggleHtml() {
     var ov = _hourlyState.view === 'overall';
+    var fyLabel = (window.getDataStructure && window.getDataStructure() === 'new') ? 'FY 26-27' : 'FY 25-26';
     return '<div class="pf-view-toggle emp-fade">' +
       '<button class="pf-view-btn' + (ov ? ' active' : '') + '" data-hourly-view="overall">OverAll</button>' +
-      '<button class="pf-view-btn' + (!ov ? ' active' : '') + '" data-hourly-view="fy">FY 25-26</button>' +
+      '<button class="pf-view-btn' + (!ov ? ' active' : '') + '" data-hourly-view="fy">' + fyLabel + '</button>' +
     '</div>';
   }
 

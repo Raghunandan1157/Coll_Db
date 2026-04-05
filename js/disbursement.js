@@ -6,8 +6,6 @@
 (function () {
   var session = getEmployeeSession();
 
-  function isNewStructure() { return window.getDataStructure && window.getDataStructure() === 'new'; }
-
   function fmtNum(v) {
     if (v == null || v === '' || v === '-') return '-';
     var n = typeof v === 'string' ? parseFloat(v) : v;
@@ -50,9 +48,9 @@
     if (_db.month) p.push('month=' + encodeURIComponent(_db.month));
     if (_db.product && _db.product !== 'all') p.push('product_name=' + encodeURIComponent(_db.product.toUpperCase()));
     // Disbursement always uses old-structure endpoints (no v2 disbursement API exists)
-    if (session.role === 'RM' && session.location) p.push('region=' + encodeURIComponent(session.location));
-    else if (session.role === 'DM' && session.location) p.push('district=' + encodeURIComponent(session.location));
-    else if (session.role === 'BM' && session.location) p.push('branch=' + encodeURIComponent(session.location));
+    if ((session.role === 'RM' || session.role === 'SM') && session.location) p.push('region=' + encodeURIComponent(session.location));
+    else if ((session.role === 'DM' || session.role === 'DvM') && session.location) p.push('district=' + encodeURIComponent(session.location));
+    else if ((session.role === 'BM' || session.role === 'AM') && session.location) p.push('branch=' + encodeURIComponent(session.location));
     else if ((!session.role || session.role === 'FO') && session.id) p.push('emp_id=' + encodeURIComponent(session.id));
     return p.length ? '?' + p.join('&') : '';
   }
@@ -64,15 +62,15 @@
 
     // Disbursement always uses old-structure endpoints (no v2 disbursement API exists)
     if (session.role === 'CEO') return '/api/disbursement/by-region' + (base.length ? '?' + base.join('&') : '');
-    if (session.role === 'RM' && session.location) {
+    if ((session.role === 'RM' || session.role === 'SM') && session.location) {
       base.push('region=' + encodeURIComponent(session.location));
       return '/api/disbursement/by-district?' + base.join('&');
     }
-    if (session.role === 'DM' && session.location) {
+    if ((session.role === 'DM' || session.role === 'DvM') && session.location) {
       base.push('district=' + encodeURIComponent(session.location));
       return '/api/disbursement/by-branch?' + base.join('&');
     }
-    if (session.role === 'BM' && session.location) {
+    if ((session.role === 'BM' || session.role === 'AM') && session.location) {
       base.push('branch=' + encodeURIComponent(session.location));
       return '/api/disbursement/by-employee?' + base.join('&');
     }
@@ -209,7 +207,7 @@
     var children = _db.children || [];
     if (session.role && session.role !== 'FO' && children.length > 0) {
       // Disbursement always uses old-structure hierarchy for drill-down
-      var childRoleMap = { CEO: 'RM', RM: 'DM', DM: 'BM', BM: 'FO' };
+      var childRoleMap = { CEO: 'RM', RM: 'DM', SM: 'DM', DM: 'BM', DvM: 'BM', AM: 'FO', BM: 'FO' };
       var childRole = childRoleMap[session.role];
       if (childRole) {
         children.sort(function(a, b) { return numVal(b.total_amount) - numVal(a.total_amount); });
