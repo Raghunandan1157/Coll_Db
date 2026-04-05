@@ -564,7 +564,8 @@
         _analState.foData = computeFODataFromAPI(allEmpsSM, bucket);
         return;
       }
-      // CEO: all employees
+      // CEO: all employees — known performance issue: fetches all employees org-wide.
+      // TODO: add server-side pagination or a row limit once v2 supports it.
       var ceoRows = await v2Fetch('by-employee', { product_type: pt });
       _analState.foData = computeFODataFromAPI(ceoRows, bucket);
       return;

@@ -49,18 +49,11 @@
     var p = [];
     if (_db.month) p.push('month=' + encodeURIComponent(_db.month));
     if (_db.product && _db.product !== 'all') p.push('product_name=' + encodeURIComponent(_db.product.toUpperCase()));
-    if (isNewStructure()) {
-      if (session.role === 'SM' && session.location) p.push('state=' + encodeURIComponent(session.location));
-      else if (session.role === 'DvM' && session.location) p.push('division=' + encodeURIComponent(session.location));
-      else if (session.role === 'AM' && session.location) p.push('area=' + encodeURIComponent(session.location));
-      else if (session.role === 'BM' && session.location) p.push('branch=' + encodeURIComponent(session.location));
-      else if ((!session.role || session.role === 'FO') && session.id) p.push('emp_id=' + encodeURIComponent(session.id));
-    } else {
-      if (session.role === 'RM' && session.location) p.push('region=' + encodeURIComponent(session.location));
-      else if (session.role === 'DM' && session.location) p.push('district=' + encodeURIComponent(session.location));
-      else if (session.role === 'BM' && session.location) p.push('branch=' + encodeURIComponent(session.location));
-      else if ((!session.role || session.role === 'FO') && session.id) p.push('emp_id=' + encodeURIComponent(session.id));
-    }
+    // Disbursement always uses old-structure endpoints (no v2 disbursement API exists)
+    if (session.role === 'RM' && session.location) p.push('region=' + encodeURIComponent(session.location));
+    else if (session.role === 'DM' && session.location) p.push('district=' + encodeURIComponent(session.location));
+    else if (session.role === 'BM' && session.location) p.push('branch=' + encodeURIComponent(session.location));
+    else if ((!session.role || session.role === 'FO') && session.id) p.push('emp_id=' + encodeURIComponent(session.id));
     return p.length ? '?' + p.join('&') : '';
   }
 
@@ -69,28 +62,7 @@
     if (_db.month) base.push('month=' + encodeURIComponent(_db.month));
     if (_db.product && _db.product !== 'all') base.push('product_name=' + encodeURIComponent(_db.product.toUpperCase()));
 
-    if (isNewStructure()) {
-      // Reuse old endpoints (no v2/disbursement yet) — cosmetic relabeling only
-      if (session.role === 'CEO') return '/api/disbursement/by-region' + (base.length ? '?' + base.join('&') : '');
-      if (session.role === 'SM' && session.location) {
-        base.push('region=' + encodeURIComponent(session.location));
-        return '/api/disbursement/by-district?' + base.join('&');
-      }
-      if (session.role === 'DvM' && session.location) {
-        base.push('district=' + encodeURIComponent(session.location));
-        return '/api/disbursement/by-branch?' + base.join('&');
-      }
-      if (session.role === 'AM' && session.location) {
-        base.push('branch=' + encodeURIComponent(session.location));
-        return '/api/disbursement/by-employee?' + base.join('&');
-      }
-      if (session.role === 'BM' && session.location) {
-        base.push('branch=' + encodeURIComponent(session.location));
-        return '/api/disbursement/by-employee?' + base.join('&');
-      }
-      return null;
-    }
-
+    // Disbursement always uses old-structure endpoints (no v2 disbursement API exists)
     if (session.role === 'CEO') return '/api/disbursement/by-region' + (base.length ? '?' + base.join('&') : '');
     if (session.role === 'RM' && session.location) {
       base.push('region=' + encodeURIComponent(session.location));
@@ -236,31 +208,20 @@
     // Sub-units (drill-down)
     var children = _db.children || [];
     if (session.role && session.role !== 'FO' && children.length > 0) {
-      var childRoleMap = isNewStructure()
-        ? { CEO: 'SM', SM: 'DvM', RM: 'DvM', DvM: 'AM', DM: 'AM', AM: 'BM', BM: 'FO' }
-        : { CEO: 'RM', RM: 'DM', DM: 'BM', BM: 'FO' };
+      // Disbursement always uses old-structure hierarchy for drill-down
+      var childRoleMap = { CEO: 'RM', RM: 'DM', DM: 'BM', BM: 'FO' };
       var childRole = childRoleMap[session.role];
       if (childRole) {
         children.sort(function(a, b) { return numVal(b.total_amount) - numVal(a.total_amount); });
-        var roleLabel = isNewStructure()
-          ? { SM: 'States', DvM: 'Divisions', AM: 'Areas', BM: 'Branches', FO: 'Officers' }
-          : { RM: 'Regions', DM: 'Districts', BM: 'Branches', FO: 'Officers' };
+        var roleLabel = { RM: 'Regions', DM: 'Districts', BM: 'Branches', FO: 'Officers' };
         html += '<div class="emp-team-section"><div class="emp-team-title">' + (roleLabel[childRole] || 'Team') + '<span class="emp-team-count">' + children.length + '</span></div><div class="desktop-grid-3">';
         for (var i = 0; i < children.length; i++) {
           var ch = children[i];
           var childName = '';
-          if (isNewStructure()) {
-            if (childRole === 'SM') childName = ch.state_name || ch.region_name || '';
-            else if (childRole === 'DvM') childName = ch.division_name || ch.district_name || '';
-            else if (childRole === 'AM') childName = ch.area_name || ch.branch_name || '';
-            else if (childRole === 'BM') childName = ch.branch_name || '';
-            else if (childRole === 'FO') childName = ch.name || ch.officer_name || '';
-          } else {
-            if (childRole === 'RM') childName = ch.region_name || '';
-            else if (childRole === 'DM') childName = ch.district_name || '';
-            else if (childRole === 'BM') childName = ch.branch_name || '';
-            else if (childRole === 'FO') childName = ch.name || ch.officer_name || '';
-          }
+          if (childRole === 'RM') childName = ch.region_name || '';
+          else if (childRole === 'DM') childName = ch.district_name || '';
+          else if (childRole === 'BM') childName = ch.branch_name || '';
+          else if (childRole === 'FO') childName = ch.name || ch.officer_name || '';
           var initial = childName.charAt(0).toUpperCase();
           var dataAttr = '';
           if (childRole === 'FO') {

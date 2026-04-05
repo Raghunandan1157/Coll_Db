@@ -59,11 +59,12 @@
     updateUI(value);
     var label = value === 'fy2025-26' ? 'FY 2025-26 Structure' : 'FY 2026-27 Structure';
     showToast('Switching to ' + label + '...');
+    // Clear stale state before reload
+    localStorage.removeItem('pfMonth');
+    localStorage.removeItem('activeTab');
+    localStorage.setItem('roleStructure', value);
     // Reload page so all tab modules re-initialize with new structure
-    setTimeout(function () {
-      window.location.href = 'employee.html#settings';
-      window.location.reload();
-    }, 500);
+    setTimeout(function () { window.location.reload(); }, 500);
   }
 
   /* ========== initSettings ========== */

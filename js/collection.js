@@ -94,7 +94,10 @@
       var v2Base = '/api/v2/collection';
       var r = session.role;
       if (r === 'CEO') {
-        return v2Base + '/by-state?' + dateParam + (ptParam || '');
+        var parts = [];
+        if (_collState.date) parts.push('date=' + encodeURIComponent(_collState.date));
+        if (ptParam) parts.push(ptParam);
+        return v2Base + '/by-state' + (parts.length ? '?' + parts.join('&') : '');
       }
       if ((r === 'SM' || r === 'RM') && session.location) {
         var p = [ptParam, 'state=' + encodeURIComponent(session.location)].filter(Boolean);
@@ -641,8 +644,8 @@
         _collState.product = savedProduct;
       }
 
-      // Auto-load latest daily date on first load
-      if (!_collState.date) {
+      // Auto-load latest daily date on first load (old structure only)
+      if (!isNewStructure() && !_collState.date) {
         apiFetch('/api/daily/dates').then(function(dates) {
           if (dates && dates.length) {
             _collState.availableDates = dates.map(function(d) { return d.substring(0, 10); });
@@ -651,6 +654,7 @@
           loadAndRender();
         }).catch(function() { loadAndRender(); });
       } else {
+        if (isNewStructure()) { _collState.date = null; }
         loadAndRender();
       }
     } catch (err) {
