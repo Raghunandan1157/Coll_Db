@@ -126,6 +126,89 @@
     });
   }
 
+  function getDbSubunitView() {
+    return localStorage.getItem('subunitView') || 'card';
+  }
+
+  function dbSubunitToggleHtml() {
+    var v = getDbSubunitView();
+    return '<div class="subunit-view-toggle">' +
+      '<button class="subunit-view-btn' + (v === 'card' ? ' active' : '') + '" data-subview="card">' +
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>' +
+        'Cards</button>' +
+      '<button class="subunit-view-btn' + (v === 'table' ? ' active' : '') + '" data-subview="table">' +
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>' +
+        'Table</button>' +
+    '</div>';
+  }
+
+  function dbSubUnitsHtml(children, childRole) {
+    if (!children.length) return '';
+    var roleLabel = { RM: 'Regions', DM: 'Districts', BM: 'Branches', FO: 'Officers' };
+    var label = roleLabel[childRole] || 'Team';
+    var isTable = getDbSubunitView() === 'table';
+    var avStyle = 'background:#FFFBEB;color:#F59E0B;';
+
+    var html = '<div class="emp-team-section">' +
+      '<div class="emp-team-title">' + label + '<span class="emp-team-count">' + children.length + '</span>' + dbSubunitToggleHtml() + '</div>';
+
+    if (isTable) {
+      html += '<div class="subunit-table-wrap"><table class="subunit-table">';
+      html += '<thead><tr>' +
+        '<th>Unit <span class="sort-icon">&#8597;</span></th>' +
+        '<th class="num-col">Accounts <span class="sort-icon">&#8597;</span></th>' +
+        '<th class="num-col">Amount <span class="sort-icon">&#8597;</span></th>' +
+        '<th style="width:24px;"></th>' +
+      '</tr></thead><tbody>';
+
+      for (var i = 0; i < children.length; i++) {
+        var ch = children[i];
+        var childName = '';
+        if (childRole === 'RM') childName = ch.region_name || '';
+        else if (childRole === 'DM') childName = ch.district_name || '';
+        else if (childRole === 'BM') childName = ch.branch_name || '';
+        else if (childRole === 'FO') childName = ch.name || ch.officer_name || '';
+        var initial = childName.charAt(0).toUpperCase();
+        var dataAttr = childRole === 'FO'
+          ? 'data-emp-id="' + esc(ch.emp_id || '') + '" data-emp-name="' + esc(childName) + '"'
+          : 'data-child-role="' + esc(childRole) + '" data-child-location="' + esc(childName) + '"';
+
+        html += '<tr class="emp-sub-card" ' + dataAttr + '>' +
+          '<td class="name-col"><span class="tbl-avatar" style="' + avStyle + '">' + initial + '</span>' + esc(childName) + '</td>' +
+          '<td class="num-col">' + fmtNum(numVal(ch.total_count)) + '</td>' +
+          '<td class="num-col" style="color:#F59E0B;font-weight:600;">' + fmtAmt(numVal(ch.total_amount)) + '</td>' +
+          '<td class="tbl-arrow">&#8250;</td>' +
+        '</tr>';
+      }
+      html += '</tbody></table></div>';
+    } else {
+      html += '<div class="desktop-grid-3">';
+      for (var i = 0; i < children.length; i++) {
+        var ch = children[i];
+        var childName = '';
+        if (childRole === 'RM') childName = ch.region_name || '';
+        else if (childRole === 'DM') childName = ch.district_name || '';
+        else if (childRole === 'BM') childName = ch.branch_name || '';
+        else if (childRole === 'FO') childName = ch.name || ch.officer_name || '';
+        var initial = childName.charAt(0).toUpperCase();
+        var dataAttr = childRole === 'FO'
+          ? 'data-emp-id="' + esc(ch.emp_id || '') + '" data-emp-name="' + esc(childName) + '"'
+          : 'data-child-role="' + esc(childRole) + '" data-child-location="' + esc(childName) + '"';
+
+        html += '<div class="emp-sub-card desktop-sub-card" ' + dataAttr + '>';
+        html += '<div class="emp-sub-avatar" style="background:#FFFBEB;color:#F59E0B;">' + initial + '</div>';
+        html += '<div class="emp-sub-info"><div class="emp-sub-name">' + esc(childName) + '</div>';
+        html += '<div class="emp-sub-meta"><span>A/c: ' + fmtNum(numVal(ch.total_count)) + '</span><span>Amt: ' + fmtAmt(numVal(ch.total_amount)) + '</span></div></div>';
+        html += '<div class="emp-sub-pct" style="color:#F59E0B">' + fmtAmt(numVal(ch.total_amount)) + '</div>';
+        html += '<div class="emp-sub-arrow">&#8250;</div></div>';
+      }
+      html += '</div>';
+    }
+
+    html += '</div>';
+    return html;
+  }
+
   function render(byProduct) {
     var container = document.getElementById('disbursementContent');
     var d = _db.summary;
@@ -206,35 +289,11 @@
     // Sub-units (drill-down)
     var children = _db.children || [];
     if (session.role && session.role !== 'FO' && children.length > 0) {
-      // Disbursement always uses old-structure hierarchy for drill-down
       var childRoleMap = { CEO: 'RM', RM: 'DM', SM: 'DM', DM: 'BM', DvM: 'BM', AM: 'FO', BM: 'FO' };
       var childRole = childRoleMap[session.role];
       if (childRole) {
         children.sort(function(a, b) { return numVal(b.total_amount) - numVal(a.total_amount); });
-        var roleLabel = { RM: 'Regions', DM: 'Districts', BM: 'Branches', FO: 'Officers' };
-        html += '<div class="emp-team-section"><div class="emp-team-title">' + (roleLabel[childRole] || 'Team') + '<span class="emp-team-count">' + children.length + '</span></div><div class="desktop-grid-3">';
-        for (var i = 0; i < children.length; i++) {
-          var ch = children[i];
-          var childName = '';
-          if (childRole === 'RM') childName = ch.region_name || '';
-          else if (childRole === 'DM') childName = ch.district_name || '';
-          else if (childRole === 'BM') childName = ch.branch_name || '';
-          else if (childRole === 'FO') childName = ch.name || ch.officer_name || '';
-          var initial = childName.charAt(0).toUpperCase();
-          var dataAttr = '';
-          if (childRole === 'FO') {
-            dataAttr = 'data-emp-id="' + esc(ch.emp_id || '') + '" data-emp-name="' + esc(childName) + '"';
-          } else {
-            dataAttr = 'data-child-role="' + esc(childRole) + '" data-child-location="' + esc(childName) + '"';
-          }
-          html += '<div class="emp-sub-card desktop-sub-card" ' + dataAttr + '>';
-          html += '<div class="emp-sub-avatar" style="background:#FFFBEB;color:#F59E0B;">' + initial + '</div>';
-          html += '<div class="emp-sub-info"><div class="emp-sub-name">' + esc(childName) + '</div>';
-          html += '<div class="emp-sub-meta"><span>A/c: ' + fmtNum(numVal(ch.total_count)) + '</span><span>Amt: ' + fmtAmt(numVal(ch.total_amount)) + '</span></div></div>';
-          html += '<div class="emp-sub-pct" style="color:#F59E0B">' + fmtAmt(numVal(ch.total_amount)) + '</div>';
-          html += '<div class="emp-sub-arrow">&#8250;</div></div>';
-        }
-        html += '</div></div>';
+        html += dbSubUnitsHtml(children, childRole);
       }
     }
 
@@ -274,6 +333,34 @@
         _db.product = pill.dataset.dbProduct;
         localStorage.setItem('dbProduct', _db.product);
         loadAndRender();
+      };
+    });
+
+    // Subunit view toggle (card/table)
+    container.querySelectorAll('[data-subview]').forEach(function (btn) {
+      btn.onclick = function () {
+        localStorage.setItem('subunitView', btn.dataset.subview);
+        render();
+      };
+    });
+
+    // Table column sorting
+    container.querySelectorAll('.subunit-table thead th').forEach(function (th, colIdx) {
+      th.onclick = function () {
+        var table = th.closest('.subunit-table');
+        var tbody = table.querySelector('tbody');
+        var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr'));
+        var asc = th.classList.contains('sorted-asc');
+        table.querySelectorAll('th').forEach(function (h) { h.classList.remove('sorted', 'sorted-asc', 'sorted-desc'); });
+        th.classList.add('sorted', asc ? 'sorted-desc' : 'sorted-asc');
+        rows.sort(function (a, b) {
+          var cellA = a.cells[colIdx].textContent.replace(/[,%₹L]/g, '').trim();
+          var cellB = b.cells[colIdx].textContent.replace(/[,%₹L]/g, '').trim();
+          var numA = parseFloat(cellA), numB = parseFloat(cellB);
+          if (!isNaN(numA) && !isNaN(numB)) return asc ? numB - numA : numA - numB;
+          return asc ? cellB.localeCompare(cellA) : cellA.localeCompare(cellB);
+        });
+        rows.forEach(function (r) { tbody.appendChild(r); });
       };
     });
 

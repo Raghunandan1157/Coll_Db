@@ -385,6 +385,61 @@
     return html;
   }
 
+  function getSubunitView() {
+    return localStorage.getItem('subunitView') || 'card';
+  }
+
+  function subunitToggleHtml() {
+    var v = getSubunitView();
+    return '<div class="subunit-view-toggle">' +
+      '<button class="subunit-view-btn' + (v === 'card' ? ' active' : '') + '" data-subview="card">' +
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>' +
+        'Cards</button>' +
+      '<button class="subunit-view-btn' + (v === 'table' ? ' active' : '') + '" data-subview="table">' +
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>' +
+        'Table</button>' +
+    '</div>';
+  }
+
+  function getPfChildName(ch, childRole) {
+    if (isNewStructure()) {
+      if (childRole === 'SM') return ch.state_name || '';
+      if (childRole === 'DvM') return ch.division_name || '';
+      if (childRole === 'AM') return ch.area_name || '';
+      if (childRole === 'BM') return ch.branch_name || '';
+      if (childRole === 'FO') return ch.officer_name || ch.name || '';
+    } else {
+      if (childRole === 'RM') return ch.region_name || '';
+      if (childRole === 'DM') return ch.district_name || '';
+      if (childRole === 'BM') return ch.branch_name || '';
+      if (childRole === 'FO') return ch.officer_name || ch.name || '';
+    }
+    return '';
+  }
+
+  function getPfDataAttr(ch, childRole, childName) {
+    if (childRole === 'FO') {
+      return 'data-emp-id="' + esc(ch.emp_id || '') + '" data-emp-name="' + esc(childName) + '"';
+    }
+    return 'data-child-role="' + esc(childRole) + '" data-child-location="' + esc(childName) + '"';
+  }
+
+  function pfChildData(ch, childRole) {
+    var totalAcc = numVal(ch.regular_demand) + numVal(ch.demand_1_30) + numVal(ch.demand_31_60) + numVal(ch.pnpa_demand) + numVal(ch.npa_cases);
+    var childKey = isNewStructure()
+      ? (ch.state_name || ch.division_name || ch.area_name || ch.branch_name || '')
+      : (ch.region_name || ch.district_name || ch.branch_name || '');
+    var posChild = (_pf.posChildren || []).find(function(p) {
+      return (isNewStructure()
+        ? (p.state_name || p.division_name || p.area_name || p.branch_name || '')
+        : (p.region_name || p.district_name || p.branch_name || '')) === childKey;
+    });
+    var totalAmt = posChild ? numVal(posChild.total_pos) : (numVal(ch.total_pos) || (numVal(ch.regular_demand_amt) + numVal(ch.demand_1_30_amt) + numVal(ch.demand_31_60_amt) + numVal(ch.pnpa_demand_amt) + numVal(ch.npa_act_amt)));
+    var npaRatio = totalAcc > 0 ? numVal(ch.npa_cases) / totalAcc : 0;
+    var pctColor = npaRatio <= 0.02 ? '#34D399' : npaRatio <= 0.05 ? '#FBBF24' : '#F87171';
+    return { totalAcc: totalAcc, totalAmt: totalAmt, npa: numVal(ch.npa_cases), pctColor: pctColor };
+  }
+
   function subUnitsHtml(children, childRole) {
     if (!children.length) return '';
     var roleLabel = isNewStructure()
@@ -395,66 +450,66 @@
       : { RM: 'region', DM: 'district', BM: 'branch', FO: 'officer' };
     var label = roleLabel[childRole] || 'Team';
     var av = avType[childRole] || 'branch';
+    var isTable = getSubunitView() === 'table';
+
+    var avColors = { state: 'background:#F3E8FF;color:#7C3AED;', region: 'background:#F3E8FF;color:#7C3AED;', division: 'background:#DBEAFE;color:#2563EB;', area: 'background:#ECFDF5;color:#059669;', district: 'background:#DBEAFE;color:#2563EB;', branch: 'background:#ECFDF5;color:#059669;', officer: 'background:#FEF3C7;color:#D97706;' };
+    var avStyle = avColors[av] || 'background:#F1F5F9;color:#64748B;';
 
     var html = '<div class="emp-team-section">' +
-      '<div class="emp-team-title">' + label + '<span class="emp-team-count">' + children.length + '</span></div>' +
-      '<div class="desktop-grid-3">';
+      '<div class="emp-team-title">' + label + '<span class="emp-team-count">' + children.length + '</span>' + subunitToggleHtml() + '</div>';
 
-    for (var i = 0; i < children.length; i++) {
-      var ch = children[i];
-      var totalAcc = numVal(ch.regular_demand) + numVal(ch.demand_1_30) + numVal(ch.demand_31_60) + numVal(ch.pnpa_demand) + numVal(ch.npa_cases);
-      // Match POS from posChildren by name
-      var childKey = isNewStructure()
-        ? (ch.state_name || ch.division_name || ch.area_name || ch.branch_name || '')
-        : (ch.region_name || ch.district_name || ch.branch_name || '');
-      var posChild = (_pf.posChildren || []).find(function(p) {
-        return (isNewStructure()
-          ? (p.state_name || p.division_name || p.area_name || p.branch_name || '')
-          : (p.region_name || p.district_name || p.branch_name || '')) === childKey;
-      });
-      var totalAmt = posChild ? numVal(posChild.total_pos) : (numVal(ch.total_pos) || (numVal(ch.regular_demand_amt) + numVal(ch.demand_1_30_amt) + numVal(ch.demand_31_60_amt) + numVal(ch.pnpa_demand_amt) + numVal(ch.npa_act_amt)));
+    if (isTable) {
+      html += '<div class="subunit-table-wrap"><table class="subunit-table">';
+      html += '<thead><tr>' +
+        '<th>Unit <span class="sort-icon">&#8597;</span></th>' +
+        '<th class="num-col">Accounts <span class="sort-icon">&#8597;</span></th>' +
+        '<th class="num-col">POS <span class="sort-icon">&#8597;</span></th>' +
+        '<th class="num-col">NPA <span class="sort-icon">&#8597;</span></th>' +
+        '<th style="width:24px;"></th>' +
+      '</tr></thead><tbody>';
 
-      var childName = '';
-      var dataAttr = '';
-      if (isNewStructure()) {
-        if (childRole === 'SM') childName = ch.state_name || '';
-        else if (childRole === 'DvM') childName = ch.division_name || '';
-        else if (childRole === 'AM') childName = ch.area_name || '';
-        else if (childRole === 'BM') childName = ch.branch_name || '';
-        else if (childRole === 'FO') childName = ch.officer_name || ch.name || '';
-      } else {
-        if (childRole === 'RM') childName = ch.region_name || '';
-        else if (childRole === 'DM') childName = ch.district_name || '';
-        else if (childRole === 'BM') childName = ch.branch_name || '';
-        else if (childRole === 'FO') childName = ch.officer_name || ch.name || '';
+      for (var i = 0; i < children.length; i++) {
+        var ch = children[i];
+        var d = pfChildData(ch, childRole);
+        var childName = getPfChildName(ch, childRole);
+        var dataAttr = getPfDataAttr(ch, childRole, childName);
+        var initial = childName.charAt(0).toUpperCase();
+
+        html += '<tr class="emp-sub-card" ' + dataAttr + '>' +
+          '<td class="name-col"><span class="tbl-avatar" style="' + avStyle + '">' + initial + '</span>' + esc(childName) + '</td>' +
+          '<td class="num-col">' + fmtNum(d.totalAcc) + '</td>' +
+          '<td class="num-col">' + fmtAmt(d.totalAmt) + '</td>' +
+          '<td class="num-col"><span class="tbl-pct" style="color:' + d.pctColor + '">' + fmtNum(d.npa) + '</span></td>' +
+          '<td class="tbl-arrow">&#8250;</td>' +
+        '</tr>';
       }
+      html += '</tbody></table></div>';
+    } else {
+      html += '<div class="desktop-grid-3">';
+      for (var i = 0; i < children.length; i++) {
+        var ch = children[i];
+        var d = pfChildData(ch, childRole);
+        var childName = getPfChildName(ch, childRole);
+        var dataAttr = getPfDataAttr(ch, childRole, childName);
+        var initial = childName.charAt(0).toUpperCase();
 
-      if (childRole === 'FO') {
-        dataAttr = 'data-emp-id="' + esc(ch.emp_id || '') + '" data-emp-name="' + esc(childName) + '"';
-      } else {
-        dataAttr = 'data-child-role="' + esc(childRole) + '" data-child-location="' + esc(childName) + '"';
-      }
-
-      var initial = childName.charAt(0).toUpperCase();
-      // Color based on NPA ratio: low NPA = green
-      var npaRatio = totalAcc > 0 ? numVal(ch.npa_cases) / totalAcc : 0;
-      var pctColor = npaRatio <= 0.02 ? '#34D399' : npaRatio <= 0.05 ? '#FBBF24' : '#F87171';
-
-      html += '<div class="emp-sub-card desktop-sub-card" ' + dataAttr + '>' +
-        '<div class="emp-sub-avatar ' + av + '">' + initial + '</div>' +
-        '<div class="emp-sub-info">' +
-          '<div class="emp-sub-name">' + esc(childName) + '</div>' +
-          '<div class="emp-sub-meta">' +
-            '<span>A/c: ' + fmtNum(totalAcc) + '</span>' +
-            '<span>POS: ' + fmtAmt(totalAmt) + '</span>' +
+        html += '<div class="emp-sub-card desktop-sub-card" ' + dataAttr + '>' +
+          '<div class="emp-sub-avatar ' + av + '">' + initial + '</div>' +
+          '<div class="emp-sub-info">' +
+            '<div class="emp-sub-name">' + esc(childName) + '</div>' +
+            '<div class="emp-sub-meta">' +
+              '<span>A/c: ' + fmtNum(d.totalAcc) + '</span>' +
+              '<span>POS: ' + fmtAmt(d.totalAmt) + '</span>' +
+            '</div>' +
           '</div>' +
-        '</div>' +
-        '<div class="emp-sub-pct" style="color:' + pctColor + '">' + fmtNum(numVal(ch.npa_cases)) + ' NPA</div>' +
-        '<div class="emp-sub-arrow">&#8250;</div>' +
-      '</div>';
+          '<div class="emp-sub-pct" style="color:' + d.pctColor + '">' + fmtNum(d.npa) + ' NPA</div>' +
+          '<div class="emp-sub-arrow">&#8250;</div>' +
+        '</div>';
+      }
+      html += '</div>';
     }
 
-    html += '</div></div>';
+    html += '</div>';
     return html;
   }
 
@@ -489,6 +544,34 @@
         _pf.product = pill.dataset.pfProduct;
         localStorage.setItem('pfProduct', _pf.product);
         loadAndRender();
+      };
+    });
+
+    // Subunit view toggle (card/table)
+    container.querySelectorAll('[data-subview]').forEach(function (btn) {
+      btn.onclick = function () {
+        localStorage.setItem('subunitView', btn.dataset.subview);
+        render();
+      };
+    });
+
+    // Table column sorting
+    container.querySelectorAll('.subunit-table thead th').forEach(function (th, colIdx) {
+      th.onclick = function () {
+        var table = th.closest('.subunit-table');
+        var tbody = table.querySelector('tbody');
+        var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr'));
+        var asc = th.classList.contains('sorted-asc');
+        table.querySelectorAll('th').forEach(function (h) { h.classList.remove('sorted', 'sorted-asc', 'sorted-desc'); });
+        th.classList.add('sorted', asc ? 'sorted-desc' : 'sorted-asc');
+        rows.sort(function (a, b) {
+          var cellA = a.cells[colIdx].textContent.replace(/[,%₹L]/g, '').trim();
+          var cellB = b.cells[colIdx].textContent.replace(/[,%₹L]/g, '').trim();
+          var numA = parseFloat(cellA), numB = parseFloat(cellB);
+          if (!isNaN(numA) && !isNaN(numB)) return asc ? numB - numA : numA - numB;
+          return asc ? cellB.localeCompare(cellA) : cellA.localeCompare(cellB);
+        });
+        rows.forEach(function (r) { tbody.appendChild(r); });
       };
     });
 

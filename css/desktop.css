@@ -1401,3 +1401,166 @@
     margin-top: -16px !important;
   }
 }
+
+/* ============================================================
+   V. SUB-UNIT TABLE VIEW TOGGLE
+   Card ↔ Table toggle for sub-unit sections (desktop only)
+   ============================================================ */
+
+/* Toggle button group */
+.subunit-view-toggle {
+  display: none; /* hidden on mobile */
+}
+
+@media (min-width: 768px) {
+  .subunit-view-toggle {
+    display: inline-flex;
+    gap: 0;
+    border: 1px solid #E2E8F0;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-left: auto;
+  }
+
+  .subunit-view-btn {
+    padding: 5px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #64748B;
+    background: #fff;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.15s;
+    font-family: inherit;
+  }
+
+  .subunit-view-btn:not(:last-child) {
+    border-right: 1px solid #E2E8F0;
+  }
+
+  .subunit-view-btn:hover {
+    background: #F8FAFC;
+    color: #1E293B;
+  }
+
+  .subunit-view-btn.active {
+    background: #F0FDF4;
+    color: #059669;
+    font-weight: 600;
+  }
+
+  /* Table styles */
+  .subunit-table-wrap {
+    overflow-x: auto;
+    margin-bottom: 32px;
+    border-radius: 12px;
+    border: 1px solid #E2E8F0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+
+  .subunit-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  .subunit-table thead th {
+    background: #F8FAFC;
+    color: #64748B;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 10px 16px;
+    text-align: left;
+    border-bottom: 1px solid #E2E8F0;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+    transition: background 0.15s;
+  }
+
+  .subunit-table thead th:hover {
+    background: #F1F5F9;
+    color: #1E293B;
+  }
+
+  .subunit-table thead th .sort-icon {
+    display: inline-block;
+    margin-left: 4px;
+    font-size: 10px;
+    color: #CBD5E1;
+    transition: color 0.15s;
+  }
+
+  .subunit-table thead th.sorted .sort-icon {
+    color: #059669;
+  }
+
+  .subunit-table thead th.num-col {
+    text-align: right;
+  }
+
+  .subunit-table tbody tr {
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+
+  .subunit-table tbody tr:hover {
+    background: #F0FDF4;
+  }
+
+  .subunit-table tbody tr:not(:last-child) td {
+    border-bottom: 1px solid #F1F5F9;
+  }
+
+  .subunit-table tbody td {
+    padding: 10px 16px;
+    color: #1E293B;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .subunit-table tbody td.num-col {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .subunit-table tbody td.name-col {
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .subunit-table .tbl-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 11px;
+    flex-shrink: 0;
+  }
+
+  .subunit-table .tbl-pct {
+    font-weight: 700;
+    font-size: 13px;
+  }
+
+  .subunit-table .tbl-arrow {
+    color: #CBD5E1;
+    font-size: 16px;
+    text-align: center;
+    width: 24px;
+  }
+
+  .subunit-table tbody tr:hover .tbl-arrow {
+    color: #059669;
+  }
+}

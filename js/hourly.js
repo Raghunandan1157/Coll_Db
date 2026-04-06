@@ -468,6 +468,45 @@
     return html;
   }
 
+  function getSubunitView() {
+    return localStorage.getItem('subunitView') || 'card';
+  }
+
+  function subunitToggleHtml() {
+    var v = getSubunitView();
+    return '<div class="subunit-view-toggle">' +
+      '<button class="subunit-view-btn' + (v === 'card' ? ' active' : '') + '" data-subview="card">' +
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>' +
+        'Cards</button>' +
+      '<button class="subunit-view-btn' + (v === 'table' ? ' active' : '') + '" data-subview="table">' +
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>' +
+        'Table</button>' +
+    '</div>';
+  }
+
+  function getHrChildName(ch, childRole) {
+    if (isNewStructure()) {
+      if (childRole === 'SM') return ch.state_name || '';
+      if (childRole === 'DvM') return ch.division_name || '';
+      if (childRole === 'AM') return ch.area_name || '';
+      if (childRole === 'BM') return ch.branch_name || '';
+      if (childRole === 'FO') return ch.name || '';
+    } else {
+      if (childRole === 'RM') return ch.region_name || '';
+      if (childRole === 'DM') return ch.district_name || '';
+      if (childRole === 'BM') return ch.branch_name || '';
+      if (childRole === 'FO') return ch.name || '';
+    }
+    return '';
+  }
+
+  function getHrDataAttr(ch, childRole, childName) {
+    if (childRole === 'FO') {
+      return 'data-emp-id="' + esc(ch.emp_id || '') + '" data-emp-name="' + esc(childName) + '"';
+    }
+    return 'data-child-role="' + esc(childRole) + '" data-child-location="' + esc(childName) + '"';
+  }
+
   function subUnitsHtml(children, childRole) {
     if (!children.length) return '';
     var roleLabel = isNewStructure()
@@ -478,71 +517,77 @@
       : { RM: 'region', DM: 'district', BM: 'branch', FO: 'officer' };
     var label = roleLabel[childRole] || 'Team';
     var av = avType[childRole] || 'branch';
+    var isTable = getSubunitView() === 'table';
+
+    var avColors = { state: 'background:#F3E8FF;color:#7C3AED;', region: 'background:#F3E8FF;color:#7C3AED;', division: 'background:#DBEAFE;color:#2563EB;', area: 'background:#ECFDF5;color:#059669;', district: 'background:#DBEAFE;color:#2563EB;', branch: 'background:#ECFDF5;color:#059669;', officer: 'background:#FEF3C7;color:#D97706;' };
+    var avStyle = avColors[av] || 'background:#F1F5F9;color:#64748B;';
 
     var html = '<div class="emp-team-section">' +
-      '<div class="emp-team-title">' + label + '<span class="emp-team-count">' + children.length + '</span></div>' +
-      '<div class="desktop-grid-3">';
+      '<div class="emp-team-title">' + label + '<span class="emp-team-count">' + children.length + '</span>' + subunitToggleHtml() + '</div>';
 
-    for (var i = 0; i < children.length; i++) {
-      var ch = children[i];
-      var dem = numVal(ch.regular_demand);
-      var col = numVal(ch.regular_collection);
-      var pctRaw = dem > 0 ? (col / dem) * 100 : 0;
-      var pct = pctRaw.toFixed(2);
-      var pctColor = pctRaw >= 95 ? '#34D399' : pctRaw >= 80 ? '#FBBF24' : '#F87171';
+    if (isTable) {
+      html += '<div class="subunit-table-wrap"><table class="subunit-table">';
+      html += '<thead><tr>' +
+        '<th>Unit <span class="sort-icon">&#8597;</span></th>' +
+        '<th class="num-col">Demand <span class="sort-icon">&#8597;</span></th>' +
+        '<th class="num-col">Collection <span class="sort-icon">&#8597;</span></th>' +
+        '<th class="num-col">Balance <span class="sort-icon">&#8597;</span></th>' +
+        '<th class="num-col">Coll% <span class="sort-icon">&#8597;</span></th>' +
+        '<th style="width:24px;"></th>' +
+      '</tr></thead><tbody>';
 
-      // Determine the display name and data attributes based on child role
-      var childName = '';
-      var dataAttr = '';
-      if (isNewStructure()) {
-        if (childRole === 'SM') {
-          childName = ch.state_name || '';
-        } else if (childRole === 'DvM') {
-          childName = ch.division_name || '';
-        } else if (childRole === 'AM') {
-          childName = ch.area_name || '';
-        } else if (childRole === 'BM') {
-          childName = ch.branch_name || '';
-        } else if (childRole === 'FO') {
-          childName = ch.name || '';
-        }
-      } else {
-        if (childRole === 'RM') {
-          childName = ch.region_name || '';
-        } else if (childRole === 'DM') {
-          childName = ch.district_name || '';
-        } else if (childRole === 'BM') {
-          childName = ch.branch_name || '';
-        } else if (childRole === 'FO') {
-          childName = ch.name || '';
-        }
+      for (var i = 0; i < children.length; i++) {
+        var ch = children[i];
+        var dem = numVal(ch.regular_demand);
+        var col = numVal(ch.regular_collection);
+        var bal = dem - col;
+        var pctRaw = dem > 0 ? (col / dem) * 100 : 0;
+        var pct = pctRaw.toFixed(2);
+        var pctColor = pctRaw >= 95 ? '#34D399' : pctRaw >= 80 ? '#FBBF24' : '#F87171';
+        var childName = getHrChildName(ch, childRole);
+        var dataAttr = getHrDataAttr(ch, childRole, childName);
+        var initial = childName.charAt(0).toUpperCase();
+
+        html += '<tr class="emp-sub-card" ' + dataAttr + '>' +
+          '<td class="name-col"><span class="tbl-avatar" style="' + avStyle + '">' + initial + '</span>' + esc(childName) + '</td>' +
+          '<td class="num-col">' + fmtNum(dem) + '</td>' +
+          '<td class="num-col" style="color:#059669;font-weight:600;">' + fmtNum(col) + '</td>' +
+          '<td class="num-col" style="color:#FB923C;">' + fmtNum(bal) + '</td>' +
+          '<td class="num-col"><span class="tbl-pct" style="color:' + pctColor + '">' + pct + '%</span></td>' +
+          '<td class="tbl-arrow">&#8250;</td>' +
+        '</tr>';
       }
+      html += '</tbody></table></div>';
+    } else {
+      html += '<div class="desktop-grid-3">';
+      for (var i = 0; i < children.length; i++) {
+        var ch = children[i];
+        var dem = numVal(ch.regular_demand);
+        var col = numVal(ch.regular_collection);
+        var pctRaw = dem > 0 ? (col / dem) * 100 : 0;
+        var pct = pctRaw.toFixed(2);
+        var pctColor = pctRaw >= 95 ? '#34D399' : pctRaw >= 80 ? '#FBBF24' : '#F87171';
+        var childName = getHrChildName(ch, childRole);
+        var dataAttr = getHrDataAttr(ch, childRole, childName);
+        var initial = childName.charAt(0).toUpperCase();
 
-      if (childRole === 'FO') {
-        dataAttr = 'data-emp-id="' + esc(ch.emp_id || '') + '" data-emp-name="' + esc(childName) + '"';
-      } else {
-        dataAttr = 'data-child-role="' + esc(childRole) + '" data-child-location="' + esc(childName) + '"';
-      }
-
-      var initial = childName.charAt(0).toUpperCase();
-      var rankBadge = '';
-
-      html += '<div class="emp-sub-card desktop-sub-card" ' + dataAttr + '>' +
-        '<div class="emp-sub-avatar ' + av + '">' + initial + '</div>' +
-        '<div class="emp-sub-info">' +
-          '<div class="emp-sub-name">' + esc(childName) + '</div>' +
-          '<div class="emp-sub-meta">' +
-            '<span>D: ' + fmtNum(dem) + '</span>' +
-            '<span>C: ' + fmtNum(col) + '</span>' +
-            rankBadge +
+        html += '<div class="emp-sub-card desktop-sub-card" ' + dataAttr + '>' +
+          '<div class="emp-sub-avatar ' + av + '">' + initial + '</div>' +
+          '<div class="emp-sub-info">' +
+            '<div class="emp-sub-name">' + esc(childName) + '</div>' +
+            '<div class="emp-sub-meta">' +
+              '<span>D: ' + fmtNum(dem) + '</span>' +
+              '<span>C: ' + fmtNum(col) + '</span>' +
+            '</div>' +
           '</div>' +
-        '</div>' +
-        '<div class="emp-sub-pct" style="color:' + pctColor + '">' + pct + '%</div>' +
-        '<div class="emp-sub-arrow">&#8250;</div>' +
-      '</div>';
+          '<div class="emp-sub-pct" style="color:' + pctColor + '">' + pct + '%</div>' +
+          '<div class="emp-sub-arrow">&#8250;</div>' +
+        '</div>';
+      }
+      html += '</div>';
     }
 
-    html += '</div></div>';
+    html += '</div>';
     return html;
   }
 
@@ -568,6 +613,34 @@
         _hourlyState.product = pill.dataset.hourlyProduct;
         localStorage.setItem('hourlyProduct', pill.dataset.hourlyProduct);
         loadAndRender();
+      };
+    });
+
+    // Subunit view toggle (card/table)
+    container.querySelectorAll('[data-subview]').forEach(function (btn) {
+      btn.onclick = function () {
+        localStorage.setItem('subunitView', btn.dataset.subview);
+        renderCollection();
+      };
+    });
+
+    // Table column sorting
+    container.querySelectorAll('.subunit-table thead th').forEach(function (th, colIdx) {
+      th.onclick = function () {
+        var table = th.closest('.subunit-table');
+        var tbody = table.querySelector('tbody');
+        var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr'));
+        var asc = th.classList.contains('sorted-asc');
+        table.querySelectorAll('th').forEach(function (h) { h.classList.remove('sorted', 'sorted-asc', 'sorted-desc'); });
+        th.classList.add('sorted', asc ? 'sorted-desc' : 'sorted-asc');
+        rows.sort(function (a, b) {
+          var cellA = a.cells[colIdx].textContent.replace(/[,%₹L]/g, '').trim();
+          var cellB = b.cells[colIdx].textContent.replace(/[,%₹L]/g, '').trim();
+          var numA = parseFloat(cellA), numB = parseFloat(cellB);
+          if (!isNaN(numA) && !isNaN(numB)) return asc ? numB - numA : numA - numB;
+          return asc ? cellB.localeCompare(cellA) : cellA.localeCompare(cellB);
+        });
+        rows.forEach(function (r) { tbody.appendChild(r); });
       };
     });
 
