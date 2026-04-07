@@ -257,6 +257,9 @@
       Math.ceil(new Date(_months.cur.year, _months.cur.month, 0).getDate() / 7)
     );
 
+    // Latest day with data in current month — anything after this is "future"
+    var latestCurDayNum = _curDays.length > 0 ? _curDays[_curDays.length - 1].dayNum : 0;
+
     // Always include all 7 days (Mon-Sun) for each occurrence
     var allLabels = [];
     for (var occ = 1; occ <= maxOcc; occ++) {
@@ -304,11 +307,15 @@
       var prevDateNum = getDateForLabel(_months.prev.year, _months.prev.month, dayName, occNum);
       var curDateNum = getDateForLabel(_months.cur.year, _months.cur.month, dayName, occNum);
 
+      // Future = current month date hasn't happened yet (after latest data day)
+      var isFuture = curDateNum === null || curDateNum > latestCurDayNum;
+      var dimStyle = isFuture ? 'opacity:0.3;' : '';
+
       html += '<tr style="' + bg + '">';
       html += '<td style="padding:8px 12px;font-weight:600;color:#1E293B;border-bottom:1px solid #F1F5F9;white-space:nowrap;">' + label + '</td>';
-      // Prev month: date (always from calendar) + data
-      html += '<td style="padding:8px 6px;text-align:center;font-weight:500;color:#7C3AED;border-bottom:1px solid #F1F5F9;border-left:1px solid #E2E8F0;background:rgba(139,92,246,0.02);font-size:12px;white-space:nowrap;">' + (prevDateNum ? ordinal(prevDateNum) + ' ' + MONTH_NAMES[_months.prev.month] : '-') + '</td>';
-      html += tCells(pvD, '', 'background:rgba(139,92,246,0.02);');
+      // Prev month: date (always from calendar) + data — dimmed if future
+      html += '<td style="padding:8px 6px;text-align:center;font-weight:500;color:#7C3AED;border-bottom:1px solid #F1F5F9;border-left:1px solid #E2E8F0;background:rgba(139,92,246,0.02);font-size:12px;white-space:nowrap;' + dimStyle + '">' + (prevDateNum ? ordinal(prevDateNum) + ' ' + MONTH_NAMES[_months.prev.month] : '-') + '</td>';
+      html += tCells(pvD, '', 'background:rgba(139,92,246,0.02);' + dimStyle);
       // Cur month: date (always from calendar) + data
       html += '<td style="padding:8px 6px;text-align:center;font-weight:500;color:#059669;border-bottom:1px solid #F1F5F9;border-left:2px solid #CBD5E1;background:rgba(16,185,129,0.02);font-size:12px;white-space:nowrap;">' + (curDateNum ? ordinal(curDateNum) + ' ' + MONTH_NAMES[_months.cur.month] : '-') + '</td>';
       html += tCells(cuD, '', 'background:rgba(16,185,129,0.02);');
