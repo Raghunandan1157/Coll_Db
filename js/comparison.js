@@ -238,10 +238,10 @@
       html += '<tr style="' + bg + '">';
       html += '<td style="padding:8px 12px;font-weight:600;color:#1E293B;border-bottom:1px solid #F1F5F9;white-space:nowrap;">' + label + '</td>';
       // Prev month: date + data
-      html += '<td style="padding:8px 6px;text-align:center;font-weight:500;color:#7C3AED;border-bottom:1px solid #F1F5F9;border-left:1px solid #E2E8F0;background:rgba(139,92,246,0.02);font-size:12px;">' + (pv ? pv.dayNum : '-') + '</td>';
+      html += '<td style="padding:8px 6px;text-align:center;font-weight:500;color:#7C3AED;border-bottom:1px solid #F1F5F9;border-left:1px solid #E2E8F0;background:rgba(139,92,246,0.02);font-size:12px;white-space:nowrap;">' + (pv ? pv.dayNum + ' ' + MONTH_NAMES[_months.prev.month] : '-') + '</td>';
       html += tCells(pvD, '', 'background:rgba(139,92,246,0.02);');
       // Cur month: date + data
-      html += '<td style="padding:8px 6px;text-align:center;font-weight:500;color:#059669;border-bottom:1px solid #F1F5F9;border-left:2px solid #CBD5E1;background:rgba(16,185,129,0.02);font-size:12px;">' + (cu ? cu.dayNum : '-') + '</td>';
+      html += '<td style="padding:8px 6px;text-align:center;font-weight:500;color:#059669;border-bottom:1px solid #F1F5F9;border-left:2px solid #CBD5E1;background:rgba(16,185,129,0.02);font-size:12px;white-space:nowrap;">' + (cu ? cu.dayNum + ' ' + MONTH_NAMES[_months.cur.month] : '-') + '</td>';
       html += tCells(cuD, '', 'background:rgba(16,185,129,0.02);');
       html += '</tr>';
     }
