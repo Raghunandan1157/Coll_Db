@@ -14,6 +14,14 @@
   /* ========== Structure helper ========== */
   function isNewStructure() { return window.getDataStructure && window.getDataStructure() === 'new'; }
 
+  /* ========== Employee name map ========== */
+  var _empNames = window._empNameMap || {};
+  function getFullName(empId, fallback) { return _empNames[empId] || fallback || empId || ''; }
+  // Share map loaded by collection.js
+  if (!window._empNameMap) {
+    fetch('/api/employees/names').then(function(r){return r.json();}).then(function(m){ _empNames = m||{}; window._empNameMap = m; }).catch(function(){});
+  }
+
   /* ========== Formatters ========== */
   function fmtNum(v) {
     if (v == null || v === '' || v === '-') return '-';
@@ -312,7 +320,7 @@
     var ov = _pf.view === 'overall';
     return '<div class="pf-view-toggle emp-fade">' +
       '<button class="pf-view-btn' + (ov ? ' active' : '') + '" data-pf-view="overall">OverAll</button>' +
-      '<button class="pf-view-btn' + (!ov ? ' active' : '') + '" data-pf-view="fy">FY 25-26</button>' +
+      '<button class="pf-view-btn' + (!ov ? ' active' : '') + '" data-pf-view="fy">' + ((window.getDataStructure && window.getDataStructure() === 'new') ? 'FY 26-27' : 'FY 25-26') + '</button>' +
     '</div>';
   }
 
@@ -407,12 +415,12 @@
       if (childRole === 'DvM') return ch.division_name || '';
       if (childRole === 'AM') return ch.area_name || '';
       if (childRole === 'BM') return ch.branch_name || '';
-      if (childRole === 'FO') return ch.officer_name || ch.name || '';
+      if (childRole === 'FO') return getFullName(ch.emp_id, ch.officer_name || ch.name || '');
     } else {
       if (childRole === 'RM') return ch.region_name || '';
       if (childRole === 'DM') return ch.district_name || '';
       if (childRole === 'BM') return ch.branch_name || '';
-      if (childRole === 'FO') return ch.officer_name || ch.name || '';
+      if (childRole === 'FO') return getFullName(ch.emp_id, ch.officer_name || ch.name || '');
     }
     return '';
   }

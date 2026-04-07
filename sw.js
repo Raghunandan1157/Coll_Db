@@ -1,4 +1,4 @@
-var CACHE_NAME = 'coll-report-v32';
+var CACHE_NAME = 'coll-report-v33';
 var ASSETS = [
   './',
   './index.html',
@@ -58,13 +58,15 @@ self.addEventListener('fetch', function (e) {
   }
 
   // For everything else: try network, fall back to cache
+  // Only cache GET requests (POST/PUT/DELETE cannot be cached)
   e.respondWith(
     fetch(e.request).then(function (res) {
-      // Clone response and update cache
-      var clone = res.clone();
-      caches.open(CACHE_NAME).then(function (cache) {
-        cache.put(e.request, clone);
-      });
+      if (e.request.method === 'GET') {
+        var clone = res.clone();
+        caches.open(CACHE_NAME).then(function (cache) {
+          cache.put(e.request, clone);
+        });
+      }
       return res;
     }).catch(function () {
       return caches.match(e.request);

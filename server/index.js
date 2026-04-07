@@ -12,7 +12,7 @@ const UPLOAD_DIR = path.join(__dirname, "..", "data");
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({limit: '10mb'}));
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -818,21 +818,49 @@ const EMP_BASE = `
   JOIN districts d ON b.district_id = d.district_id
   JOIN regions r ON d.region_id = r.region_id`;
 
+// Use employee_master if available, fallback to old employees table
+async function hasEmployeeMaster() {
+  try {
+    const r = await pool.query("SELECT count(*) FROM employee_master");
+    return parseInt(r.rows[0].count) > 0;
+  } catch { return false; }
+}
+
 app.get("/api/employees", async (req, res) => {
   try {
+    const useMaster = await hasEmployeeMaster();
     const { q } = req.query;
-    let result;
-    if (q) {
-      const search = "%" + q + "%";
-      result = await pool.query(
-        EMP_BASE + ` WHERE e.officer_name ILIKE $1 OR e.emp_id ILIKE $1
-          OR b.branch_name ILIKE $1 OR d.district_name ILIKE $1 OR r.region_name ILIKE $1
-        ORDER BY e.officer_name`, [search]
+
+    if (useMaster) {
+      let where = [], params = [];
+      if (q) {
+        const search = "%" + q + "%";
+        where.push("(em.full_name ILIKE $1 OR em.emp_id ILIKE $1 OR em.branch_name ILIKE $1 OR em.area_name ILIKE $1 OR em.region_name ILIKE $1 OR em.division_name ILIKE $1 OR em.role ILIKE $1 OR em.mobile ILIKE $1)");
+        params.push(search);
+      }
+      const clause = where.length ? " WHERE " + where.join(" AND ") : "";
+      const result = await pool.query(
+        `SELECT em.emp_id, em.full_name AS name, em.role, em.designation,
+                em.branch_name AS branch, em.area_name AS area, em.division_name AS division,
+                em.region_name AS region, em.mobile,
+                em.branch_name AS location
+         FROM employee_master em${clause} ORDER BY em.full_name LIMIT 500`, params
       );
+      res.json(result.rows);
     } else {
-      result = await pool.query(EMP_BASE + " ORDER BY e.officer_name");
+      let result;
+      if (q) {
+        const search = "%" + q + "%";
+        result = await pool.query(
+          EMP_BASE + ` WHERE e.officer_name ILIKE $1 OR e.emp_id ILIKE $1
+            OR b.branch_name ILIKE $1 OR d.district_name ILIKE $1 OR r.region_name ILIKE $1
+          ORDER BY e.officer_name`, [search]
+        );
+      } else {
+        result = await pool.query(EMP_BASE + " ORDER BY e.officer_name");
+      }
+      res.json(result.rows);
     }
-    res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -840,7 +868,9 @@ app.get("/api/employees", async (req, res) => {
 
 app.get("/api/employees/count", async (req, res) => {
   try {
-    const result = await pool.query("SELECT count(*) FROM employees");
+    const useMaster = await hasEmployeeMaster();
+    const table = useMaster ? "employee_master" : "employees";
+    const result = await pool.query("SELECT count(*) FROM " + table);
     res.json({ count: parseInt(result.rows[0].count) });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1038,7 +1068,7 @@ process.on("unhandledRejection", (err) => {
 // ========== AWS Panel API Endpoints ==========
 
 // Whitelisted tables for direct query
-const AWS_PANEL_TABLES = ['regions', 'districts', 'branches', 'employees', 'employee_performance', 'product_types', 'hourly_performance', 'months', 'portfolio_performance'];
+const AWS_PANEL_TABLES = ['regions', 'districts', 'branches', 'employees', 'employee_performance', 'product_types', 'hourly_performance', 'months', 'portfolio_performance', 'employee_master', 'daily_performance', 'v2_employee_performance', 'v2_employees', 'v2_branches', 'v2_areas', 'v2_divisions', 'v2_states'];
 
 // Whitelisted base directories for file browsing
 const AWS_PANEL_DIRS = ['/home/ec2-user/Coll_Db', '/var/www/html/coll-db'];
@@ -1105,7 +1135,10 @@ app.get('/api/aws-panel/tables/:tableName', async (req, res) => {
     return res.status(403).json({ error: 'Table not allowed: ' + tableName });
   }
   try {
-    const result = await getPool(req.query.db).query('SELECT * FROM ' + tableName + ' LIMIT 50');
+    const p = getPool(req.query.db);
+    const limit = req.query.limit ? Math.min(parseInt(req.query.limit), 10000) : 10000;
+    const offset = parseInt(req.query.offset) || 0;
+    const result = await p.query('SELECT * FROM ' + tableName + ' LIMIT ' + limit + ' OFFSET ' + offset);
     const columns = result.fields.map(f => f.name);
     res.json({ columns, rows: result.rows, count: result.rowCount });
   } catch (err) {
@@ -1267,9 +1300,8 @@ app.get("/api/aws-panel/github/commits/:owner/:repo", async (req, res) => {
 
 // GET table definition (CREATE TABLE DDL)
 app.get("/api/aws-panel/definition/:tableName", async (req, res) => {
-  const ALLOWED = ['regions','districts','branches','employees','employee_performance','product_types','hourly_performance','months','portfolio_performance'];
   const tbl = req.params.tableName;
-  if (!ALLOWED.includes(tbl)) return res.status(400).json({ error: "Table not allowed" });
+  if (!AWS_PANEL_TABLES.includes(tbl)) return res.status(400).json({ error: "Table not allowed" });
 
   try {
     const p = getPool(req.query.db);
@@ -3017,7 +3049,7 @@ app.get("/api/v2/fy/by-employee", async (req, res) => {
 
 
 // ========== BULK DAILY UPLOAD (JSON array via POST body) ==========
-app.post("/api/bulk-daily", express.json({limit: '50mb'}), async (req, res) => {
+app.post("/api/bulk-daily", async (req, res) => {
   const client = await pool.connect();
   try {
     const { date, rows, del } = req.body;
@@ -3080,12 +3112,202 @@ app.post("/api/bulk-daily", express.json({limit: '50mb'}), async (req, res) => {
   }
 });
 
+// ========== EMPLOYEE MASTER API ==========
+app.post("/api/upload-master", async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { rows, del: shouldDelete } = req.body;
+    if (!rows || !rows.length) return res.status(400).json({error: 'No rows'});
+    await client.query("BEGIN");
+    if (shouldDelete) await client.query("DELETE FROM employee_master");
+
+    // Bulk INSERT with multi-row VALUES
+    const valParts = [], params = [];
+    let pi = 1;
+    for (const r of rows) {
+      if (!r.emp_id) continue;
+      const ph = [];
+      for (let k = 0; k < 15; k++) ph.push('$' + pi++);
+      valParts.push('(' + ph.join(',') + ')');
+      params.push(r.emp_id, r.full_name||null, r.role||null, r.designation||null, r.branch_name||null, r.area_name||null, r.area_manager||null, r.division_name||null, r.division_manager||null, r.region_name||null, r.mobile||null, r.date_of_joining||null, r.reporting_officer_id||null, r.reporting_officer_name||null, r.status||'Working');
+    }
+    if (valParts.length > 0) {
+      await client.query(
+        `INSERT INTO employee_master (emp_id, full_name, role, designation, branch_name, area_name, area_manager, division_name, division_manager, region_name, mobile, date_of_joining, reporting_officer_id, reporting_officer_name, status)
+         VALUES ${valParts.join(',')}
+         ON CONFLICT (emp_id) DO UPDATE SET full_name=EXCLUDED.full_name, role=EXCLUDED.role, designation=EXCLUDED.designation, branch_name=EXCLUDED.branch_name, area_name=EXCLUDED.area_name, area_manager=EXCLUDED.area_manager, division_name=EXCLUDED.division_name, division_manager=EXCLUDED.division_manager, region_name=EXCLUDED.region_name, mobile=EXCLUDED.mobile, date_of_joining=EXCLUDED.date_of_joining, reporting_officer_id=EXCLUDED.reporting_officer_id, reporting_officer_name=EXCLUDED.reporting_officer_name, status=EXCLUDED.status`,
+        params
+      );
+    }
+    await client.query("COMMIT");
+    res.json({success: true, inserted: valParts.length});
+  } catch(err) {
+    await client.query("ROLLBACK").catch(() => {});
+    res.status(500).json({error: err.message});
+  } finally { client.release(); }
+});
+
+app.get("/api/employees/search", async (req, res) => {
+  try {
+    const { q, branch, area, region, role } = req.query;
+    let where = [], params = [], idx = 1;
+    if (q) { where.push(`(em.full_name ILIKE $${idx} OR em.emp_id ILIKE $${idx})`); params.push('%'+q+'%'); idx++; }
+    if (branch) { where.push(`em.branch_name = $${idx++}`); params.push(branch); }
+    if (area) { where.push(`em.area_name = $${idx++}`); params.push(area); }
+    if (region) { where.push(`em.region_name = $${idx++}`); params.push(region); }
+    if (role) { where.push(`em.role = $${idx++}`); params.push(role); }
+    const clause = where.length ? ' WHERE ' + where.join(' AND ') : '';
+    const result = await pool.query(
+      `SELECT em.* FROM employee_master em${clause} ORDER BY em.full_name LIMIT 200`, params
+    );
+    res.json(result.rows);
+  } catch(err) { res.status(500).json({error: err.message}); }
+});
+
+app.get("/api/employees/master/:id", async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM employee_master WHERE emp_id=$1", [req.params.id]);
+    res.json(result.rows[0] || {});
+  } catch(err) { res.status(500).json({error: err.message}); }
+});
+
+// ========== STAFF UPLOAD (Excel → employee_master) ==========
+app.post("/api/upload-staff", upload.single("file"), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+
+  const client = await pool.connect();
+  try {
+    const wb = XLSX.read(req.file.buffer, { type: "buffer" });
+    // Find "Working" sheet
+    const sheetName = wb.SheetNames.find(s => s.toLowerCase().includes('working')) || wb.SheetNames[0];
+    const ws = wb.Sheets[sheetName];
+    if (!ws) return res.status(400).json({ error: "No Working sheet found" });
+
+    const rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
+    if (rows.length < 3) return res.status(400).json({ error: "File has no data rows" });
+
+    // Row 0 = column numbers, Row 1 = headers, Row 2+ = data
+    const headers = rows[1].map(h => String(h || '').trim());
+
+    // Find column indices
+    function findCol(patterns) {
+      for (const p of patterns) {
+        const idx = headers.findIndex(h => h.toLowerCase().includes(p.toLowerCase()));
+        if (idx >= 0) return idx;
+      }
+      return -1;
+    }
+
+    const colMap = {
+      emp_id: findCol(['NMEmpId', 'EMP ID', 'Emp Id']),
+      full_name: findCol(['Name(AsperAadhar)', 'Name', 'As Per Aadhaar']),
+      role: findCol(['Role', 'Position']),
+      designation: findCol(['Designation']),
+      branch: findCol(['Branch']),
+      area: findCol(['Area Name']),
+      area_mgr: findCol(['Area Manager']),
+      division: findCol(['Division Name']),
+      division_mgr: findCol(['Division Manager']),
+      region: findCol(['Region Name', 'Region']),
+      mobile: findCol(['PersonalMobile', 'Personal Mobile']),
+      doj: findCol(['Date of Joining']),
+      rep_id: findCol(['ReportingOfficerEMPID', 'Reporting Officer EMP']),
+      rep_name: findCol(['RepotingOfficerName', 'Reporting Officer Name', 'Repoting Officer']),
+    };
+
+    if (colMap.emp_id < 0) return res.status(400).json({ error: "Cannot find Employee ID column" });
+
+    await client.query("BEGIN");
+
+    let inserted = 0, skipped = 0;
+    const seen = new Set();
+
+    for (let r = 2; r < rows.length; r++) {
+      const row = rows[r];
+      if (!row) continue;
+
+      const empId = String(row[colMap.emp_id] || '').trim();
+      if (!empId || seen.has(empId)) { skipped++; continue; }
+      seen.add(empId);
+
+      const get = (col) => col >= 0 && row[col] != null ? String(row[col]).trim() : null;
+
+      // Parse date of joining
+      let doj = null;
+      if (colMap.doj >= 0 && row[colMap.doj]) {
+        const raw = row[colMap.doj];
+        if (typeof raw === 'number' && raw > 1000) {
+          // Excel serial date
+          const d = new Date((raw - 25569) * 86400 * 1000);
+          doj = d.toISOString().substring(0, 10);
+        } else {
+          try { doj = new Date(raw).toISOString().substring(0, 10); } catch(e) {}
+        }
+      }
+
+      await client.query(
+        `INSERT INTO employee_master (emp_id, full_name, role, designation, branch_name, area_name, area_manager, division_name, division_manager, region_name, mobile, date_of_joining, reporting_officer_id, reporting_officer_name, status)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'Working')
+         ON CONFLICT (emp_id) DO UPDATE SET
+           full_name=COALESCE(EXCLUDED.full_name, employee_master.full_name),
+           role=COALESCE(EXCLUDED.role, employee_master.role),
+           designation=COALESCE(EXCLUDED.designation, employee_master.designation),
+           branch_name=COALESCE(EXCLUDED.branch_name, employee_master.branch_name),
+           area_name=COALESCE(EXCLUDED.area_name, employee_master.area_name),
+           area_manager=COALESCE(EXCLUDED.area_manager, employee_master.area_manager),
+           division_name=COALESCE(EXCLUDED.division_name, employee_master.division_name),
+           division_manager=COALESCE(EXCLUDED.division_manager, employee_master.division_manager),
+           region_name=COALESCE(EXCLUDED.region_name, employee_master.region_name),
+           mobile=COALESCE(EXCLUDED.mobile, employee_master.mobile),
+           date_of_joining=COALESCE(EXCLUDED.date_of_joining, employee_master.date_of_joining),
+           reporting_officer_id=COALESCE(EXCLUDED.reporting_officer_id, employee_master.reporting_officer_id),
+           reporting_officer_name=COALESCE(EXCLUDED.reporting_officer_name, employee_master.reporting_officer_name),
+           status='Working'`,
+        [empId, get(colMap.full_name), get(colMap.role), get(colMap.designation),
+         get(colMap.branch), get(colMap.area), get(colMap.area_mgr),
+         get(colMap.division), get(colMap.division_mgr), get(colMap.region),
+         get(colMap.mobile), doj, get(colMap.rep_id), get(colMap.rep_name)]
+      );
+      inserted++;
+    }
+
+    await client.query("COMMIT");
+
+    // Get total count
+    const countResult = await pool.query("SELECT count(*) FROM employee_master");
+    const total = parseInt(countResult.rows[0].count);
+
+    // Save file to disk
+    try {
+      const uploadDir = path.join(__dirname, "..", "data");
+      if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+      fs.writeFileSync(path.join(uploadDir, "staff_latest.xlsx"), req.file.buffer);
+    } catch(e) {}
+
+    res.json({ success: true, inserted, skipped, total });
+  } catch(err) {
+    await client.query("ROLLBACK").catch(() => {});
+    console.error("Staff upload error:", err);
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// Employee name map (empId -> full name from master)
+app.get("/api/employees/names", async (req, res) => {
+  try {
+    const result = await pool.query("SELECT emp_id, full_name FROM employee_master");
+    var map = {};
+    for (const r of result.rows) map[r.emp_id] = r.full_name;
+    res.json(map);
+  } catch(err) { res.json({}); }
+});
+
 // ========== COMPARISON API ==========
 app.get("/api/comparison", async (req, res) => {
   try {
-    // Get all available dates with their aggregated metrics
-    const result = await pool.query(`
-      SELECT dp.report_date,
+    const base = `SELECT dp.report_date,
         SUM(dp.regular_demand)::int AS regular_demand,
         SUM(dp.regular_collection)::int AS regular_collection,
         SUM(dp.demand_1_30)::int AS demand_1_30,
@@ -3098,9 +3320,13 @@ app.get("/api/comparison", async (req, res) => {
         SUM(dp.npa_act_acc)::int AS npa_act_acc,
         SUM(dp.npa_act_amt) AS npa_act_amt
       FROM daily_performance dp
-      GROUP BY dp.report_date
-      ORDER BY dp.report_date
-    `);
+      LEFT JOIN employees e ON dp.emp_id = e.emp_id
+      LEFT JOIN branches b ON e.branch_id = b.branch_id
+      LEFT JOIN districts d ON b.district_id = d.district_id
+      LEFT JOIN regions r ON d.region_id = r.region_id`;
+    const { clause, params } = buildDailyWhere({...req.query, date: undefined});
+    const sql = base + clause + " GROUP BY dp.report_date ORDER BY dp.report_date";
+    const result = await pool.query(sql, params);
     res.json(result.rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });

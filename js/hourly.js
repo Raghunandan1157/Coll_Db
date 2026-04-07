@@ -14,6 +14,10 @@
   /* ========== Structure helper ========== */
   function isNewStructure() { return window.getDataStructure && window.getDataStructure() === 'new'; }
 
+  /* ========== Employee name map ========== */
+  var _empNames = window._empNameMap || {};
+  function getFullName(empId, fallback) { return _empNames[empId] || fallback || empId || ''; }
+
   /* ========== Formatters ========== */
   function fmtNum(v) {
     if (v == null || v === '' || v === '-') return '-';
@@ -490,12 +494,12 @@
       if (childRole === 'DvM') return ch.division_name || '';
       if (childRole === 'AM') return ch.area_name || '';
       if (childRole === 'BM') return ch.branch_name || '';
-      if (childRole === 'FO') return ch.name || '';
+      if (childRole === 'FO') return getFullName(ch.emp_id, ch.name || '');
     } else {
       if (childRole === 'RM') return ch.region_name || '';
       if (childRole === 'DM') return ch.district_name || '';
       if (childRole === 'BM') return ch.branch_name || '';
-      if (childRole === 'FO') return ch.name || '';
+      if (childRole === 'FO') return getFullName(ch.emp_id, ch.name || '');
     }
     return '';
   }

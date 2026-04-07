@@ -6,6 +6,10 @@
 (function () {
   var session = getEmployeeSession();
 
+  /* Employee name map */
+  var _empNames = window._empNameMap || {};
+  function getFullName(empId, fallback) { return _empNames[empId] || fallback || empId || ''; }
+
   function fmtNum(v) {
     if (v == null || v === '' || v === '-') return '-';
     var n = typeof v === 'string' ? parseFloat(v) : v;
@@ -119,6 +123,7 @@
       _db.byMonth = res[1] || [];
       _db.children = res[2] || [];
       var byProduct = res[3] || [];
+      _db.byProduct = byProduct;
       render(byProduct);
     }).catch(function(err) {
       console.error('Disbursement load failed:', err);
@@ -167,7 +172,7 @@
         if (childRole === 'RM') childName = ch.region_name || '';
         else if (childRole === 'DM') childName = ch.district_name || '';
         else if (childRole === 'BM') childName = ch.branch_name || '';
-        else if (childRole === 'FO') childName = ch.name || ch.officer_name || '';
+        else if (childRole === 'FO') childName = getFullName(ch.emp_id, ch.name || ch.officer_name || '');
         var initial = childName.charAt(0).toUpperCase();
         var dataAttr = childRole === 'FO'
           ? 'data-emp-id="' + esc(ch.emp_id || '') + '" data-emp-name="' + esc(childName) + '"'
@@ -189,7 +194,7 @@
         if (childRole === 'RM') childName = ch.region_name || '';
         else if (childRole === 'DM') childName = ch.district_name || '';
         else if (childRole === 'BM') childName = ch.branch_name || '';
-        else if (childRole === 'FO') childName = ch.name || ch.officer_name || '';
+        else if (childRole === 'FO') childName = getFullName(ch.emp_id, ch.name || ch.officer_name || '');
         var initial = childName.charAt(0).toUpperCase();
         var dataAttr = childRole === 'FO'
           ? 'data-emp-id="' + esc(ch.emp_id || '') + '" data-emp-name="' + esc(childName) + '"'
@@ -340,7 +345,7 @@
     container.querySelectorAll('[data-subview]').forEach(function (btn) {
       btn.onclick = function () {
         localStorage.setItem('subunitView', btn.dataset.subview);
-        render();
+        render(_db.byProduct);
       };
     });
 

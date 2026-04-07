@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NLPL | Staff Data Upload</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:'DM Sans',sans-serif;background:#F8FAFC;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
+    .container{max-width:520px;width:100%;text-align:center;}
+    h1{font-size:24px;font-weight:700;color:#1E293B;margin-bottom:4px;}
+    .sub{font-size:13px;color:#64748B;margin-bottom:32px;}
+    .drop-zone{border:2px dashed #CBD5E1;border-radius:16px;padding:48px 24px;background:#fff;cursor:pointer;transition:all .2s;}
+    .drop-zone.drag{border-color:#059669;background:#F0FDF4;}
+    .drop-zone.has-file{border-color:#059669;border-style:solid;background:#F0FDF4;}
+    .drop-icon{font-size:48px;margin-bottom:12px;}
+    .drop-text{font-size:15px;font-weight:600;color:#1E293B;}
+    .drop-sub{font-size:12px;color:#94A3B8;margin-top:4px;}
+    .file-info{margin-top:16px;padding:12px 16px;background:#ECFDF5;border-radius:10px;display:none;align-items:center;gap:10px;font-size:13px;color:#059669;font-weight:500;}
+    .file-info.show{display:flex;}
+    .file-info .name{flex:1;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .file-info .remove{cursor:pointer;color:#EF4444;font-size:18px;font-weight:700;}
+    .btn{margin-top:20px;width:100%;padding:14px;border:none;border-radius:12px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;transition:all .2s;}
+    .btn-upload{background:#059669;color:#fff;}
+    .btn-upload:hover{background:#047857;}
+    .btn-upload:disabled{opacity:.5;cursor:not-allowed;}
+    .status{margin-top:16px;padding:14px;border-radius:10px;font-size:13px;display:none;}
+    .status.success{display:block;background:#F0FDF4;color:#059669;border:1px solid #A7F3D0;}
+    .status.error{display:block;background:#FEF2F2;color:#EF4444;border:1px solid #FECACA;}
+    .status.loading{display:block;background:#F1F5F9;color:#64748B;border:1px solid #E2E8F0;}
+    .spinner{display:inline-block;width:16px;height:16px;border:2px solid #E2E8F0;border-top-color:#059669;border-radius:50%;animation:spin .6s linear infinite;margin-right:8px;vertical-align:middle;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    .back{position:fixed;top:16px;left:16px;padding:8px 16px;background:#fff;border:1px solid #E2E8F0;border-radius:100px;color:#1E293B;text-decoration:none;font-size:13px;font-weight:600;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+    .stats{margin-top:12px;font-size:12px;color:#94A3B8;}
+  </style>
+</head>
+<body>
+  <a href="employee.html" class="back">&larr; Dashboard</a>
+  <div class="container">
+    <h1>Staff Data Upload</h1>
+    <p class="sub">Upload the NLPL Staff Personal Details Excel to sync employee master data</p>
+
+    <div class="drop-zone" id="dropZone">
+      <div class="drop-icon">&#128203;</div>
+      <div class="drop-text">Drag & drop your Excel file here</div>
+      <div class="drop-sub">or click to browse (.xlsx only)</div>
+    </div>
+    <input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none;">
+
+    <div class="file-info" id="fileInfo">
+      <span>&#128196;</span>
+      <span class="name" id="fileName"></span>
+      <span class="remove" id="removeFile">&times;</span>
+    </div>
+
+    <button class="btn btn-upload" id="uploadBtn" disabled>Upload & Sync</button>
+
+    <div class="status" id="status"></div>
+    <div class="stats" id="stats"></div>
+  </div>
+
+<script>
+var dropZone = document.getElementById('dropZone');
+var fileInput = document.getElementById('fileInput');
+var fileInfo = document.getElementById('fileInfo');
+var fileName = document.getElementById('fileName');
+var removeFile = document.getElementById('removeFile');
+var uploadBtn = document.getElementById('uploadBtn');
+var statusEl = document.getElementById('status');
+var statsEl = document.getElementById('stats');
+var selectedFile = null;
+
+// Load current stats
+fetch('/api/employees/count').then(function(r){return r.json();}).then(function(d){
+  statsEl.textContent = 'Current master: ' + (d.count || 0) + ' employees';
+}).catch(function(){});
+
+// Drag & drop
+dropZone.addEventListener('click', function(){ fileInput.click(); });
+dropZone.addEventListener('dragover', function(e){ e.preventDefault(); dropZone.classList.add('drag'); });
+dropZone.addEventListener('dragleave', function(){ dropZone.classList.remove('drag'); });
+dropZone.addEventListener('drop', function(e){
+  e.preventDefault();
+  dropZone.classList.remove('drag');
+  if (e.dataTransfer.files.length) selectFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', function(){
+  if (fileInput.files.length) selectFile(fileInput.files[0]);
+});
+
+function selectFile(f) {
+  if (!f.name.match(/\.xlsx?$/i)) { alert('Only .xlsx files allowed'); return; }
+  selectedFile = f;
+  fileName.textContent = f.name + ' (' + (f.size/1024).toFixed(0) + ' KB)';
+  fileInfo.classList.add('show');
+  dropZone.classList.add('has-file');
+  uploadBtn.disabled = false;
+  statusEl.className = 'status';
+}
+
+removeFile.addEventListener('click', function(){
+  selectedFile = null;
+  fileInfo.classList.remove('show');
+  dropZone.classList.remove('has-file');
+  uploadBtn.disabled = true;
+  fileInput.value = '';
+});
+
+uploadBtn.addEventListener('click', function(){
+  if (!selectedFile) return;
+  uploadBtn.disabled = true;
+  statusEl.className = 'status loading';
+  statusEl.innerHTML = '<span class="spinner"></span> Uploading & syncing...';
+
+  var formData = new FormData();
+  formData.append('file', selectedFile);
+
+  fetch('/api/upload-staff', {method: 'POST', body: formData})
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      if (data.success) {
+        statusEl.className = 'status success';
+        statusEl.textContent = 'Synced ' + data.inserted + ' employees (' + data.skipped + ' duplicates skipped)';
+        statsEl.textContent = 'Current master: ' + data.total + ' employees';
+      } else {
+        statusEl.className = 'status error';
+        statusEl.textContent = 'Error: ' + (data.error || 'Upload failed');
+      }
+      uploadBtn.disabled = false;
+    })
+    .catch(function(err){
+      statusEl.className = 'status error';
+      statusEl.textContent = 'Error: ' + err.message;
+      uploadBtn.disabled = false;
+    });
+});
+</script>
+</body>
+</html>

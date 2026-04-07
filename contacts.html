@@ -676,6 +676,9 @@
                     var delay = index * CONFIG.animationStaggerDelay;
                     var roleInfo = self.getRoleConfig(emp.role);
 
+                    var locParts = [emp.branch, emp.area, emp.region].filter(Boolean);
+                    var locStr = locParts.join(' \u2022 ') || emp.location || 'Remote';
+
                     var card =
                         '<div class="card" style="animation-delay: ' + delay + 'ms">' +
                             '<div class="card-header">' +
@@ -685,6 +688,7 @@
                                     '<span class="role-pill ' + roleInfo.cls + '" title="' + self.safe(roleInfo.full) + '">' +
                                         self.safe(emp.role || 'Team Member') +
                                     '</span>' +
+                                    (emp.designation ? '<div style="font-size:0.7rem;color:var(--text-muted);margin-top:2px;">' + self.safe(emp.designation) + '</div>' : '') +
                                 '</div>' +
                             '</div>' +
                             '<div class="card-body">' +
@@ -694,7 +698,7 @@
                                 '</div>' +
                                 '<div class="detail-row">' +
                                     '<div class="icon-box">&#128205;</div>' +
-                                    '<span>' + self.safe(emp.location || 'Remote') + '</span>' +
+                                    '<span>' + self.safe(locStr) + '</span>' +
                                 '</div>' +
                                 '<div class="detail-row">' +
                                     '<div class="icon-box">&#128222;</div>' +

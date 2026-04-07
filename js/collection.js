@@ -14,6 +14,15 @@
   /* ========== Structure helper ========== */
   function isNewStructure() { return window.getDataStructure && window.getDataStructure() === 'new'; }
 
+  /* ========== Employee name map from master ========== */
+  var _empNames = window._empNameMap || {};
+  (function() {
+    fetch('/api/employees/names').then(function(r) { return r.json(); }).then(function(m) { _empNames = m || {}; window._empNameMap = m; }).catch(function() {});
+  })();
+  function getFullName(empId, fallback) {
+    return _empNames[empId] || fallback || empId || '';
+  }
+
   /* ========== Formatters ========== */
   function fmtNum(v) {
     if (v == null || v === '' || v === '-') return '-';
@@ -72,13 +81,18 @@
         params.push('emp_id=' + encodeURIComponent(session.id));
       }
     } else {
-      if ((session.role === 'RM' || session.role === 'SM') && session.location) {
+      // Old structure params (also used when date is selected in new structure)
+      var r = session.role;
+      if ((r === 'RM' || r === 'SM') && session.location) {
         params.push('region=' + encodeURIComponent(session.location));
-      } else if ((session.role === 'DM' || session.role === 'DvM') && session.location) {
+      } else if ((r === 'DM' || r === 'DvM') && session.location) {
         params.push('district=' + encodeURIComponent(session.location));
-      } else if ((session.role === 'AM' || session.role === 'BM') && session.location) {
+      } else if (r === 'AM' && session.location) {
+        // AM maps to district level in daily API
+        params.push('district=' + encodeURIComponent(session.location));
+      } else if (r === 'BM' && session.location) {
         params.push('branch=' + encodeURIComponent(session.location));
-      } else if ((!session.role || session.role === 'FO') && session.id) {
+      } else if ((!r || r === 'FO') && session.id) {
         params.push('emp_id=' + encodeURIComponent(session.id));
       }
     }
@@ -92,32 +106,27 @@
     var dateParam = _collState.date ? 'date=' + encodeURIComponent(_collState.date) + '&' : '';
 
     // When a date is selected, always use /api/daily (works for both structures)
+    // Daily API only supports old-structure filters: region, district, branch, emp_id
     if (_collState.date) {
       var dailyBase = '/api/daily';
-      if (isNewStructure()) {
-        // New structure roles but daily API uses old-structure endpoints
-        var r = session.role;
-        if (r === 'CEO') {
-          return dailyBase + '/by-region?' + dateParam + (ptParam || '');
-        }
-        if ((r === 'SM' || r === 'RM') && session.location) {
-          var rp = [ptParam, 'region=' + encodeURIComponent(session.location)].filter(Boolean);
-          return dailyBase + '/by-district?' + dateParam + rp.join('&');
-        }
-        if ((r === 'DvM' || r === 'DM') && session.location) {
-          var dp = [ptParam, 'district=' + encodeURIComponent(session.location)].filter(Boolean);
-          return dailyBase + '/by-branch?' + dateParam + dp.join('&');
-        }
-        if (r === 'AM' && session.location) {
-          var ap = [ptParam, 'area=' + encodeURIComponent(session.location)].filter(Boolean);
-          return dailyBase + '/by-branch?' + dateParam + ap.join('&');
-        }
-        if (r === 'BM' && session.location) {
-          var bp2 = [ptParam, 'branch=' + encodeURIComponent(session.location)].filter(Boolean);
-          return dailyBase + '/by-employee?' + dateParam + bp2.join('&');
-        }
+      var r = session.role;
+      if (r === 'CEO') {
         return dailyBase + '/by-region?' + dateParam + (ptParam || '');
       }
+      if ((r === 'SM' || r === 'RM') && session.location) {
+        var rp = [ptParam, 'region=' + encodeURIComponent(session.location)].filter(Boolean);
+        return dailyBase + '/by-district?' + dateParam + rp.join('&');
+      }
+      if ((r === 'DvM' || r === 'DM' || r === 'AM') && session.location) {
+        // DvM/DM/AM all map to district level in daily API
+        var dp = [ptParam, 'district=' + encodeURIComponent(session.location)].filter(Boolean);
+        return dailyBase + '/by-branch?' + dateParam + dp.join('&');
+      }
+      if (r === 'BM' && session.location) {
+        var bp2 = [ptParam, 'branch=' + encodeURIComponent(session.location)].filter(Boolean);
+        return dailyBase + '/by-employee?' + dateParam + bp2.join('&');
+      }
+      return dailyBase + '/by-region?' + dateParam + (ptParam || '');
     }
 
     if (isNewStructure()) {
@@ -147,7 +156,7 @@
       return null;
     }
 
-    var apiBase = _collState.date ? '/api/daily' : (_collState.view === 'fy' ? '/api/fy' : '/api/collection');
+    var apiBase = _collState.view === 'fy' ? '/api/fy' : '/api/collection';
     if (session.role === 'CEO') {
       return apiBase + '/by-region?' + dateParam + (ptParam || '');
     }
@@ -261,9 +270,15 @@
     // Sub-units
     var children = _collState.childrenData || [];
     if (session.role && session.role !== 'FO' && children.length > 0) {
-      var childRoleMap = isNewStructure()
-        ? { CEO: 'SM', SM: 'DvM', RM: 'DvM', DvM: 'AM', DM: 'AM', AM: 'BM', BM: 'FO' }
-        : { CEO: 'RM', RM: 'DM', DM: 'BM', BM: 'FO' };
+      var childRoleMap;
+      if (_collState.date) {
+        // Daily API only has 4-level hierarchy (region/district/branch/employee)
+        childRoleMap = { CEO: 'RM', SM: 'DM', RM: 'DM', DvM: 'BM', DM: 'BM', AM: 'FO', BM: 'FO' };
+      } else if (isNewStructure()) {
+        childRoleMap = { CEO: 'SM', SM: 'DvM', RM: 'DvM', DvM: 'AM', DM: 'AM', AM: 'BM', BM: 'FO' };
+      } else {
+        childRoleMap = { CEO: 'RM', RM: 'DM', DM: 'BM', BM: 'FO' };
+      }
       var childRole = childRoleMap[session.role];
       if (childRole) {
         // Sort children by collection percentage descending
@@ -537,18 +552,14 @@
   }
 
   function getChildName(ch, childRole) {
-    if (isNewStructure()) {
-      if (childRole === 'SM') return ch.state_name || '';
-      if (childRole === 'DvM') return ch.division_name || '';
-      if (childRole === 'AM') return ch.area_name || '';
-      if (childRole === 'BM') return ch.branch_name || '';
-      if (childRole === 'FO') return ch.name || '';
-    } else {
-      if (childRole === 'RM') return ch.region_name || '';
-      if (childRole === 'DM') return ch.district_name || '';
-      if (childRole === 'BM') return ch.branch_name || '';
-      if (childRole === 'FO') return ch.name || '';
-    }
+    // Check both old and new structure field names (daily API returns old, v2 returns new)
+    if (childRole === 'SM') return ch.state_name || ch.region_name || '';
+    if (childRole === 'RM') return ch.region_name || ch.state_name || '';
+    if (childRole === 'DvM') return ch.division_name || ch.district_name || '';
+    if (childRole === 'DM') return ch.district_name || ch.division_name || '';
+    if (childRole === 'AM') return ch.area_name || '';
+    if (childRole === 'BM') return ch.branch_name || '';
+    if (childRole === 'FO') return getFullName(ch.emp_id, ch.name || ch.officer_name || '');
     return '';
   }
 

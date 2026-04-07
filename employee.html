@@ -1068,11 +1068,11 @@
   <script src="js/storage.js?v=25"></script>
   <script src="js/auth.js?v=25"></script>
   <script src="js/settings.js?v=6"></script>
-  <script src="js/portfolio.js?v=42"></script>
-  <script src="js/collection.js?v=39"></script>
-  <script src="js/hourly.js?v=28"></script>
-  <script src="js/disbursement.js?v=39"></script>
-  <script src="js/comparison.js?v=9"></script>
+  <script src="js/portfolio.js?v=44"></script>
+  <script src="js/collection.js?v=42"></script>
+  <script src="js/hourly.js?v=29"></script>
+  <script src="js/disbursement.js?v=41"></script>
+  <script src="js/comparison.js?v=13"></script>
   <script src="js/analytical.js?v=26"></script>
   <script src="js/employee.js?v=42"></script>
   <script>if('serviceWorker' in navigator && location.protocol !== 'file:'){navigator.serviceWorker.register('./sw.js');}</script>
@@ -1395,12 +1395,18 @@ fetch('/api/daily/dates').then(function(r){return r.json();}).then(function(date
   _calLoaded = true;
 }).catch(function(){});
 
-// Keyboard arrows
+// Keyboard arrows — works for Collection and Comparison tabs
 document.addEventListener('keydown', function(e) {
+  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+  var dir = e.key === 'ArrowLeft' ? -1 : 1;
+  var compTab = document.getElementById('comparisonTab');
+  if (compTab && compTab.classList.contains('active') && window._compNav) {
+    window._compNav(dir); e.preventDefault(); return;
+  }
   var collContent = document.getElementById('collectionContent');
-  if (!collContent || collContent.offsetParent === null) return;
-  if (e.key === 'ArrowLeft') { navigateDate(-1); e.preventDefault(); }
-  if (e.key === 'ArrowRight') { navigateDate(1); e.preventDefault(); }
+  if (collContent && collContent.offsetParent !== null) {
+    navigateDate(dir); e.preventDefault();
+  }
 });
 
 
