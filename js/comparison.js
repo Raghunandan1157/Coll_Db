@@ -96,6 +96,7 @@
   var _compData = null, _compView = 'cards', _compDayIdx = -1;
   var _dateMap = {}, _dailyMap = {}, _months = null, _curDays = [], _prevDays = [];
   var _prevLabelMap = {};
+  var _prevCumMap = {}, _curCumMap = {};
 
   var DELTA_FIELDS = ['regular_demand','regular_collection','demand_1_30','collection_1_30',
     'demand_31_60','collection_31_60','pnpa_demand','pnpa_collection','npa_cases','npa_act_acc','npa_act_amt'];
@@ -130,6 +131,46 @@
     }
   }
 
+  /**
+   * Pre-compute cumulative running totals for each label (Mon→Sun order)
+   * so card view can look up the same values as the table.
+   */
+  function buildCumulativeMaps() {
+    _prevCumMap = {}; _curCumMap = {};
+    if (!_months) return;
+    var DOW_ORDER = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    var prevMap = buildLabelMap(_prevDays);
+    var curMap = buildLabelMap(_curDays);
+    var latestCurDayNum = _curDays.length > 0 ? _curDays[_curDays.length - 1].dayNum : 0;
+    var maxOcc = Math.max(
+      Math.ceil(new Date(_months.prev.year, _months.prev.month, 0).getDate() / 7),
+      Math.ceil(new Date(_months.cur.year, _months.cur.month, 0).getDate() / 7)
+    );
+    var pRun = {}, cRun = {};
+    for (var f = 0; f < DELTA_FIELDS.length; f++) { pRun[DELTA_FIELDS[f]] = 0; cRun[DELTA_FIELDS[f]] = 0; }
+    for (var occ = 1; occ <= maxOcc; occ++) {
+      for (var d = 0; d < DOW_ORDER.length; d++) {
+        var label = occ + ' - ' + DOW_ORDER[d];
+        var pv = prevMap[label] || null;
+        var cu = curMap[label] || null;
+        var pvD = pv ? _dailyMap[pv.date] : null;
+        var cuD = cu ? _dailyMap[cu.date] : null;
+        var curDateNum = getDateForLabel(_months.cur.year, _months.cur.month, DOW_ORDER[d], occ);
+        var isFuture = curDateNum === null || curDateNum > latestCurDayNum;
+        if (pvD && !isFuture) {
+          for (var f = 0; f < DELTA_FIELDS.length; f++) pRun[DELTA_FIELDS[f]] += Number(pvD[DELTA_FIELDS[f]]) || 0;
+          var pc = {}; for (var f = 0; f < DELTA_FIELDS.length; f++) pc[DELTA_FIELDS[f]] = pRun[DELTA_FIELDS[f]];
+          _prevCumMap[label] = pc;
+        }
+        if (cuD) {
+          for (var f = 0; f < DELTA_FIELDS.length; f++) cRun[DELTA_FIELDS[f]] += Number(cuD[DELTA_FIELDS[f]]) || 0;
+          var cc = {}; for (var f = 0; f < DELTA_FIELDS.length; f++) cc[DELTA_FIELDS[f]] = cRun[DELTA_FIELDS[f]];
+          _curCumMap[label] = cc;
+        }
+      }
+    }
+  }
+
   function initState() {
     _dateMap = {};
     if (!_compData) return;
@@ -142,6 +183,7 @@
     _curDays = buildLabeledDays(_dateMap, _months.cur.year, _months.cur.month);
     _prevDays = buildLabeledDays(_dateMap, _months.prev.year, _months.prev.month);
     _prevLabelMap = buildLabelMap(_prevDays);
+    buildCumulativeMaps();
     if (_compDayIdx < 0) _compDayIdx = _curDays.length - 1;
     if (_compDayIdx >= _curDays.length) _compDayIdx = _curDays.length - 1;
     if (_compDayIdx < 0) _compDayIdx = 0;
@@ -155,8 +197,8 @@
     // Match by weekday label: find the same "1 - Mon" in previous month
     var prevDay = _prevLabelMap[curDay.label] || null;
 
-    var cur = _dailyMap[curDay.date] || null;
-    var prev = prevDay ? _dailyMap[prevDay.date] : null;
+    var cur = _curCumMap[curDay.label] || null;
+    var prev = _prevCumMap[curDay.label] || null;
 
     if (!prev && !cur) return '<div style="text-align:center;padding:60px;color:#64748B;">No data for this day.</div>';
 
