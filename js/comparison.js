@@ -94,8 +94,41 @@
 
   /* ========== STATE ========== */
   var _compData = null, _compView = 'cards', _compDayIdx = -1;
-  var _dateMap = {}, _months = null, _curDays = [], _prevDays = [];
+  var _dateMap = {}, _dailyMap = {}, _months = null, _curDays = [], _prevDays = [];
   var _prevLabelMap = {};
+
+  var DELTA_FIELDS = ['regular_demand','regular_collection','demand_1_30','collection_1_30',
+    'demand_31_60','collection_31_60','pnpa_demand','pnpa_collection','npa_cases','npa_act_acc','npa_act_amt'];
+
+  /**
+   * Convert cumulative data into daily contributions.
+   * For each month, sort dates chronologically, then each day's value =
+   * cumulative[day] - cumulative[previous day]. First day = itself.
+   */
+  function buildDailyMap() {
+    _dailyMap = {};
+    if (!_months) return;
+    var monthList = [_months.prev, _months.cur];
+    for (var m = 0; m < monthList.length; m++) {
+      var mo = monthList[m];
+      var dates = [];
+      for (var ds in _dateMap) {
+        var p = ds.split('-');
+        if (parseInt(p[0]) === mo.year && parseInt(p[1]) === mo.month) dates.push(ds);
+      }
+      dates.sort();
+      for (var i = 0; i < dates.length; i++) {
+        var cur = _dateMap[dates[i]];
+        var prev = i > 0 ? _dateMap[dates[i - 1]] : null;
+        var daily = { report_date: cur.report_date };
+        for (var f = 0; f < DELTA_FIELDS.length; f++) {
+          var key = DELTA_FIELDS[f];
+          daily[key] = (Number(cur[key]) || 0) - (prev ? (Number(prev[key]) || 0) : 0);
+        }
+        _dailyMap[dates[i]] = daily;
+      }
+    }
+  }
 
   function initState() {
     _dateMap = {};
@@ -105,6 +138,7 @@
     var allDates = Object.keys(_dateMap).sort();
     _months = getMonths(allDates);
     if (!_months) return;
+    buildDailyMap();
     _curDays = buildLabeledDays(_dateMap, _months.cur.year, _months.cur.month);
     _prevDays = buildLabeledDays(_dateMap, _months.prev.year, _months.prev.month);
     _prevLabelMap = buildLabelMap(_prevDays);
@@ -121,8 +155,8 @@
     // Match by weekday label: find the same "1 - Mon" in previous month
     var prevDay = _prevLabelMap[curDay.label] || null;
 
-    var cur = _dateMap[curDay.date] || null;
-    var prev = prevDay ? _dateMap[prevDay.date] : null;
+    var cur = _dailyMap[curDay.date] || null;
+    var prev = prevDay ? _dailyMap[prevDay.date] : null;
 
     if (!prev && !cur) return '<div style="text-align:center;padding:60px;color:#64748B;">No data for this day.</div>';
 
@@ -252,8 +286,8 @@
       var label = allLabels[r];
       var pv = prevMap[label] || null;
       var cu = curMap[label] || null;
-      var pvD = pv ? _dateMap[pv.date] : null;
-      var cuD = cu ? _dateMap[cu.date] : null;
+      var pvD = pv ? _dailyMap[pv.date] : null;
+      var cuD = cu ? _dailyMap[cu.date] : null;
       var bg = r % 2 === 0 ? '' : 'background:#FAFAFA;';
 
       // Week separator when occurrence number increases
