@@ -5,7 +5,7 @@
 (function () {
 
   var STORAGE_KEY = 'dataStructure';
-  var DEFAULT_STRUCTURE = 'fy2025-26';
+  var DEFAULT_STRUCTURE = 'new';
 
   /* ========== Public API ========== */
 

@@ -167,6 +167,9 @@
       // Load disbursement tab
       if (typeof _loadDisbursementTab === 'function') _loadDisbursementTab();
 
+      // Load comparison tab
+      if (typeof _loadComparisonTab === 'function') _loadComparisonTab();
+
       // Load analytical tab
       if (typeof _loadAnalyticalTab === 'function') _loadAnalyticalTab();
 
@@ -199,9 +202,8 @@
         localStorage.removeItem('openAnalytical');
         switchEmpTab('analytical');
       } else {
-        var savedTab = localStorage.getItem('activeTab');
-        var validTabs = ['portfolio', 'disbursement', 'collection', 'hourly', 'analytical', 'settings'];
-        switchEmpTab(savedTab && validTabs.indexOf(savedTab) !== -1 ? savedTab : 'collection');
+        // Always start on Collection tab on reload
+        switchEmpTab('collection');
       }
     } catch (err) {
       console.error('Load failed:', err);
@@ -214,7 +216,7 @@
   }
 
   // Tab switching (global for onclick)
-  var tabTitles = { portfolio: 'Portfolio', disbursement: 'Disbursement', collection: 'Collection', hourly: 'Hourly', analytical: 'Analytical Tool', dailyreports: 'Daily Reports', settings: 'Settings' };
+  var tabTitles = { portfolio: 'Portfolio', disbursement: 'Disbursement', collection: 'Collection', hourly: 'Hourly', comparison: 'Comparison', analytical: 'Analytical Tool', dailyreports: 'Daily Reports', settings: 'Settings' };
   window.switchEmpTab = function (tab) {
     // Switch tab content
     document.querySelectorAll('.emp-tab-content').forEach(function (tc) {

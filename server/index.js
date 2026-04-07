@@ -584,6 +584,10 @@ app.post("/api/upload", upload.single("file"), async (req, res) => {
     await client.query("DROP TABLE IF EXISTS branches");
     await client.query("DROP TABLE IF EXISTS districts");
     await client.query("DROP TABLE IF EXISTS regions");
+    // product_types: drop FK constraints from all referencing tables, then drop+recreate
+    await client.query("ALTER TABLE IF EXISTS daily_performance DROP CONSTRAINT IF EXISTS daily_performance_product_type_id_fkey");
+    await client.query("ALTER TABLE IF EXISTS hourly_performance DROP CONSTRAINT IF EXISTS hourly_performance_product_type_id_fkey");
+    await client.query("ALTER TABLE IF EXISTS v2_employee_performance DROP CONSTRAINT IF EXISTS v2_employee_performance_product_type_id_fkey");
     await client.query("DROP TABLE IF EXISTS product_types");
 
     await client.query(`CREATE TABLE regions (region_id SERIAL PRIMARY KEY, region_name VARCHAR(100) NOT NULL UNIQUE)`);
@@ -3007,6 +3011,96 @@ app.get("/api/v2/fy/by-employee", async (req, res) => {
     const base = buildV2FYQuery("e.emp_id, e.officer_name, b.branch_name");
     const { clause, params } = buildV2FYWhere(req.query);
     const result = await portfolioPool.query(base + clause + " GROUP BY e.emp_id, e.officer_name, b.branch_name ORDER BY e.officer_name", params);
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+
+// ========== BULK DAILY UPLOAD (JSON array via POST body) ==========
+app.post("/api/bulk-daily", express.json({limit: '50mb'}), async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { date, rows, del } = req.body;
+    if (!date || !rows || !rows.length) return res.status(400).json({error: 'Need date and rows[]'});
+
+    await client.query("BEGIN");
+    if (del) await client.query("DELETE FROM daily_performance WHERE report_date=$1", [date]);
+
+    // Build single bulk INSERT with multi-row VALUES (1 query instead of N)
+    const valueParts = [];
+    const params = [];
+    let pi = 1;
+    for (const r of rows) {
+      if (!r.e) continue;
+      const m = r.m || [];
+      while (m.length < 25) m.push(0);
+      const ph = [];
+      for (let k = 0; k < 28; k++) ph.push('$' + pi++);
+      valueParts.push('(' + ph.join(',') + ')');
+      const v = m.map((x, i) => {
+        const n = parseFloat(x) || 0;
+        return (i === 12 || i === 14 || i >= 17) ? n : Math.round(n);
+      });
+      params.push(date, r.e, parseInt(r.p), ...v);
+    }
+
+    if (valueParts.length > 0) {
+      const cols = `report_date, emp_id, product_type_id,
+          regular_demand, regular_collection, demand_1_30, collection_1_30,
+          demand_31_60, collection_31_60, pnpa_demand, pnpa_collection,
+          npa_cases, npa_act_acc, npa_act_amt, npa_clo_acc, npa_clo_amt,
+          on_date_demand, on_date_collection,
+          regular_demand_amt, regular_collection_amt, demand_1_30_amt, collection_1_30_amt,
+          demand_31_60_amt, collection_31_60_amt, pnpa_demand_amt, pnpa_collection_amt,
+          on_date_demand_amt, on_date_collection_amt`;
+      const upsert = `ON CONFLICT (report_date, emp_id, product_type_id) DO UPDATE SET
+          regular_demand=EXCLUDED.regular_demand, regular_collection=EXCLUDED.regular_collection,
+          demand_1_30=EXCLUDED.demand_1_30, collection_1_30=EXCLUDED.collection_1_30,
+          demand_31_60=EXCLUDED.demand_31_60, collection_31_60=EXCLUDED.collection_31_60,
+          pnpa_demand=EXCLUDED.pnpa_demand, pnpa_collection=EXCLUDED.pnpa_collection,
+          npa_cases=EXCLUDED.npa_cases, npa_act_acc=EXCLUDED.npa_act_acc, npa_act_amt=EXCLUDED.npa_act_amt,
+          npa_clo_acc=EXCLUDED.npa_clo_acc, npa_clo_amt=EXCLUDED.npa_clo_amt,
+          on_date_demand=EXCLUDED.on_date_demand, on_date_collection=EXCLUDED.on_date_collection,
+          regular_demand_amt=EXCLUDED.regular_demand_amt, regular_collection_amt=EXCLUDED.regular_collection_amt,
+          demand_1_30_amt=EXCLUDED.demand_1_30_amt, collection_1_30_amt=EXCLUDED.collection_1_30_amt,
+          demand_31_60_amt=EXCLUDED.demand_31_60_amt, collection_31_60_amt=EXCLUDED.collection_31_60_amt,
+          pnpa_demand_amt=EXCLUDED.pnpa_demand_amt, pnpa_collection_amt=EXCLUDED.pnpa_collection_amt,
+          on_date_demand_amt=EXCLUDED.on_date_demand_amt, on_date_collection_amt=EXCLUDED.on_date_collection_amt`;
+      await client.query(`INSERT INTO daily_performance (${cols}) VALUES ${valueParts.join(',')} ${upsert}`, params);
+    }
+
+    await client.query("COMMIT");
+    res.json({success: true, inserted: valueParts.length, date});
+  } catch(err) {
+    await client.query("ROLLBACK").catch(() => {});
+    console.error("Bulk daily error:", err.message);
+    res.status(500).json({error: err.message});
+  } finally {
+    client.release();
+  }
+});
+
+// ========== COMPARISON API ==========
+app.get("/api/comparison", async (req, res) => {
+  try {
+    // Get all available dates with their aggregated metrics
+    const result = await pool.query(`
+      SELECT dp.report_date,
+        SUM(dp.regular_demand)::int AS regular_demand,
+        SUM(dp.regular_collection)::int AS regular_collection,
+        SUM(dp.demand_1_30)::int AS demand_1_30,
+        SUM(dp.collection_1_30)::int AS collection_1_30,
+        SUM(dp.demand_31_60)::int AS demand_31_60,
+        SUM(dp.collection_31_60)::int AS collection_31_60,
+        SUM(dp.pnpa_demand)::int AS pnpa_demand,
+        SUM(dp.pnpa_collection)::int AS pnpa_collection,
+        SUM(dp.npa_cases)::int AS npa_cases,
+        SUM(dp.npa_act_acc)::int AS npa_act_acc,
+        SUM(dp.npa_act_amt) AS npa_act_amt
+      FROM daily_performance dp
+      GROUP BY dp.report_date
+      ORDER BY dp.report_date
+    `);
     res.json(result.rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });

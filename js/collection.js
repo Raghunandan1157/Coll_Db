@@ -57,7 +57,8 @@
     if (productType && productType !== 'all') {
       params.push('product_type=' + encodeURIComponent(productType.toUpperCase()));
     }
-    if (isNewStructure()) {
+    // When a date is selected, we use /api/daily which needs old-structure params
+    if (isNewStructure() && !_collState.date) {
       var r = session.role;
       if ((r === 'SM' || r === 'RM') && session.location) {
         params.push('state=' + encodeURIComponent(session.location));
@@ -71,11 +72,11 @@
         params.push('emp_id=' + encodeURIComponent(session.id));
       }
     } else {
-      if (session.role === 'RM' && session.location) {
+      if ((session.role === 'RM' || session.role === 'SM') && session.location) {
         params.push('region=' + encodeURIComponent(session.location));
-      } else if (session.role === 'DM' && session.location) {
+      } else if ((session.role === 'DM' || session.role === 'DvM') && session.location) {
         params.push('district=' + encodeURIComponent(session.location));
-      } else if (session.role === 'BM' && session.location) {
+      } else if ((session.role === 'AM' || session.role === 'BM') && session.location) {
         params.push('branch=' + encodeURIComponent(session.location));
       } else if ((!session.role || session.role === 'FO') && session.id) {
         params.push('emp_id=' + encodeURIComponent(session.id));
@@ -90,30 +91,58 @@
     var ptParam = pt ? 'product_type=' + encodeURIComponent(pt) : '';
     var dateParam = _collState.date ? 'date=' + encodeURIComponent(_collState.date) + '&' : '';
 
+    // When a date is selected, always use /api/daily (works for both structures)
+    if (_collState.date) {
+      var dailyBase = '/api/daily';
+      if (isNewStructure()) {
+        // New structure roles but daily API uses old-structure endpoints
+        var r = session.role;
+        if (r === 'CEO') {
+          return dailyBase + '/by-region?' + dateParam + (ptParam || '');
+        }
+        if ((r === 'SM' || r === 'RM') && session.location) {
+          var rp = [ptParam, 'region=' + encodeURIComponent(session.location)].filter(Boolean);
+          return dailyBase + '/by-district?' + dateParam + rp.join('&');
+        }
+        if ((r === 'DvM' || r === 'DM') && session.location) {
+          var dp = [ptParam, 'district=' + encodeURIComponent(session.location)].filter(Boolean);
+          return dailyBase + '/by-branch?' + dateParam + dp.join('&');
+        }
+        if (r === 'AM' && session.location) {
+          var ap = [ptParam, 'area=' + encodeURIComponent(session.location)].filter(Boolean);
+          return dailyBase + '/by-branch?' + dateParam + ap.join('&');
+        }
+        if (r === 'BM' && session.location) {
+          var bp2 = [ptParam, 'branch=' + encodeURIComponent(session.location)].filter(Boolean);
+          return dailyBase + '/by-employee?' + dateParam + bp2.join('&');
+        }
+        return dailyBase + '/by-region?' + dateParam + (ptParam || '');
+      }
+    }
+
     if (isNewStructure()) {
       var v2Base = (_collState.view === 'fy') ? '/api/v2/fy' : '/api/v2/collection';
       var r = session.role;
       if (r === 'CEO') {
         var parts = [];
-        if (_collState.date) parts.push('date=' + encodeURIComponent(_collState.date));
         if (ptParam) parts.push(ptParam);
         return v2Base + '/by-state' + (parts.length ? '?' + parts.join('&') : '');
       }
       if ((r === 'SM' || r === 'RM') && session.location) {
         var p = [ptParam, 'state=' + encodeURIComponent(session.location)].filter(Boolean);
-        return v2Base + '/by-division?' + dateParam + p.join('&');
+        return v2Base + '/by-division?' + p.join('&');
       }
       if ((r === 'DvM' || r === 'DM') && session.location) {
         var p2 = [ptParam, 'division=' + encodeURIComponent(session.location)].filter(Boolean);
-        return v2Base + '/by-area?' + dateParam + p2.join('&');
+        return v2Base + '/by-area?' + p2.join('&');
       }
       if (r === 'AM' && session.location) {
         var p3 = [ptParam, 'area=' + encodeURIComponent(session.location)].filter(Boolean);
-        return v2Base + '/by-branch?' + dateParam + p3.join('&');
+        return v2Base + '/by-branch?' + p3.join('&');
       }
       if (r === 'BM' && session.location) {
         var p4 = [ptParam, 'branch=' + encodeURIComponent(session.location)].filter(Boolean);
-        return v2Base + '/by-employee?' + dateParam + p4.join('&');
+        return v2Base + '/by-employee?' + p4.join('&');
       }
       return null;
     }
@@ -151,9 +180,14 @@
       '<div style="color:#64748B;font-size:14px;">Loading collection data...</div></div>';
 
     var product = _collState.product;
-    var apiBase = isNewStructure()
-      ? (_collState.view === 'fy' ? '/api/v2/fy' : '/api/v2/collection')
-      : (_collState.date ? '/api/daily' : (_collState.view === 'fy' ? '/api/fy' : '/api/collection'));
+    var apiBase;
+    if (_collState.date) {
+      apiBase = '/api/daily';
+    } else if (isNewStructure()) {
+      apiBase = _collState.view === 'fy' ? '/api/v2/fy' : '/api/v2/collection';
+    } else {
+      apiBase = _collState.view === 'fy' ? '/api/fy' : '/api/collection';
+    }
     var params = summaryParams(product);
     if (_collState.date) {
       params += (params ? '&' : '?') + 'date=' + encodeURIComponent(_collState.date);
@@ -730,17 +764,22 @@
         _collState.product = savedProduct;
       }
 
-      // Auto-load latest daily date on first load (old structure only)
-      if (!isNewStructure() && !_collState.date) {
+      // Auto-load latest daily date on first load (both structures)
+      if (!_collState.date) {
         apiFetch('/api/daily/dates').then(function(dates) {
           if (dates && dates.length) {
             _collState.availableDates = dates.map(function(d) { return d.substring(0, 10); });
             _collState.date = _collState.availableDates[0]; // latest date
+            // Sync the header date badge to match the actual data date
+            var badge = document.getElementById('dateBadgeText');
+            if (badge && _collState.date) {
+              var p = _collState.date.split('-');
+              badge.textContent = p[2] + '-' + p[1] + '-' + p[0];
+            }
           }
           loadAndRender();
         }).catch(function() { loadAndRender(); });
       } else {
-        if (isNewStructure()) { _collState.date = null; }
         loadAndRender();
       }
     } catch (err) {

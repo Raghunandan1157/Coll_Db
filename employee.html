@@ -154,6 +154,12 @@
         </span>
         <span class="desktop-sidebar-label">Hourly</span>
       </a>
+      <a href="javascript:void(0)" class="desktop-sidebar-item comparison-nav-item" data-dtab="comparison" onclick="switchEmpTab('comparison')">
+        <span class="desktop-sidebar-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="3" y1="20" x2="21" y2="20"/><polyline points="6 8 12 3 18 8"/></svg>
+        </span>
+        <span class="desktop-sidebar-label">Comparison</span>
+      </a>
       <a href="javascript:void(0)" class="desktop-sidebar-item" data-dtab="analytical" onclick="switchEmpTab('analytical')">
         <span class="desktop-sidebar-icon">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
@@ -263,6 +269,10 @@
             <p style="color:#64748B;font-size:13px;">Loading hourly data...</p>
           </div>
         </div>
+      </div>
+
+      <div class="emp-tab-content" id="comparisonTab">
+        <div id="comparisonContent"></div>
       </div>
 
       <div class="emp-tab-content" id="analyticalTab">
@@ -557,6 +567,10 @@
       <a href="javascript:void(0)" class="sidebar-nav-item" data-sidebar-tab="hourly" onclick="closeSidebar(); switchEmpTab('hourly');">
         <span class="sidebar-nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
         <span class="sidebar-nav-label">Hourly</span>
+      </a>
+      <a href="javascript:void(0)" class="sidebar-nav-item comparison-nav-item" data-sidebar-tab="comparison" onclick="closeSidebar(); switchEmpTab('comparison');">
+        <span class="sidebar-nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="3" y1="20" x2="21" y2="20"/><polyline points="6 8 12 3 18 8"/></svg></span>
+        <span class="sidebar-nav-label">Comparison</span>
       </a>
       <a href="javascript:void(0)" id="analyticalNavItem" class="sidebar-nav-item" data-sidebar-tab="analytical" onclick="closeSidebar(); switchEmpTab('analytical');">
         <span class="sidebar-nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>
@@ -1053,13 +1067,14 @@
   <script src="js/employeeParser.js?v=25"></script>
   <script src="js/storage.js?v=25"></script>
   <script src="js/auth.js?v=25"></script>
-  <script src="js/settings.js?v=5"></script>
+  <script src="js/settings.js?v=6"></script>
   <script src="js/portfolio.js?v=42"></script>
-  <script src="js/collection.js?v=37"></script>
+  <script src="js/collection.js?v=39"></script>
   <script src="js/hourly.js?v=28"></script>
   <script src="js/disbursement.js?v=39"></script>
+  <script src="js/comparison.js?v=9"></script>
   <script src="js/analytical.js?v=26"></script>
-  <script src="js/employee.js?v=39"></script>
+  <script src="js/employee.js?v=42"></script>
   <script>if('serviceWorker' in navigator && location.protocol !== 'file:'){navigator.serviceWorker.register('./sw.js');}</script>
   <script>
   (function(){
@@ -1096,6 +1111,8 @@
     document.querySelectorAll('.desktop-sidebar-item[data-dtab]').forEach(function(el) {
       el.classList.toggle('active', el.dataset.dtab === savedTab);
     });
+
+    // Comparison nav always visible (works with both structures)
 
     // Desktop logout button
     var desktopLogoutBtn = document.getElementById('desktop-logout-btn');
