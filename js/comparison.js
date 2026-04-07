@@ -34,12 +34,12 @@
     var days = [], daysInMonth = new Date(year, month, 0).getDate();
     var weekdayCount = {};
     for (var d = 1; d <= daysInMonth; d++) {
-      var mm = String(month).padStart(2, '0'), dd = String(d).padStart(2, '0');
-      var ds = year + '-' + mm + '-' + dd;
-      if (!dateMap[ds]) continue;
       var dow = new Date(year, month - 1, d).getDay();
       var dn = DAY_NAMES[dow];
       weekdayCount[dn] = (weekdayCount[dn] || 0) + 1;
+      var mm = String(month).padStart(2, '0'), dd = String(d).padStart(2, '0');
+      var ds = year + '-' + mm + '-' + dd;
+      if (!dateMap[ds]) continue;
       days.push({
         date: ds, dayNum: d, dayName: dn,
         occurrence: weekdayCount[dn],
