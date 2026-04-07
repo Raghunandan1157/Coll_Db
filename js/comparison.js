@@ -26,24 +26,34 @@
   }
 
   /**
-   * Build working days for a month with weekday occurrence labels.
-   * Each day gets a label like "1 - Mon" (1st Monday), "2 - Tue" (2nd Tuesday).
-   * Only includes days that have data in dateMap.
+   * Pure math: which occurrence of its weekday is this date?
+   * e.g. March 21 2026 (Sat) → 3  (3rd Saturday of March)
+   * No loops, no counters — just calendar arithmetic.
+   */
+  function getOccurrence(year, month, dayOfMonth) {
+    var dow = new Date(year, month - 1, dayOfMonth).getDay();
+    var firstDow = new Date(year, month - 1, 1).getDay();
+    var firstOfThisDow = 1 + ((dow - firstDow + 7) % 7);
+    return Math.floor((dayOfMonth - firstOfThisDow) / 7) + 1;
+  }
+
+  /**
+   * Build labeled days for a month. Only includes days with data in dateMap,
+   * but occurrence is always from the real calendar (never from data order).
    */
   function buildLabeledDays(dateMap, year, month) {
     var days = [], daysInMonth = new Date(year, month, 0).getDate();
-    var weekdayCount = {};
     for (var d = 1; d <= daysInMonth; d++) {
-      var dow = new Date(year, month - 1, d).getDay();
-      var dn = DAY_NAMES[dow];
-      weekdayCount[dn] = (weekdayCount[dn] || 0) + 1;
       var mm = String(month).padStart(2, '0'), dd = String(d).padStart(2, '0');
       var ds = year + '-' + mm + '-' + dd;
       if (!dateMap[ds]) continue;
+      var dow = new Date(year, month - 1, d).getDay();
+      var dn = DAY_NAMES[dow];
+      var occ = getOccurrence(year, month, d);
       days.push({
         date: ds, dayNum: d, dayName: dn,
-        occurrence: weekdayCount[dn],
-        label: weekdayCount[dn] + ' - ' + dn
+        occurrence: occ,
+        label: occ + ' - ' + dn
       });
     }
     return days;
@@ -194,10 +204,11 @@
     var prevMap = buildLabelMap(_prevDays);
     var curMap = buildLabelMap(_curDays);
 
-    // Find max occurrence across both months
-    var maxOcc = 0;
-    for (var i = 0; i < _prevDays.length; i++) if (_prevDays[i].occurrence > maxOcc) maxOcc = _prevDays[i].occurrence;
-    for (var i = 0; i < _curDays.length; i++) if (_curDays[i].occurrence > maxOcc) maxOcc = _curDays[i].occurrence;
+    // Max weeks from the calendar itself (28 days = 4, 29-31 days = 5)
+    var maxOcc = Math.max(
+      Math.ceil(new Date(_months.prev.year, _months.prev.month, 0).getDate() / 7),
+      Math.ceil(new Date(_months.cur.year, _months.cur.month, 0).getDate() / 7)
+    );
 
     // Always include all 7 days (Mon-Sun) for each occurrence
     var allLabels = [];
