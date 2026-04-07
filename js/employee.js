@@ -237,6 +237,10 @@
     document.querySelectorAll('[data-sidebar-tab]').forEach(function (s) {
       s.classList.toggle('active', s.dataset.sidebarTab === sidebarTab);
     });
+    // Desktop sidebar — sync active highlight
+    document.querySelectorAll('.desktop-sidebar-item[data-dtab]').forEach(function (el) {
+      el.classList.toggle('active', el.dataset.dtab === tab);
+    });
 
     // Header title
     var titleEl = document.getElementById('emp-header-title');
