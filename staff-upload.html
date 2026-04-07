@@ -37,7 +37,20 @@
 </head>
 <body>
   <a href="employee.html" class="back">&larr; Dashboard</a>
-  <div class="container">
+
+  <!-- Password Gate -->
+  <div class="container" id="authGate">
+    <h1>Staff Data Upload</h1>
+    <p class="sub">Enter your password to continue</p>
+    <div style="margin-top:24px;">
+      <input type="password" id="pwdInput" placeholder="Password" style="width:100%;padding:14px 16px;border:1px solid #E2E8F0;border-radius:12px;font-size:15px;font-family:inherit;outline:none;transition:border .2s;" onfocus="this.style.borderColor='#059669'" onblur="this.style.borderColor='#E2E8F0'">
+      <button id="pwdBtn" style="margin-top:12px;width:100%;padding:14px;border:none;border-radius:12px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;background:#059669;color:#fff;transition:background .2s;" onmouseover="this.style.background='#047857'" onmouseout="this.style.background='#059669'">Unlock</button>
+      <div id="pwdError" style="margin-top:10px;font-size:13px;color:#EF4444;display:none;">Incorrect password</div>
+    </div>
+  </div>
+
+  <!-- Upload UI (hidden until authenticated) -->
+  <div class="container" id="uploadSection" style="display:none;">
     <h1>Staff Data Upload</h1>
     <p class="sub">Upload the NLPL Staff Personal Details Excel to sync employee master data</p>
 
@@ -135,6 +148,32 @@ uploadBtn.addEventListener('click', function(){
       uploadBtn.disabled = false;
     });
 });
+
+// Password gate
+var _PWD = 'Yakshith@123';
+var pwdInput = document.getElementById('pwdInput');
+var pwdBtn = document.getElementById('pwdBtn');
+var pwdError = document.getElementById('pwdError');
+
+if (sessionStorage.getItem('staffAuth') === '1') {
+  document.getElementById('authGate').style.display = 'none';
+  document.getElementById('uploadSection').style.display = '';
+}
+
+function tryUnlock() {
+  if (pwdInput.value === _PWD) {
+    sessionStorage.setItem('staffAuth', '1');
+    document.getElementById('authGate').style.display = 'none';
+    document.getElementById('uploadSection').style.display = '';
+    pwdError.style.display = 'none';
+  } else {
+    pwdError.style.display = 'block';
+    pwdInput.style.borderColor = '#EF4444';
+    setTimeout(function(){ pwdInput.style.borderColor = '#E2E8F0'; }, 1500);
+  }
+}
+pwdBtn.addEventListener('click', tryUnlock);
+pwdInput.addEventListener('keydown', function(e){ if (e.key === 'Enter') tryUnlock(); });
 </script>
 </body>
 </html>
