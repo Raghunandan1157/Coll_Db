@@ -7,6 +7,10 @@
   var DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   var MONTH_NAMES = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+  function ordinal(n) {
+    var s = ['th','st','nd','rd'], v = n % 100;
+    return n + (s[(v - 20) % 10] || s[v] || s[0]);
+  }
   function fmtNum(v) {
     if (v == null || v === '' || v === '-') return '-';
     var n = Number(v); return isFinite(n) ? n.toLocaleString('en-IN') : '-';
@@ -238,10 +242,10 @@
       html += '<tr style="' + bg + '">';
       html += '<td style="padding:8px 12px;font-weight:600;color:#1E293B;border-bottom:1px solid #F1F5F9;white-space:nowrap;">' + label + '</td>';
       // Prev month: date + data
-      html += '<td style="padding:8px 6px;text-align:center;font-weight:500;color:#7C3AED;border-bottom:1px solid #F1F5F9;border-left:1px solid #E2E8F0;background:rgba(139,92,246,0.02);font-size:12px;white-space:nowrap;">' + (pv ? pv.dayNum + ' ' + MONTH_NAMES[_months.prev.month] : '-') + '</td>';
+      html += '<td style="padding:8px 6px;text-align:center;font-weight:500;color:#7C3AED;border-bottom:1px solid #F1F5F9;border-left:1px solid #E2E8F0;background:rgba(139,92,246,0.02);font-size:12px;white-space:nowrap;">' + (pv ? ordinal(pv.dayNum) + ' ' + MONTH_NAMES[_months.prev.month] : '-') + '</td>';
       html += tCells(pvD, '', 'background:rgba(139,92,246,0.02);');
       // Cur month: date + data
-      html += '<td style="padding:8px 6px;text-align:center;font-weight:500;color:#059669;border-bottom:1px solid #F1F5F9;border-left:2px solid #CBD5E1;background:rgba(16,185,129,0.02);font-size:12px;white-space:nowrap;">' + (cu ? cu.dayNum + ' ' + MONTH_NAMES[_months.cur.month] : '-') + '</td>';
+      html += '<td style="padding:8px 6px;text-align:center;font-weight:500;color:#059669;border-bottom:1px solid #F1F5F9;border-left:2px solid #CBD5E1;background:rgba(16,185,129,0.02);font-size:12px;white-space:nowrap;">' + (cu ? ordinal(cu.dayNum) + ' ' + MONTH_NAMES[_months.cur.month] : '-') + '</td>';
       html += tCells(cuD, '', 'background:rgba(16,185,129,0.02);');
       html += '</tr>';
     }
