@@ -38,6 +38,19 @@
   }
 
   /**
+   * Reverse: given a weekday name and occurrence, return the day-of-month.
+   * e.g. getDateForLabel(2026, 3, 'Sat', 1) → 7  (1st Sat of March 2026)
+   * Returns null if that occurrence doesn't exist in the month.
+   */
+  function getDateForLabel(year, month, dayName, occurrence) {
+    var dowIndex = DAY_NAMES.indexOf(dayName);
+    var firstDow = new Date(year, month - 1, 1).getDay();
+    var firstOfThisDow = 1 + ((dowIndex - firstDow + 7) % 7);
+    var d = firstOfThisDow + (occurrence - 1) * 7;
+    return d <= new Date(year, month, 0).getDate() ? d : null;
+  }
+
+  /**
    * Build labeled days for a month. Only includes days with data in dateMap,
    * but occurrence is always from the real calendar (never from data order).
    */
@@ -250,13 +263,20 @@
       }
       lastOcc = occ;
 
+      // Compute calendar dates from pure math (always shown, even without data)
+      var labelParts = label.split(' - ');
+      var occNum = parseInt(labelParts[0]);
+      var dayName = labelParts[1];
+      var prevDateNum = getDateForLabel(_months.prev.year, _months.prev.month, dayName, occNum);
+      var curDateNum = getDateForLabel(_months.cur.year, _months.cur.month, dayName, occNum);
+
       html += '<tr style="' + bg + '">';
       html += '<td style="padding:8px 12px;font-weight:600;color:#1E293B;border-bottom:1px solid #F1F5F9;white-space:nowrap;">' + label + '</td>';
-      // Prev month: date + data
-      html += '<td style="padding:8px 6px;text-align:center;font-weight:500;color:#7C3AED;border-bottom:1px solid #F1F5F9;border-left:1px solid #E2E8F0;background:rgba(139,92,246,0.02);font-size:12px;white-space:nowrap;">' + (pv ? ordinal(pv.dayNum) + ' ' + MONTH_NAMES[_months.prev.month] : '-') + '</td>';
+      // Prev month: date (always from calendar) + data
+      html += '<td style="padding:8px 6px;text-align:center;font-weight:500;color:#7C3AED;border-bottom:1px solid #F1F5F9;border-left:1px solid #E2E8F0;background:rgba(139,92,246,0.02);font-size:12px;white-space:nowrap;">' + (prevDateNum ? ordinal(prevDateNum) + ' ' + MONTH_NAMES[_months.prev.month] : '-') + '</td>';
       html += tCells(pvD, '', 'background:rgba(139,92,246,0.02);');
-      // Cur month: date + data
-      html += '<td style="padding:8px 6px;text-align:center;font-weight:500;color:#059669;border-bottom:1px solid #F1F5F9;border-left:2px solid #CBD5E1;background:rgba(16,185,129,0.02);font-size:12px;white-space:nowrap;">' + (cu ? ordinal(cu.dayNum) + ' ' + MONTH_NAMES[_months.cur.month] : '-') + '</td>';
+      // Cur month: date (always from calendar) + data
+      html += '<td style="padding:8px 6px;text-align:center;font-weight:500;color:#059669;border-bottom:1px solid #F1F5F9;border-left:2px solid #CBD5E1;background:rgba(16,185,129,0.02);font-size:12px;white-space:nowrap;">' + (curDateNum ? ordinal(curDateNum) + ' ' + MONTH_NAMES[_months.cur.month] : '-') + '</td>';
       html += tCells(cuD, '', 'background:rgba(16,185,129,0.02);');
       html += '</tr>';
     }
