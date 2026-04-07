@@ -321,12 +321,14 @@
       if (showCur) { curRD += Number(cuD.regular_demand) || 0; curRC += Number(cuD.regular_collection) || 0; }
       var prevCum = showPrev ? { regular_demand: prevRD, regular_collection: prevRC } : null;
       var curCum = showCur ? { regular_demand: curRD, regular_collection: curRC } : null;
+      // Future days: still show March daily value but dimmed (not cumulative, not hidden)
+      var prevDisplay = prevCum || (isFuture && pvD ? pvD : null);
 
       html += '<tr style="' + bg + '">';
       html += '<td style="padding:8px 12px;font-weight:600;color:#1E293B;border-bottom:1px solid #F1F5F9;white-space:nowrap;">' + label + '</td>';
-      // Prev month: date (always from calendar) + cumulative data — dimmed if future
+      // Prev month: date (always from calendar) + data — dimmed if future
       html += '<td style="padding:8px 6px;text-align:center;font-weight:500;color:#7C3AED;border-bottom:1px solid #F1F5F9;border-left:1px solid #E2E8F0;background:rgba(139,92,246,0.02);font-size:12px;white-space:nowrap;' + dimStyle + '">' + (prevDateNum ? ordinal(prevDateNum) + ' ' + MONTH_NAMES[_months.prev.month] : '-') + '</td>';
-      html += tCells(prevCum, '', 'background:rgba(139,92,246,0.02);' + dimStyle);
+      html += tCells(prevDisplay, '', 'background:rgba(139,92,246,0.02);' + dimStyle);
       // Cur month: date (always from calendar) + cumulative data
       html += '<td style="padding:8px 6px;text-align:center;font-weight:500;color:#059669;border-bottom:1px solid #F1F5F9;border-left:2px solid #CBD5E1;background:rgba(16,185,129,0.02);font-size:12px;white-space:nowrap;">' + (curDateNum ? ordinal(curDateNum) + ' ' + MONTH_NAMES[_months.cur.month] : '-') + '</td>';
       html += tCells(curCum, '', 'background:rgba(16,185,129,0.02);');
