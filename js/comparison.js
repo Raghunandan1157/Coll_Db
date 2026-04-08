@@ -401,22 +401,14 @@
       var isFuture = curDateNum === null || curDateNum > latestCurDayNum;
       var dimStyle = isFuture ? 'opacity:0.3;' : '';
 
-      var prevCum, curCum, prevDisplay;
-      if (isSorted) {
-        // When sorted, use pre-computed cumulative maps (order-independent)
-        prevCum = _prevCumMap[label] || null;
-        curCum = _curCumMap[label] || null;
-        prevDisplay = prevCum || (isFuture && pvD ? pvD : null);
-      } else {
-        // Default order — accumulate inline
-        var showPrev = pvD && !isFuture;
-        var showCur = !!cuD;
-        if (showPrev) { prevRD += Number(pvD.regular_demand) || 0; prevRC += Number(pvD.regular_collection) || 0; }
-        if (showCur) { curRD += Number(cuD.regular_demand) || 0; curRC += Number(cuD.regular_collection) || 0; }
-        prevCum = showPrev ? { regular_demand: prevRD, regular_collection: prevRC } : null;
-        curCum = showCur ? { regular_demand: curRD, regular_collection: curRC } : null;
-        prevDisplay = prevCum || (isFuture && pvD ? pvD : null);
-      }
+      // Always accumulate inline in display order
+      var showPrev = pvD && !isFuture;
+      var showCur = !!cuD;
+      if (showPrev) { prevRD += Number(pvD.regular_demand) || 0; prevRC += Number(pvD.regular_collection) || 0; }
+      if (showCur) { curRD += Number(cuD.regular_demand) || 0; curRC += Number(cuD.regular_collection) || 0; }
+      var prevCum = showPrev ? { regular_demand: prevRD, regular_collection: prevRC } : null;
+      var curCum = showCur ? { regular_demand: curRD, regular_collection: curRC } : null;
+      var prevDisplay = prevCum || (isFuture && pvD ? pvD : null);
 
       html += '<tr style="' + bg + '">';
       html += '<td class="comp-sort-col" style="padding:8px 12px;font-weight:600;color:#1E293B;border-bottom:1px solid #F1F5F9;white-space:nowrap;">' + label + '</td>';
