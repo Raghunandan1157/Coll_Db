@@ -148,37 +148,51 @@
       Math.ceil(new Date(_months.cur.year, _months.cur.month, 0).getDate() / 7)
     );
 
-    // Build all labels, then sort by current month date (chronological)
+    // Build all labels
     var allLabels = [];
     for (var occ = 1; occ <= maxOcc; occ++) {
       for (var d = 0; d < DOW_ORDER.length; d++) {
         allLabels.push(occ + ' - ' + DOW_ORDER[d]);
       }
     }
-    allLabels.sort(function(a, b) {
+
+    // Each month accumulates in its OWN chronological date order
+    // Sort by PREVIOUS month date for prev accumulation
+    var prevSorted = allLabels.slice().sort(function(a, b) {
       var pa = a.split(' - '), pb = b.split(' - ');
-      var da = getDateForLabel(_months.cur.year, _months.cur.month, pa[1], parseInt(pa[0]));
-      var db = getDateForLabel(_months.cur.year, _months.cur.month, pb[1], parseInt(pb[0]));
+      var da = getDateForLabel(_months.prev.year, _months.prev.month, pa[1], parseInt(pa[0]));
+      var db = getDateForLabel(_months.prev.year, _months.prev.month, pb[1], parseInt(pb[0]));
       return (da || 99) - (db || 99);
     });
-
-    var pRun = {}, cRun = {};
-    for (var f = 0; f < DELTA_FIELDS.length; f++) { pRun[DELTA_FIELDS[f]] = 0; cRun[DELTA_FIELDS[f]] = 0; }
-    for (var i = 0; i < allLabels.length; i++) {
-      var label = allLabels[i];
+    var pRun = {};
+    for (var f = 0; f < DELTA_FIELDS.length; f++) pRun[DELTA_FIELDS[f]] = 0;
+    for (var i = 0; i < prevSorted.length; i++) {
+      var label = prevSorted[i];
       var parts = label.split(' - ');
-      var occNum = parseInt(parts[0]), dayName = parts[1];
       var pv = prevMap[label] || null;
-      var cu = curMap[label] || null;
       var pvD = pv ? _dailyMap[pv.date] : null;
-      var cuD = cu ? _dailyMap[cu.date] : null;
-      var curDateNum = getDateForLabel(_months.cur.year, _months.cur.month, dayName, occNum);
+      var curDateNum = getDateForLabel(_months.cur.year, _months.cur.month, parts[1], parseInt(parts[0]));
       var isFuture = curDateNum === null || curDateNum > latestCurDayNum;
       if (pvD && !isFuture) {
         for (var f = 0; f < DELTA_FIELDS.length; f++) pRun[DELTA_FIELDS[f]] += Number(pvD[DELTA_FIELDS[f]]) || 0;
         var pc = {}; for (var f = 0; f < DELTA_FIELDS.length; f++) pc[DELTA_FIELDS[f]] = pRun[DELTA_FIELDS[f]];
         _prevCumMap[label] = pc;
       }
+    }
+
+    // Sort by CURRENT month date for cur accumulation
+    var curSorted = allLabels.slice().sort(function(a, b) {
+      var pa = a.split(' - '), pb = b.split(' - ');
+      var da = getDateForLabel(_months.cur.year, _months.cur.month, pa[1], parseInt(pa[0]));
+      var db = getDateForLabel(_months.cur.year, _months.cur.month, pb[1], parseInt(pb[0]));
+      return (da || 99) - (db || 99);
+    });
+    var cRun = {};
+    for (var f = 0; f < DELTA_FIELDS.length; f++) cRun[DELTA_FIELDS[f]] = 0;
+    for (var i = 0; i < curSorted.length; i++) {
+      var label = curSorted[i];
+      var cu = curMap[label] || null;
+      var cuD = cu ? _dailyMap[cu.date] : null;
       if (cuD) {
         for (var f = 0; f < DELTA_FIELDS.length; f++) cRun[DELTA_FIELDS[f]] += Number(cuD[DELTA_FIELDS[f]]) || 0;
         var cc = {}; for (var f = 0; f < DELTA_FIELDS.length; f++) cc[DELTA_FIELDS[f]] = cRun[DELTA_FIELDS[f]];
