@@ -3997,8 +3997,13 @@ app.post("/api/daily-plan/bulk-save", async (req, res) => {
 });
 
 // ==================== AI CHAT ENDPOINT ====================
-const OPENROUTER_KEY = "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";
-const AI_MODEL = "google/gemma-4-26b-a4b-it:free";
+const OPENROUTER_KEY = "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";
+const AI_MODELS = [
+  "google/gemma-4-26b-a4b-it:free",
+  "minimax/minimax-m2.5:free",
+  "nvidia/nemotron-3-super-120b-a12b:free",
+  "stepfun/step-3.5-flash:free"
+];
 
 // Helper: run a read-only query safely (with timeout + row limit)
 async function safeQuery(sql, params, maxRows) {
@@ -4147,31 +4152,43 @@ RULES:
     }
     messages.push({ role: "user", content: message });
 
-    // Call OpenRouter
-    const aiRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${OPENROUTER_KEY}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://growwithme.navachetanalivelihoods.com",
-        "X-Title": "NLPL Dashboard AI"
-      },
-      body: JSON.stringify({
-        model: AI_MODEL,
-        messages: messages,
-        max_tokens: 1024,
-        temperature: 0.3
-      })
-    });
-
-    if (!aiRes.ok) {
-      const errText = await aiRes.text();
-      console.error("OpenRouter error:", aiRes.status, errText);
-      return res.status(500).json({ error: "AI service unavailable" });
+    // Call OpenRouter with fallback models
+    let reply = null;
+    for (const model of AI_MODELS) {
+      try {
+        const aiRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${OPENROUTER_KEY}`,
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://growwithme.navachetanalivelihoods.com",
+            "X-Title": "NLPL Dashboard AI"
+          },
+          body: JSON.stringify({
+            model: model,
+            messages: messages,
+            max_tokens: 1024,
+            temperature: 0.3
+          })
+        });
+        const aiData = await aiRes.json();
+        if (aiData.choices?.[0]?.message?.content) {
+          reply = aiData.choices[0].message.content;
+          break;
+        }
+        if (aiData.error) {
+          console.error(`AI model ${model} error:`, aiData.error.message || aiData.error);
+          continue; // try next model
+        }
+      } catch (fetchErr) {
+        console.error(`AI model ${model} fetch error:`, fetchErr.message);
+        continue;
+      }
     }
 
-    const aiData = await aiRes.json();
-    const reply = aiData.choices?.[0]?.message?.content || "Sorry, I couldn't generate a response.";
+    if (!reply) {
+      return res.status(500).json({ error: "All AI models are currently unavailable. Please try again in a moment." });
+    }
     res.json({ reply });
   } catch (e) {
     console.error("AI chat error:", e);
