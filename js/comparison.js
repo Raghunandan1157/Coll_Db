@@ -147,27 +147,42 @@
       Math.ceil(new Date(_months.prev.year, _months.prev.month, 0).getDate() / 7),
       Math.ceil(new Date(_months.cur.year, _months.cur.month, 0).getDate() / 7)
     );
-    var pRun = {}, cRun = {};
-    for (var f = 0; f < DELTA_FIELDS.length; f++) { pRun[DELTA_FIELDS[f]] = 0; cRun[DELTA_FIELDS[f]] = 0; }
+
+    // Build all labels, then sort by current month date (chronological)
+    var allLabels = [];
     for (var occ = 1; occ <= maxOcc; occ++) {
       for (var d = 0; d < DOW_ORDER.length; d++) {
-        var label = occ + ' - ' + DOW_ORDER[d];
-        var pv = prevMap[label] || null;
-        var cu = curMap[label] || null;
-        var pvD = pv ? _dailyMap[pv.date] : null;
-        var cuD = cu ? _dailyMap[cu.date] : null;
-        var curDateNum = getDateForLabel(_months.cur.year, _months.cur.month, DOW_ORDER[d], occ);
-        var isFuture = curDateNum === null || curDateNum > latestCurDayNum;
-        if (pvD && !isFuture) {
-          for (var f = 0; f < DELTA_FIELDS.length; f++) pRun[DELTA_FIELDS[f]] += Number(pvD[DELTA_FIELDS[f]]) || 0;
-          var pc = {}; for (var f = 0; f < DELTA_FIELDS.length; f++) pc[DELTA_FIELDS[f]] = pRun[DELTA_FIELDS[f]];
-          _prevCumMap[label] = pc;
-        }
-        if (cuD) {
-          for (var f = 0; f < DELTA_FIELDS.length; f++) cRun[DELTA_FIELDS[f]] += Number(cuD[DELTA_FIELDS[f]]) || 0;
-          var cc = {}; for (var f = 0; f < DELTA_FIELDS.length; f++) cc[DELTA_FIELDS[f]] = cRun[DELTA_FIELDS[f]];
-          _curCumMap[label] = cc;
-        }
+        allLabels.push(occ + ' - ' + DOW_ORDER[d]);
+      }
+    }
+    allLabels.sort(function(a, b) {
+      var pa = a.split(' - '), pb = b.split(' - ');
+      var da = getDateForLabel(_months.cur.year, _months.cur.month, pa[1], parseInt(pa[0]));
+      var db = getDateForLabel(_months.cur.year, _months.cur.month, pb[1], parseInt(pb[0]));
+      return (da || 99) - (db || 99);
+    });
+
+    var pRun = {}, cRun = {};
+    for (var f = 0; f < DELTA_FIELDS.length; f++) { pRun[DELTA_FIELDS[f]] = 0; cRun[DELTA_FIELDS[f]] = 0; }
+    for (var i = 0; i < allLabels.length; i++) {
+      var label = allLabels[i];
+      var parts = label.split(' - ');
+      var occNum = parseInt(parts[0]), dayName = parts[1];
+      var pv = prevMap[label] || null;
+      var cu = curMap[label] || null;
+      var pvD = pv ? _dailyMap[pv.date] : null;
+      var cuD = cu ? _dailyMap[cu.date] : null;
+      var curDateNum = getDateForLabel(_months.cur.year, _months.cur.month, dayName, occNum);
+      var isFuture = curDateNum === null || curDateNum > latestCurDayNum;
+      if (pvD && !isFuture) {
+        for (var f = 0; f < DELTA_FIELDS.length; f++) pRun[DELTA_FIELDS[f]] += Number(pvD[DELTA_FIELDS[f]]) || 0;
+        var pc = {}; for (var f = 0; f < DELTA_FIELDS.length; f++) pc[DELTA_FIELDS[f]] = pRun[DELTA_FIELDS[f]];
+        _prevCumMap[label] = pc;
+      }
+      if (cuD) {
+        for (var f = 0; f < DELTA_FIELDS.length; f++) cRun[DELTA_FIELDS[f]] += Number(cuD[DELTA_FIELDS[f]]) || 0;
+        var cc = {}; for (var f = 0; f < DELTA_FIELDS.length; f++) cc[DELTA_FIELDS[f]] = cRun[DELTA_FIELDS[f]];
+        _curCumMap[label] = cc;
       }
     }
   }
