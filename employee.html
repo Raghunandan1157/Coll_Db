@@ -1123,21 +1123,74 @@
   <script src="js/analytical.js?v=26"></script>
   <script src="js/employee.js?v=44"></script>
   <script>
-  // AI Chat — connected to /api/ai-chat
+  // AI Chat — browser calls OpenRouter directly, server provides DB context
   (function(){
     var _aiHistory = [];
+    var _aiCtx = null;
+    var _OR_KEY = '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';
+    var _AI_MODELS = ['google/gemma-4-26b-a4b-it:free','minimax/minimax-m2.5:free','nvidia/nemotron-3-super-120b-a12b:free','stepfun/step-3.5-flash:free'];
     var botIcon = '<div style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#6366F1,#8B5CF6);display:flex;align-items:center;justify-content:center;flex-shrink:0;">'
       + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1.27A7 7 0 0 1 14 23h-4a7 7 0 0 1-6.73-4H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/><circle cx="9.5" cy="15.5" r="1"/><circle cx="14.5" cy="15.5" r="1"/></svg></div>';
 
     function esc(s) { return String(s).replace(/[&<>"']/g, function(c){return '&#'+c.charCodeAt(0)+';';}); }
+    function fmtIN(n) { return n != null ? Number(n).toLocaleString('en-IN') : '0'; }
 
-    // Simple markdown: **bold**, *italic*, \n→<br>, `code`
     function md(s) {
       return esc(s)
         .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
         .replace(/\*(.+?)\*/g, '<em>$1</em>')
         .replace(/`(.+?)`/g, '<code style="background:#F1F5F9;padding:1px 5px;border-radius:4px;font-size:13px;">$1</code>')
         .replace(/\n/g, '<br>');
+    }
+
+    function buildSystemPrompt(ctx) {
+      var o = ctx.overallSummary || {};
+      var pct = o.total_rd > 0 ? ((o.total_rc / o.total_rd) * 100).toFixed(1) + '%' : '-';
+      var sys = 'You are the NLPL AI Assistant — a data analyst for NLPL (Nava Chetana Livelihoods) employee dashboard.\n\n';
+      sys += 'CURRENT DATA (latest: ' + (ctx.latestDate || 'unknown') + '):\n\n';
+      sys += 'OVERALL: RD=' + fmtIN(o.total_rd) + ', RC=' + fmtIN(o.total_rc) + ', Coll%=' + pct + '\n';
+      sys += 'SMA-0: D=' + fmtIN(o.sma0_d) + ' C=' + fmtIN(o.sma0_c) + ' | SMA-1: D=' + fmtIN(o.sma1_d) + ' C=' + fmtIN(o.sma1_c) + '\n';
+      sys += 'Pre-NPA: D=' + fmtIN(o.pnpa_d) + ' C=' + fmtIN(o.pnpa_c) + ' | NPA: Cases=' + fmtIN(o.npa_cases) + ' Act=' + fmtIN(o.npa_act) + '\n\n';
+      sys += 'REGIONS:\n';
+      (ctx.regionSummary || []).forEach(function(r) {
+        var p = r.rd > 0 ? ((r.rc / r.rd) * 100).toFixed(1) + '%' : '-';
+        sys += '- ' + r.region_name + ': RD=' + fmtIN(r.rd) + ', RC=' + fmtIN(r.rc) + ', ' + p + '\n';
+      });
+      sys += '\nTOP BRANCHES:\n';
+      (ctx.topBranches || []).forEach(function(b) { sys += '- ' + b.branch_name + ': RD=' + fmtIN(b.rd) + ', RC=' + fmtIN(b.rc) + '\n'; });
+      sys += '\nDISBURSEMENT:\n';
+      (ctx.disbursement || []).forEach(function(d) { sys += '- ' + d.db_month + ': Count=' + fmtIN(d.total_count) + ', Amt=' + fmtIN(d.total_amount) + '\n'; });
+      if (ctx.myData && ctx.myData[0]) {
+        var m = ctx.myData[0];
+        sys += '\nUSER DATA: RD=' + fmtIN(m.rd) + ', RC=' + fmtIN(m.rc) + ', NPA=' + fmtIN(m.npa_cases) + '\n';
+      }
+      sys += '\nTERMINOLOGY: RD=Regular Demand, RC=Regular Collection, FTOD=RD-RC, Coll%=RC/RD*100, SMA=Special Mention Account, DPD=Days Past Due, NPA=Non-Performing Asset, PNPA=Pre-NPA\n';
+      sys += '\nRULES: Be concise. Use Indian number format. Only use data above. Don\'t make up numbers. 2-4 sentences for simple questions.';
+      return sys;
+    }
+
+    // Call OpenRouter with model fallback
+    function callAI(messages, callback) {
+      var idx = 0;
+      function tryNext() {
+        if (idx >= _AI_MODELS.length) return callback(null, 'All AI models are busy. Please try again.');
+        var model = _AI_MODELS[idx++];
+        fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + _OR_KEY, 'Content-Type': 'application/json', 'HTTP-Referer': location.origin, 'X-Title': 'NLPL Dashboard AI' },
+          body: JSON.stringify({ model: model, messages: messages, max_tokens: 1024, temperature: 0.3 })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) {
+            callback(data.choices[0].message.content, null);
+          } else {
+            tryNext(); // try next model
+          }
+        })
+        .catch(function() { tryNext(); });
+      }
+      tryNext();
     }
 
     window._aiSend = function() {
@@ -1162,37 +1215,50 @@
         + '</div></div>';
       box.scrollTop = box.scrollHeight;
 
-      // Get session info
+      function doSend(ctx) {
+        var sysPr = buildSystemPrompt(ctx);
+        var msgs = [{ role: 'system', content: sysPr }];
+        _aiHistory.slice(-6).forEach(function(h) { msgs.push({ role: h.role, content: h.content }); });
+        // Last one is already in history, but let's ensure user message is last
+        if (msgs[msgs.length - 1].role !== 'user') msgs.push({ role: 'user', content: msg });
+
+        callAI(msgs, function(reply, err) {
+          var el = document.getElementById(typingId);
+          if (el) el.remove();
+          if (err) {
+            box.innerHTML += '<div style="display:flex;gap:10px;align-items:flex-start;">' + botIcon
+              + '<div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:12px;padding:12px 16px;font-size:14px;color:#DC2626;line-height:1.6;max-width:80%;">'
+              + esc(err) + '</div></div>';
+          } else {
+            _aiHistory.push({ role: 'assistant', content: reply });
+            box.innerHTML += '<div style="display:flex;gap:10px;align-items:flex-start;">' + botIcon
+              + '<div style="background:#F8FAFC;border:1px solid #F1F5F9;border-radius:12px;padding:12px 16px;font-size:14px;color:#334155;line-height:1.6;max-width:80%;">'
+              + md(reply) + '</div></div>';
+          }
+          box.scrollTop = box.scrollHeight;
+        });
+      }
+
+      // Fetch DB context from server, then call AI
       var session = {};
       try { session = typeof getEmployeeSession === 'function' ? getEmployeeSession() : {}; } catch(e) {}
 
-      fetch('/api/ai-chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: msg, history: _aiHistory.slice(-6), session: session })
-      })
-      .then(function(r) { return r.json(); })
-      .then(function(data) {
-        var el = document.getElementById(typingId);
-        if (el) el.remove();
-        var reply = data.reply || data.error || 'No response received.';
-        _aiHistory.push({ role: 'assistant', content: reply });
-        box.innerHTML += '<div style="display:flex;gap:10px;align-items:flex-start;">'
-          + botIcon
-          + '<div style="background:#F8FAFC;border:1px solid #F1F5F9;border-radius:12px;padding:12px 16px;font-size:14px;color:#334155;line-height:1.6;max-width:80%;">'
-          + md(reply) + '</div></div>';
-        box.scrollTop = box.scrollHeight;
-      })
-      .catch(function(err) {
-        var el = document.getElementById(typingId);
-        if (el) el.remove();
-        box.innerHTML += '<div style="display:flex;gap:10px;align-items:flex-start;">'
-          + botIcon
-          + '<div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:12px;padding:12px 16px;font-size:14px;color:#DC2626;line-height:1.6;max-width:80%;">'
-          + 'Sorry, something went wrong. Please try again.</div></div>';
-        box.scrollTop = box.scrollHeight;
-      });
+      if (_aiCtx) {
+        doSend(_aiCtx);
+      } else {
+        fetch('/api/ai-context', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session: session })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(ctx) { _aiCtx = ctx; doSend(ctx); })
+        .catch(function() { doSend({}); });
+      }
     };
+
+    // Refresh context every 5 minutes
+    setInterval(function() { _aiCtx = null; }, 300000);
 
     // Focus ring
     var wrap = document.getElementById('aiInputWrap');
