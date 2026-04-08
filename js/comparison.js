@@ -97,6 +97,7 @@
   var _dateMap = {}, _dailyMap = {}, _months = null, _curDays = [], _prevDays = [];
   var _prevLabelMap = {};
   var _prevCumMap = {}, _curCumMap = {};
+  var _sortCol = null, _sortAsc = true; // sorting state: 'day', 'prevDate', 'curDate'
 
   var DELTA_FIELDS = ['regular_demand','regular_collection','demand_1_30','collection_1_30',
     'demand_31_60','collection_31_60','pnpa_demand','pnpa_collection','npa_cases','npa_act_acc','npa_act_amt'];
@@ -310,10 +311,47 @@
       }
     }
 
-    var html = '<div style="overflow-x:auto;border-radius:12px;border:1px solid #E2E8F0;">';
+    // Sort allLabels if a sort column is active
+    if (_sortCol) {
+      var sortData = allLabels.map(function(label) {
+        var parts = label.split(' - ');
+        var occNum = parseInt(parts[0]), dayName = parts[1];
+        var prevDateNum = getDateForLabel(_months.prev.year, _months.prev.month, dayName, occNum);
+        var curDateNum = getDateForLabel(_months.cur.year, _months.cur.month, dayName, occNum);
+        var dayIdx = DOW_ORDER.indexOf(dayName);
+        return { label: label, occ: occNum, dayIdx: dayIdx, prevDateNum: prevDateNum || 99, curDateNum: curDateNum || 99 };
+      });
+      sortData.sort(function(a, b) {
+        var va, vb;
+        if (_sortCol === 'day') { va = a.occ * 10 + a.dayIdx; vb = b.occ * 10 + b.dayIdx; }
+        else if (_sortCol === 'prevDate') { va = a.prevDateNum; vb = b.prevDateNum; }
+        else if (_sortCol === 'curDate') { va = a.curDateNum; vb = b.curDateNum; }
+        return _sortAsc ? va - vb : vb - va;
+      });
+      allLabels = sortData.map(function(d) { return d.label; });
+    }
+
+    // Sort arrow helper
+    function sortArrow(col) {
+      if (_sortCol !== col) return ' <span style="opacity:0.3;font-size:9px;">&#9650;&#9660;</span>';
+      return _sortAsc ? ' <span style="font-size:9px;">&#9650;</span>' : ' <span style="font-size:9px;">&#9660;</span>';
+    }
+
+    // Sortable header styles
+    var sortHdrBase = 'cursor:pointer;user-select:none;transition:background .2s;';
+    var sortHdrHover = 'comp-sort-hdr';
+
+    var html = '<style>';
+    html += '@keyframes compWaveShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}';
+    html += '.comp-sort-col{background:linear-gradient(90deg,transparent 0%,rgba(99,102,241,0.06) 25%,rgba(99,102,241,0.10) 50%,rgba(99,102,241,0.06) 75%,transparent 100%);background-size:200% 100%;animation:compWaveShimmer 4s ease-in-out infinite;}';
+    html += '.comp-sort-hdr{position:relative;}';
+    html += '.comp-sort-hdr:hover{background:rgba(99,102,241,0.10)!important;}';
+    html += '</style>';
+
+    html += '<div style="overflow-x:auto;border-radius:12px;border:1px solid #E2E8F0;">';
     html += '<table style="width:100%;border-collapse:collapse;font-size:13px;">';
     html += '<thead><tr style="background:#F8FAFC;">';
-    html += '<th style="padding:10px 12px;border-bottom:2px solid #E2E8F0;color:#64748B;font-size:11px;" rowspan="2">Day</th>';
+    html += '<th class="comp-sort-hdr" onclick="window._compSort(\'day\')" style="padding:10px 12px;border-bottom:2px solid #E2E8F0;color:#6366F1;font-size:11px;font-weight:700;' + sortHdrBase + 'background:rgba(99,102,241,0.06);" rowspan="2">Day' + sortArrow('day') + '</th>';
     html += '<th style="padding:10px;text-align:center;border-bottom:1px solid #E2E8F0;color:#7C3AED;font-weight:700;border-left:1px solid #E2E8F0;background:rgba(139,92,246,0.04);" colspan="5">' + _months.prev.name + '</th>';
     html += '<th style="padding:10px;text-align:center;border-bottom:1px solid #E2E8F0;color:#059669;font-weight:700;border-left:2px solid #CBD5E1;background:rgba(16,185,129,0.04);" colspan="5">' + _months.cur.name + '</th>';
     html += '</tr><tr style="background:#F8FAFC;">';
@@ -322,12 +360,19 @@
       var bl = s === 0 ? (h === 0 ? 'border-left:1px solid #E2E8F0;' : 'border-left:2px solid #CBD5E1;') : '';
       var bg = h === 0 ? 'background:rgba(139,92,246,0.04);' : 'background:rgba(16,185,129,0.04);';
       var align = s === 0 ? 'text-align:center;' : 'text-align:right;';
-      html += '<th style="padding:6px 8px;' + align + 'border-bottom:2px solid #E2E8F0;color:#64748B;font-size:10px;' + bl + bg + '">' + sh[s] + '</th>';
+      if (s === 0) {
+        // Date column — sortable + highlighted
+        var sortKey = h === 0 ? 'prevDate' : 'curDate';
+        html += '<th class="comp-sort-hdr" onclick="window._compSort(\'' + sortKey + '\')" style="padding:6px 8px;' + align + 'border-bottom:2px solid #E2E8F0;color:#6366F1;font-size:10px;font-weight:700;' + sortHdrBase + bl + 'background:rgba(99,102,241,0.06);">' + sh[s] + sortArrow(sortKey) + '</th>';
+      } else {
+        html += '<th style="padding:6px 8px;' + align + 'border-bottom:2px solid #E2E8F0;color:#64748B;font-size:10px;' + bl + bg + '">' + sh[s] + '</th>';
+      }
     }
     html += '</tr></thead><tbody>';
 
     // Running cumulative totals — each side accumulates independently
     var prevRD = 0, prevRC = 0, curRD = 0, curRC = 0;
+    var isSorted = !!_sortCol;
 
     var lastOcc = 0;
     for (var r = 0; r < allLabels.length; r++) {
@@ -338,9 +383,9 @@
       var cuD = cu ? _dailyMap[cu.date] : null;
       var bg = r % 2 === 0 ? '' : 'background:#FAFAFA;';
 
-      // Week separator when occurrence number increases
+      // Week separator when occurrence number increases (only in default order)
       var occ = parseInt(label);
-      if (occ > lastOcc && lastOcc > 0) {
+      if (!isSorted && occ > lastOcc && lastOcc > 0) {
         html += '<tr><td colspan="11" style="height:3px;background:#E2E8F0;padding:0;"></td></tr>';
       }
       lastOcc = occ;
@@ -356,23 +401,30 @@
       var isFuture = curDateNum === null || curDateNum > latestCurDayNum;
       var dimStyle = isFuture ? 'opacity:0.3;' : '';
 
-      // Accumulate running totals (only add if data exists and not future)
-      var showPrev = pvD && !isFuture;
-      var showCur = !!cuD;
-      if (showPrev) { prevRD += Number(pvD.regular_demand) || 0; prevRC += Number(pvD.regular_collection) || 0; }
-      if (showCur) { curRD += Number(cuD.regular_demand) || 0; curRC += Number(cuD.regular_collection) || 0; }
-      var prevCum = showPrev ? { regular_demand: prevRD, regular_collection: prevRC } : null;
-      var curCum = showCur ? { regular_demand: curRD, regular_collection: curRC } : null;
-      // Future days: still show March daily value but dimmed (not cumulative, not hidden)
-      var prevDisplay = prevCum || (isFuture && pvD ? pvD : null);
+      var prevCum, curCum, prevDisplay;
+      if (isSorted) {
+        // When sorted, use pre-computed cumulative maps (order-independent)
+        prevCum = _prevCumMap[label] || null;
+        curCum = _curCumMap[label] || null;
+        prevDisplay = prevCum || (isFuture && pvD ? pvD : null);
+      } else {
+        // Default order — accumulate inline
+        var showPrev = pvD && !isFuture;
+        var showCur = !!cuD;
+        if (showPrev) { prevRD += Number(pvD.regular_demand) || 0; prevRC += Number(pvD.regular_collection) || 0; }
+        if (showCur) { curRD += Number(cuD.regular_demand) || 0; curRC += Number(cuD.regular_collection) || 0; }
+        prevCum = showPrev ? { regular_demand: prevRD, regular_collection: prevRC } : null;
+        curCum = showCur ? { regular_demand: curRD, regular_collection: curRC } : null;
+        prevDisplay = prevCum || (isFuture && pvD ? pvD : null);
+      }
 
       html += '<tr style="' + bg + '">';
-      html += '<td style="padding:8px 12px;font-weight:600;color:#1E293B;border-bottom:1px solid #F1F5F9;white-space:nowrap;">' + label + '</td>';
+      html += '<td class="comp-sort-col" style="padding:8px 12px;font-weight:600;color:#1E293B;border-bottom:1px solid #F1F5F9;white-space:nowrap;">' + label + '</td>';
       // Prev month: date (always from calendar) + data — dimmed if future
-      html += '<td style="padding:8px 6px;text-align:center;font-weight:500;color:#7C3AED;border-bottom:1px solid #F1F5F9;border-left:1px solid #E2E8F0;background:rgba(139,92,246,0.02);font-size:12px;white-space:nowrap;' + dimStyle + '">' + (prevDateNum ? ordinal(prevDateNum) + ' ' + MONTH_NAMES[_months.prev.month] : '-') + '</td>';
+      html += '<td class="comp-sort-col" style="padding:8px 6px;text-align:center;font-weight:500;color:#7C3AED;border-bottom:1px solid #F1F5F9;border-left:1px solid #E2E8F0;font-size:12px;white-space:nowrap;' + dimStyle + '">' + (prevDateNum ? ordinal(prevDateNum) + ' ' + MONTH_NAMES[_months.prev.month] : '-') + '</td>';
       html += tCells(prevDisplay, '', 'background:rgba(139,92,246,0.02);' + dimStyle);
       // Cur month: date (always from calendar) + cumulative data
-      html += '<td style="padding:8px 6px;text-align:center;font-weight:500;color:#059669;border-bottom:1px solid #F1F5F9;border-left:2px solid #CBD5E1;background:rgba(16,185,129,0.02);font-size:12px;white-space:nowrap;">' + (curDateNum ? ordinal(curDateNum) + ' ' + MONTH_NAMES[_months.cur.month] : '-') + '</td>';
+      html += '<td class="comp-sort-col" style="padding:8px 6px;text-align:center;font-weight:500;color:#059669;border-bottom:1px solid #F1F5F9;border-left:2px solid #CBD5E1;font-size:12px;white-space:nowrap;">' + (curDateNum ? ordinal(curDateNum) + ' ' + MONTH_NAMES[_months.cur.month] : '-') + '</td>';
       html += tCells(curCum, '', 'background:rgba(16,185,129,0.02);');
       html += '</tr>';
     }
@@ -441,6 +493,11 @@
     if (n >= 0 && n < _curDays.length) { _compDayIdx = n; render(); }
   };
   window._setCompView = function (v) { _compView = v; render(); };
+  window._compSort = function (col) {
+    if (_sortCol === col) { _sortAsc = !_sortAsc; }
+    else { _sortCol = col; _sortAsc = true; }
+    render();
+  };
 
   window._loadComparisonTab = function () {
     var c = document.getElementById('comparisonContent');
