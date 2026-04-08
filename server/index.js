@@ -643,15 +643,32 @@ app.post("/api/upload", upload.single("file"), async (req, res) => {
       if (!ws) { skippedRows++; continue; }
       const rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
 
+      // Auto-detect column layout from header row
+      // Old format (5 cols): Region, District, Branch, Emp ID, Officer Name, ...metrics
+      // New format (6 cols): Region, Division, Area, Branch, Emp ID, Officer Name, ...metrics
+      const header = rows[0] || [];
+      let colRegion = 0, colDistrict = 1, colBranch = 2, colEmpId = 3, colOfficer = 4, colMetricsStart = 5;
+      const headerStr = header.map(h => String(h || "").toLowerCase().trim());
+      const empIdIdx = headerStr.findIndex(h => h === "emp id" || h === "empid" || h === "emp_id");
+      if (empIdIdx >= 0) {
+        colEmpId = empIdIdx;
+        colOfficer = empIdIdx + 1;
+        colMetricsStart = empIdIdx + 2;
+        // Work backwards: branch is right before emp id, district before that, region before that
+        colBranch = empIdIdx - 1;
+        colDistrict = empIdIdx - 2;
+        colRegion = empIdIdx >= 4 ? 0 : 0; // Region is always first
+      }
+
       for (let r = 1; r < rows.length; r++) {
         const row = rows[r];
-        if (!row || !row[0] || !row[3]) { skippedRows++; continue; }
+        if (!row || !row[colRegion] || !row[colEmpId]) { skippedRows++; continue; }
 
-        const regionName = normalizeRegion(String(row[0]));
-        const districtName = String(row[1] || "").trim();
-        const branchName = String(row[2] || "").trim();
-        const empId = String(row[3]).trim();
-        const officerName = String(row[4] || "").trim();
+        const regionName = normalizeRegion(String(row[colRegion]));
+        const districtName = String(row[colDistrict] || "").trim();
+        const branchName = String(row[colBranch] || "").trim();
+        const empId = String(row[colEmpId]).trim();
+        const officerName = String(row[colOfficer] || "").trim();
 
         if (!regionName || !empId) { skippedRows++; continue; }
 
@@ -686,7 +703,7 @@ app.post("/api/upload", upload.single("file"), async (req, res) => {
 
         // Performance metrics — safely parse each value
         const metrics = [];
-        for (let c = 5; c < 30; c++) {
+        for (let c = colMetricsStart; c < colMetricsStart + 25; c++) {
           const raw = row[c];
           if (raw == null || raw === "") { metrics.push(0); continue; }
           const num = Number(raw);
@@ -2080,14 +2097,20 @@ app.post("/api/upload-daily", upload.single("file"), async (req, res) => {
       if (!ws) continue;
       const rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
 
+      // Auto-detect column layout from header (same logic as /api/upload)
+      const hdr = (rows[0] || []).map(h => String(h || "").toLowerCase().trim());
+      let dEmpId = 3, dMetrics = 5;
+      const eidx = hdr.findIndex(h => h === "emp id" || h === "empid" || h === "emp_id");
+      if (eidx >= 0) { dEmpId = eidx; dMetrics = eidx + 2; }
+
       for (let r = 1; r < rows.length; r++) {
         const row = rows[r];
-        if (!row || !row[0] || !row[3]) { skipped++; continue; }
-        const empId = normalizeRegion(String(row[3]).trim()) === String(row[3]).trim() ? String(row[3]).trim() : String(row[3]).trim();
+        if (!row || !row[0] || !row[dEmpId]) { skipped++; continue; }
+        const empId = String(row[dEmpId]).trim();
         if (!empId) { skipped++; continue; }
 
         const metrics = [];
-        for (let c = 5; c < 30; c++) {
+        for (let c = dMetrics; c < dMetrics + 25; c++) {
           const raw = row[c];
           if (raw == null || raw === '') { metrics.push(0); continue; }
           const num = Number(raw);
