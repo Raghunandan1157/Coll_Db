@@ -97,7 +97,7 @@
   var _dateMap = {}, _dailyMap = {}, _months = null, _curDays = [], _prevDays = [];
   var _prevLabelMap = {};
   var _prevCumMap = {}, _curCumMap = {};
-  var _sortCol = null, _sortAsc = true; // sorting state: 'day', 'prevDate', 'curDate'
+  var _sortCol = 'curDate', _sortAsc = true; // sorting state: 'day', 'prevDate', 'curDate'
 
   var DELTA_FIELDS = ['regular_demand','regular_collection','demand_1_30','collection_1_30',
     'demand_31_60','collection_31_60','pnpa_demand','pnpa_collection','npa_cases','npa_act_acc','npa_act_amt'];
