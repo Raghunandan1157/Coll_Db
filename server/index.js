@@ -3997,13 +3997,7 @@ app.post("/api/daily-plan/bulk-save", async (req, res) => {
 });
 
 // ==================== AI CHAT ENDPOINT ====================
-const OPENROUTER_KEY = "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";
-const AI_MODELS = [
-  "google/gemma-4-26b-a4b-it:free",
-  "minimax/minimax-m2.5:free",
-  "nvidia/nemotron-3-super-120b-a12b:free",
-  "stepfun/step-3.5-flash:free"
-];
+// OpenRouter API key + models are now used client-side (see employee.html)
 
 // Helper: run a read-only query safely (with timeout + row limit)
 async function safeQuery(sql, params, maxRows) {
