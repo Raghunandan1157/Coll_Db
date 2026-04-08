@@ -602,6 +602,14 @@
 </div>
 
 <style>
+/* ===== Bottom padding so floating bar doesn't overlap content ===== */
+@media (min-width: 768px) {
+  .desktop-main .emp-app { padding-bottom: 80px !important; }
+}
+@media (max-width: 767px) {
+  .emp-app { padding-bottom: 72px !important; }
+}
+
 /* ===== AI Floating Bar (Desktop) ===== */
 #aiFloatingBar {
   display: none;
