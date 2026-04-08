@@ -3996,6 +3996,189 @@ app.post("/api/daily-plan/bulk-save", async (req, res) => {
   } finally { client.release(); }
 });
 
+// ==================== AI CHAT ENDPOINT ====================
+const OPENROUTER_KEY = "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";
+const AI_MODEL = "google/gemma-4-26b-a4b-it:free";
+
+// Helper: run a read-only query safely (with timeout + row limit)
+async function safeQuery(sql, params, maxRows) {
+  const client = await pool.connect();
+  try {
+    await client.query("SET statement_timeout = '5000'"); // 5s max
+    const result = await client.query(sql, params);
+    return result.rows.slice(0, maxRows || 50);
+  } catch (e) {
+    return { error: e.message };
+  } finally {
+    client.release();
+  }
+}
+
+// Build context snapshot for the AI
+async function buildDataContext(session) {
+  const ctx = {};
+
+  // Latest dates available
+  const dates = await safeQuery("SELECT MAX(report_date) as latest FROM daily_performance", [], 1);
+  ctx.latestDate = dates[0]?.latest || 'unknown';
+
+  // Summary: overall totals from employee_performance (current month cumulative)
+  const overall = await safeQuery(`
+    SELECT SUM(regular_demand) as total_rd, SUM(regular_collection) as total_rc,
+           SUM(demand_1_30) as sma0_d, SUM(collection_1_30) as sma0_c,
+           SUM(demand_31_60) as sma1_d, SUM(collection_31_60) as sma1_c,
+           SUM(pnpa_demand) as pnpa_d, SUM(pnpa_collection) as pnpa_c,
+           SUM(npa_cases) as npa_cases, SUM(npa_act_acc) as npa_act
+    FROM employee_performance`, [], 1);
+  ctx.overallSummary = overall[0] || {};
+
+  // Branch-wise top 10 by regular_demand
+  ctx.topBranches = await safeQuery(`
+    SELECT b.branch_name, SUM(ep.regular_demand) as rd, SUM(ep.regular_collection) as rc
+    FROM employee_performance ep
+    JOIN employees e ON ep.emp_id = e.emp_id
+    JOIN branches b ON e.branch_id = b.branch_id
+    GROUP BY b.branch_name ORDER BY rd DESC LIMIT 10`, [], 10);
+
+  // Region-wise summary
+  ctx.regionSummary = await safeQuery(`
+    SELECT r.region_name, SUM(ep.regular_demand) as rd, SUM(ep.regular_collection) as rc
+    FROM employee_performance ep
+    JOIN employees e ON ep.emp_id = e.emp_id
+    JOIN branches b ON e.branch_id = b.branch_id
+    JOIN districts d ON b.district_id = d.district_id
+    JOIN regions r ON d.region_id = r.region_id
+    GROUP BY r.region_name ORDER BY rd DESC`, [], 20);
+
+  // Disbursement summary (latest month)
+  ctx.disbursement = await safeQuery(`
+    SELECT db_month, SUM(disb_count) as total_count, SUM(disb_amount) as total_amount
+    FROM disbursement GROUP BY db_month ORDER BY db_month DESC LIMIT 2`, [], 2);
+
+  // If user has a specific role/location, add their filtered data
+  if (session.role && session.location) {
+    let filter = '', params = [];
+    if (session.role === 'RM' || session.role === 'SM') {
+      filter = `JOIN employees e ON ep.emp_id = e.emp_id
+        JOIN branches b ON e.branch_id = b.branch_id
+        JOIN districts d ON b.district_id = d.district_id
+        JOIN regions r ON d.region_id = r.region_id WHERE r.region_name = $1`;
+      params = [session.location];
+    } else if (session.role === 'DM' || session.role === 'DvM') {
+      filter = `JOIN employees e ON ep.emp_id = e.emp_id
+        JOIN branches b ON e.branch_id = b.branch_id
+        JOIN districts d ON b.district_id = d.district_id WHERE d.district_name = $1`;
+      params = [session.location];
+    } else if (session.role === 'BM') {
+      filter = `JOIN employees e ON ep.emp_id = e.emp_id
+        JOIN branches b ON e.branch_id = b.branch_id WHERE b.branch_name = $1`;
+      params = [session.location];
+    }
+    if (filter) {
+      ctx.myData = await safeQuery(`
+        SELECT SUM(ep.regular_demand) as rd, SUM(ep.regular_collection) as rc,
+               SUM(ep.demand_1_30) as sma0_d, SUM(ep.collection_1_30) as sma0_c,
+               SUM(ep.npa_cases) as npa_cases, SUM(ep.npa_act_acc) as npa_act
+        FROM employee_performance ep ${filter}`, params, 1);
+    }
+  }
+
+  return ctx;
+}
+
+app.post("/api/ai-chat", async (req, res) => {
+  try {
+    const { message, history, session } = req.body;
+    if (!message || typeof message !== 'string') {
+      return res.status(400).json({ error: "Message required" });
+    }
+
+    // Build data context
+    const ctx = await buildDataContext(session || {});
+
+    const systemPrompt = `You are the NLPL AI Assistant — a helpful data analyst for NLPL (Nava Chetana Livelihoods) employee dashboard.
+You help users understand their collection, portfolio, disbursement, and NPA data.
+
+CURRENT DATA SNAPSHOT (latest date: ${ctx.latestDate}):
+
+OVERALL SUMMARY (cumulative month):
+- Regular Demand: ${ctx.overallSummary.total_rd?.toLocaleString() || 0}, Collection: ${ctx.overallSummary.total_rc?.toLocaleString() || 0}, Coll%: ${ctx.overallSummary.total_rd > 0 ? ((ctx.overallSummary.total_rc / ctx.overallSummary.total_rd) * 100).toFixed(1) + '%' : '-'}
+- SMA-0 (1-30 DPD): Demand: ${ctx.overallSummary.sma0_d || 0}, Collection: ${ctx.overallSummary.sma0_c || 0}
+- SMA-1 (31-60 DPD): Demand: ${ctx.overallSummary.sma1_d || 0}, Collection: ${ctx.overallSummary.sma1_c || 0}
+- Pre-NPA: Demand: ${ctx.overallSummary.pnpa_d || 0}, Collection: ${ctx.overallSummary.pnpa_c || 0}
+- NPA Cases: ${ctx.overallSummary.npa_cases || 0}, Activations: ${ctx.overallSummary.npa_act || 0}
+
+REGION-WISE SUMMARY:
+${(ctx.regionSummary || []).map(r => `- ${r.region_name}: RD=${Number(r.rd).toLocaleString()}, RC=${Number(r.rc).toLocaleString()}, Coll%=${r.rd > 0 ? ((r.rc / r.rd) * 100).toFixed(1) + '%' : '-'}`).join('\n')}
+
+TOP 10 BRANCHES BY DEMAND:
+${(ctx.topBranches || []).map(b => `- ${b.branch_name}: RD=${Number(b.rd).toLocaleString()}, RC=${Number(b.rc).toLocaleString()}`).join('\n')}
+
+DISBURSEMENT:
+${(ctx.disbursement || []).map(d => `- ${d.db_month}: Count=${Number(d.total_count).toLocaleString()}, Amount=${Number(d.total_amount).toLocaleString()}`).join('\n')}
+
+${ctx.myData ? `USER'S OWN DATA (${(session || {}).role} - ${(session || {}).location}):
+RD=${ctx.myData[0]?.rd || 0}, RC=${ctx.myData[0]?.rc || 0}, NPA Cases=${ctx.myData[0]?.npa_cases || 0}` : ''}
+
+TERMINOLOGY:
+- RD = Regular Demand (number of accounts due for repayment)
+- RC = Regular Collection (accounts that have paid)
+- FTOD = Follow-up Till On Date (RD - RC = pending accounts)
+- Coll% = Collection percentage (RC/RD * 100)
+- SMA = Special Mention Account (early delinquency buckets)
+- DPD = Days Past Due
+- NPA = Non-Performing Asset
+- PNPA = Pre-NPA
+- FO = Field Officer, BM = Branch Manager, DM = District Manager, RM = Regional Manager
+
+RULES:
+- Be concise and to the point. Use numbers from the data above.
+- Format numbers in Indian notation (e.g., 1,23,456).
+- If you don't have specific data to answer, say so honestly.
+- Don't make up data. Only use what's provided above.
+- Keep responses brief — 2-4 sentences for simple questions, more for analysis.`;
+
+    // Build messages array
+    const messages = [{ role: "system", content: systemPrompt }];
+    if (history && Array.isArray(history)) {
+      for (const h of history.slice(-6)) { // last 6 messages for context
+        messages.push({ role: h.role, content: h.content });
+      }
+    }
+    messages.push({ role: "user", content: message });
+
+    // Call OpenRouter
+    const aiRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${OPENROUTER_KEY}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://growwithme.navachetanalivelihoods.com",
+        "X-Title": "NLPL Dashboard AI"
+      },
+      body: JSON.stringify({
+        model: AI_MODEL,
+        messages: messages,
+        max_tokens: 1024,
+        temperature: 0.3
+      })
+    });
+
+    if (!aiRes.ok) {
+      const errText = await aiRes.text();
+      console.error("OpenRouter error:", aiRes.status, errText);
+      return res.status(500).json({ error: "AI service unavailable" });
+    }
+
+    const aiData = await aiRes.json();
+    const reply = aiData.choices?.[0]?.message?.content || "Sorry, I couldn't generate a response.";
+    res.json({ reply });
+  } catch (e) {
+    console.error("AI chat error:", e);
+    res.status(500).json({ error: "Failed to process request" });
+  }
+});
+
 // Serve daily-reports.html
 app.get("/daily-reports", (req, res) => {
   res.sendFile(__dirname + "/../daily-reports.html");

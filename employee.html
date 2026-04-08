@@ -1123,45 +1123,78 @@
   <script src="js/analytical.js?v=26"></script>
   <script src="js/employee.js?v=44"></script>
   <script>
-  // AI Chat — simple placeholder send handler
-  window._aiSend = function() {
-    var input = document.getElementById('aiInput');
-    var msg = input.value.trim();
-    if (!msg) return;
-    input.value = '';
-    var box = document.getElementById('aiMessages');
+  // AI Chat — connected to /api/ai-chat
+  (function(){
+    var _aiHistory = [];
+    var botIcon = '<div style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#6366F1,#8B5CF6);display:flex;align-items:center;justify-content:center;flex-shrink:0;">'
+      + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1.27A7 7 0 0 1 14 23h-4a7 7 0 0 1-6.73-4H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/><circle cx="9.5" cy="15.5" r="1"/><circle cx="14.5" cy="15.5" r="1"/></svg></div>';
 
-    // User message
-    box.innerHTML += '<div style="display:flex;gap:10px;align-items:flex-start;justify-content:flex-end;">'
-      + '<div style="background:#6366F1;border-radius:12px;padding:12px 16px;font-size:14px;color:#fff;line-height:1.6;max-width:80%;">'
-      + msg.replace(/[&<>"']/g, function(c){return '&#'+c.charCodeAt(0)+';';})
-      + '</div></div>';
+    function esc(s) { return String(s).replace(/[&<>"']/g, function(c){return '&#'+c.charCodeAt(0)+';';}); }
 
-    // Bot typing indicator
-    var typingId = 'typing-' + Date.now();
-    box.innerHTML += '<div id="' + typingId + '" style="display:flex;gap:10px;align-items:flex-start;">'
-      + '<div style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#6366F1,#8B5CF6);display:flex;align-items:center;justify-content:center;flex-shrink:0;">'
-      + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1.27A7 7 0 0 1 14 23h-4a7 7 0 0 1-6.73-4H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/><circle cx="9.5" cy="15.5" r="1"/><circle cx="14.5" cy="15.5" r="1"/></svg></div>'
-      + '<div style="background:#F8FAFC;border:1px solid #F1F5F9;border-radius:12px;padding:12px 16px;font-size:14px;color:#94A3B8;">'
-      + '<span style="display:inline-flex;gap:4px;"><span class="ai-dot"></span><span class="ai-dot" style="animation-delay:.2s"></span><span class="ai-dot" style="animation-delay:.4s"></span></span>'
-      + '</div></div>';
-    box.scrollTop = box.scrollHeight;
+    // Simple markdown: **bold**, *italic*, \n→<br>, `code`
+    function md(s) {
+      return esc(s)
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+        .replace(/`(.+?)`/g, '<code style="background:#F1F5F9;padding:1px 5px;border-radius:4px;font-size:13px;">$1</code>')
+        .replace(/\n/g, '<br>');
+    }
 
-    // Placeholder response after brief delay
-    setTimeout(function() {
-      var el = document.getElementById(typingId);
-      if (el) el.remove();
-      box.innerHTML += '<div style="display:flex;gap:10px;align-items:flex-start;">'
-        + '<div style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#6366F1,#8B5CF6);display:flex;align-items:center;justify-content:center;flex-shrink:0;">'
-        + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1.27A7 7 0 0 1 14 23h-4a7 7 0 0 1-6.73-4H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/><circle cx="9.5" cy="15.5" r="1"/><circle cx="14.5" cy="15.5" r="1"/></svg></div>'
-        + '<div style="background:#F8FAFC;border:1px solid #F1F5F9;border-radius:12px;padding:12px 16px;font-size:14px;color:#334155;line-height:1.6;max-width:80%;">'
-        + 'This feature is coming soon! AI-powered data analysis will be available in a future update.'
+    window._aiSend = function() {
+      var input = document.getElementById('aiInput');
+      var msg = input.value.trim();
+      if (!msg) return;
+      input.value = '';
+      var box = document.getElementById('aiMessages');
+
+      // User bubble
+      box.innerHTML += '<div style="display:flex;gap:10px;align-items:flex-start;justify-content:flex-end;">'
+        + '<div style="background:#6366F1;border-radius:12px;padding:12px 16px;font-size:14px;color:#fff;line-height:1.6;max-width:80%;">'
+        + esc(msg) + '</div></div>';
+      _aiHistory.push({ role: 'user', content: msg });
+
+      // Typing indicator
+      var typingId = 'typing-' + Date.now();
+      box.innerHTML += '<div id="' + typingId + '" style="display:flex;gap:10px;align-items:flex-start;">'
+        + botIcon
+        + '<div style="background:#F8FAFC;border:1px solid #F1F5F9;border-radius:12px;padding:12px 16px;font-size:14px;color:#94A3B8;">'
+        + '<span style="display:inline-flex;gap:4px;"><span class="ai-dot"></span><span class="ai-dot" style="animation-delay:.2s"></span><span class="ai-dot" style="animation-delay:.4s"></span></span>'
         + '</div></div>';
       box.scrollTop = box.scrollHeight;
-    }, 1200);
-  };
-  // Focus ring on input
-  (function(){
+
+      // Get session info
+      var session = {};
+      try { session = typeof getEmployeeSession === 'function' ? getEmployeeSession() : {}; } catch(e) {}
+
+      fetch('/api/ai-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: msg, history: _aiHistory.slice(-6), session: session })
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        var el = document.getElementById(typingId);
+        if (el) el.remove();
+        var reply = data.reply || data.error || 'No response received.';
+        _aiHistory.push({ role: 'assistant', content: reply });
+        box.innerHTML += '<div style="display:flex;gap:10px;align-items:flex-start;">'
+          + botIcon
+          + '<div style="background:#F8FAFC;border:1px solid #F1F5F9;border-radius:12px;padding:12px 16px;font-size:14px;color:#334155;line-height:1.6;max-width:80%;">'
+          + md(reply) + '</div></div>';
+        box.scrollTop = box.scrollHeight;
+      })
+      .catch(function(err) {
+        var el = document.getElementById(typingId);
+        if (el) el.remove();
+        box.innerHTML += '<div style="display:flex;gap:10px;align-items:flex-start;">'
+          + botIcon
+          + '<div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:12px;padding:12px 16px;font-size:14px;color:#DC2626;line-height:1.6;max-width:80%;">'
+          + 'Sorry, something went wrong. Please try again.</div></div>';
+        box.scrollTop = box.scrollHeight;
+      });
+    };
+
+    // Focus ring
     var wrap = document.getElementById('aiInputWrap');
     var inp = document.getElementById('aiInput');
     if (wrap && inp) {
