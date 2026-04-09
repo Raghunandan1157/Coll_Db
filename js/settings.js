@@ -136,8 +136,8 @@
       else { localStorage.removeItem('employeeId'); localStorage.removeItem('employeeName'); }
     }
     localStorage.removeItem('roleNavStack');
+    // Preserve selected date — do NOT clear collSelectedDate
     localStorage.removeItem('pfMonth');
-    localStorage.removeItem('activeTab');
     localStorage.removeItem('dbMonth');
     localStorage.removeItem('dbProduct');
     localStorage.removeItem('roleState');
@@ -167,10 +167,15 @@
       };
     }
 
-    // Tab key toggles between old and new structure
+    // Tab key toggles between old and new structure (only for dates up to 31-03-2026)
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Tab') {
         e.preventDefault();
+        // Only allow toggle for dates up to 31-03-2026
+        var cutoff = new Date('2026-04-01');
+        var selDate = null;
+        try { selDate = window._collState && window._collState.date ? new Date(window._collState.date) : null; } catch(x) {}
+        if (selDate && selDate >= cutoff) return; // No toggle after March 2026
         var current = window.getDataStructure();
         if (current === 'new') {
           setDataStructure('fy2025-26');

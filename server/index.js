@@ -2039,9 +2039,13 @@ app.get("/api/daily/summary", async (req, res) => {
 
 app.get("/api/daily/by-region", async (req, res) => {
   try {
-    const base = buildDailyQuery("r.region_name");
+    // Old structure: group by branches.old_region (5 regions) instead of regions.region_name (6 regions)
+    var useOld = req.query.structure === 'old';
+    var regionCol = useOld ? "b.old_region AS region_name" : "r.region_name";
+    var groupCol = useOld ? "b.old_region" : "r.region_name";
+    const base = buildDailyQuery(regionCol);
     const { clause, params } = buildDailyWhere(req.query);
-    const result = await pool.query(base + clause + " GROUP BY r.region_name ORDER BY r.region_name", params);
+    const result = await pool.query(base + clause + " GROUP BY " + groupCol + " ORDER BY " + groupCol, params);
     res.json(result.rows);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });

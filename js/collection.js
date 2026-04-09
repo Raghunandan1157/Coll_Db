@@ -103,7 +103,8 @@
   function subUnitsUrl(productType) {
     var pt = (productType && productType !== 'all') ? productType.toUpperCase() : '';
     var ptParam = pt ? 'product_type=' + encodeURIComponent(pt) : '';
-    var dateParam = _collState.date ? 'date=' + encodeURIComponent(_collState.date) + '&scope=' + (_collState.view === 'fy' ? 'fy' : 'oa') + '&' : '';
+    var structParam = isNewStructure() ? '' : 'structure=old&';
+    var dateParam = _collState.date ? 'date=' + encodeURIComponent(_collState.date) + '&scope=' + (_collState.view === 'fy' ? 'fy' : 'oa') + '&' + structParam : '';
 
     // When a date is selected, always use /api/daily (works for both structures)
     // Daily API only supports old-structure filters: region, district, branch, emp_id
