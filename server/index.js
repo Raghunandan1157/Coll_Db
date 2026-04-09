@@ -2009,6 +2009,14 @@ function buildDailyWhere(filters) {
   var params = [];
   var idx = 1;
   if (filters.date) { where.push("dp.report_date=$" + idx++); params.push(filters.date); }
+  // Scope filter: 'fy' = FY products only, 'oa' or default = OverAll products only
+  // OA product_type_ids: 1(IGL), 2(FIG), 3(IL)  |  FY: 4(IGL_FY), 5(FIG_FY), 6(VVY_FY)
+  if (filters.scope === 'fy') {
+    where.push("dp.product_type_id IN (4,5,6)");
+  } else if (filters.date) {
+    // When a date is selected, default to OA scope to avoid mixing OA+FY
+    where.push("dp.product_type_id IN (1,2,3)");
+  }
   if (filters.product_type && filters.product_type !== "All") {
     where.push("dp.product_type_id IN (SELECT product_type_id FROM product_types WHERE product_type_name=$" + idx++ + ")"); params.push(filters.product_type);
   }

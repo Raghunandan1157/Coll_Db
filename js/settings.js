@@ -102,6 +102,19 @@
         setDataStructure('new');
       };
     }
+
+    // Tab key toggles between old and new structure
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        var current = window.getDataStructure();
+        if (current === 'new') {
+          setDataStructure('fy2025-26');
+        } else {
+          setDataStructure('new');
+        }
+      }
+    });
   }
 
   /* ========== Bootstrap ========== */

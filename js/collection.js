@@ -103,7 +103,7 @@
   function subUnitsUrl(productType) {
     var pt = (productType && productType !== 'all') ? productType.toUpperCase() : '';
     var ptParam = pt ? 'product_type=' + encodeURIComponent(pt) : '';
-    var dateParam = _collState.date ? 'date=' + encodeURIComponent(_collState.date) + '&' : '';
+    var dateParam = _collState.date ? 'date=' + encodeURIComponent(_collState.date) + '&scope=' + (_collState.view === 'fy' ? 'fy' : 'oa') + '&' : '';
 
     // When a date is selected, always use /api/daily (works for both structures)
     // Daily API only supports old-structure filters: region, district, branch, emp_id
@@ -200,6 +200,8 @@
     var params = summaryParams(product);
     if (_collState.date) {
       params += (params ? '&' : '?') + 'date=' + encodeURIComponent(_collState.date);
+      // Pass scope so backend filters OA vs FY product types
+      params += '&scope=' + (_collState.view === 'fy' ? 'fy' : 'oa');
     }
     var summaryUrl = apiBase + '/summary' + params;
     var childUrl = subUnitsUrl(product);
@@ -308,7 +310,13 @@
 
   function viewToggleHtml() {
     var ov = _collState.view === 'overall';
-    var fyLabel = (window.getDataStructure && window.getDataStructure() === 'new') ? 'FY 26-27' : 'FY 25-26';
+    // Dynamic FY label based on selected date (Indian FY: Apr-Mar)
+    var fyLabel = 'FY 25-26';
+    var fyDate = _collState.date ? new Date(_collState.date) : new Date();
+    var fyMonth = fyDate.getMonth() + 1; // 1-12
+    var fyYear = fyDate.getFullYear();
+    var fyStartYear = fyMonth >= 4 ? fyYear : fyYear - 1;
+    fyLabel = 'FY ' + String(fyStartYear).slice(-2) + '-' + String(fyStartYear + 1).slice(-2);
     return '<div class="pf-view-toggle emp-fade">' +
       '<button class="pf-view-btn' + (ov ? ' active' : '') + '" data-coll-view="overall">OverAll</button>' +
       '<button class="pf-view-btn' + (!ov ? ' active' : '') + '" data-coll-view="fy">' + fyLabel + '</button>' +
@@ -343,8 +351,8 @@
   }
 
   function snapshotHtml(data) {
-    var totalDem = numVal(data.regular_demand) + numVal(data.demand_1_30) + numVal(data.demand_31_60) + numVal(data.pnpa_demand) + numVal(data.npa_cases);
-    var totalCol = numVal(data.regular_collection) + numVal(data.collection_1_30) + numVal(data.collection_31_60) + numVal(data.pnpa_collection) + numVal(data.npa_act_acc);
+    var totalDem = numVal(data.regular_demand);
+    var totalCol = numVal(data.regular_collection);
     var overallPct = totalDem > 0 ? ((totalCol / totalDem) * 100).toFixed(1) : '0';
 
     return '<div class="emp-snapshot emp-fade">' +
