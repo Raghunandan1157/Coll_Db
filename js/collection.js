@@ -187,6 +187,9 @@
 
   /* ---------- Main data loader ---------- */
   function loadAndRender() {
+    // Persist selected date so it survives page reloads (Tab toggle, drill-down, etc.)
+    if (_collState.date) localStorage.setItem('collSelectedDate', _collState.date);
+
     var container = document.getElementById('collectionContent');
     container.innerHTML = '<div style="text-align:center;padding:80px 20px;">' +
       '<div style="width:32px;height:32px;border:3px solid #E2E8F0;border-top-color:#059669;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 12px;"></div>' +
@@ -789,28 +792,27 @@
         _collState.product = savedProduct;
       }
 
-      // Restore saved date from localStorage (preserves date across drill-down navigation)
+      // Restore saved date from localStorage (preserves date across drill-down navigation & Tab toggle)
       var savedDate = localStorage.getItem('collSelectedDate');
       if (savedDate) _collState.date = savedDate;
 
-      // Auto-load latest daily date on first load (both structures)
-      if (!_collState.date) {
-        apiFetch('/api/daily/dates').then(function(dates) {
-          if (dates && dates.length) {
-            _collState.availableDates = dates.map(function(d) { return d.substring(0, 10); });
-            _collState.date = _collState.availableDates[0]; // latest date
-            // Sync the header date badge to match the actual data date
-            var badge = document.getElementById('dateBadgeText');
-            if (badge && _collState.date) {
-              var p = _collState.date.split('-');
-              badge.textContent = p[2] + '-' + p[1] + '-' + p[0];
-            }
+      // Always fetch available dates (needed for arrow navigation)
+      apiFetch('/api/daily/dates').then(function(dates) {
+        if (dates && dates.length) {
+          _collState.availableDates = dates.map(function(d) { return d.substring(0, 10); });
+          // If no saved date, use latest
+          if (!_collState.date) {
+            _collState.date = _collState.availableDates[0];
           }
-          loadAndRender();
-        }).catch(function() { loadAndRender(); });
-      } else {
+        }
+        // Sync the header date badge
+        var badge = document.getElementById('dateBadgeText');
+        if (badge && _collState.date) {
+          var p = _collState.date.split('-');
+          badge.textContent = p[2] + '-' + p[1] + '-' + p[0];
+        }
         loadAndRender();
-      }
+      }).catch(function() { loadAndRender(); });
     } catch (err) {
       console.error('Collection load failed:', err);
       document.getElementById('collectionContent').innerHTML = noDataHtml('Failed to load collection data.');

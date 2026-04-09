@@ -1319,7 +1319,7 @@
   <script src="js/auth.js?v=25"></script>
   <script src="js/settings.js?v=9"></script>
   <script src="js/portfolio.js?v=44"></script>
-  <script src="js/collection.js?v=47"></script>
+  <script src="js/collection.js?v=48"></script>
   <script src="js/hourly.js?v=29"></script>
   <script src="js/disbursement.js?v=41"></script>
   <script src="js/comparison.js?v=23"></script>
@@ -1669,6 +1669,8 @@ function renderCalendar() {
 function selectCalDate(date) {
   closeCalendarPopup();
   if (window._collState) window._collState.date = date;
+  if (date) localStorage.setItem('collSelectedDate', date);
+  else localStorage.removeItem('collSelectedDate');
   var badge = document.getElementById('dateBadgeText');
   if (badge) {
     if (date) {
