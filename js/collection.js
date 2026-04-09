@@ -697,6 +697,8 @@
     container.querySelectorAll('[data-coll-date]').forEach(function (btn) {
       btn.onclick = function () {
         _collState.date = btn.dataset.collDate || null;
+        if (_collState.date) localStorage.setItem('collSelectedDate', _collState.date);
+        else localStorage.removeItem('collSelectedDate');
         loadAndRender();
       };
     });
@@ -786,6 +788,10 @@
       if (savedProduct && ['all', 'igl', 'fig', 'il'].indexOf(savedProduct) !== -1) {
         _collState.product = savedProduct;
       }
+
+      // Restore saved date from localStorage (preserves date across drill-down navigation)
+      var savedDate = localStorage.getItem('collSelectedDate');
+      if (savedDate) _collState.date = savedDate;
 
       // Auto-load latest daily date on first load (both structures)
       if (!_collState.date) {
