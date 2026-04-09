@@ -191,6 +191,12 @@
       </a>
     </nav>
     <div class="desktop-sidebar-footer">
+      <a href="javascript:void(0)" class="desktop-sidebar-item" onclick="window._aiOpen()" style="margin-bottom:4px;">
+        <span class="desktop-sidebar-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </span>
+        <span class="desktop-sidebar-label">AI Assistant</span>
+      </a>
       <button class="desktop-sidebar-logout" id="desktop-logout-btn">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
         <span>Logout</span>
@@ -602,9 +608,9 @@
 </div>
 
 <style>
-/* ===== Bottom padding so floating bar doesn't overlap content ===== */
+/* ===== Bottom padding (desktop: no floating bar, minimal padding) ===== */
 @media (min-width: 768px) {
-  .desktop-main .emp-app { padding-bottom: 80px !important; }
+  .desktop-main .emp-app { padding-bottom: 24px !important; }
 }
 @media (max-width: 767px) {
   .emp-app { padding-bottom: 72px !important; }
@@ -743,7 +749,7 @@
 
 /* ===== Desktop: Panel + bar visibility ===== */
 @media (min-width: 768px) {
-  #aiFloatingBar { display: flex; }
+  #aiFloatingBar { display: none !important; }
   #aiFab { display: none !important; }
   #aiPanel {
     bottom: 24px; right: 24px;
