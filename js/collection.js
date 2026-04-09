@@ -63,6 +63,9 @@
   /* ========== Build query params for summary endpoint ========== */
   function summaryParams(productType) {
     var params = [];
+    if (!isNewStructure()) {
+      params.push('structure=old');
+    }
     if (productType && productType !== 'all') {
       params.push('product_type=' + encodeURIComponent(productType.toUpperCase()));
     }

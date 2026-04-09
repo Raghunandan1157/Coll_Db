@@ -954,15 +954,21 @@ app.get("/api/collection/summary", async (req, res) => {
 
 app.get("/api/collection/by-region", async (req, res) => {
   try {
+    // Old structure: group by branches.old_region (5 regions)
+    var useOld = req.query.structure === 'old';
+    var regionCol = useOld ? "b.old_region AS region_name" : "r.region_name";
+    var groupCol = useOld ? "b.old_region" : "r.region_name";
+    var nullFilter = useOld ? " AND b.old_region IS NOT NULL" : " AND r.region_name IS NOT NULL";
+
     if (req.query.date) {
-      const base = buildDailyQuery("r.region_name", "r.region_name");
+      const base = buildDailyQuery(regionCol);
       const { clause, params } = buildDailyWhere(req.query);
-      const result = await pool.query(base + clause + " GROUP BY r.region_name ORDER BY r.region_name", params);
+      const result = await pool.query(base + clause + nullFilter + " GROUP BY " + groupCol + " ORDER BY " + groupCol, params);
       return res.json(result.rows);
     }
-    const base = buildCollectionQuery("r.region_name", "r.region_name");
+    const base = buildCollectionQuery(groupCol, regionCol);
     const { clause, params } = buildWhere(req.query);
-    const result = await pool.query(base + clause + " GROUP BY r.region_name ORDER BY r.region_name", params);
+    const result = await pool.query(base + clause + nullFilter + " GROUP BY " + groupCol + " ORDER BY " + groupCol, params);
     res.json(result.rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -2039,13 +2045,13 @@ app.get("/api/daily/summary", async (req, res) => {
 
 app.get("/api/daily/by-region", async (req, res) => {
   try {
-    // Old structure: group by branches.old_region (5 regions) instead of regions.region_name (6 regions)
     var useOld = req.query.structure === 'old';
     var regionCol = useOld ? "b.old_region AS region_name" : "r.region_name";
     var groupCol = useOld ? "b.old_region" : "r.region_name";
+    var nullFilter = useOld ? " AND b.old_region IS NOT NULL" : " AND r.region_name IS NOT NULL";
     const base = buildDailyQuery(regionCol);
     const { clause, params } = buildDailyWhere(req.query);
-    const result = await pool.query(base + clause + " GROUP BY " + groupCol + " ORDER BY " + groupCol, params);
+    const result = await pool.query(base + clause + nullFilter + " GROUP BY " + groupCol + " ORDER BY " + groupCol, params);
     res.json(result.rows);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
