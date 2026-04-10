@@ -9,7 +9,7 @@
   <title>NLPL OrgPortal</title>
   <link rel="icon" href="logo-plan.png" type="image/png">
   <!-- Preload critical resources so browser starts downloading early -->
-  <link rel="preload" href="js/daily-reports.js?v=8" as="script">
+  <link rel="preload" href="js/daily-reports.js?v=9" as="script">
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -158,7 +158,7 @@
     <div class="nav-menu">
       <a href="employee.html" class="nav-item">
         <svg class="icon" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-        Dashboard
+        Home
       </a>
       <a href="#" class="nav-item active" id="nav-dashboard" onclick="switchTab('dashboard')">
         <svg class="icon" viewBox="0 0 24 24">
@@ -386,12 +386,12 @@
         </div>
 
         <select id="dmSelect">
-          <option value="" disabled selected>Select Manager Name...</option>
+          <option value="" disabled selected>Select Division...</option>
           <!-- Injected Options -->
         </select>
 
         <button id="login-btn-dm" class="btn btn-outline" onclick="handleLogin('DM')">
-          Login as District Manager
+          Login as Division Manager
         </button>
       </div>
     </div>
@@ -845,7 +845,7 @@
     </div>
   </div>
 
-  <script src="js/daily-reports.js?v=8"></script>
+  <script src="js/daily-reports.js?v=9"></script>
   </div><!-- .desktop-main -->
 </div><!-- .desktop-layout -->
 </body>

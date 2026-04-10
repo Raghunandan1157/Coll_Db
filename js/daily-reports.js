@@ -11,24 +11,25 @@
     
     if (!roleAuth && !employeeId) return; // Not logged in — let normal login show
     
-    // Map dashboard roles to Daily Plan roles
-    // CEO -> CEO, RM -> CEO (sees all), DM -> DM, BM -> DM (sees their district)
+    // Map dashboard roles to Daily Plan roles (V2 hierarchy)
     var mappedRole = 'CEO';
     var mappedUser = 'CEO';
-    
-    if (roleName === 'CEO' || roleName === 'RM') {
+
+    if (roleName === 'CEO' || roleName === 'RM' || roleName === 'SM') {
         mappedRole = 'CEO';
-        mappedUser = roleName === 'RM' ? (roleLocation || 'CEO') : 'CEO';
-    } else if (roleName === 'DM') {
+        mappedUser = 'CEO';
+    } else if (roleName === 'DM' || roleName === 'DvM') {
         mappedRole = 'DM';
         mappedUser = roleLocation || employeeName || 'DM';
-    } else if (roleName === 'BM' || roleName === 'FO') {
-        mappedRole = 'DM'; // BMs see their branch data like a DM
+    } else if (roleName === 'AM') {
+        mappedRole = 'AM';
+        mappedUser = roleLocation || employeeName || 'AM';
+    } else if (roleName === 'BM') {
+        mappedRole = 'BM';
         mappedUser = roleLocation || employeeName || 'BM';
-    } else if (employeeId) {
-        // Regular employee login — treat as BM
-        mappedRole = 'DM';
-        mappedUser = employeeName || employeeId;
+    } else if (roleName === 'FO' || employeeId) {
+        mappedRole = 'FO';
+        mappedUser = roleLocation || employeeName || employeeId;
     }
     
     // Store for the Daily Plan to pick up
@@ -67,6 +68,10 @@ async function neonQuery(sqlText, params = []) {
             }
             
             const resp = await fetch(url);
+            if (!resp.ok) {
+                const errBody = await resp.json().catch(() => ({}));
+                throw new Error(errBody.error || 'Server error ' + resp.status);
+            }
             const result = await resp.json();
             return { data: result.data || [], error: null, count: result.count || 0 };
         }
@@ -87,6 +92,10 @@ async function neonQuery(sqlText, params = []) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ table: isAchievements ? 'achievements' : 'reports', data })
             });
+            if (!resp.ok) {
+                const errBody = await resp.json().catch(() => ({}));
+                throw new Error(errBody.error || 'Server error ' + resp.status);
+            }
             const result = await resp.json();
             if (!result.success) throw new Error(result.error || 'Save failed');
             return { data: [], error: null, count: 1 };
@@ -124,135 +133,135 @@ function setCachedData(key, data) {
 }
 
 // --- DATA & STATE ---
-// --- DATA & STATE ---
-const defaultTSVData = `Branch	District	DM name	Region
-DHARMAVARAM	KADAPA	PUTTA PRASAD	ANDRA PRADESH
-BUDWAL	KADAPA	PUTTA PRASAD	ANDRA PRADESH
-KADIRI	KADAPA	PUTTA PRASAD	ANDRA PRADESH
-KADAPA	KADAPA	PUTTA PRASAD	ANDRA PRADESH
-HARAPANAHALLI	KUDLIGI	A B MANJUNATHA	DHARWAD
-KHANAHOSAHALLI	KUDLIGI	A B MANJUNATHA	DHARWAD
-KUDLIGI	KUDLIGI	A B MANJUNATHA	DHARWAD
-KOTTURU	KUDLIGI	A B MANJUNATHA	DHARWAD
-SIRUGUPPA	BALLARI	BAIRAPPA	DHARWAD
-BALLARI	BALLARI	BAIRAPPA	DHARWAD
-KUDATHINI	BALLARI	BAIRAPPA	DHARWAD
-SANDURU	BALLARI	BAIRAPPA	DHARWAD
-BADAMI	BADAMI	BASAVARAJAPPA	DHARWAD
-GAJENDRAGAD	BADAMI	BASAVARAJAPPA	DHARWAD
-RAMDURGA	BADAMI	BASAVARAJAPPA	DHARWAD
-NARAGUNDA	BADAMI	BASAVARAJAPPA	DHARWAD
-MUNDARAGI	GADAG	CHANDRAGOUD PATIL	DHARWAD
-GADAG	GADAG	CHANDRAGOUD PATIL	DHARWAD
-LAXMESHWAR	GADAG	CHANDRAGOUD PATIL	DHARWAD
-DAVANAGERE	DAVANAGERE	KOTRESHA M	DHARWAD
-HONNALI	DAVANAGERE	KOTRESHA M	DHARWAD
-HARIHARA	DAVANAGERE	KOTRESHA M	DHARWAD
-SANTHEBENNURU	DAVANAGERE	KOTRESHA M	DHARWAD
-KALGHATGI	DHARWAD	GANAPATI FAKKIRAPPA BAVUKAR	DHARWAD
-DHARWAD	DHARWAD	GANAPATI FAKKIRAPPA BAVUKAR	DHARWAD
-HUBLI	DHARWAD	GANAPATI FAKKIRAPPA BAVUKAR	DHARWAD
-HUBLI-2	DHARWAD	GANAPATI FAKKIRAPPA BAVUKAR	DHARWAD
-BELAGAVI	BELAGAVI	HAJIALI TIGADI	DHARWAD
-KITTUR	BELAGAVI	HAJIALI TIGADI	DHARWAD
-YARAGATTI	BELAGAVI	HAJIALI TIGADI	DHARWAD
-BAILHONGAL	BELAGAVI	HAJIALI TIGADI	DHARWAD
-GOKAK	BELAGAVI	HAJIALI TIGADI	DHARWAD
-HOSPET	VIJAYANAGARA	PAVANKUMAR SHERKHANE	DHARWAD
-HAGARIBOMMANAHALLI	VIJAYANAGARA	PAVANKUMAR SHERKHANE	DHARWAD
-HUVENAHADAGALLI	VIJAYANAGARA	PAVANKUMAR SHERKHANE	DHARWAD
-ATHANI	CHIKKODI	SUNIL KUBER MALAGE	DHARWAD
-NIPPANI	CHIKKODI	SUNIL KUBER MALAGE	DHARWAD
-CHIKKODI	CHIKKODI	SUNIL KUBER MALAGE	DHARWAD
-MUDALAGI	CHIKKODI	SUNIL KUBER MALAGE	DHARWAD
-BAGALKOT	KUSHTAGI	VIRUPAKSHAPPA CHOUDI	KALBURGI
-JAMAKHANDI	VIJAYAPURA	GOVIND BADIGER	KALBURGI
-LOKAPUR	VIJAYAPURA	GOVIND BADIGER	KALBURGI
-BILAGI	VIJAYAPURA	GOVIND BADIGER	KALBURGI
-VIJAYAPUR	VIJAYAPURA	GOVIND BADIGER	KALBURGI
-SINDAGI	VIJAYAPURA	GOVIND BADIGER	KALBURGI
-TALIKOTI	VIJAYAPURA	GOVIND BADIGER	KALBURGI
-TIKOTA	VIJAYAPURA	GOVIND BADIGER	KALBURGI
-MUDDEBIHAL	VIJAYAPURA	GOVIND BADIGER	KALBURGI
-HUMNABAD	HUMNABAD	MALLIKARJUN WAGHRAJ	KALBURGI
-BASAVAKALYAN	HUMNABAD	MALLIKARJUN WAGHRAJ	KALBURGI
-HULSOOR	HUMNABAD	MALLIKARJUN WAGHRAJ	KALBURGI
-KAMALAPURA	HUMNABAD	MALLIKARJUN WAGHRAJ	KALBURGI
-BIDAR	BIDAR	MANOHAR	KALBURGI
-AURAD	BIDAR	MANOHAR	KALBURGI
-BHALKI	BIDAR	MANOHAR	KALBURGI
-BIDAR-2	BIDAR	MANOHAR	KALBURGI
-SINDHNUR	LINGSUGUR	PANDARIGONDA	KALBURGI
-RAICHUR	LINGSUGUR	PANDARIGONDA	KALBURGI
-LINGSUGUR	LINGSUGUR	PANDARIGONDA	KALBURGI
-SIRWAR	LINGSUGUR	PANDARIGONDA	KALBURGI
-MANVI	LINGSUGUR	PANDARIGONDA	KALBURGI
-DEVADURGA	LINGSUGUR	PANDARIGONDA	KALBURGI
-SHAHAPUR	SEDAM	PHILIP	KALBURGI
-YADGIR	SEDAM	PHILIP	KALBURGI
-SEDAM	SEDAM	PHILIP	KALBURGI
-CHINCHOLI	SEDAM	PHILIP	KALBURGI
-KALAGI	SEDAM	PHILIP	KALBURGI
-KALABURAGI	KALBURGI	PRASHANTH	KALBURGI
-ALAND	KALBURGI	PRASHANTH	KALBURGI
-KALBURGI-2	KALBURGI	PRASHANTH	KALBURGI
-JEVARGI	KALBURGI	PRASHANTH	KALBURGI
-INDI	INDI	RAJKUMAR PAWAR	KALBURGI
-CHADCHAN	INDI	RAJKUMAR PAWAR	KALBURGI
-AFZALPUR	KALBURGI	PRASHANTH	KALBURGI
-ALMEL	INDI	RAJKUMAR PAWAR	KALBURGI
-KUSHTAGI	KUSHTAGI	VIRUPAKSHAPPA CHOUDI	KALBURGI
-GANGAVATHI	KUSHTAGI	VIRUPAKSHAPPA CHOUDI	KALBURGI
-KOPPAL	KUSHTAGI	VIRUPAKSHAPPA CHOUDI	KALBURGI
-HUNGUND	KUSHTAGI	VIRUPAKSHAPPA CHOUDI	KALBURGI
-TANDUR	MAHABOOBNAGAR	MADHU	TELANGANA
-MAHABUB NAGAR	MAHABOOBNAGAR	MADHU	TELANGANA
-MARIKAL	MAHABOOBNAGAR	MADHU	TELANGANA
-GADWAL	MAHABOOBNAGAR	MADHU	TELANGANA
-NARAYANKHED	SANGAREDDY	SAMPATH KUMAR	TELANGANA
-ZAHEERABAD	SANGAREDDY	SAMPATH KUMAR	TELANGANA
-KODANGAL	SANGAREDDY	SAMPATH KUMAR	TELANGANA
-SANGAREDDY	SANGAREDDY	SAMPATH KUMAR	TELANGANA
-MUDIGERE	CHIKKAMAGALURU	AJITH KUMAR S A	TUMKUR
-CHIKKAMAGALURU	CHIKKAMAGALURU	AJITH KUMAR S A	TUMKUR
-NR PURA	CHIKKAMAGALURU	AJITH KUMAR S A	TUMKUR
-KADUR	KADUR	ARUN KUMAR K H	TUMKUR
-AJJAMPURA	KADUR	ARUN KUMAR K H	TUMKUR
-TARIKERE	KADUR	ARUN KUMAR K H	TUMKUR
-PANCHANHALLI	KADUR	ARUN KUMAR K H	TUMKUR
-KUNIGAL	TUMKUR	DINESH D	TUMKUR
-SIRA	TUMKUR	DINESH D	TUMKUR
-KORATAGERE	TUMKUR	DINESH D	TUMKUR
-TUMKUR	TUMKUR	DINESH D	TUMKUR
-MADHUGIRI	TUMKUR	DINESH D	TUMKUR
-CHANNAGIRI	HOLALKERE	KUMAR R	TUMKUR
-HOSADURGA	HOLALKERE	KUMAR R	TUMKUR
-HOLAKERE	HOLALKERE	KUMAR R	TUMKUR
-JAGALORE	CHITRADURGA	MANOJ NAIK B	TUMKUR
-HIRIYUR	CHITRADURGA	MANOJ NAIK B	TUMKUR
-CHITRADURGA	CHITRADURGA	MANOJ NAIK B	TUMKUR
-CHALLAKERE	CHITRADURGA	MANOJ NAIK B	TUMKUR
-J P NAGAR	BENGALORE -URBAN	MUBARAK S	TUMKUR
-CHANDAPURA	BENGALORE -URBAN	MUBARAK S	TUMKUR
-HEBBAL	BENGALORE -URBAN	MUBARAK S	TUMKUR
-KENGERI	BENGALORE -URBAN	MUBARAK S	TUMKUR
-BAGEPALLI	CHIKKABALLAPUR	MUNIRAJU P V	TUMKUR
-CHIKBALLAPURA	CHIKKABALLAPUR	MUNIRAJU P V	TUMKUR
-SRINIVASPURA	CHIKKABALLAPUR	MUNIRAJU P V	TUMKUR
-CHINTAMANI	CHIKKABALLAPUR	MUNIRAJU P V	TUMKUR
-DEVANAHALLI	CHIKKABALLAPUR	MUNIRAJU P V	TUMKUR
-TIPTUR	TIPTUR	P T VENKATESH	TUMKUR
-TUREVEKERE	TIPTUR	P T VENKATESH	TUMKUR
-GUBBI	TIPTUR	P T VENKATESH	TUMKUR
-HULIYAR	TIPTUR	P T VENKATESH	TUMKUR
-CHIKKANAYAKANAHALLI	TIPTUR	P T VENKATESH	TUMKUR
-MALUR	KOLAR	SHIVARAJA N	TUMKUR
-KOLAR	KOLAR	SHIVARAJA N	TUMKUR
-BANGARPET	KOLAR	SHIVARAJA N	TUMKUR
-BETHAMANGALA	KOLAR	SHIVARAJA N	TUMKUR
-GOWRIBIDANUR	BENGALORE -RURAL 	VINAY V L	TUMKUR
-DABUSPET	BENGALORE -RURAL 	VINAY V L	TUMKUR
-DODDABALLAPURA	BENGALORE -RURAL 	VINAY V L	TUMKUR`;
+// V2 hierarchy: Branch → Area → Division → Region (state)
+const defaultTSVData = `Branch\tArea\tDivision\tRegion
+BUDWAL\tKADAPA\tANDRA PRADESH\tANDRA PRADESH
+DHARMAVARAM\tKADAPA\tANDRA PRADESH\tANDRA PRADESH
+KADAPA\tKADAPA\tANDRA PRADESH\tANDRA PRADESH
+KADIRI\tKADAPA\tANDRA PRADESH\tANDRA PRADESH
+CHALLAKERE\tCHITRADURGA\tCHITRADURGA\tCHITRADURGA
+CHANNAGIRI\tCHITRADURGA\tCHITRADURGA\tCHITRADURGA
+CHITRADURGA\tCHITRADURGA\tCHITRADURGA\tCHITRADURGA
+HIRIYUR\tCHITRADURGA\tCHITRADURGA\tCHITRADURGA
+HOLAKERE\tCHITRADURGA\tCHITRADURGA\tCHITRADURGA
+HOSADURGA\tCHITRADURGA\tCHITRADURGA\tCHITRADURGA
+DAVANAGERE\tDAVANAGERE\tCHITRADURGA\tCHITRADURGA
+HARIHARA\tDAVANAGERE\tCHITRADURGA\tCHITRADURGA
+HONNALI\tDAVANAGERE\tCHITRADURGA\tCHITRADURGA
+SANTHEBENNURU\tDAVANAGERE\tCHITRADURGA\tCHITRADURGA
+AJJAMPURA\tKADUR\tCHITRADURGA\tCHITRADURGA
+KADUR\tKADUR\tCHITRADURGA\tCHITRADURGA
+PANCHANHALLI\tKADUR\tCHITRADURGA\tCHITRADURGA
+TARIKERE\tKADUR\tCHITRADURGA\tCHITRADURGA
+BALLARI\tBALLARI\tHOSPET\tCHITRADURGA
+KUDATHINI\tBALLARI\tHOSPET\tCHITRADURGA
+SANDURU\tBALLARI\tHOSPET\tCHITRADURGA
+SIRUGUPPA\tBALLARI\tHOSPET\tCHITRADURGA
+HAGARIBOMMANAHALLI\tHOSPET\tHOSPET\tCHITRADURGA
+HOSPET\tHOSPET\tHOSPET\tCHITRADURGA
+HUVENAHADAGALLI\tHOSPET\tHOSPET\tCHITRADURGA
+KUDLIGI\tHOSPET\tHOSPET\tCHITRADURGA
+HARAPANAHALLI\tKOTTURU\tHOSPET\tCHITRADURGA
+JAGALORE\tKOTTURU\tHOSPET\tCHITRADURGA
+KHANAHOSAHALLI\tKOTTURU\tHOSPET\tCHITRADURGA
+KOTTURU\tKOTTURU\tHOSPET\tCHITRADURGA
+BAGALKOT\tBAGALKOT\tBELAGAVI\tDHARWAD
+BILAGI\tBAGALKOT\tBELAGAVI\tDHARWAD
+JAMAKHANDI\tBAGALKOT\tBELAGAVI\tDHARWAD
+LOKAPUR\tBAGALKOT\tBELAGAVI\tDHARWAD
+BAILHONGAL\tBELAGAVI\tBELAGAVI\tDHARWAD
+BELAGAVI\tBELAGAVI\tBELAGAVI\tDHARWAD
+GOKAK\tBELAGAVI\tBELAGAVI\tDHARWAD
+KITTUR\tBELAGAVI\tBELAGAVI\tDHARWAD
+YARAGATTI\tBELAGAVI\tBELAGAVI\tDHARWAD
+ATHANI\tCHIKKODI\tBELAGAVI\tDHARWAD
+CHIKKODI\tCHIKKODI\tBELAGAVI\tDHARWAD
+MUDALAGI\tCHIKKODI\tBELAGAVI\tDHARWAD
+NIPPANI\tCHIKKODI\tBELAGAVI\tDHARWAD
+BADAMI\tBADAMI\tHUBLI\tDHARWAD
+GAJENDRAGAD\tBADAMI\tHUBLI\tDHARWAD
+NARAGUNDA\tBADAMI\tHUBLI\tDHARWAD
+RAMDURGA\tBADAMI\tHUBLI\tDHARWAD
+DHARWAD\tDHARWAD\tHUBLI\tDHARWAD
+HUBLI\tDHARWAD\tHUBLI\tDHARWAD
+HUBLI-2\tDHARWAD\tHUBLI\tDHARWAD
+KALGHATGI\tDHARWAD\tHUBLI\tDHARWAD
+GADAG\tGADAG\tHUBLI\tDHARWAD
+LAXMESHWAR\tGADAG\tHUBLI\tDHARWAD
+MUNDARAGI\tGADAG\tHUBLI\tDHARWAD
+GANGAVATHI\tKUSHTAGI\tHUBLI\tDHARWAD
+HUNGUND\tKUSHTAGI\tHUBLI\tDHARWAD
+KOPPAL\tKUSHTAGI\tHUBLI\tDHARWAD
+KUSHTAGI\tKUSHTAGI\tHUBLI\tDHARWAD
+AURAD\tBIDAR\tBIDAR\tKALBURGI
+BHALKI\tBIDAR\tBIDAR\tKALBURGI
+BIDAR\tBIDAR\tBIDAR\tKALBURGI
+BIDAR-2\tBIDAR\tBIDAR\tKALBURGI
+BASAVAKALYAN\tHUMNABAD\tBIDAR\tKALBURGI
+HULSOOR\tHUMNABAD\tBIDAR\tKALBURGI
+HUMNABAD\tHUMNABAD\tBIDAR\tKALBURGI
+KAMALAPURA\tHUMNABAD\tBIDAR\tKALBURGI
+LINGSUGUR\tLINGSUGUR\tBIDAR\tKALBURGI
+MANVI\tLINGSUGUR\tBIDAR\tKALBURGI
+RAICHUR\tLINGSUGUR\tBIDAR\tKALBURGI
+SINDHNUR\tLINGSUGUR\tBIDAR\tKALBURGI
+SIRWAR\tLINGSUGUR\tBIDAR\tKALBURGI
+CHINCHOLI\tSEDAM\tBIDAR\tKALBURGI
+KALAGI\tSEDAM\tBIDAR\tKALBURGI
+SEDAM\tSEDAM\tBIDAR\tKALBURGI
+ALMEL\tINDI\tKALBURGI\tKALBURGI
+CHADCHAN\tINDI\tKALBURGI\tKALBURGI
+INDI\tINDI\tKALBURGI\tKALBURGI
+AFZALPUR\tKALBURGI\tKALBURGI\tKALBURGI
+ALAND\tKALBURGI\tKALBURGI\tKALBURGI
+JEVARGI\tKALBURGI\tKALBURGI\tKALBURGI
+KALABURAGI\tKALBURGI\tKALBURGI\tKALBURGI
+KALBURGI-2\tKALBURGI\tKALBURGI\tKALBURGI
+DEVADURGA\tSHAHAPUR\tKALBURGI\tKALBURGI
+SHAHAPUR\tSHAHAPUR\tKALBURGI\tKALBURGI
+YADGIR\tSHAHAPUR\tKALBURGI\tKALBURGI
+MUDDEBIHAL\tVIJAYAPUR\tKALBURGI\tKALBURGI
+SINDAGI\tVIJAYAPUR\tKALBURGI\tKALBURGI
+TALIKOTI\tVIJAYAPUR\tKALBURGI\tKALBURGI
+TIKOTA\tVIJAYAPUR\tKALBURGI\tKALBURGI
+VIJAYAPUR\tVIJAYAPUR\tKALBURGI\tKALBURGI
+GADWAL\tMAHABOOBNAGAR\tTELANGANA\tTELANGANA
+MAHABUB NAGAR\tMAHABOOBNAGAR\tTELANGANA\tTELANGANA
+MARIKAL\tMAHABOOBNAGAR\tTELANGANA\tTELANGANA
+TANDUR\tMAHABOOBNAGAR\tTELANGANA\tTELANGANA
+KODANGAL\tSANGAREDDY\tTELANGANA\tTELANGANA
+NARAYANKHED\tSANGAREDDY\tTELANGANA\tTELANGANA
+SANGAREDDY\tSANGAREDDY\tTELANGANA\tTELANGANA
+ZAHEERABAD\tSANGAREDDY\tTELANGANA\tTELANGANA
+CHANDAPURA\tBANGALORE URBAN\tDODDABALLAPURA\tTUMKUR
+HEBBAL\tBANGALORE URBAN\tDODDABALLAPURA\tTUMKUR
+J P NAGAR\tBANGALORE URBAN\tDODDABALLAPURA\tTUMKUR
+KENGERI\tBANGALORE URBAN\tDODDABALLAPURA\tTUMKUR
+BAGEPALLI\tCHIKBALLAPURA\tDODDABALLAPURA\tTUMKUR
+CHIKBALLAPURA\tCHIKBALLAPURA\tDODDABALLAPURA\tTUMKUR
+CHINTAMANI\tCHIKBALLAPURA\tDODDABALLAPURA\tTUMKUR
+SRINIVASPURA\tCHIKBALLAPURA\tDODDABALLAPURA\tTUMKUR
+DEVANAHALLI\tDODDABALLAPURA\tDODDABALLAPURA\tTUMKUR
+DODDABALLAPURA\tDODDABALLAPURA\tDODDABALLAPURA\tTUMKUR
+GOWRIBIDANUR\tDODDABALLAPURA\tDODDABALLAPURA\tTUMKUR
+BANGARPET\tKOLAR\tDODDABALLAPURA\tTUMKUR
+BETHAMANGALA\tKOLAR\tDODDABALLAPURA\tTUMKUR
+KOLAR\tKOLAR\tDODDABALLAPURA\tTUMKUR
+MALUR\tKOLAR\tDODDABALLAPURA\tTUMKUR
+CHIKKAMAGALURU\tCHIKKAMAGALURU\tTUMKUR\tTUMKUR
+MUDIGERE\tCHIKKAMAGALURU\tTUMKUR\tTUMKUR
+NR PURA\tCHIKKAMAGALURU\tTUMKUR\tTUMKUR
+CHIKKANAYAKANAHALLI\tTIPTUR\tTUMKUR\tTUMKUR
+GUBBI\tTIPTUR\tTUMKUR\tTUMKUR
+HULIYAR\tTIPTUR\tTUMKUR\tTUMKUR
+TIPTUR\tTIPTUR\tTUMKUR\tTUMKUR
+TUREVEKERE\tTIPTUR\tTUMKUR\tTUMKUR
+DABUSPET\tTUMKUR\tTUMKUR\tTUMKUR
+KORATAGERE\tTUMKUR\tTUMKUR\tTUMKUR
+KUNIGAL\tTUMKUR\tTUMKUR\tTUMKUR
+MADHUGIRI\tTUMKUR\tTUMKUR\tTUMKUR
+SIRA\tTUMKUR\tTUMKUR\tTUMKUR
+TUMKUR\tTUMKUR\tTUMKUR\tTUMKUR`;
 
 let state = {
     currentUser: null,
@@ -267,7 +276,7 @@ let state = {
     isLoading: false, // Track loading state
     realtimeChannels: [], // Track subscriptions for cleanup
     viewMode: 'PLAN', // 'PLAN' (Plan only) or 'REVIEW' (Plan vs Achievement)
-    reportLevel: 'REGION', // 'BRANCH', 'DISTRICT', 'REGION'
+    reportLevel: 'REGION', // 'BRANCH', 'AREA', 'DIVISION', 'REGION'
     dateFrom: null, // Range Start
     dateTo: null,   // Range End
     isDragging: false,
@@ -643,42 +652,52 @@ function setReportLevel(level) {
 // --- DM HELPER FUNCTIONS ---
 // Get the district(s) assigned to the current DM
 function getDMDistricts() {
+    // V2: returns areas for the current user's division
     if (!state.currentUser || !state.rawData) return [];
-    const idxDM = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === 'dm name');
-    const idxDistrict = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === 'district');
-
-    if (idxDM === -1 || idxDistrict === -1) return [];
-
-    const districts = new Set();
+    const idxDiv = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === 'division');
+    const idxArea = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === 'area');
+    if (idxDiv === -1 || idxArea === -1) return [];
+    const areas = new Set();
     state.rawData.rows.forEach(r => {
-        if ((r[idxDM] || '').trim() === state.currentUser) {
-            districts.add(r[idxDistrict]);
+        if ((r[idxDiv] || '').trim() === state.currentUser) {
+            areas.add(r[idxArea]);
         }
     });
-    return Array.from(districts);
+    return Array.from(areas);
 }
 
-// Get branches assigned to the current DM (cached for performance)
+// Get branches for the current user based on role (cached for performance)
 let _dmBranchesCache = null;
 let _dmBranchesCacheUser = null;
 function getDMBranches() {
     if (!state.currentUser || !state.rawData) return [];
-    // Return cached result if same user
-    if (_dmBranchesCache && _dmBranchesCacheUser === state.currentUser) return _dmBranchesCache;
+    if (_dmBranchesCache && _dmBranchesCacheUser === state.currentUser + state.role) return _dmBranchesCache;
 
-    const idxDM = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === 'dm name');
     const idxBranch = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === 'branch');
+    const idxArea = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === 'area');
+    const idxDiv = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === 'division');
+    const idxRegion = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === 'region');
 
-    if (idxDM === -1 || idxBranch === -1) return [];
+    if (idxBranch === -1) return [];
 
     const branches = [];
     state.rawData.rows.forEach(r => {
-        if ((r[idxDM] || '').trim() === state.currentUser) {
+        const role = state.role;
+        if (role === 'CEO') {
             branches.push(r[idxBranch]);
+        } else if (role === 'DM' || role === 'DvM') {
+            // Division manager: match division column
+            if (idxDiv !== -1 && (r[idxDiv] || '').trim() === state.currentUser) branches.push(r[idxBranch]);
+        } else if (role === 'AM') {
+            // Area manager: match area column
+            if (idxArea !== -1 && (r[idxArea] || '').trim() === state.currentUser) branches.push(r[idxBranch]);
+        } else if (role === 'BM' || role === 'FO') {
+            // BM/FO: match branch name directly
+            if ((r[idxBranch] || '').trim() === state.currentUser) branches.push(r[idxBranch]);
         }
     });
     _dmBranchesCache = branches;
-    _dmBranchesCacheUser = state.currentUser;
+    _dmBranchesCacheUser = state.currentUser + state.role;
     return branches;
 }
 
@@ -1150,15 +1169,8 @@ async function fetchAndAggregateData(fromDate, toDate, retryCount = 0) {
         paramIdx++;
     }
 
-    // DM optimization: only fetch branches assigned to this DM
-    if (state.role === 'DM') {
-        const dmBranches = getDMBranches();
-        if (dmBranches.length > 0) {
-            whereClauses.push(`branch_name = ANY($${paramIdx})`);
-            params.push(dmBranches);
-            paramIdx++;
-        }
-    }
+    // Note: Branch filtering is done client-side via getDMBranches() after fetch.
+    // The neonQuery wrapper can't handle array params, so we fetch all and filter.
 
     const whereSQL = whereClauses.length > 0 ? ' WHERE ' + whereClauses.join(' AND ') : '';
     const sqlPlan = `SELECT ${selectCols} FROM daily_reports${whereSQL}`;
@@ -1493,17 +1505,7 @@ async function fetchData(retryCount = 0, skipRender = false) {
         const selectCols = 'branch_name,date,region,district,dm_name,ftod_actual,ftod_plan,dpd_1_30_actual,dpd_1_30_plan,dpd_31_60_actual,dpd_31_60_plan,dpd_61_90_actual,dpd_61_90_plan,npa_activation,npa_closure,fy_non_start_acc,fy_non_start_plan,disb_igl_acc,disb_igl_amt,disb_fig_acc,disb_fig_amt,disb_il_acc,disb_il_amt,kyc_igl,kyc_fig,kyc_il';
         let whereClauses = ['date = $1'];
         let queryParams = [targetDate];
-        let paramIdx = 2;
-
-        if (state.role === 'DM') {
-            const dmBranches = getDMBranches();
-            if (dmBranches.length > 0) {
-                whereClauses.push(`branch_name = ANY($${paramIdx})`);
-                queryParams.push(dmBranches);
-                paramIdx++;
-                console.log(`fetchData: DM filter applied, fetching ${dmBranches.length} branches`);
-            }
-        }
+        // Branch filtering is done client-side after fetch (neonQuery can't handle array params)
 
         const whereSQL = ' WHERE ' + whereClauses.join(' AND ');
         const p1 = neonQuery(`SELECT ${selectCols} FROM daily_reports${whereSQL}`, queryParams);
@@ -1686,10 +1688,10 @@ async function saveData(branchName, branchData, table, retryCount = 0) {
     const MAX_RETRIES = 3;
     const dateToSave = state.systemDate; // Expected YYYY-MM-DD
 
-    // Get meta info
+    // Get V2 meta info: [branch, area, division, region]
     const branchRow = state.rawData.rows.find(r => r[0] === branchName);
-    const district = branchRow ? branchRow[1] : "";
-    const dm = branchRow ? branchRow[2] : "";
+    const district = branchRow ? branchRow[1] : "";   // area → stored in district column
+    const dm = branchRow ? branchRow[2] : "";          // division → stored in dm_name column
     const region = branchRow ? branchRow[3] : "";
 
     // Helper: Convert string to number or null (fixes empty string "" vs 0 vs null)
@@ -1953,16 +1955,16 @@ function loadAppUI() {
     const role = state.role;
     const user = state.currentUser;
     document.getElementById("headerName").textContent = user;
-    document.getElementById("headerRole").textContent = role === 'CEO' ? "Suresh B K" : "District Manager";
+    var roleLabels = { CEO: 'Headquarters', DM: 'Division Manager', DvM: 'Division Manager', AM: 'Area Manager', BM: 'Branch Manager', FO: 'Field Officer' };
+    document.getElementById("headerRole").textContent = roleLabels[role] || role;
     document.getElementById("headerAvatar").textContent = user.charAt(0);
 
-    // Disable Sidebar items for DM
-    if (role === 'DM') {
+    // Restrict navigation based on role
+    if (role !== 'CEO') {
         document.getElementById('nav-dashboard').classList.add('hidden');
-        // DM CAN access reports but with restrictions - show the nav item
         document.getElementById('nav-reports').classList.remove('hidden');
-        // Set default report level to DISTRICT for DM (not REGION)
-        state.reportLevel = 'DISTRICT';
+        // Default report level based on role
+        state.reportLevel = role === 'DM' || role === 'DvM' ? 'AREA' : 'BRANCH';
 
         // Hide date picker and search for DM - they cannot use filters
         // const datePicker = document.querySelector('.date-picker-wrapper');
@@ -5713,14 +5715,15 @@ function renderDMTable(tbody) {
 }
 
 function buildHierarchy(headers, rows) {
+    // V2: Region → Division → Area → Branch
     const tree = {};
     rows.forEach(r => {
-        const [branch, dist, dm, region] = r;
+        const [branch, area, division, region] = r;
         if (!region) return;
         if (!tree[region]) tree[region] = {};
-        if (!tree[region][dm]) tree[region][dm] = {};
-        if (!tree[region][dm][dist]) tree[region][dm][dist] = new Set();
-        tree[region][dm][dist].add(branch);
+        if (!tree[region][division]) tree[region][division] = {};
+        if (!tree[region][division][area]) tree[region][division][area] = new Set();
+        tree[region][division][area].add(branch);
     });
     return tree;
 }
@@ -5803,7 +5806,7 @@ function calculateAveragePercentage(type, name, children) {
     return Math.round(validChildren.reduce((sum, p) => sum + p, 0) / validChildren.length);
 }
 
-function getNextType(t) { return t === "Region" ? "DM" : t === "DM" ? "District" : "Branch"; }
+function getNextType(t) { return t === "Region" ? "Division" : t === "Division" ? "Area" : "Branch"; }
 
 function parseTSV(text) {
     const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
@@ -5812,27 +5815,55 @@ function parseTSV(text) {
 }
 
 function populateDMDropdown(rows, headers) {
-    const dms = new Set(rows.map(r => r[2]).filter(Boolean));
+    // V2: show divisions (column 2) instead of old DM person names
+    const divisions = new Set(rows.map(r => r[2]).filter(Boolean));
     const sel = document.getElementById("dmSelect");
-    Array.from(dms).sort().forEach(dm => {
+    sel.innerHTML = '<option value="" disabled selected>Select Division...</option>';
+    Array.from(divisions).sort().forEach(div => {
         const opt = document.createElement("option");
-        opt.value = dm; opt.textContent = dm;
+        opt.value = div; opt.textContent = div;
         sel.appendChild(opt);
     });
 
-    // Auto-select last used DM from localStorage
-    const savedDM = localStorage.getItem('nlpl_last_dm');
-    if (savedDM && Array.from(dms).includes(savedDM)) {
-        sel.value = savedDM;
+    // Auto-select last used division from localStorage
+    const savedDiv = localStorage.getItem('nlpl_last_dm');
+    if (savedDiv && Array.from(divisions).includes(savedDiv)) {
+        sel.value = savedDiv;
     }
 }
 
 function getDMNode() {
-    // Find the node for the current logged in DM
+    // Find the node for the current logged-in user based on role
+    // DM/DvM: match by division name, AM: match by area, BM/FO: match by branch
     if (!state.currentUser) return null;
     for (const region in state.fullTree) {
+        // DM level: match division
         if (state.fullTree[region][state.currentUser]) {
             return state.fullTree[region][state.currentUser];
+        }
+        // AM level: look inside divisions for area match
+        if (state.role === 'AM') {
+            for (const div in state.fullTree[region]) {
+                if (state.fullTree[region][div][state.currentUser]) {
+                    // Return a wrapper so it looks like a division node with one area
+                    const node = {};
+                    node[state.currentUser] = state.fullTree[region][div][state.currentUser];
+                    return node;
+                }
+            }
+        }
+        // BM/FO: find branch in any area
+        if (state.role === 'BM' || state.role === 'FO') {
+            for (const div in state.fullTree[region]) {
+                for (const area in state.fullTree[region][div]) {
+                    if (state.fullTree[region][div][area].has && state.fullTree[region][div][area].has(state.currentUser)) {
+                        // Return area node containing just this branch
+                        const node = {};
+                        node[area] = new Set([state.currentUser]);
+                        return node;
+                    }
+                }
+            }
         }
     }
     return null;
