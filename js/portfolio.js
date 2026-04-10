@@ -19,7 +19,7 @@
   function getFullName(empId, fallback) { return _empNames[empId] || fallback || empId || ''; }
   // Share map loaded by collection.js
   if (!window._empNameMap) {
-    fetch('/api/employees/names').then(function(r){return r.json();}).then(function(m){ _empNames = m||{}; window._empNameMap = m; }).catch(function(){});
+    fetch('/api/employees/names').then(function(r){return r.json();}).then(function(m){ _empNames = m||{}; window._empNameMap = m; }).catch(function(e){ console.warn('Failed to load employee names:', e); });
   }
 
   /* ========== Formatters ========== */

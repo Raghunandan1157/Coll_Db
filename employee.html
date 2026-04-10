@@ -1336,8 +1336,7 @@
   (function(){
     var _aiHistory = [];
     var _aiCtx = null;
-    var _OR_KEY = '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';
-    var _AI_MODELS = ['minimax/minimax-m2.5:free','google/gemma-4-26b-a4b-it:free','nvidia/nemotron-3-super-120b-a12b:free','stepfun/step-3.5-flash:free'];
+    // API key is now server-side — calls go through /api/ai-chat proxy
     var botIcon = '<div class="ai-msg-avatar">'
       + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>';
 
@@ -1378,28 +1377,25 @@
       return sys;
     }
 
-    // Call OpenRouter with model fallback
+    // Call AI via server-side proxy (key stays on server)
     function callAI(messages, callback) {
-      var idx = 0;
-      function tryNext() {
-        if (idx >= _AI_MODELS.length) return callback(null, 'All AI models are busy. Please try again.');
-        var model = _AI_MODELS[idx++];
-        fetch('https://openrouter.ai/api/v1/chat/completions', {
-          method: 'POST',
-          headers: { 'Authorization': 'Bearer ' + _OR_KEY, 'Content-Type': 'application/json', 'HTTP-Referer': location.origin, 'X-Title': 'NLPL Dashboard AI' },
-          body: JSON.stringify({ model: model, messages: messages, max_tokens: 1024, temperature: 0.3 })
-        })
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-          if (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) {
-            callback(data.choices[0].message.content, null);
-          } else {
-            tryNext(); // try next model
-          }
-        })
-        .catch(function() { tryNext(); });
-      }
-      tryNext();
+      fetch('/api/ai-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: messages })
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.reply) {
+          callback(data.reply, null);
+        } else {
+          callback(null, data.error || 'AI could not generate a response.');
+        }
+      })
+      .catch(function(e) {
+        console.error('AI chat error:', e);
+        callback(null, 'Network error. Please try again.');
+      });
     }
 
     window._aiSend = function() {

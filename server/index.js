@@ -10,9 +10,15 @@ const XLSX = require("xlsx");
 
 const UPLOAD_DIR = path.join(__dirname, "..", "data");
 
+const rateLimit = require('express-rate-limit');
+
 const app = express();
 app.use(cors());
 app.use(express.json({limit: '10mb'}));
+
+// Rate limiters
+const uploadLimiter = rateLimit({ windowMs: 60 * 1000, max: 5, message: { error: 'Too many uploads. Try again in a minute.' } });
+const aiLimiter = rateLimit({ windowMs: 60 * 1000, max: 20, message: { error: 'Too many AI requests. Slow down.' } });
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -544,7 +550,7 @@ app.use(express.static(path.join(__dirname, "..")));
 // Prevent concurrent uploads from corrupting schema
 let _uploadInProgress = false;
 
-app.post("/api/upload", upload.single("file"), async (req, res) => {
+app.post("/api/upload", uploadLimiter, upload.single("file"), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: "No file uploaded" });
 
   if (_uploadInProgress) {
@@ -2084,7 +2090,7 @@ app.get("/api/daily/by-employee", async (req, res) => {
 });
 
 // Upload daily data
-app.post("/api/upload-daily", upload.single("file"), async (req, res) => {
+app.post("/api/upload-daily", uploadLimiter, upload.single("file"), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: "No file uploaded" });
   const reportDate = (req.body.date || '').trim();
   if (!reportDate) return res.status(400).json({ error: "date is required (YYYY-MM-DD)" });
@@ -4113,6 +4119,51 @@ app.post("/api/ai-context", async (req, res) => {
     console.error("AI context error:", e);
     res.status(500).json({ error: "Failed to load data context" });
   }
+});
+
+// ========== AI Chat Proxy (keeps API key server-side) ==========
+const OR_KEY = process.env.OPENROUTER_KEY || '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';
+const AI_MODELS = ['minimax/minimax-m2.5:free','google/gemma-4-26b-a4b-it:free','nvidia/nemotron-3-super-120b-a12b:free','stepfun/step-3.5-flash:free'];
+
+app.post("/api/ai-chat", aiLimiter, async (req, res) => {
+  const { messages } = req.body;
+  if (!messages || !Array.isArray(messages)) {
+    return res.status(400).json({ error: 'messages array required' });
+  }
+
+  for (const model of AI_MODELS) {
+    try {
+      const payload = JSON.stringify({ model, messages, max_tokens: 1024, temperature: 0.3 });
+      const result = await new Promise((resolve, reject) => {
+        const options = {
+          hostname: 'openrouter.ai', path: '/api/v1/chat/completions', method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + OR_KEY,
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(payload),
+            'HTTP-Referer': 'https://growwithme.navachetanalivelihoods.com',
+            'X-Title': 'NLPL Dashboard AI'
+          }
+        };
+        const r = https.request(options, (resp) => {
+          let body = '';
+          resp.on('data', d => body += d);
+          resp.on('end', () => {
+            try { resolve(JSON.parse(body)); } catch(e) { reject(e); }
+          });
+        });
+        r.on('error', reject);
+        r.write(payload);
+        r.end();
+      });
+      if (result.choices && result.choices[0] && result.choices[0].message) {
+        return res.json({ reply: result.choices[0].message.content });
+      }
+    } catch (e) {
+      console.error('AI model ' + model + ' failed:', e.message);
+    }
+  }
+  res.status(502).json({ error: 'All AI models are busy. Please try again.' });
 });
 
 // Serve daily-reports.html
