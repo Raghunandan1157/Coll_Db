@@ -381,17 +381,24 @@
 
         <div style="display:flex; align-items:center; gap:10px; margin: 16px 0;">
           <div style="height:1px; background:var(--border-color); flex:1;"></div>
-          <span style="font-size:12px; color:var(--text-secondary);">OR REGIONAL ACCESS</span>
+          <span style="font-size:12px; color:var(--text-secondary);">OR SELECT YOUR ROLE</span>
           <div style="height:1px; background:var(--border-color); flex:1;"></div>
         </div>
 
-        <select id="dmSelect">
-          <option value="" disabled selected>Select Division...</option>
-          <!-- Injected Options -->
+        <select id="roleSelect" onchange="window._drUpdateLocationDropdown()" style="margin-bottom:10px;">
+          <option value="" disabled selected>Select Role...</option>
+          <option value="RM">RM — Regional Manager</option>
+          <option value="DM">DM — Division Manager</option>
+          <option value="AM">AM — Area Manager</option>
+          <option value="BM">BM — Branch Manager</option>
         </select>
 
-        <button id="login-btn-dm" class="btn btn-outline" onclick="handleLogin('DM')">
-          Login as Division Manager
+        <select id="dmSelect" style="display:none;">
+          <option value="" disabled selected>Select location...</option>
+        </select>
+
+        <button id="login-btn-dm" class="btn btn-outline" onclick="handleLogin(document.getElementById('roleSelect').value)" style="display:none;">
+          Login
         </button>
       </div>
     </div>

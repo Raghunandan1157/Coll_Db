@@ -11,7 +11,7 @@
     
     if (!roleAuth && !employeeId) return; // Not logged in — let normal login show
     
-    // Map dashboard roles to Daily Plan roles (V2 hierarchy)
+    // Map dashboard roles to Daily Plan roles: RM → DM → AM → BM
     var mappedRole = 'CEO';
     var mappedUser = 'CEO';
 
@@ -28,7 +28,7 @@
         mappedRole = 'BM';
         mappedUser = roleLocation || employeeName || 'BM';
     } else if (roleName === 'FO' || employeeId) {
-        mappedRole = 'FO';
+        mappedRole = 'BM'; // FO sees same as BM (own branch)
         mappedUser = roleLocation || employeeName || employeeId;
     }
     
@@ -683,16 +683,16 @@ function getDMBranches() {
     const branches = [];
     state.rawData.rows.forEach(r => {
         const role = state.role;
-        if (role === 'CEO') {
+        if (role === 'CEO' || role === 'RM') {
             branches.push(r[idxBranch]);
-        } else if (role === 'DM' || role === 'DvM') {
+        } else if (role === 'DM') {
             // Division manager: match division column
             if (idxDiv !== -1 && (r[idxDiv] || '').trim() === state.currentUser) branches.push(r[idxBranch]);
         } else if (role === 'AM') {
             // Area manager: match area column
             if (idxArea !== -1 && (r[idxArea] || '').trim() === state.currentUser) branches.push(r[idxBranch]);
-        } else if (role === 'BM' || role === 'FO') {
-            // BM/FO: match branch name directly
+        } else if (role === 'BM') {
+            // BM: match branch name directly
             if ((r[idxBranch] || '').trim() === state.currentUser) branches.push(r[idxBranch]);
         }
     });
@@ -1821,22 +1821,25 @@ function handleLogin(role) {
         if (btn) btn.innerHTML = 'Logging in...';
         user = "CEO";
         state.role = 'CEO';
-    } else {
+    } else if (role === 'RM' || role === 'DM' || role === 'AM' || role === 'BM') {
         user = document.getElementById("dmSelect").value;
-        if (!user) return alert("Please select a manager.");
-        state.role = 'DM';
-        // Remember selected DM for next visit
+        if (!user) return alert("Please select a location.");
+        state.role = role;
         localStorage.setItem('nlpl_last_dm', user);
+        localStorage.setItem('nlpl_last_role', role);
+    } else {
+        return alert("Please select a role.");
     }
     state.currentUser = user;
 
-    // CEO: Skip date overlay, auto-select today
-    if (role === 'CEO') {
+    // CEO & RM: Skip date overlay, auto-select today
+    if (role === 'CEO' || role === 'RM') {
+        if (role === 'RM') state.role = 'CEO'; // RM sees everything like CEO
         autoLoginCEO();
         return;
     }
 
-    // DM: SHOW INTERACTIVE DATE SELECTION OVERLAY
+    // DM/AM/BM: SHOW INTERACTIVE DATE SELECTION OVERLAY
     const dailyOverlay = document.getElementById("daily-overlay");
     const loginOverlay = document.getElementById("login-overlay");
 
@@ -1955,7 +1958,7 @@ function loadAppUI() {
     const role = state.role;
     const user = state.currentUser;
     document.getElementById("headerName").textContent = user;
-    var roleLabels = { CEO: 'Headquarters', DM: 'Division Manager', DvM: 'Division Manager', AM: 'Area Manager', BM: 'Branch Manager', FO: 'Field Officer' };
+    var roleLabels = { CEO: 'Headquarters', RM: 'Regional Manager', DM: 'Division Manager', AM: 'Area Manager', BM: 'Branch Manager' };
     document.getElementById("headerRole").textContent = roleLabels[role] || role;
     document.getElementById("headerAvatar").textContent = user.charAt(0);
 
@@ -1964,7 +1967,7 @@ function loadAppUI() {
         document.getElementById('nav-dashboard').classList.add('hidden');
         document.getElementById('nav-reports').classList.remove('hidden');
         // Default report level based on role
-        state.reportLevel = role === 'DM' || role === 'DvM' ? 'AREA' : 'BRANCH';
+        state.reportLevel = role === 'DM' ? 'AREA' : 'BRANCH';
 
         // Hide date picker and search for DM - they cannot use filters
         // const datePicker = document.querySelector('.date-picker-wrapper');
@@ -5815,26 +5818,46 @@ function parseTSV(text) {
 }
 
 function populateDMDropdown(rows, headers) {
-    // V2: show divisions (column 2) instead of old DM person names
-    const divisions = new Set(rows.map(r => r[2]).filter(Boolean));
-    const sel = document.getElementById("dmSelect");
-    sel.innerHTML = '<option value="" disabled selected>Select Division...</option>';
-    Array.from(divisions).sort().forEach(div => {
-        const opt = document.createElement("option");
-        opt.value = div; opt.textContent = div;
-        sel.appendChild(opt);
-    });
+    // V2: Build location lists for each role level
+    // Column layout: [0]=Branch, [1]=Area, [2]=Division, [3]=Region
+    window._drLocationData = {
+        RM: Array.from(new Set(rows.map(r => r[3]).filter(Boolean))).sort(),
+        DM: Array.from(new Set(rows.map(r => r[2]).filter(Boolean))).sort(),
+        AM: Array.from(new Set(rows.map(r => r[1]).filter(Boolean))).sort(),
+        BM: Array.from(new Set(rows.map(r => r[0]).filter(Boolean))).sort()
+    };
 
-    // Auto-select last used division from localStorage
-    const savedDiv = localStorage.getItem('nlpl_last_dm');
-    if (savedDiv && Array.from(divisions).includes(savedDiv)) {
-        sel.value = savedDiv;
-    }
+    // Dynamic updater called when role dropdown changes
+    window._drUpdateLocationDropdown = function() {
+        var roleSelect = document.getElementById('roleSelect');
+        var locSelect = document.getElementById('dmSelect');
+        var loginBtn = document.getElementById('login-btn-dm');
+        var role = roleSelect.value;
+        if (!role) return;
+
+        var labels = { RM: 'Select Region...', DM: 'Select Division...', AM: 'Select Area...', BM: 'Select Branch...' };
+        var locations = window._drLocationData[role] || [];
+
+        locSelect.innerHTML = '<option value="" disabled selected>' + (labels[role] || 'Select...') + '</option>';
+        locations.forEach(function(loc) {
+            var opt = document.createElement('option');
+            opt.value = loc; opt.textContent = loc;
+            locSelect.appendChild(opt);
+        });
+
+        locSelect.style.display = '';
+        loginBtn.style.display = '';
+        loginBtn.textContent = 'Login as ' + role;
+
+        // Auto-select last used
+        var saved = localStorage.getItem('nlpl_last_dm');
+        if (saved && locations.includes(saved)) locSelect.value = saved;
+    };
 }
 
 function getDMNode() {
-    // Find the node for the current logged-in user based on role
-    // DM/DvM: match by division name, AM: match by area, BM/FO: match by branch
+    // Find the tree node for the current user based on role
+    // RM: full tree, DM: division node, AM: area node, BM: single branch
     if (!state.currentUser) return null;
     for (const region in state.fullTree) {
         // DM level: match division
@@ -5845,19 +5868,17 @@ function getDMNode() {
         if (state.role === 'AM') {
             for (const div in state.fullTree[region]) {
                 if (state.fullTree[region][div][state.currentUser]) {
-                    // Return a wrapper so it looks like a division node with one area
                     const node = {};
                     node[state.currentUser] = state.fullTree[region][div][state.currentUser];
                     return node;
                 }
             }
         }
-        // BM/FO: find branch in any area
-        if (state.role === 'BM' || state.role === 'FO') {
+        // BM: find branch in any area
+        if (state.role === 'BM') {
             for (const div in state.fullTree[region]) {
                 for (const area in state.fullTree[region][div]) {
                     if (state.fullTree[region][div][area].has && state.fullTree[region][div][area].has(state.currentUser)) {
-                        // Return area node containing just this branch
                         const node = {};
                         node[area] = new Set([state.currentUser]);
                         return node;
