@@ -861,7 +861,7 @@ app.get("/api/employees", async (req, res) => {
                 em.branch_name AS branch, em.area_name AS area, em.division_name AS division,
                 em.region_name AS region, em.mobile,
                 em.branch_name AS location
-         FROM employee_master em${clause} ORDER BY em.full_name LIMIT 500`, params
+         FROM employee_master em${clause} ORDER BY em.full_name`, params
       );
       res.json(result.rows);
     } else {
