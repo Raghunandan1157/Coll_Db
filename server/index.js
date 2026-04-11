@@ -2025,8 +2025,8 @@ function buildDailyWhere(filters) {
   // OA product_type_ids: 1(IGL), 2(FIG), 3(IL)  |  FY: 4(IGL_FY), 5(FIG_FY), 6(VVY_FY)
   if (filters.scope === 'fy') {
     where.push("dp.product_type_id IN (4,5,6)");
-  } else if (filters.date) {
-    // When a date is selected, default to OA scope to avoid mixing OA+FY
+  } else if (filters.scope === 'oa' || filters.date) {
+    // Default to OA scope to avoid mixing OA+FY
     where.push("dp.product_type_id IN (1,2,3)");
   }
   if (filters.product_type && filters.product_type !== "All") {
@@ -3371,7 +3371,7 @@ app.get("/api/comparison", async (req, res) => {
       LEFT JOIN branches b ON e.branch_id = b.branch_id
       LEFT JOIN districts d ON b.district_id = d.district_id
       LEFT JOIN regions r ON d.region_id = r.region_id`;
-    const { clause, params } = buildDailyWhere({...req.query, date: undefined});
+    const { clause, params } = buildDailyWhere({...req.query, date: undefined, scope: req.query.scope || 'oa'});
     const sql = base + clause + " GROUP BY dp.report_date ORDER BY dp.report_date";
     const result = await pool.query(sql, params);
     res.json(result.rows);
