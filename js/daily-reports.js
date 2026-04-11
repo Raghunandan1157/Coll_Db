@@ -632,10 +632,18 @@ function toggleViewMode() {
 }
 
 function setReportLevel(level) {
-    // DM cannot access REGION level - enforce restriction
-    if (state.role === 'DM' && level === 'REGION') {
-        console.warn('DM users cannot access REGION level reports');
-        return; // Block the action
+    // Restrict report levels based on role
+    if (state.role === 'DM' && (level === 'REGION' || level === 'DIVISION')) {
+        console.warn('DM users cannot access REGION/DIVISION level reports');
+        return;
+    }
+    if (state.role === 'AM' && (level === 'REGION' || level === 'DIVISION' || level === 'AREA')) {
+        console.warn('AM users cannot access higher-level reports');
+        return;
+    }
+    if (state.role === 'BM') {
+        console.warn('BM users cannot access reports');
+        return;
     }
 
     state.reportLevel = level;
@@ -2256,7 +2264,8 @@ function renderReports(buffer) {
                         <div style="font-size:14px; font-weight:600; margin-bottom:12px;">2. Report Level</div>
                         <div style="display:flex; gap:8px;">
                             <button class="btn ${state.reportLevel === 'REGION' ? 'btn-primary' : 'btn-outline'}" onclick="setReportLevel('REGION')">Region Level</button>
-                            <button class="btn ${state.reportLevel === 'DISTRICT' ? 'btn-primary' : 'btn-outline'}" onclick="setReportLevel('DISTRICT')">District Level</button>
+                            <button class="btn ${state.reportLevel === 'DIVISION' ? 'btn-primary' : 'btn-outline'}" onclick="setReportLevel('DIVISION')">Division Level</button>
+                            <button class="btn ${state.reportLevel === 'AREA' ? 'btn-primary' : 'btn-outline'}" onclick="setReportLevel('AREA')">Area Level</button>
                             <button class="btn ${state.reportLevel === 'BRANCH' ? 'btn-primary' : 'btn-outline'}" onclick="setReportLevel('BRANCH')">Branch Level</button>
                         </div>
                     </div>
@@ -2322,12 +2331,12 @@ function renderDMReports(buffer) {
                 </div>
             </div>
 
-            <!-- REPORT LEVEL (No Region for DM) -->
+            <!-- REPORT LEVEL (DM sees Area + Branch) -->
             <div style="padding: 16px; border-bottom: 1px solid var(--border-color);">
                 <div style="font-size:14px; font-weight:600; margin-bottom:12px;">Report View</div>
                 <div style="display:flex; gap:8px;">
-                    <button class="btn ${state.reportLevel === 'DISTRICT' ? 'btn-primary' : 'btn-outline'}" onclick="setReportLevel('DISTRICT')">
-                        📍 District View
+                    <button class="btn ${state.reportLevel === 'AREA' ? 'btn-primary' : 'btn-outline'}" onclick="setReportLevel('AREA')">
+                        📍 Area View
                     </button>
                     <button class="btn ${state.reportLevel === 'BRANCH' ? 'btn-primary' : 'btn-outline'}" onclick="setReportLevel('BRANCH')">
                         🏢 Branch View
