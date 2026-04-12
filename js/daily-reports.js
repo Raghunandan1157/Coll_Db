@@ -115,6 +115,17 @@ async function neonQuery(sqlText, params = []) {
 }
 
 // --- DATA CACHE (show last data instantly while fresh data loads) ---
+// Clear stale caches from old versions
+(function() {
+    var cacheVer = 'v11';
+    if (localStorage.getItem('nlpl_cache_ver') !== cacheVer) {
+        Object.keys(localStorage).forEach(function(k) {
+            if (k.startsWith('nlpl_cache_')) localStorage.removeItem(k);
+        });
+        localStorage.setItem('nlpl_cache_ver', cacheVer);
+    }
+})();
+
 function getCachedData(key) {
     try {
         const raw = localStorage.getItem('nlpl_cache_' + key);
