@@ -117,7 +117,7 @@ async function neonQuery(sqlText, params = []) {
 // --- DATA CACHE (show last data instantly while fresh data loads) ---
 // Clear stale caches from old versions
 (function() {
-    var cacheVer = 'v12';
+    var cacheVer = 'v13';
     if (localStorage.getItem('nlpl_cache_ver') !== cacheVer) {
         Object.keys(localStorage).forEach(function(k) {
             if (k.startsWith('nlpl_cache_')) localStorage.removeItem(k);
@@ -518,12 +518,36 @@ window.addEventListener("DOMContentLoaded", async () => {
         state.dateTo = isoToday;
         state.systemDate = isoToday;
     }
-    const { headers, rows } = parseTSV(defaultTSVData);
-    state.rawData = { headers, rows };
-    state.fullTree = buildHierarchy(headers, rows);
+    // Load branch hierarchy from database (fallback to static TSV)
+    function initWithBranchData(headers, rows) {
+        state.rawData = { headers, rows };
+        state.fullTree = buildHierarchy(headers, rows);
+        populateDMDropdown(rows, headers);
+    }
 
-    // Populate DM Dropdown
-    populateDMDropdown(rows, headers);
+    // Try API first
+    try {
+        const resp = await fetch('/api/daily-plan/branches');
+        if (resp.ok) {
+            const data = await resp.json();
+            if (data && data.length > 0) {
+                const headers = ['Branch', 'Area', 'Division', 'Region'];
+                const rows = data.map(function(r) {
+                    return [r.branch_name, r.area_name || '', r.division_name || '', r.region_name || ''];
+                });
+                console.log('Loaded ' + rows.length + ' branches from DB (' + [...new Set(rows.map(r => r[3]))].length + ' regions)');
+                initWithBranchData(headers, rows);
+            } else {
+                throw new Error('Empty branch data');
+            }
+        } else {
+            throw new Error('API error');
+        }
+    } catch(e) {
+        console.warn('Branch API failed, using static TSV fallback:', e.message);
+        const { headers, rows } = parseTSV(defaultTSVData);
+        initWithBranchData(headers, rows);
+    }
 
     // Load Local Plans (Keep local for now as per requirement focus on Branch Details)
     const saved = localStorage.getItem('dosa_targets');

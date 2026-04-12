@@ -3930,6 +3930,22 @@ app.get("/api/hourly/by-employee", async (req, res) => {
 
 
 // ========== DAILY PLAN / DAILY REPORTS API ==========
+
+// Branch hierarchy from employee_master (V2 structure)
+app.get("/api/daily-plan/branches", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT DISTINCT branch_name, area_name, division_name, region_name
+      FROM employee_master
+      WHERE branch_name IS NOT NULL AND branch_name != ''
+        AND status = 'Working'
+        AND region_name NOT IN ('Corporate Office', 'Head Office')
+      ORDER BY region_name, division_name, area_name, branch_name
+    `);
+    res.json(result.rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 const DAILY_PLAN_COLS = 'branch_name,date,region,district,dm_name,ftod_actual,ftod_plan,dpd_1_30_actual,dpd_1_30_plan,dpd_31_60_actual,dpd_31_60_plan,dpd_61_90_actual,dpd_61_90_plan,npa_activation,npa_closure,fy_non_start_acc,fy_non_start_plan,disb_igl_acc,disb_igl_amt,disb_fig_acc,disb_fig_amt,disb_il_acc,disb_il_amt,kyc_igl,kyc_fig,kyc_il';
 
 // GET /api/daily-plan/reports?from=DATE&to=DATE&branch=NAME&region=NAME
