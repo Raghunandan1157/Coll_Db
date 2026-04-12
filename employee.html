@@ -468,7 +468,7 @@
         // DM: update subtitle
         if (role === 'DM') {
           var subEl = document.getElementById('drSubtitle');
-          if (subEl) subEl.textContent = 'View reports for ' + (location || 'your district');
+          if (subEl) subEl.textContent = 'View reports for ' + (location || 'your area');
         }
         
         // Open plan entry in full app
@@ -2170,14 +2170,33 @@ document.addEventListener('keydown', function(e) {
 </div>
 
 <script>
-// Branch hierarchy for report aggregation
-var _drHierarchy = {
-  'ANDRA PRADESH': ['BUDWAL','DHARMAVARAM','KADAPA','KADIRI'],
-  'DHARWAD': ['ATHANI','BADAMI','BAGALKOT','BAILHONGAL','BALLARI','BELAGAVI','CHIKKODI','DAVANAGERE','DHARWAD','GADAG','GAJENDRAGAD','GOKAK','HAGARIBOMMANAHALLI','HARAPANAHALLI','HARIHARA','HONNALI','HOSPET','HUBLI','HUBLI-2','HUVENAHADAGALLI','KALGHATGI','KHANAHOSAHALLI','KITTUR','KOTTURU','KUDATHINI','KUDLIGI','LAXMESHWAR','MUNDARAGI','MUDALAGI','NARAGUNDA','NIPPANI','RAMDURGA','SANDURU','SANTHEBENNURU','SIRUGUPPA','YARAGATTI'],
-  'KALBURGI': ['AFZALPUR','ALAND','ALMEL','AURAD','BASAVAKALYAN','BHALKI','BIDAR','BIDAR-2','CHADCHAN','CHINCHOLI','DEVADURGA','GANGAVATHI','HULSOOR','HUMNABAD','INDI','JAMAKHANDI','JEVARGI','KALABURAGI','KALAGI','KALBURGI-2','KAMALAPURA','KUSHTAGI','LINGSUGUR','LOKAPUR','MANVI','MUDDEBIHAL','RAICHUR','SEDAM','SHAHAPUR','SINDAGI','SINDHNUR','SIRWAR','TALIKOTI','TIKOTA','VIJAYAPUR','YADGIR','BAGALKOT','BILAGI','HUNGUND'],
-  'TELANGANA': ['GADWAL','KODANGAL','MAHABUB NAGAR','MARIKAL','NARAYANKHED','SANGAREDDY','TANDUR','ZAHEERABAD'],
-  'TUMKUR': ['AJJAMPURA','BAGEPALLI','BANGARPET','BETHAMANGALA','CHALLAKERE','CHANDAPURA','CHANNAGIRI','CHIKBALLAPURA','CHIKKAMAGALURU','CHIKKANAYAKANAHALLI','CHINTAMANI','CHITRADURGA','DABUSPET','DEVANAHALLI','DODDABALLAPURA','GOWRIBIDANUR','GUBBI','HEBBAL','HIRIYUR','HOLAKERE','HULIYAR','J P NAGAR','JAGALORE','KADUR','KENGERI','KOLAR','KOPPAL','KORATAGERE','KUNIGAL','MADHUGIRI','MALUR','MUDIGERE','NR PURA','PANCHANHALLI','SIRA','SRINIVASPURA','TARIKERE','TIPTUR','TUMKUR','TUREVEKERE']
-};
+// V2 Branch hierarchy — loaded dynamically from API
+var _drHierarchy = {}; // Region → Division → Area → [branches]
+var _drAllBranches = []; // flat list of all branch names
+
+(function() {
+  fetch('/api/daily-plan/branches')
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+      if (!data || !data.length) return;
+      var tree = {};
+      var branches = [];
+      data.forEach(function(r) {
+        var region = r.region_name || 'Unknown';
+        var division = r.division_name || 'Unknown';
+        var area = r.area_name || 'Unknown';
+        var branch = r.branch_name;
+        if (!tree[region]) tree[region] = {};
+        if (!tree[region][division]) tree[region][division] = {};
+        if (!tree[region][division][area]) tree[region][division][area] = [];
+        tree[region][division][area].push(branch);
+        branches.push(branch);
+      });
+      _drHierarchy = tree;
+      _drAllBranches = branches;
+    })
+    .catch(function(e) { console.warn('Failed to load branch hierarchy:', e); });
+})();
 
 function _drBuildReportTable(date, level, type) {
   var title = (type === 'both' ? 'PLAN & ACHIEVEMENT' : 'PLAN') + ' — ' + level + ' — ' + _drFormatDate(date);
@@ -2205,115 +2224,170 @@ function _drBuildReportTable(date, level, type) {
   document.getElementById('drReportBody').innerHTML = '<div style="text-align:center;padding:40px;color:#94A3B8;">Loading...</div>';
 }
 
-function _drRenderTable(title, level, planData, achData, type) {
-  var planMap = {}; planData.forEach(function(r){ planMap[r.branch_name] = r; });
-  var achMap = {}; achData.forEach(function(r){ achMap[r.branch_name] = r; });
-  
-  var rows = [];
+function _drGetBranchesForLevel(level, key) {
+  // Returns flat array of branch names for a given level + key
+  var branches = [];
   if (level === 'REGION') {
-    Object.keys(_drHierarchy).sort().forEach(function(region){
-      var agg = _drAggregate(_drHierarchy[region], planMap);
-      agg.name = region; rows.push(agg);
+    var regionNode = _drHierarchy[key] || {};
+    Object.keys(regionNode).forEach(function(div) {
+      Object.keys(regionNode[div]).forEach(function(area) {
+        branches = branches.concat(regionNode[div][area]);
+      });
     });
-  } else {
-    Object.keys(_drHierarchy).sort().forEach(function(region){
-      _drHierarchy[region].forEach(function(br){
-        var p = planMap[br] || {};
-        rows.push({name:br, ftod:p.ftod_plan||0, feb:p.dpd_1_30_plan||0, pnpa:p.dpd_61_90_plan||0, npa_act:p.npa_activation||0, npa_clo:p.npa_closure||0, od:0, ns:p.fy_non_start_plan||0, disb_iglfig_acc:(p.disb_igl_acc||0)+(p.disb_fig_acc||0), disb_iglfig_amt:(p.disb_igl_amt||0)+(p.disb_fig_amt||0), disb_il_acc:p.disb_il_acc||0, disb_il_amt:p.disb_il_amt||0, kyc_figIgl:(p.kyc_igl||0)+(p.kyc_fig||0), kyc_il:p.kyc_il||0, kyc_npa:0});
+  } else if (level === 'DIVISION') {
+    // Find division across all regions
+    Object.keys(_drHierarchy).forEach(function(reg) {
+      if (_drHierarchy[reg][key]) {
+        Object.keys(_drHierarchy[reg][key]).forEach(function(area) {
+          branches = branches.concat(_drHierarchy[reg][key][area]);
+        });
+      }
+    });
+  } else if (level === 'AREA') {
+    Object.keys(_drHierarchy).forEach(function(reg) {
+      Object.keys(_drHierarchy[reg]).forEach(function(div) {
+        if (_drHierarchy[reg][div][key]) {
+          branches = branches.concat(_drHierarchy[reg][div][key]);
+        }
       });
     });
   }
-  
-  var gt = {name:'Grand Total',ftod:0,feb:0,pnpa:0,npa_act:0,npa_clo:0,od:0,ns:0,disb_iglfig_acc:0,disb_iglfig_amt:0,disb_il_acc:0,disb_il_amt:0,kyc_figIgl:0,kyc_il:0,kyc_npa:0};
+  return branches;
+}
+
+function _drGetKeysForLevel(level) {
+  var keys = new Set();
+  if (level === 'REGION') {
+    Object.keys(_drHierarchy).forEach(function(k){ keys.add(k); });
+  } else if (level === 'DIVISION') {
+    Object.keys(_drHierarchy).forEach(function(reg) {
+      Object.keys(_drHierarchy[reg]).forEach(function(k){ keys.add(k); });
+    });
+  } else if (level === 'AREA') {
+    Object.keys(_drHierarchy).forEach(function(reg) {
+      Object.keys(_drHierarchy[reg]).forEach(function(div) {
+        Object.keys(_drHierarchy[reg][div]).forEach(function(k){ keys.add(k); });
+      });
+    });
+  }
+  return Array.from(keys).sort();
+}
+
+function _drRenderTable(title, level, planData, achData, type) {
+  var planMap = {}; planData.forEach(function(r){ planMap[r.branch_name] = r; });
+  var achMap = {}; achData.forEach(function(r){ achMap[r.branch_name] = r; });
+
+  var rows = [];
+  if (level === 'BRANCH') {
+    _drAllBranches.sort().forEach(function(br){
+      var p = planMap[br] || {};
+      rows.push({name:br, ftod:p.ftod_plan||0, feb:p.dpd_1_30_plan||0, dpd31:p.dpd_31_60_plan||0, pnpa:p.dpd_61_90_plan||0, npa_act:p.npa_activation||0, npa_clo:p.npa_closure||0, ns:p.fy_non_start_acc||0, ns_plan:p.fy_non_start_plan||0, disb_iglfig_acc:(p.disb_igl_acc||0)+(p.disb_fig_acc||0), disb_iglfig_amt:(p.disb_igl_amt||0)+(p.disb_fig_amt||0), disb_il_acc:p.disb_il_acc||0, disb_il_amt:p.disb_il_amt||0, kyc_figIgl:(p.kyc_igl||0)+(p.kyc_fig||0), kyc_il:p.kyc_il||0});
+    });
+  } else {
+    // REGION, DIVISION, or AREA level
+    _drGetKeysForLevel(level).forEach(function(key){
+      var branchList = _drGetBranchesForLevel(level, key);
+      var agg = _drAggregate(branchList, planMap);
+      agg.name = key;
+      rows.push(agg);
+    });
+  }
+
+  var gt = {name:'Grand Total',ftod:0,feb:0,dpd31:0,pnpa:0,npa_act:0,npa_clo:0,ns:0,ns_plan:0,disb_iglfig_acc:0,disb_iglfig_amt:0,disb_il_acc:0,disb_il_amt:0,kyc_figIgl:0,kyc_il:0};
   rows.forEach(function(r){ Object.keys(gt).forEach(function(k){ if(k!=='name') gt[k]+=r[k]||0; }); });
-  
+
   var v=function(n){return n?n.toLocaleString('en-IN'):'-';};
   var a=function(n){return n?(n>=10000000?(n/10000000).toFixed(2)+'Cr':(n>=100000?(n/100000).toFixed(2)+'L':n.toLocaleString('en-IN'))):'-';};
-  
+
+  var colLabel = level === 'BRANCH' ? 'BRANCH' : level === 'AREA' ? 'AREA' : level === 'DIVISION' ? 'DIVISION' : 'REGION';
   var s = 'border:1px solid #C0C0C0;padding:3px 4px;text-align:center;font-size:9px;white-space:nowrap;';
   var h = '<div style="background:#fff;padding:8px;">';
   h += '<table id="drReportTable" style="border-collapse:collapse;width:100%;font-size:10px;">';
-  
+
   // Title row
-  h += '<tr><td colspan="16" style="'+s+'background:#E8F0FE;font-size:12px;font-weight:700;text-align:center;padding:6px;">'+title+'</td></tr>';
-  
+  h += '<tr><td colspan="17" style="'+s+'background:#E8F0FE;font-size:12px;font-weight:700;text-align:center;padding:6px;">'+title+'</td></tr>';
+
   // Header row 1 - group headers
   h += '<tr style="font-weight:700;">';
-  h += '<td rowspan="2" style="'+s+'background:#F1F5F9;text-align:left;min-width:70px;">'+level+'</td>';
+  h += '<td rowspan="2" style="'+s+'background:#F1F5F9;text-align:left;min-width:70px;">'+colLabel+'</td>';
   h += '<td style="'+s+'background:#DBEAFE;">FTOD</td>';
-  h += '<td style="'+s+'background:#BBF7D0;">FEB<br>Slipped</td>';
-  h += '<td style="'+s+'background:#FECACA;">PNPA</td>';
+  h += '<td style="'+s+'background:#BBF7D0;">1-30<br>DPD</td>';
+  h += '<td style="'+s+'background:#FDE68A;">31-60<br>DPD</td>';
+  h += '<td style="'+s+'background:#FECACA;">61-90<br>DPD</td>';
   h += '<td colspan="2" style="'+s+'">NPA</td>';
   h += '<td colspan="2" style="'+s+'background:#FEF9C3;">FY</td>';
   h += '<td colspan="4" style="'+s+'background:#E9D5FF;">Disb</td>';
-  h += '<td colspan="3" style="'+s+'background:#FBCFE8;">KYC</td>';
+  h += '<td colspan="2" style="'+s+'background:#FBCFE8;">KYC</td>';
   h += '</tr>';
-  
+
   // Header row 2 - sub headers
   h += '<tr style="font-weight:600;font-size:9px;">';
   h += '<td style="'+s+'">Plan</td>';
   h += '<td style="'+s+'">Plan</td>';
   h += '<td style="'+s+'">Plan</td>';
+  h += '<td style="'+s+'">Plan</td>';
   h += '<td style="'+s+'">Act</td><td style="'+s+'">Clo</td>';
-  h += '<td style="'+s+'">OD Acc</td><td style="'+s+'">NS Acc</td>';
+  h += '<td style="'+s+'">NS Acc</td><td style="'+s+'">NS Plan</td>'; // fy_non_start_acc, fy_non_start_plan
   h += '<td style="'+s+'">IGL&FIG<br>Acc</td><td style="'+s+'">IGL&FIG<br>Amt</td>';
   h += '<td style="'+s+'">IL Acc</td><td style="'+s+'">IL Amt</td>';
-  h += '<td style="'+s+'">FIG&<br>IGL</td><td style="'+s+'">IL</td><td style="'+s+'">NPA</td>';
+  h += '<td style="'+s+'">FIG&<br>IGL</td><td style="'+s+'">IL</td>';
   h += '</tr>';
-  
+
   // Data rows
   rows.forEach(function(r){
     h += '<tr>';
     h += '<td style="'+s+'text-align:left;font-weight:600;">'+r.name+'</td>';
     h += '<td style="'+s+'">'+v(r.ftod)+'</td>';
     h += '<td style="'+s+'">'+v(r.feb)+'</td>';
+    h += '<td style="'+s+'">'+v(r.dpd31)+'</td>';
     h += '<td style="'+s+'">'+v(r.pnpa)+'</td>';
     h += '<td style="'+s+'">'+v(r.npa_act)+'</td>';
     h += '<td style="'+s+'">'+v(r.npa_clo)+'</td>';
-    h += '<td style="'+s+'">'+v(r.od)+'</td>';
     h += '<td style="'+s+'">'+v(r.ns)+'</td>';
+    h += '<td style="'+s+'">'+v(r.ns_plan)+'</td>';
     h += '<td style="'+s+'">'+v(r.disb_iglfig_acc)+'</td>';
     h += '<td style="'+s+'">'+a(r.disb_iglfig_amt)+'</td>';
     h += '<td style="'+s+'">'+v(r.disb_il_acc)+'</td>';
     h += '<td style="'+s+'">'+a(r.disb_il_amt)+'</td>';
     h += '<td style="'+s+'">'+v(r.kyc_figIgl)+'</td>';
     h += '<td style="'+s+'">'+v(r.kyc_il)+'</td>';
-    h += '<td style="'+s+'">'+v(r.kyc_npa)+'</td>';
     h += '</tr>';
   });
-  
+
   // Grand Total
   h += '<tr style="background:#FEF9C3;font-weight:700;">';
   h += '<td style="'+s+'text-align:left;">Grand Total</td>';
   h += '<td style="'+s+'">'+v(gt.ftod)+'</td>';
   h += '<td style="'+s+'">'+v(gt.feb)+'</td>';
+  h += '<td style="'+s+'">'+v(gt.dpd31)+'</td>';
   h += '<td style="'+s+'">'+v(gt.pnpa)+'</td>';
   h += '<td style="'+s+'">'+v(gt.npa_act)+'</td>';
   h += '<td style="'+s+'">'+v(gt.npa_clo)+'</td>';
-  h += '<td style="'+s+'">'+v(gt.od)+'</td>';
   h += '<td style="'+s+'">'+v(gt.ns)+'</td>';
+  h += '<td style="'+s+'">'+v(gt.ns_plan)+'</td>';
   h += '<td style="'+s+'">'+v(gt.disb_iglfig_acc)+'</td>';
   h += '<td style="'+s+'">'+a(gt.disb_iglfig_amt)+'</td>';
   h += '<td style="'+s+'">'+v(gt.disb_il_acc)+'</td>';
   h += '<td style="'+s+'">'+a(gt.disb_il_amt)+'</td>';
   h += '<td style="'+s+'">'+v(gt.kyc_figIgl)+'</td>';
   h += '<td style="'+s+'">'+v(gt.kyc_il)+'</td>';
-  h += '<td style="'+s+'">'+v(gt.kyc_npa)+'</td>';
   h += '</tr></table></div>';
-  
+
   document.getElementById('drReportBody').innerHTML = h;
 }
 
 function _drAggregate(branches, planMap) {
-  var r = {ftod:0,feb:0,pnpa:0,npa_act:0,npa_clo:0,od:0,ns:0,disb_iglfig_acc:0,disb_iglfig_amt:0,disb_il_acc:0,disb_il_amt:0,kyc_figIgl:0,kyc_il:0,kyc_npa:0};
+  var r = {ftod:0,feb:0,dpd31:0,pnpa:0,npa_act:0,npa_clo:0,ns:0,ns_plan:0,disb_iglfig_acc:0,disb_iglfig_amt:0,disb_il_acc:0,disb_il_amt:0,kyc_figIgl:0,kyc_il:0};
   branches.forEach(function(br){
     var p = planMap[br] || {};
     r.ftod += (p.ftod_plan||0);
     r.feb += (p.dpd_1_30_plan||0);
+    r.dpd31 += (p.dpd_31_60_plan||0);
     r.pnpa += (p.dpd_61_90_plan||0);
     r.npa_act += (p.npa_activation||0);
     r.npa_clo += (p.npa_closure||0);
-    r.ns += (p.fy_non_start_plan||0);
+    r.ns += (p.fy_non_start_acc||0);
+    r.ns_plan += (p.fy_non_start_plan||0);
     r.disb_iglfig_acc += (p.disb_igl_acc||0)+(p.disb_fig_acc||0);
     r.disb_iglfig_amt += (p.disb_igl_amt||0)+(p.disb_fig_amt||0);
     r.disb_il_acc += (p.disb_il_acc||0);
