@@ -149,7 +149,7 @@
 
   function dbSubUnitsHtml(children, childRole) {
     if (!children.length) return '';
-    var roleLabel = { RM: 'Regions', DM: 'Districts', BM: 'Branches', FO: 'Officers' };
+    var roleLabel = { RM: 'Regions', DM: 'Divisions', BM: 'Branches', FO: 'Officers' };
     var label = roleLabel[childRole] || 'Team';
     var isTable = getDbSubunitView() === 'table';
     var avStyle = 'background:#FFFBEB;color:#F59E0B;';

@@ -74,6 +74,6 @@ js/collection.js?v=33  →  js/collection.js?v=34
 ## Roles
 - **CEO**: Sees all data, all tabs, report builder
 - **RM**: Regional Manager — sees their region
-- **DM**: District Manager — sees their district
+- **DM**: Division Manager — sees their division
 - **BM**: Branch Manager — sees their branch, can enter daily plans
 - **FO**: Field Officer — sees their own data

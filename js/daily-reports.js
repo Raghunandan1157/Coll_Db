@@ -5998,7 +5998,7 @@ function initEmpIdLogin() {
 
         // Show login button
         var loginBtn = document.getElementById('login-btn-dm');
-        var roleLabel = { RM: 'Regional Manager', DM: 'Divisional Manager', AM: 'Area Manager', BM: 'Branch Manager', OTHER: 'Employee' };
+        var roleLabel = { RM: 'Regional Manager', DM: 'Division Manager', AM: 'Area Manager', BM: 'Branch Manager', OTHER: 'Employee' };
         loginBtn.textContent = 'Login as ' + (roleLabel[window._drSelectedRole] || window._drSelectedRole);
         loginBtn.style.display = '';
 
@@ -6821,7 +6821,7 @@ function renderBranchesDetail(stats) {
                     </div>
                     <div class="detail-stat-card">
                         <div class="detail-stat-value">${getUniqueDistricts()}</div>
-                        <div class="detail-stat-label">Districts</div>
+                        <div class="detail-stat-label">Areas</div>
                     </div>
                 </div>
                 

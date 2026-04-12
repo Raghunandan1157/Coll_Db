@@ -452,7 +452,7 @@
     if (!children.length) return '';
     var roleLabel = isNewStructure()
       ? { SM: 'Regions', DvM: 'Divisions', AM: 'Areas', BM: 'Branches', FO: 'Officers' }
-      : { RM: 'Regions', DM: 'Districts', BM: 'Branches', FO: 'Officers' };
+      : { RM: 'Regions', DM: 'Divisions', BM: 'Branches', FO: 'Officers' };
     var avType = isNewStructure()
       ? { SM: 'state', DvM: 'division', AM: 'area', BM: 'branch', FO: 'officer' }
       : { RM: 'region', DM: 'district', BM: 'branch', FO: 'officer' };
