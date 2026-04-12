@@ -2310,9 +2310,9 @@ function renderDMReports(buffer) {
     const districtDisplay = dmDistricts.length > 0 ? dmDistricts.join(', ') : 'Your District';
     const branchCount = dmBranches.length;
 
-    // Ensure DM cannot have REGION level set
-    if (state.reportLevel === 'REGION') {
-        state.reportLevel = 'DISTRICT';
+    // Ensure DM cannot have REGION or DIVISION level set
+    if (state.reportLevel === 'REGION' || state.reportLevel === 'DIVISION') {
+        state.reportLevel = 'AREA';
     }
 
     const pct = calculateTotalCollectionPercentage();
@@ -2348,9 +2348,9 @@ function renderDMReports(buffer) {
                     </button>
                 </div>
                 <div style="margin-top:12px; padding:10px; background:var(--bg-body); border-radius:8px; font-size:12px; color:var(--text-secondary);">
-                    ${state.reportLevel === 'DISTRICT'
-            ? `<strong>District View:</strong> Showing aggregated data for <strong>${districtDisplay}</strong>`
-            : `<strong>Branch View:</strong> Showing ${branchCount} branch${branchCount !== 1 ? 'es' : ''} under your district`
+                    ${state.reportLevel === 'AREA'
+            ? `<strong>Area View:</strong> Showing aggregated data for <strong>${districtDisplay}</strong>`
+            : `<strong>Branch View:</strong> Showing ${branchCount} branch${branchCount !== 1 ? 'es' : ''} under your division`
         }
                 </div>
             </div>
@@ -2414,18 +2414,17 @@ function getCellColor(achievement, plan) {
 // --- REPORT AGGREGATION HELPER ---
 function getReportRows(level) {
     const rows = [];
+    // V2 headers: Branch(0), Area(1), Division(2), Region(3)
     const idxBranch = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === 'branch');
+    const idxArea = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === 'area');
+    const idxDivision = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === 'division');
     const idxRegion = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === 'region');
-    const idxDistrict = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === 'district');
-    const idxDM = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === 'dm name');
 
     // Helper to sum objects (only numeric values)
     const sumObjects = (acc, curr) => {
         if (!curr) return acc;
         Object.keys(curr).forEach(key => {
-            // Skip non-numeric fields or IDs
             if (['id', 'branch_name', 'date', 'region', 'district', 'dm_name', 'created_at'].includes(key)) return;
-
             const val = Number(curr[key]);
             if (!isNaN(val)) {
                 acc[key] = (Number(acc[key]) || 0) + val;
@@ -2434,26 +2433,19 @@ function getReportRows(level) {
         return acc;
     };
 
-    // DM-specific filtering
-    const isDM = state.role === 'DM';
-    const dmBranches = isDM ? getDMBranches() : null;
-    const dmDistricts = isDM ? getDMDistricts() : null;
+    // Role-based filtering
+    const roleBranches = (state.role !== 'CEO') ? getDMBranches() : null;
 
     if (level === 'BRANCH') {
         state.rawData.rows.forEach(r => {
             const name = r[idxBranch];
-
-            // DM Filter: Only include DM's own branches
-            if (isDM && !dmBranches.includes(name)) {
-                return; // Skip branches not assigned to this DM
-            }
-
+            if (roleBranches && !roleBranches.includes(name)) return;
             const entry = state.branchDetails[name] || {};
             rows.push({
                 name: name,
                 region: r[idxRegion],
-                district: r[idxDistrict],
-                dm: r[idxDM],
+                district: r[idxArea],
+                dm: r[idxDivision],
                 target: entry.target || {},
                 achievement: entry.achievement || {}
             });
@@ -2461,37 +2453,37 @@ function getReportRows(level) {
         return rows;
     }
 
-    // Aggregation for REGION / DISTRICT
+    // Aggregation for REGION / DIVISION / AREA
     const groups = {};
 
     state.rawData.rows.forEach(r => {
         const branchName = r[idxBranch];
         const region = r[idxRegion] || "Unknown";
-        const district = r[idxDistrict] || "Unknown";
-        // const dm = r[idxDM]; // Unused for grouping key, but can be part of metadata
+        const division = r[idxDivision] || "Unknown";
+        const area = r[idxArea] || "Unknown";
+
+        if (roleBranches && !roleBranches.includes(branchName)) return;
 
         let key;
         if (level === 'REGION') {
-            // DM cannot access REGION level
-            if (isDM) return;
             key = region;
-        }
-        else if (level === 'DISTRICT') {
-            // DM Filter: Only include DM's own districts
-            if (isDM && !dmDistricts.includes(district)) {
-                return; // Skip districts not assigned to this DM
-            }
-            key = district;
+        } else if (level === 'DIVISION') {
+            key = division;
+        } else if (level === 'AREA') {
+            key = area;
+        } else if (level === 'DISTRICT') {
+            // Legacy fallback — treat as AREA
+            key = area;
         }
 
         if (!key) return;
 
         if (!groups[key]) {
             groups[key] = {
-                name: key, // Will be Region Name or District Name
-                region: level === 'REGION' ? key : region,
-                district: level === 'DISTRICT' ? key : 'All',
-                dm: 'Multiple',
+                name: key,
+                region: region,
+                district: level === 'AREA' || level === 'DISTRICT' ? key : (level === 'DIVISION' ? key : 'All'),
+                dm: division,
                 target: {},
                 achievement: {}
             };
@@ -2710,17 +2702,17 @@ function formatDateForDisplay(dateStr) {
 // Get data filtered by Type (Plan/Achievement) and Aggregated by Level
 function getAggregatedReportData(level, isPlan) {
     const rows = [];
+    // V2 headers: Branch(0), Area(1), Division(2), Region(3)
     const idxBranch = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === 'branch');
+    const idxArea = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === 'area');
+    const idxDivision = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === 'division');
     const idxRegion = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === 'region');
-    const idxDistrict = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === 'district');
 
     // Helper to sum objects (only numeric values)
     const sumObjects = (acc, curr) => {
         if (!curr) return acc;
         Object.keys(curr).forEach(key => {
-            // Skip non-numeric fields or IDs
             if (['id', 'branch_name', 'date', 'region', 'district', 'dm_name', 'created_at'].includes(key)) return;
-
             const val = Number(curr[key]);
             if (!isNaN(val)) {
                 acc[key] = (Number(acc[key]) || 0) + val;
@@ -2729,63 +2721,59 @@ function getAggregatedReportData(level, isPlan) {
         return acc;
     };
 
-    // DM-specific filtering
-    const isDM = state.role === 'DM';
-    const dmBranches = isDM ? getDMBranches() : null;
-    const dmDistricts = isDM ? getDMDistricts() : null;
+    // Role-based filtering
+    const roleBranches = (state.role !== 'CEO') ? getDMBranches() : null;
 
     // 1. BRANCH LEVEL (No Aggregation, just Filter)
     if (level === 'BRANCH') {
         state.rawData.rows.forEach(r => {
             const name = r[idxBranch];
             const region = r[idxRegion];
-            const district = r[idxDistrict];
+            const area = r[idxArea];
 
-            // DM Filter
-            if (isDM && !dmBranches.includes(name)) return;
+            if (roleBranches && !roleBranches.includes(name)) return;
 
             const entry = state.branchDetails[name] || {};
-            // Filter: Get ONLY Target or ONLY Achievement
             const data = isPlan ? (entry.target || {}) : (entry.achievement || {});
 
-            // Only add if there is data (optional? requirement implies showing even empty rows if it's the structure)
-            // But let's include all branches for completeness
             rows.push({
-                name: name, // The grouping key (Branch Name)
+                name: name,
                 region: region,
-                district: district,
-                data: data // The numeric data
+                district: area,
+                data: data
             });
         });
         return rows.sort((a, b) => a.name.localeCompare(b.name));
     }
 
-    // 2. REGION or DISTRICT LEVEL (Aggregation)
+    // 2. REGION / DIVISION / AREA LEVEL (Aggregation)
     const groups = {};
 
     state.rawData.rows.forEach(r => {
         const branchName = r[idxBranch];
         const region = r[idxRegion] || "Unknown";
-        const district = r[idxDistrict] || "Unknown";
+        const division = r[idxDivision] || "Unknown";
+        const area = r[idxArea] || "Unknown";
+
+        if (roleBranches && !roleBranches.includes(branchName)) return;
 
         let key;
         if (level === 'REGION') {
-            if (isDM) return; // Block DM from Region reports
             key = region;
-        }
-        else if (level === 'DISTRICT') {
-            if (isDM && !dmDistricts.includes(district)) return; // Filter DM districts
-            key = district;
+        } else if (level === 'DIVISION') {
+            key = division;
+        } else if (level === 'AREA' || level === 'DISTRICT') {
+            key = area;
         }
 
         if (!key) return;
 
         if (!groups[key]) {
             groups[key] = {
-                name: key, // The grouping key (Region Name or District Name)
-                region: level === 'REGION' ? key : region,
-                district: level === 'DISTRICT' ? key : 'All',
-                data: {} // Accumulator
+                name: key,
+                region: region,
+                district: level === 'AREA' || level === 'DISTRICT' ? key : (level === 'DIVISION' ? key : 'All'),
+                data: {}
             };
         }
 
@@ -2822,7 +2810,7 @@ function generateCombinedReportHTML(title, level, planRows, achieveRows) {
         border: '#000000'
     };
 
-    const firstColHeader = level === 'BRANCH' ? 'BRANCH' : (level === 'DISTRICT' ? 'DISTRICT' : 'REGION');
+    const firstColHeader = level === 'BRANCH' ? 'BRANCH' : level === 'AREA' ? 'AREA' : level === 'DIVISION' ? 'DIVISION' : level === 'DISTRICT' ? 'AREA' : 'REGION';
     const fmt = n => n === 0 ? '-' : n.toLocaleString('en-IN');
 
     // 1. Merge Rows by Name
@@ -3146,7 +3134,7 @@ function generateReportHTML(title, level, rows, isPlan) {
         header: '#4682B4'     // Steel blue for main header
     };
 
-    const firstColHeader = level === 'BRANCH' ? 'BRANCH' : (level === 'DISTRICT' ? 'DISTRICT' : 'REGION');
+    const firstColHeader = level === 'BRANCH' ? 'BRANCH' : level === 'AREA' ? 'AREA' : level === 'DIVISION' ? 'DIVISION' : level === 'DISTRICT' ? 'AREA' : 'REGION';
 
     // Labels based on Type
     const suffix = isPlan ? 'Plan' : 'Actual';
