@@ -2145,7 +2145,7 @@ function renderDashboard() {
                                 </div>
                             </div>
                             <table>
-                                <thead><tr><th>District</th><th>Branch</th><th>Plan Input</th><th>Status</th></tr></thead>
+                                <thead><tr><th>Area</th><th>Branch</th><th>Plan Input</th><th>Status</th></tr></thead>
                                 <tbody id="dmTableHook"></tbody>
                             </table>`;
 
@@ -2180,8 +2180,8 @@ function renderDashboard() {
                 const dmNode = getDMNode();
                 if (dmNode) {
                     currentData = dmNode;
-                    currentTitle = "My Districts";
-                    currentType = "District"; // Root for DM is District list
+                    currentTitle = "My Areas";
+                    currentType = "Area"; // Root for DM is Area list
                 }
             }
 
@@ -2194,8 +2194,8 @@ function renderDashboard() {
                     if (state.viewStack.length === 1) currentType = "Branch";
                 } else {
                     // CEO Logic
-                    if (state.viewStack.length === 1) currentType = "DM";
-                    if (state.viewStack.length === 2) currentType = "District";
+                    if (state.viewStack.length === 1) currentType = "Division";
+                    if (state.viewStack.length === 2) currentType = "Area";
                     if (state.viewStack.length === 3) currentType = "Branch";
                 }
             }
@@ -2342,7 +2342,7 @@ function renderReports(buffer) {
 function renderDMReports(buffer) {
     const dmDistricts = getDMDistricts();
     const dmBranches = getDMBranches();
-    const districtDisplay = dmDistricts.length > 0 ? dmDistricts.join(', ') : 'Your District';
+    const districtDisplay = dmDistricts.length > 0 ? dmDistricts.join(', ') : 'Your Area';
     const branchCount = dmBranches.length;
 
     // Ensure DM cannot have REGION or DIVISION level set
@@ -2355,7 +2355,7 @@ function renderDMReports(buffer) {
         <div class="chart-card grid-full">
             <div class="chart-header">
                 <div class="chart-title">📊 My Reports</div>
-                <div style="font-size:12px; color:var(--text-secondary);">View reports for your assigned district and branches.</div>
+                <div style="font-size:12px; color:var(--text-secondary);">View reports for your assigned areas and branches.</div>
             </div>
 
             <!-- DM INFO BANNER -->
@@ -2366,7 +2366,7 @@ function renderDMReports(buffer) {
                     </div>
                     <div>
                         <div style="font-weight:600; color:var(--text-primary);">${state.currentUser || 'Division Manager'}</div>
-                        <div style="font-size:12px; color:var(--text-secondary);">District: ${districtDisplay} • ${branchCount} Branch${branchCount !== 1 ? 'es' : ''}</div>
+                        <div style="font-size:12px; color:var(--text-secondary);">Area: ${districtDisplay} • ${branchCount} Branch${branchCount !== 1 ? 'es' : ''}</div>
                     </div>
                 </div>
             </div>
@@ -5731,9 +5731,9 @@ function renderLeaderboard(data, tbody) {
 }
 
 function renderDMTable(tbody) {
-    const idxDM = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === "dm name");
+    const idxDM = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === "division");
     const idxBranch = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === "branch");
-    const idxDistrict = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === "district");
+    const idxDistrict = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === "area");
 
     const rows = state.rawData.rows.filter(r => (r[idxDM] || "").trim() === state.currentUser);
 
@@ -6485,7 +6485,7 @@ function renderLastMonthDashboard(container, region) {
                     </select>
                 </div>
                 <div style="flex:1;">
-                    <label style="display:block; font-size:11px; color:#6B7280; margin-bottom:4px;">District</label>
+                    <label style="display:block; font-size:11px; color:#6B7280; margin-bottom:4px;">Area</label>
                     <select class="s-select" style="padding:6px 10px;">
                         <option>(All)</option>
                         <option>Indore</option>
@@ -6790,7 +6790,7 @@ function renderCompletionDetail(stats) {
                     <div class="detail-branch-header">
                         <div>Branch</div>
                         <div>Region</div>
-                        <div>DM</div>
+                        <div>Division</div>
                         <div>Status</div>
                         <div>Achievement %</div>
                         <div>Action</div>
@@ -7209,8 +7209,8 @@ function renderRegionDetailView(regionName, stats) {
                 <div class="detail-branch-list">
                     <div class="detail-branch-header">
                         <div>Branch</div>
-                        <div>District</div>
-                        <div>DM</div>
+                        <div>Area</div>
+                        <div>Division</div>
                         <div>Status</div>
                         <div>Achievement</div>
                         <div>Action</div>
@@ -7262,8 +7262,8 @@ function renderInsightDetail(insightType, stats) {
                 <div class="detail-branch-list">
                     <div class="detail-branch-header">
                         <div>Branch</div>
-                        <div>District</div>
-                        <div>DM</div>
+                        <div>Area</div>
+                        <div>Division</div>
                         <div>Region</div>
                         <div>Status</div>
                         <div>Action</div>
@@ -7340,8 +7340,8 @@ function renderKYCDetail(stats) {
 function getBranchListByStatus() {
     const branches = [];
     const idxBranch = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === 'branch');
-    const idxDistrict = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === 'district');
-    const idxDM = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === 'dm name');
+    const idxDistrict = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === 'area');
+    const idxDM = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === 'division');
     const idxRegion = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === 'region');
 
     state.rawData.rows.forEach(row => {
@@ -7419,13 +7419,13 @@ function getRegionBreakdown() {
 }
 
 function getUniqueDMs() {
-    const idx = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === 'dm name');
+    const idx = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === 'division');
     const dms = new Set(state.rawData.rows.map(r => r[idx]).filter(Boolean));
     return dms.size;
 }
 
 function getUniqueDistricts() {
-    const idx = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === 'district');
+    const idx = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === 'area');
     const districts = new Set(state.rawData.rows.map(r => r[idx]).filter(Boolean));
     return districts.size;
 }
