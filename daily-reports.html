@@ -9,7 +9,7 @@
   <title>NLPL OrgPortal</title>
   <link rel="icon" href="logo-plan.png" type="image/png">
   <!-- Preload critical resources so browser starts downloading early -->
-  <link rel="preload" href="js/daily-reports.js?v=13" as="script">
+  <link rel="preload" href="js/daily-reports.js?v=14" as="script">
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -28,6 +28,21 @@
   .in-iframe .desktop-layout { display: block !important; }
   .in-iframe .desktop-sidebar { display: none !important; }
   .in-iframe .desktop-main { margin-left: 0 !important; }
+
+  /* Standalone desktop: hide inner daily plan sidebar since desktop-sidebar handles nav.
+     Show top tab bar for Dashboard/Detailed View/Reporting instead. */
+  @media (min-width: 768px) {
+    html:not(.in-iframe) .sidebar,
+    html:not(.in-iframe) .sidebar-overlay,
+    html:not(.in-iframe) .hamburger-btn { display: none !important; }
+    html:not(.in-iframe) .main-content { margin-left: 0 !important; }
+    html:not(.in-iframe) #dpTopTabs { display: flex !important; }
+  }
+  #dpTopTabs { display: none; gap: 8px; padding: 12px 24px 0; background: transparent; }
+  #dpTopTabs .dp-tab { padding: 8px 16px; border-radius: 20px; border: 1px solid #E2E8F0; background: #fff; color: #64748B; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .2s; display: flex; align-items: center; gap: 6px; }
+  #dpTopTabs .dp-tab:hover { background: #F1F5F9; color: #1E293B; }
+  #dpTopTabs .dp-tab.active { background: #EEF2FF; color: #6366F1; border-color: #C7D2FE; }
+  #dpTopTabs .dp-tab.hidden { display: none; }
 </style>
 <script>
   // Detect if inside iframe
@@ -381,6 +396,22 @@
         </button>
       </div>
     </header>
+
+    <!-- TOP TAB BAR (standalone desktop only) -->
+    <div id="dpTopTabs">
+      <button class="dp-tab active" id="top-tab-dashboard" onclick="switchTab('dashboard')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        Dashboard
+      </button>
+      <button class="dp-tab" id="top-tab-hierarchy" onclick="switchTab('hierarchy')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Detailed View
+      </button>
+      <button class="dp-tab hidden" id="top-tab-reports" onclick="switchTab('reports')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        Reporting
+      </button>
+    </div>
 
     <!-- DASHBOARD CONTAINER -->
     <div class="dashboard-container" id="dashboard-container">
@@ -937,7 +968,7 @@
     </div>
   </div>
 
-  <script src="js/daily-reports.js?v=13"></script>
+  <script src="js/daily-reports.js?v=14"></script>
   </div><!-- .desktop-main -->
 </div><!-- .desktop-layout -->
 </body>

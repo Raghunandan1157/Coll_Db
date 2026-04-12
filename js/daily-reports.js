@@ -2010,24 +2010,29 @@ function loadAppUI() {
     document.getElementById("headerRole").textContent = roleLabels[role] || role;
     document.getElementById("headerAvatar").textContent = user.charAt(0);
 
+    // Helper to toggle both inner sidebar nav item and top tab
+    var setNavVisible = function(id, topId, visible) {
+        var el = document.getElementById(id);
+        if (el) el.classList.toggle('hidden', !visible);
+        var top = document.getElementById(topId);
+        if (top) top.classList.toggle('hidden', !visible);
+    };
+
     // Restrict navigation based on role
     if (role !== 'CEO') {
-        document.getElementById('nav-dashboard').classList.add('hidden');
-        document.getElementById('nav-reports').classList.remove('hidden');
+        setNavVisible('nav-dashboard', 'top-tab-dashboard', false);
+        setNavVisible('nav-reports', 'top-tab-reports', true);
         // Default report level based on role
         state.reportLevel = role === 'DM' ? 'AREA' : 'BRANCH';
 
-        // Hide date picker and search for DM - they cannot use filters
-        // const datePicker = document.querySelector('.date-picker-wrapper');
-        // if (datePicker) datePicker.style.display = 'none';
         const searchContainer = document.querySelector('.search-container');
         if (searchContainer) searchContainer.style.display = 'none';
 
         // Auto switch to hierarchy
         switchTab('hierarchy');
     } else {
-        document.getElementById('nav-dashboard').classList.remove('hidden');
-        document.getElementById('nav-reports').classList.remove('hidden');
+        setNavVisible('nav-dashboard', 'top-tab-dashboard', true);
+        setNavVisible('nav-reports', 'top-tab-reports', true);
         renderDashboard();
     }
     updateToggleVisibility();
@@ -2040,18 +2045,25 @@ function handleLogout() {
 function switchTab(tab) {
     state.activeTab = tab;
     document.querySelectorAll(".nav-item").forEach(el => el.classList.remove("active"));
+    document.querySelectorAll("#dpTopTabs .dp-tab").forEach(el => el.classList.remove("active"));
 
     if (tab === 'dashboard') {
         document.getElementById("nav-dashboard").classList.add("active");
+        var topDash = document.getElementById("top-tab-dashboard");
+        if (topDash) topDash.classList.add("active");
         document.getElementById("breadcrumbs").innerHTML = 'Home / <span>Dashboard</span>';
     }
     if (tab === 'hierarchy') {
         document.getElementById("nav-hierarchy").classList.add("active");
+        var topHier = document.getElementById("top-tab-hierarchy");
+        if (topHier) topHier.classList.add("active");
         document.getElementById("breadcrumbs").innerHTML = 'Home / <span>Detailed View</span>';
         state.viewStack = []; // Reset drill-down
     }
     if (tab === 'reports') {
         document.getElementById("nav-reports").classList.add("active");
+        var topRep = document.getElementById("top-tab-reports");
+        if (topRep) topRep.classList.add("active");
         document.getElementById("breadcrumbs").innerHTML = 'Home / <span>Reports</span>';
     }
 
