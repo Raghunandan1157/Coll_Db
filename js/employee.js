@@ -10,7 +10,7 @@
   } else if (session.role === 'RM') {
     subtitleEl.textContent = 'Regional Manager \u2014 ' + session.location;
   } else if (session.role === 'DM') {
-    subtitleEl.textContent = 'District Manager \u2014 ' + session.location;
+    subtitleEl.textContent = 'Division Manager \u2014 ' + session.location;
   } else if (session.role === 'BM') {
     subtitleEl.textContent = 'Branch Manager \u2014 ' + session.location;
   } else if (session.role === 'SM') {

@@ -2330,7 +2330,7 @@ function renderDMReports(buffer) {
                         ${state.currentUser ? state.currentUser.charAt(0) : 'D'}
                     </div>
                     <div>
-                        <div style="font-weight:600; color:var(--text-primary);">${state.currentUser || 'District Manager'}</div>
+                        <div style="font-weight:600; color:var(--text-primary);">${state.currentUser || 'Division Manager'}</div>
                         <div style="font-size:12px; color:var(--text-secondary);">District: ${districtDisplay} • ${branchCount} Branch${branchCount !== 1 ? 'es' : ''}</div>
                     </div>
                 </div>
@@ -6817,7 +6817,7 @@ function renderBranchesDetail(stats) {
                     </div>
                     <div class="detail-stat-card">
                         <div class="detail-stat-value">${getUniqueDMs()}</div>
-                        <div class="detail-stat-label">District Managers</div>
+                        <div class="detail-stat-label">Division Managers</div>
                     </div>
                     <div class="detail-stat-card">
                         <div class="detail-stat-value">${getUniqueDistricts()}</div>
@@ -7710,7 +7710,7 @@ function toggleProfileModal() {
 
         // Update content dynamically
         // Note: state.role and state.currentUser are set during login
-        const role = state.role === 'CEO' ? 'Administrator' : 'District Manager';
+        const role = state.role === 'CEO' ? 'Administrator' : 'Division Manager';
         // Use currentUser if available, or fallback to 'User'
         const name = state.currentUser === 'CEO' ? 'CEO User' : (state.currentUser || 'User');
 

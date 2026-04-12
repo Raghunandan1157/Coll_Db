@@ -728,7 +728,7 @@
                 var r = role.toUpperCase();
 
                 if (['DIRECTOR', 'LEADER', 'RM', 'DM', 'ZM', 'VP', 'CEO'].some(function(x) { return r.indexOf(x) !== -1; })) {
-                    var vipMap = { 'RM': 'Regional Manager', 'DM': 'District Manager', 'ZM': 'Zonal Manager' };
+                    var vipMap = { 'RM': 'Regional Manager', 'DM': 'Division Manager', 'ZM': 'Zonal Manager' };
                     return { cls: 'role-vip', full: vipMap[r] || role };
                 }
 
