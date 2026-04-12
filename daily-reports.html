@@ -9,7 +9,7 @@
   <title>NLPL OrgPortal</title>
   <link rel="icon" href="logo-plan.png" type="image/png">
   <!-- Preload critical resources so browser starts downloading early -->
-  <link rel="preload" href="js/daily-reports.js?v=9" as="script">
+  <link rel="preload" href="js/daily-reports.js?v=10" as="script">
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -39,6 +39,37 @@
   <link rel="stylesheet" href="css/desktop.css?v=4">
 
 <style>
+  /* Role popup */
+  .dr-popup-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.35); z-index:10001; display:flex; align-items:center; justify-content:center; }
+  .dr-popup { background:#fff; border-radius:16px; width:90%; max-width:380px; max-height:80vh; overflow:hidden; box-shadow:0 12px 40px rgba(0,0,0,0.15); }
+  .dr-popup-header { display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid #F1F5F9; font-weight:700; font-size:16px; color:#1E293B; }
+  .dr-popup-header button { background:none; border:none; font-size:24px; cursor:pointer; color:#94A3B8; line-height:1; padding:0 4px; }
+  .dr-popup-header button:hover { color:#1E293B; }
+  .dr-popup-list { padding:4px 0; overflow-y:auto; max-height:60vh; }
+  .dr-popup-item { padding:12px 20px; cursor:pointer; transition:background .15s; }
+  .dr-popup-item:hover { background:#F8FAFC; }
+  .dr-popup-title { font-size:15px; font-weight:600; color:#1E293B; }
+  .dr-popup-sub { font-size:12px; color:#94A3B8; margin-top:2px; }
+  .dr-popup-divider { height:1px; background:#E2E8F0; margin:4px 16px; }
+
+  /* Emp search */
+  .dr-search-wrap { position:relative; }
+  #drEmpSearch { width:100%; padding:14px 16px; border:1px solid #E2E8F0; border-radius:12px; font-size:16px; font-family:inherit; outline:none; transition:border-color .2s; background:#fff; }
+  #drEmpSearch:focus { border-color:#6366F1; box-shadow:0 0 0 3px rgba(99,102,241,0.1); }
+  .dr-search-results { position:absolute; top:100%; left:0; right:0; background:#fff; border:1px solid #E2E8F0; border-radius:12px; margin-top:4px; max-height:220px; overflow-y:auto; z-index:100; box-shadow:0 8px 24px rgba(0,0,0,0.1); display:none; }
+  .dr-search-results.open { display:block; }
+  .dr-emp-row { padding:12px 16px; cursor:pointer; border-bottom:1px solid #F8FAFC; transition:background .1s; }
+  .dr-emp-row:last-child { border-bottom:none; }
+  .dr-emp-row:hover, .dr-emp-row.active { background:#F1F5F9; }
+  .dr-emp-id { font-size:14px; font-weight:600; color:#1E293B; }
+  .dr-emp-name { font-size:12px; color:#64748B; margin-top:2px; }
+  .dr-role-chip { display:inline-flex; align-items:center; gap:6px; background:#EEF2FF; color:#6366F1; padding:6px 14px; border-radius:20px; font-size:13px; font-weight:600; margin-bottom:10px; cursor:pointer; }
+  .dr-role-chip:hover { background:#E0E7FF; }
+  .dr-role-chip .dr-chip-x { font-size:16px; opacity:0.6; }
+  .dr-selected-chip { display:flex; align-items:center; gap:10px; background:#F0FDF4; border:1px solid #A7F3D0; padding:10px 14px; border-radius:10px; margin-top:10px; font-size:14px; color:#059669; font-weight:500; }
+  .dr-selected-chip .dr-clear { cursor:pointer; color:#EF4444; font-weight:700; font-size:18px; margin-left:auto; }
+  .dr-search-empty { padding:16px; text-align:center; color:#94A3B8; font-size:13px; }
+
   /* Branch-only mode: hide everything except the branch modal */
   .branch-only-mode .sidebar,
   .branch-only-mode .sidebar-overlay,
@@ -385,21 +416,75 @@
           <div style="height:1px; background:var(--border-color); flex:1;"></div>
         </div>
 
-        <select id="roleSelect" onchange="window._drUpdateLocationDropdown()" style="margin-bottom:10px;">
-          <option value="" disabled selected>Select Role...</option>
-          <option value="RM">RM — Regional Manager</option>
-          <option value="DM">DM — Division Manager</option>
-          <option value="AM">AM — Area Manager</option>
-          <option value="BM">BM — Branch Manager</option>
-        </select>
-
-        <select id="dmSelect" style="display:none;">
-          <option value="" disabled selected>Select location...</option>
-        </select>
-
-        <button id="login-btn-dm" class="btn btn-outline" onclick="handleLogin(document.getElementById('roleSelect').value)" style="display:none;">
-          Login
+        <button class="btn btn-outline" onclick="window._drOpenRolePopup()" style="width:100%;">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+          Select Your Role
         </button>
+
+        <!-- Emp search (shown after role selected) -->
+        <div id="drEmpSearchWrap" style="display:none; margin-top:16px;">
+          <div id="drRoleChip" class="dr-role-chip"></div>
+          <div class="dr-search-wrap">
+            <input id="drEmpSearch" type="text" placeholder="Type emp ID or name..." autocomplete="off">
+            <div id="drSearchResults" class="dr-search-results"></div>
+          </div>
+          <div id="drSelectedEmp" class="dr-selected-chip" style="display:none;"></div>
+          <button id="login-btn-dm" class="btn btn-primary" style="display:none; margin-top:12px; width:100%;" onclick="handleLogin(window._drSelectedRole)">
+            Login
+          </button>
+        </div>
+
+        <!-- Keep dmSelect hidden for backward compat -->
+        <select id="dmSelect" style="display:none;"><option value=""></option></select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Role Popup -->
+  <div id="drRolePopup" class="dr-popup-overlay" style="display:none;">
+    <div class="dr-popup">
+      <div class="dr-popup-header">
+        <span>Select Your Role</span>
+        <button onclick="window._drCloseRolePopup()">&times;</button>
+      </div>
+      <div class="dr-popup-list">
+        <div class="dr-popup-item" data-role="CEO" data-label="CEO">
+          <div class="dr-popup-title">CEO</div>
+          <div class="dr-popup-sub">Chief Executive Officer</div>
+        </div>
+        <div class="dr-popup-item" data-role="RM" data-label="Regional Manager">
+          <div class="dr-popup-title">Regional Manager</div>
+          <div class="dr-popup-sub">RM — Oversees regions</div>
+        </div>
+        <div class="dr-popup-item" data-role="DM" data-label="Divisional Manager">
+          <div class="dr-popup-title">Divisional Manager</div>
+          <div class="dr-popup-sub">DM — Manages divisions</div>
+        </div>
+        <div class="dr-popup-item" data-role="AM" data-label="Area Manager">
+          <div class="dr-popup-title">Area Manager</div>
+          <div class="dr-popup-sub">AM — Manages areas</div>
+        </div>
+        <div class="dr-popup-item" data-role="BM" data-label="Branch Manager">
+          <div class="dr-popup-title">Branch Manager</div>
+          <div class="dr-popup-sub">BM — Manages a branch</div>
+        </div>
+        <div class="dr-popup-item" data-role="BM" data-label="Branch In-Charge">
+          <div class="dr-popup-title">Branch In-Charge</div>
+          <div class="dr-popup-sub">BM level — Branch operations</div>
+        </div>
+        <div class="dr-popup-item" data-role="BM" data-label="Field Officer">
+          <div class="dr-popup-title">Field Officer</div>
+          <div class="dr-popup-sub">FO — Field operations</div>
+        </div>
+        <div class="dr-popup-item" data-role="BM" data-label="Senior Field Officer">
+          <div class="dr-popup-title">Senior Field Officer</div>
+          <div class="dr-popup-sub">SFO — Senior field operations</div>
+        </div>
+        <div class="dr-popup-divider"></div>
+        <div class="dr-popup-item" data-role="OTHER" data-label="Other">
+          <div class="dr-popup-title">Other</div>
+          <div class="dr-popup-sub">BOE, Executive, HR, Audit, etc.</div>
+        </div>
       </div>
     </div>
   </div>
@@ -852,7 +937,7 @@
     </div>
   </div>
 
-  <script src="js/daily-reports.js?v=9"></script>
+  <script src="js/daily-reports.js?v=10"></script>
   </div><!-- .desktop-main -->
 </div><!-- .desktop-layout -->
 </body>

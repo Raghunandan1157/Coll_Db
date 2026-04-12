@@ -1829,12 +1829,17 @@ function handleLogin(role) {
         if (btn) btn.innerHTML = 'Logging in...';
         user = "CEO";
         state.role = 'CEO';
-    } else if (role === 'RM' || role === 'DM' || role === 'AM' || role === 'BM') {
-        user = document.getElementById("dmSelect").value;
-        if (!user) return alert("Please select a location.");
-        state.role = role;
+    } else if (role === 'RM' || role === 'DM' || role === 'AM' || role === 'BM' || role === 'OTHER') {
+        var emp = window._drSelectedEmployee;
+        if (!emp) return alert("Please search and select an employee.");
+        var mappedRole = (role === 'OTHER') ? 'BM' : role;
+        var locationMap = { RM: emp.region_name, DM: emp.division_name, AM: emp.area_name, BM: emp.branch_name };
+        user = locationMap[mappedRole] || emp.branch_name || '';
+        if (!user) return alert("Employee has no location assigned for this role.");
+        state.role = mappedRole;
         localStorage.setItem('nlpl_last_dm', user);
-        localStorage.setItem('nlpl_last_role', role);
+        localStorage.setItem('nlpl_last_role', mappedRole);
+        localStorage.setItem('nlpl_last_emp', emp.emp_id);
     } else {
         return alert("Please select a role.");
     }
@@ -5827,41 +5832,195 @@ function parseTSV(text) {
 }
 
 function populateDMDropdown(rows, headers) {
-    // V2: Build location lists for each role level
-    // Column layout: [0]=Branch, [1]=Area, [2]=Division, [3]=Region
+    // V2: Build location lists for validation
     window._drLocationData = {
         RM: Array.from(new Set(rows.map(r => r[3]).filter(Boolean))).sort(),
         DM: Array.from(new Set(rows.map(r => r[2]).filter(Boolean))).sort(),
         AM: Array.from(new Set(rows.map(r => r[1]).filter(Boolean))).sort(),
         BM: Array.from(new Set(rows.map(r => r[0]).filter(Boolean))).sort()
     };
+    initRolePopup();
+    initEmpIdLogin();
+}
 
-    // Dynamic updater called when role dropdown changes
-    window._drUpdateLocationDropdown = function() {
-        var roleSelect = document.getElementById('roleSelect');
-        var locSelect = document.getElementById('dmSelect');
-        var loginBtn = document.getElementById('login-btn-dm');
-        var role = roleSelect.value;
-        if (!role) return;
+// ===== ROLE POPUP =====
+function initRolePopup() {
+    window._drSelectedRole = null;
+    window._drSelectedEmployee = null;
 
-        var labels = { RM: 'Select Region...', DM: 'Select Division...', AM: 'Select Area...', BM: 'Select Branch...' };
-        var locations = window._drLocationData[role] || [];
-
-        locSelect.innerHTML = '<option value="" disabled selected>' + (labels[role] || 'Select...') + '</option>';
-        locations.forEach(function(loc) {
-            var opt = document.createElement('option');
-            opt.value = loc; opt.textContent = loc;
-            locSelect.appendChild(opt);
-        });
-
-        locSelect.style.display = '';
-        loginBtn.style.display = '';
-        loginBtn.textContent = 'Login as ' + role;
-
-        // Auto-select last used
-        var saved = localStorage.getItem('nlpl_last_dm');
-        if (saved && locations.includes(saved)) locSelect.value = saved;
+    window._drOpenRolePopup = function() {
+        document.getElementById('drRolePopup').style.display = '';
     };
+    window._drCloseRolePopup = function() {
+        document.getElementById('drRolePopup').style.display = 'none';
+    };
+
+    // Attach click handlers to popup items
+    document.querySelectorAll('.dr-popup-item').forEach(function(item) {
+        item.addEventListener('click', function() {
+            var role = this.getAttribute('data-role');
+            var label = this.getAttribute('data-label');
+
+            window._drCloseRolePopup();
+
+            // CEO → direct login
+            if (role === 'CEO') {
+                handleLogin('CEO');
+                return;
+            }
+
+            // Store selected role
+            window._drSelectedRole = role;
+            window._drSelectedEmployee = null;
+
+            // Show search section
+            var wrap = document.getElementById('drEmpSearchWrap');
+            wrap.style.display = '';
+
+            // Show role chip
+            var chip = document.getElementById('drRoleChip');
+            chip.innerHTML = label + ' <span class="dr-chip-x" onclick="window._drResetRole(event)">&times;</span>';
+
+            // Reset search
+            document.getElementById('drEmpSearch').value = '';
+            document.getElementById('drSearchResults').className = 'dr-search-results';
+            document.getElementById('drSelectedEmp').style.display = 'none';
+            document.getElementById('login-btn-dm').style.display = 'none';
+
+            // Focus search
+            setTimeout(function(){ document.getElementById('drEmpSearch').focus(); }, 100);
+        });
+    });
+
+    window._drResetRole = function(e) {
+        if (e) e.stopPropagation();
+        window._drSelectedRole = null;
+        window._drSelectedEmployee = null;
+        document.getElementById('drEmpSearchWrap').style.display = 'none';
+    };
+}
+
+// ===== EMP ID TYPEAHEAD =====
+function initEmpIdLogin() {
+    var searchInput = document.getElementById('drEmpSearch');
+    var resultsDiv = document.getElementById('drSearchResults');
+    if (!searchInput || !resultsDiv) return;
+
+    var timer = null;
+    var activeIdx = -1;
+
+    searchInput.addEventListener('input', function() {
+        clearTimeout(timer);
+        var q = this.value.trim();
+        if (q.length < 2) {
+            resultsDiv.className = 'dr-search-results';
+            resultsDiv.innerHTML = '';
+            return;
+        }
+        timer = setTimeout(function() { doSearch(q); }, 300);
+    });
+
+    // Keyboard navigation
+    searchInput.addEventListener('keydown', function(e) {
+        var rows = resultsDiv.querySelectorAll('.dr-emp-row');
+        if (!rows.length) return;
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            activeIdx = Math.min(activeIdx + 1, rows.length - 1);
+            updateActive(rows);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            activeIdx = Math.max(activeIdx - 1, 0);
+            updateActive(rows);
+        } else if (e.key === 'Enter' && activeIdx >= 0 && rows[activeIdx]) {
+            e.preventDefault();
+            rows[activeIdx].click();
+        }
+    });
+
+    function updateActive(rows) {
+        rows.forEach(function(r, i) { r.classList.toggle('active', i === activeIdx); });
+        if (rows[activeIdx]) rows[activeIdx].scrollIntoView({ block: 'nearest' });
+    }
+
+    function doSearch(q) {
+        var role = window._drSelectedRole;
+        var url = '/api/employees/search?q=' + encodeURIComponent(q);
+        // Map popup roles to DB role values for filtering
+        if (role && role !== 'OTHER') {
+            url += '&role=' + encodeURIComponent(role);
+        }
+        fetch(url).then(function(r) { return r.json(); }).then(function(data) {
+            activeIdx = -1;
+            if (!data || !data.length) {
+                resultsDiv.innerHTML = '<div class="dr-search-empty">No employees found</div>';
+                resultsDiv.className = 'dr-search-results open';
+                return;
+            }
+            var html = '';
+            data.slice(0, 30).forEach(function(emp) {
+                html += '<div class="dr-emp-row" data-emp=\'' + JSON.stringify(emp).replace(/'/g, '&#39;') + '\'>'
+                    + '<div class="dr-emp-id">' + esc(emp.emp_id) + ' — ' + esc(emp.full_name) + '</div>'
+                    + '<div class="dr-emp-name">' + esc(emp.designation || '') + ' &middot; ' + esc(emp.branch_name || '') + '</div>'
+                    + '</div>';
+            });
+            resultsDiv.innerHTML = html;
+            resultsDiv.className = 'dr-search-results open';
+
+            // Click handlers
+            resultsDiv.querySelectorAll('.dr-emp-row').forEach(function(row) {
+                row.addEventListener('click', function() {
+                    var emp = JSON.parse(this.getAttribute('data-emp'));
+                    selectEmployee(emp);
+                });
+            });
+        }).catch(function(err) {
+            console.warn('Employee search failed:', err);
+            resultsDiv.innerHTML = '<div class="dr-search-empty">Search failed</div>';
+            resultsDiv.className = 'dr-search-results open';
+        });
+    }
+
+    function esc(s) { return String(s || '').replace(/[&<>"']/g, function(c) { return '&#' + c.charCodeAt(0) + ';'; }); }
+
+    function selectEmployee(emp) {
+        window._drSelectedEmployee = emp;
+
+        // Hide search results
+        resultsDiv.className = 'dr-search-results';
+        searchInput.value = '';
+
+        // Show selected chip
+        var chip = document.getElementById('drSelectedEmp');
+        chip.innerHTML = '<span>' + esc(emp.emp_id) + ' — ' + esc(emp.full_name) + '</span>'
+            + '<span class="dr-clear" onclick="window._drClearEmployee()">&times;</span>';
+        chip.style.display = '';
+
+        // Show login button
+        var loginBtn = document.getElementById('login-btn-dm');
+        var roleLabel = { RM: 'Regional Manager', DM: 'Divisional Manager', AM: 'Area Manager', BM: 'Branch Manager', OTHER: 'Employee' };
+        loginBtn.textContent = 'Login as ' + (roleLabel[window._drSelectedRole] || window._drSelectedRole);
+        loginBtn.style.display = '';
+
+        // Also set dmSelect value for backward compat
+        var locationMap = { RM: emp.region_name, DM: emp.division_name, AM: emp.area_name, BM: emp.branch_name, OTHER: emp.branch_name };
+        var loc = locationMap[window._drSelectedRole] || emp.branch_name || '';
+        document.getElementById('dmSelect').value = loc;
+    }
+
+    window._drClearEmployee = function() {
+        window._drSelectedEmployee = null;
+        document.getElementById('drSelectedEmp').style.display = 'none';
+        document.getElementById('login-btn-dm').style.display = 'none';
+        searchInput.focus();
+    };
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!searchInput.contains(e.target) && !resultsDiv.contains(e.target)) {
+            resultsDiv.className = 'dr-search-results';
+        }
+    });
 }
 
 function getDMNode() {
