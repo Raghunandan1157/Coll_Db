@@ -440,7 +440,7 @@
       allEmployees = emps;
       status.innerHTML = '<div class="emp-badge"><span class="dot"></span><span>' + emps.length + ' employees loaded</span></div>';
       hint.textContent = _isNew
-        ? 'Type CEO / SM / DvM / AM / BM or your name'
+        ? 'Type CEO / RM / DM / AM / BM or your name'
         : 'Start typing to find yourself';
       search.focus();
     })
@@ -504,42 +504,39 @@
         return;
       }
 
-      // --- New structure role keywords: SM, DVM, AM ---
-      if (_isNew) {
-        var newRoleMatch = qu.match(/^(SM|DVM|DvM|AM)\s*(.*)/i);
-        if (newRoleMatch) {
-          var rawRole = newRoleMatch[1].toUpperCase();
-          var filter = newRoleMatch[2].trim();
-          var roleKey, endpoint, subtitle, displayRole;
-          if (rawRole === 'SM') {
-            roleKey = 'states'; endpoint = '/api/v2/collection/by-state';
-            subtitle = 'State Manager'; displayRole = 'SM';
-          } else if (rawRole === 'DVM') {
-            roleKey = 'divisions'; endpoint = '/api/v2/collection/by-division';
-            subtitle = 'Division Manager'; displayRole = 'DvM';
-          } else {
-            roleKey = 'areas'; endpoint = '/api/v2/collection/by-area';
-            subtitle = 'Area Manager'; displayRole = 'AM';
-          }
+      // --- Role keywords: RM / DM / AM / BM (+ legacy SM/DvM) ---
+      var roleMatch = qu.match(/^(RM|DM|AM|BM|SM|DVM|DvM)\s*(.*)/i);
+      if (roleMatch) {
+        var rawRole = roleMatch[1].toUpperCase();
+        var filter = roleMatch[2].trim();
+
+        // Normalize: SM→RM, DVM→DM
+        if (rawRole === 'SM') rawRole = 'RM';
+        if (rawRole === 'DVM') rawRole = 'DM';
+
+        // Use V2 endpoints when new structure is active
+        if (_isNew && (rawRole === 'RM' || rawRole === 'DM' || rawRole === 'AM')) {
+          var v2Map = {
+            RM: { roleKey: 'states', endpoint: '/api/v2/collection/by-state', subtitle: 'Regional Manager', display: 'RM' },
+            DM: { roleKey: 'divisions', endpoint: '/api/v2/collection/by-division', subtitle: 'Division Manager', display: 'DM' },
+            AM: { roleKey: 'areas', endpoint: '/api/v2/collection/by-area', subtitle: 'Area Manager', display: 'AM' }
+          };
+          var cfg = v2Map[rawRole];
           results.innerHTML = '<div class="status"><div class="spinner"></div>Loading locations...</div>';
           _roleSearchPending = true;
-          _fetchNewLocations(endpoint, roleKey).then(function (list) {
+          _fetchNewLocations(cfg.endpoint, cfg.roleKey).then(function (list) {
             if (!_roleSearchPending) return;
             if (filter) list = list.filter(function (n) { return n.toUpperCase().includes(filter); });
             if (!list.length) { results.innerHTML = '<div class="status">No locations found</div>'; return; }
             results.innerHTML = list.map(function (name) {
-              return renderRoleRow(displayRole, name, subtitle + ' \u2014 ' + name, filter, { structure: 'new' });
+              return renderRoleRow(cfg.display, name, cfg.subtitle + ' \u2014 ' + name, filter, { structure: 'new' });
             }).join('');
           });
           return;
         }
-      }
 
-      // --- Old structure role keywords: RM / DM / BM (always available) ---
-      var roleMatch = qu.match(/^(RM|DM|BM)\s*(.*)/);
-      if (roleMatch) {
-        var role = roleMatch[1];
-        var filter = roleMatch[2].trim();
+        // Old structure fallback for RM/DM/BM
+        var role = rawRole;
         results.innerHTML = '<div class="status"><div class="spinner"></div>Loading locations...</div>';
         _roleSearchPending = true;
         _parseLocationData().then(function (data) {
@@ -547,7 +544,7 @@
           var list;
           var subtitle;
           if (role === 'RM') { list = data.regions; subtitle = 'Regional Manager'; }
-          else if (role === 'DM') { list = data.districts; subtitle = 'District Manager'; }
+          else if (role === 'DM') { list = data.districts; subtitle = 'Division Manager'; }
           else { list = data.branches; subtitle = 'Branch Manager'; }
 
           if (filter) {
