@@ -2054,9 +2054,9 @@ document.addEventListener('click', function(e) {
           <h4 style="text-align:center;font-size:13px;font-weight:700;color:#6366F1;margin:0 0 12px;">FTOD — ACCOUNTS</h4>
           <div style="display:flex;flex-direction:column;gap:8px;">
             <label style="font-size:12px;font-weight:600;color:#475569;">Actual FTOD Account</label>
-            <input id="dr_ftod_actual" type="number" placeholder="0" style="padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;">
+            <input id="dr_ftod_actual" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="0" class="dr-modal-input" style="padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;">
             <label style="font-size:12px;font-weight:600;color:#475569;">FTOD Collection Plan</label>
-            <input id="dr_ftod_plan" type="number" placeholder="0" style="padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;">
+            <input id="dr_ftod_plan" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="0" class="dr-modal-input" style="padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;">
           </div>
         </div>
         
@@ -2065,9 +2065,9 @@ document.addEventListener('click', function(e) {
           <h4 style="text-align:center;font-size:13px;font-weight:700;color:#F59E0B;margin:0 0 12px;">1-30 DPD</h4>
           <div style="display:flex;flex-direction:column;gap:8px;">
             <label style="font-size:12px;font-weight:600;color:#475569;">Actual Account</label>
-            <input id="dr_dpd_1_30_actual" type="number" placeholder="0" style="padding:8px 12px;border:1px solid #F59E0B40;border-radius:8px;font-size:14px;">
+            <input id="dr_dpd_1_30_actual" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="0" class="dr-modal-input" style="padding:8px 12px;border:1px solid #F59E0B40;border-radius:8px;font-size:14px;">
             <label style="font-size:12px;font-weight:600;color:#475569;">Collection Plan</label>
-            <input id="dr_dpd_1_30_plan" type="number" placeholder="0" style="padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;">
+            <input id="dr_dpd_1_30_plan" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="0" class="dr-modal-input" style="padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;">
           </div>
         </div>
         
@@ -2076,17 +2076,17 @@ document.addEventListener('click', function(e) {
           <h4 style="text-align:center;font-size:13px;font-weight:700;color:#475569;margin:0 0 12px;">DISBURSEMENT TARGETS</h4>
           <div style="display:flex;flex-direction:column;gap:6px;">
             <label style="font-size:11px;color:#64748B;">IGL (Accounts)</label>
-            <input id="dr_disb_igl_acc" type="number" placeholder="0" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">
+            <input id="dr_disb_igl_acc" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="0" class="dr-modal-input" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">
             <label style="font-size:11px;color:#64748B;">IGL (Amount)</label>
-            <input id="dr_disb_igl_amt" type="number" placeholder="0" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">
+            <input id="dr_disb_igl_amt" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="0" class="dr-modal-input" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">
             <label style="font-size:11px;color:#64748B;">FIG (Accounts)</label>
-            <input id="dr_disb_fig_acc" type="number" placeholder="0" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">
+            <input id="dr_disb_fig_acc" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="0" class="dr-modal-input" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">
             <label style="font-size:11px;color:#64748B;">FIG (Amount)</label>
-            <input id="dr_disb_fig_amt" type="number" placeholder="0" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">
+            <input id="dr_disb_fig_amt" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="0" class="dr-modal-input" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">
             <label style="font-size:11px;color:#64748B;">IL (Accounts)</label>
-            <input id="dr_disb_il_acc" type="number" placeholder="0" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">
+            <input id="dr_disb_il_acc" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="0" class="dr-modal-input" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">
             <label style="font-size:11px;color:#64748B;">IL (Amount)</label>
-            <input id="dr_disb_il_amt" type="number" placeholder="0" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">
+            <input id="dr_disb_il_amt" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="0" class="dr-modal-input" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">
           </div>
         </div>
       </div>
@@ -2099,9 +2099,9 @@ document.addEventListener('click', function(e) {
           <h4 style="text-align:center;font-size:13px;font-weight:700;color:#EF4444;margin:0 0 12px;">31-60 DPD</h4>
           <div style="display:flex;flex-direction:column;gap:8px;">
             <label style="font-size:12px;font-weight:600;color:#475569;">Actual Account</label>
-            <input id="dr_dpd_31_60_actual" type="number" placeholder="0" style="padding:8px 12px;border:1px solid #EF444440;border-radius:8px;font-size:14px;">
+            <input id="dr_dpd_31_60_actual" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="0" class="dr-modal-input" style="padding:8px 12px;border:1px solid #EF444440;border-radius:8px;font-size:14px;">
             <label style="font-size:12px;font-weight:600;color:#475569;">Collection Plan</label>
-            <input id="dr_dpd_31_60_plan" type="number" placeholder="0" style="padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;">
+            <input id="dr_dpd_31_60_plan" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="0" class="dr-modal-input" style="padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;">
           </div>
         </div>
         
@@ -2110,9 +2110,9 @@ document.addEventListener('click', function(e) {
           <h4 style="text-align:center;font-size:13px;font-weight:700;color:#DC2626;margin:0 0 12px;">61-90 DPD</h4>
           <div style="display:flex;flex-direction:column;gap:8px;">
             <label style="font-size:12px;font-weight:600;color:#475569;">Actual Account</label>
-            <input id="dr_dpd_61_90_actual" type="number" placeholder="0" style="padding:8px 12px;border:1px solid #DC262640;border-radius:8px;font-size:14px;">
+            <input id="dr_dpd_61_90_actual" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="0" class="dr-modal-input" style="padding:8px 12px;border:1px solid #DC262640;border-radius:8px;font-size:14px;">
             <label style="font-size:12px;font-weight:600;color:#475569;">Collection Plan</label>
-            <input id="dr_dpd_61_90_plan" type="number" placeholder="0" style="padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;">
+            <input id="dr_dpd_61_90_plan" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="0" class="dr-modal-input" style="padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;">
           </div>
         </div>
         
@@ -2121,11 +2121,11 @@ document.addEventListener('click', function(e) {
           <h4 style="text-align:center;font-size:13px;font-weight:700;color:#475569;margin:0 0 12px;">KYC SOURCING</h4>
           <div style="display:flex;flex-direction:column;gap:6px;">
             <label style="font-size:11px;color:#64748B;">IGL</label>
-            <input id="dr_kyc_igl" type="number" placeholder="0" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">
+            <input id="dr_kyc_igl" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="0" class="dr-modal-input" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">
             <label style="font-size:11px;color:#64748B;">FIG</label>
-            <input id="dr_kyc_fig" type="number" placeholder="0" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">
+            <input id="dr_kyc_fig" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="0" class="dr-modal-input" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">
             <label style="font-size:11px;color:#64748B;">IL</label>
-            <input id="dr_kyc_il" type="number" placeholder="0" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">
+            <input id="dr_kyc_il" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="0" class="dr-modal-input" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">
           </div>
         </div>
       </div>
@@ -2136,18 +2136,18 @@ document.addEventListener('click', function(e) {
           <h4 style="text-align:center;font-size:13px;font-weight:700;color:#6366F1;margin:0 0 12px;">NPA ACCOUNTS</h4>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
             <div><label style="font-size:12px;font-weight:600;color:#475569;">NPA Activation</label>
-            <input id="dr_npa_activation" type="number" placeholder="0" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;margin-top:4px;"></div>
+            <input id="dr_npa_activation" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="0" class="dr-modal-input" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;margin-top:4px;"></div>
             <div><label style="font-size:12px;font-weight:600;color:#475569;">NPA Closure</label>
-            <input id="dr_npa_closure" type="number" placeholder="0" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;margin-top:4px;"></div>
+            <input id="dr_npa_closure" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="0" class="dr-modal-input" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;margin-top:4px;"></div>
           </div>
         </div>
         <div style="border:1px solid #E2E8F0;border-radius:12px;padding:16px;">
           <h4 style="text-align:center;font-size:13px;font-weight:700;color:#6366F1;margin:0 0 12px;">FY NON-STARTER ACCOUNTS</h4>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
             <div><label style="font-size:12px;font-weight:600;color:#475569;">Non-Starter Accounts</label>
-            <input id="dr_fy_non_start_acc" type="number" placeholder="0" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;margin-top:4px;"></div>
+            <input id="dr_fy_non_start_acc" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="0" class="dr-modal-input" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;margin-top:4px;"></div>
             <div><label style="font-size:12px;font-weight:600;color:#475569;">Collection Plan</label>
-            <input id="dr_fy_non_start_plan" type="number" placeholder="0" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;margin-top:4px;"></div>
+            <input id="dr_fy_non_start_plan" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="0" class="dr-modal-input" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;margin-top:4px;"></div>
           </div>
         </div>
       </div>
@@ -2192,6 +2192,21 @@ function openDrBranchModal(branchName, table) {
       }
     });
   document.getElementById('drBranchModal').style.display = 'block';
+  // Wire Enter-to-next on numeric inputs (idempotent — only attach once)
+  if (!window._drEnterWired) {
+    var inputs = Array.prototype.slice.call(document.querySelectorAll('#drBranchModal input.dr-modal-input'));
+    inputs.forEach(function(el, i) {
+      el.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          var next = inputs[i + 1];
+          if (next) { next.focus(); next.select && next.select(); }
+          else { document.querySelector('#drBranchModal button[onclick="saveDrBranchData()"]').focus(); }
+        }
+      });
+    });
+    window._drEnterWired = true;
+  }
 }
 
 function closeDrBranchModal() {
