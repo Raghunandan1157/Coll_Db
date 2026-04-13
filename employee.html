@@ -2526,7 +2526,11 @@ document.addEventListener('keydown', function(e) {
 // V2 Branch hierarchy — loaded dynamically from API
 var _drHierarchy = {}; // Region → Division → Area → [branches]
 var _drAllBranches = []; // flat list of all branch names
+var _drScopedHierarchy = null; // role-filtered view (AM/DM/RM only)
+var _drScopedBranches = null;  // role-filtered flat branch list
 var _drHierarchyReady = false;
+function _drActiveHierarchy(){ return _drScopedHierarchy || _drHierarchy; }
+function _drActiveBranches(){ return _drScopedBranches || _drAllBranches; }
 
 window._drHierarchyPromise = fetch('/api/daily-plan/branches')
   .then(function(r){ return r.json(); })
@@ -2547,6 +2551,34 @@ window._drHierarchyPromise = fetch('/api/daily-plan/branches')
     });
     _drHierarchy = tree;
     _drAllBranches = branches;
+    // Build role-scoped hierarchy for AM/DM/RM
+    try {
+      var _drSess = window.getEmployeeSession ? getEmployeeSession() : {};
+      var _drRole = _drSess.role || localStorage.getItem('roleName') || 'CEO';
+      var _drLoc = (_drSess.location || localStorage.getItem('roleLocation') || '').toString().trim().toUpperCase();
+      if (_drLoc && (_drRole === 'AM' || _drRole === 'DM' || _drRole === 'RM')) {
+        var scoped = {};
+        var scopedBr = [];
+        data.forEach(function(r){
+          var region = r.region_name || 'Unknown';
+          var division = r.division_name || 'Unknown';
+          var area = r.area_name || 'Unknown';
+          var branch = r.branch_name;
+          var ok = false;
+          if (_drRole === 'RM' && (r.region_name||'').toString().trim().toUpperCase() === _drLoc) ok = true;
+          else if (_drRole === 'DM' && (r.division_name||'').toString().trim().toUpperCase() === _drLoc) ok = true;
+          else if (_drRole === 'AM' && (r.area_name||'').toString().trim().toUpperCase() === _drLoc) ok = true;
+          if (!ok) return;
+          if (!scoped[region]) scoped[region] = {};
+          if (!scoped[region][division]) scoped[region][division] = {};
+          if (!scoped[region][division][area]) scoped[region][division][area] = [];
+          scoped[region][division][area].push(branch);
+          scopedBr.push(branch);
+        });
+        _drScopedHierarchy = scoped;
+        _drScopedBranches = scopedBr;
+      }
+    } catch (e) { console.warn('dr scope failed', e); }
     _drHierarchyReady = true;
   })
   .catch(function(e) {
@@ -2590,9 +2622,10 @@ function _drBuildReportTable(date, level, type) {
 
 function _drGetBranchesForLevel(level, key) {
   // Returns flat array of branch names for a given level + key
+  var H = _drActiveHierarchy();
   var branches = [];
   if (level === 'REGION') {
-    var regionNode = _drHierarchy[key] || {};
+    var regionNode = H[key] || {};
     Object.keys(regionNode).forEach(function(div) {
       Object.keys(regionNode[div]).forEach(function(area) {
         branches = branches.concat(regionNode[div][area]);
@@ -2600,18 +2633,18 @@ function _drGetBranchesForLevel(level, key) {
     });
   } else if (level === 'DIVISION') {
     // Find division across all regions
-    Object.keys(_drHierarchy).forEach(function(reg) {
-      if (_drHierarchy[reg][key]) {
-        Object.keys(_drHierarchy[reg][key]).forEach(function(area) {
-          branches = branches.concat(_drHierarchy[reg][key][area]);
+    Object.keys(H).forEach(function(reg) {
+      if (H[reg][key]) {
+        Object.keys(H[reg][key]).forEach(function(area) {
+          branches = branches.concat(H[reg][key][area]);
         });
       }
     });
   } else if (level === 'AREA') {
-    Object.keys(_drHierarchy).forEach(function(reg) {
-      Object.keys(_drHierarchy[reg]).forEach(function(div) {
-        if (_drHierarchy[reg][div][key]) {
-          branches = branches.concat(_drHierarchy[reg][div][key]);
+    Object.keys(H).forEach(function(reg) {
+      Object.keys(H[reg]).forEach(function(div) {
+        if (H[reg][div][key]) {
+          branches = branches.concat(H[reg][div][key]);
         }
       });
     });
@@ -2620,17 +2653,18 @@ function _drGetBranchesForLevel(level, key) {
 }
 
 function _drGetKeysForLevel(level) {
+  var H = _drActiveHierarchy();
   var keys = new Set();
   if (level === 'REGION') {
-    Object.keys(_drHierarchy).forEach(function(k){ keys.add(k); });
+    Object.keys(H).forEach(function(k){ keys.add(k); });
   } else if (level === 'DIVISION') {
-    Object.keys(_drHierarchy).forEach(function(reg) {
-      Object.keys(_drHierarchy[reg]).forEach(function(k){ keys.add(k); });
+    Object.keys(H).forEach(function(reg) {
+      Object.keys(H[reg]).forEach(function(k){ keys.add(k); });
     });
   } else if (level === 'AREA') {
-    Object.keys(_drHierarchy).forEach(function(reg) {
-      Object.keys(_drHierarchy[reg]).forEach(function(div) {
-        Object.keys(_drHierarchy[reg][div]).forEach(function(k){ keys.add(k); });
+    Object.keys(H).forEach(function(reg) {
+      Object.keys(H[reg]).forEach(function(div) {
+        Object.keys(H[reg][div]).forEach(function(k){ keys.add(k); });
       });
     });
   }
@@ -2661,7 +2695,7 @@ function _drBuildRows(level, dataMap, mode) {
 
   var rows = [];
   if (level === 'BRANCH') {
-    _drAllBranches.sort().forEach(function(br){
+    _drActiveBranches().slice().sort().forEach(function(br){
       rows.push(rowFromData(br, dataMap[_key(br)]));
     });
   } else {
@@ -2769,6 +2803,100 @@ function _drBuildTableHTML(tableTitle, level, rows, tableId, isAch) {
   return h;
 }
 
+// Build a single combined PLAN + ACHIEVEMENT table (29 columns: name + 14 plan + 14 ach)
+function _drBuildCombinedTableHTML(title, level, planRows, achRows) {
+  var v = function(n){ return n ? n.toLocaleString('en-IN') : '-'; };
+  var a = function(n){ return n ? (n>=10000000 ? (n/10000000).toFixed(2)+'Cr' : (n>=100000 ? (n/100000).toFixed(2)+'L' : n.toLocaleString('en-IN'))) : '-'; };
+  var colLabel = level === 'BRANCH' ? 'BRANCH' : level === 'AREA' ? 'AREA' : level === 'DIVISION' ? 'DIVISION' : 'REGION';
+  var s = 'border:1px solid #C0C0C0;padding:3px 4px;text-align:center;font-size:9px;white-space:nowrap;';
+  var planBg = '#E8F0FE';
+  var achBg = '#F0FFF0';
+
+  var merged = {};
+  var order = [];
+  planRows.forEach(function(r){ if(!merged[r.name]){ merged[r.name] = {plan:null, ach:null}; order.push(r.name); } merged[r.name].plan = r; });
+  achRows.forEach(function(r){ if(!merged[r.name]){ merged[r.name] = {plan:null, ach:null}; order.push(r.name); } merged[r.name].ach = r; });
+  order.sort();
+
+  var gtP = {ftod:0,feb:0,dpd31:0,pnpa:0,npa_act:0,npa_clo:0,ns:0,ns_plan:0,disb_iglfig_acc:0,disb_iglfig_amt:0,disb_il_acc:0,disb_il_amt:0,kyc_figIgl:0,kyc_il:0};
+  var gtA = {ftod:0,feb:0,dpd31:0,pnpa:0,npa_act:0,npa_clo:0,ns:0,ns_plan:0,disb_iglfig_acc:0,disb_iglfig_amt:0,disb_il_acc:0,disb_il_amt:0,kyc_figIgl:0,kyc_il:0};
+
+  var h = '<div style="background:#fff;padding:8px;">';
+  h += '<table id="drReportTable" style="border-collapse:collapse;width:100%;font-size:10px;">';
+  h += '<tr><td colspan="29" style="'+s+'background:#F1F5F9;font-size:12px;font-weight:700;text-align:center;padding:6px;">'+title+'</td></tr>';
+  h += '<tr style="font-weight:700;">';
+  h += '<td rowspan="3" style="'+s+'background:#F1F5F9;text-align:left;min-width:70px;vertical-align:middle;">'+colLabel+'</td>';
+  h += '<td colspan="14" style="'+s+'background:'+planBg+';font-size:11px;padding:5px;">PLAN</td>';
+  h += '<td colspan="14" style="'+s+'background:'+achBg+';font-size:11px;padding:5px;">ACHIEVEMENT</td>';
+  h += '</tr>';
+
+  var catRow = function(){
+    var r = '';
+    r += '<td style="'+s+'background:#DBEAFE;">FTOD</td>';
+    r += '<td style="'+s+'background:#BBF7D0;">1-30<br>DPD</td>';
+    r += '<td style="'+s+'background:#FDE68A;">31-60<br>DPD</td>';
+    r += '<td style="'+s+'background:#FECACA;">61-90<br>DPD</td>';
+    r += '<td colspan="2" style="'+s+'">NPA</td>';
+    r += '<td colspan="2" style="'+s+'background:#FEF9C3;">FY</td>';
+    r += '<td colspan="4" style="'+s+'background:#E9D5FF;">Disb</td>';
+    r += '<td colspan="2" style="'+s+'background:#FBCFE8;">KYC</td>';
+    return r;
+  };
+  h += '<tr style="font-weight:700;">' + catRow() + catRow() + '</tr>';
+
+  var fieldRow = function(lbl){
+    var r = '';
+    r += ('<td style="'+s+'">'+lbl+'</td>').repeat(4);
+    r += '<td style="'+s+'">Act</td><td style="'+s+'">Clo</td>';
+    r += '<td style="'+s+'">NS Acc</td><td style="'+s+'">NS Plan</td>';
+    r += '<td style="'+s+'">IGL&FIG<br>Acc</td><td style="'+s+'">IGL&FIG<br>Amt</td>';
+    r += '<td style="'+s+'">IL Acc</td><td style="'+s+'">IL Amt</td>';
+    r += '<td style="'+s+'">FIG&<br>IGL</td><td style="'+s+'">IL</td>';
+    return r;
+  };
+  h += '<tr style="font-weight:600;font-size:9px;">' + fieldRow('Plan') + fieldRow('Ach') + '</tr>';
+
+  var cells = function(r){
+    if (!r) return '<td style="'+s+'">-</td>'.repeat(14);
+    var c = '';
+    c += '<td style="'+s+'">'+v(r.ftod)+'</td>';
+    c += '<td style="'+s+'">'+v(r.feb)+'</td>';
+    c += '<td style="'+s+'">'+v(r.dpd31)+'</td>';
+    c += '<td style="'+s+'">'+v(r.pnpa)+'</td>';
+    c += '<td style="'+s+'">'+v(r.npa_act)+'</td>';
+    c += '<td style="'+s+'">'+v(r.npa_clo)+'</td>';
+    c += '<td style="'+s+'">'+v(r.ns)+'</td>';
+    c += '<td style="'+s+'">'+v(r.ns_plan)+'</td>';
+    c += '<td style="'+s+'">'+v(r.disb_iglfig_acc)+'</td>';
+    c += '<td style="'+s+'">'+a(r.disb_iglfig_amt)+'</td>';
+    c += '<td style="'+s+'">'+v(r.disb_il_acc)+'</td>';
+    c += '<td style="'+s+'">'+a(r.disb_il_amt)+'</td>';
+    c += '<td style="'+s+'">'+v(r.kyc_figIgl)+'</td>';
+    c += '<td style="'+s+'">'+v(r.kyc_il)+'</td>';
+    return c;
+  };
+
+  order.forEach(function(name){
+    var m = merged[name];
+    if (m.plan) Object.keys(gtP).forEach(function(k){ gtP[k] += m.plan[k] || 0; });
+    if (m.ach)  Object.keys(gtA).forEach(function(k){ gtA[k] += m.ach[k]  || 0; });
+    h += '<tr>';
+    h += '<td style="'+s+'text-align:left;font-weight:600;">'+name+'</td>';
+    h += cells(m.plan);
+    h += cells(m.ach);
+    h += '</tr>';
+  });
+
+  h += '<tr style="background:#FEF9C3;font-weight:700;">';
+  h += '<td style="'+s+'text-align:left;">Grand Total</td>';
+  h += cells(gtP);
+  h += cells(gtA);
+  h += '</tr>';
+
+  h += '</table></div>';
+  return h;
+}
+
 function _drRenderTable(title, level, planData, achData, type) {
   var _key = function(s){ return (s || '').toString().trim().toUpperCase(); };
   var planMap = {}; planData.forEach(function(r){ planMap[_key(r.branch_name)] = r; });
@@ -2799,13 +2927,10 @@ function _drRenderTable(title, level, planData, achData, type) {
     return;
   }
 
-  // 'both' mode — always render BOTH tables stacked (even if achievement is empty)
-  var planTitle = 'PLAN — ' + level + ' — ' + dateDisplay;
-  var achTitle = 'ACHIEVEMENT — ' + level + ' — ' + dateDisplay;
+  // 'both' mode — single merged table with PLAN columns + ACHIEVEMENT columns per row
+  var combinedTitle = 'PLAN & ACHIEVEMENT — ' + level + ' — ' + dateDisplay;
   var html = '';
-  html += _drBuildTableHTML(planTitle, level, planRows, 'drReportTable', false);
-  html += '<div style="height:20px;"></div>';
-  html += _drBuildTableHTML(achTitle, level, achRows, 'drReportTableAch', true);
+  html += _drBuildCombinedTableHTML(combinedTitle, level, planRows, achRows);
   if (achData.length === 0) {
     html += '<div style="margin-top:8px;padding:10px 14px;background:#FFFBEB;border:1px solid #F59E0B;color:#92400E;border-radius:8px;font-size:12px;text-align:center;">No achievements submitted for ' + dateDisplay + ' yet.</div>';
   }
@@ -2937,37 +3062,82 @@ function _drShareImage() {
 
 
 function _drCaptureTable(body) {
-  // Temporarily expand modal to full table width for capture
+  // Temporarily expand modal + body so html2canvas sees every row/column
   var modal = document.getElementById('drReportModal');
   var modalInner = modal ? modal.firstElementChild : null;
-  var oldOverflow = body.style.overflow;
-  var oldMaxW = modalInner ? modalInner.style.maxWidth : '';
-  var oldW = body.style.width;
-  var oldPos = modal ? modal.style.overflow : '';
-  
-  // Remove scroll constraints
+
+  var old = {
+    bodyMaxHeight: body.style.maxHeight,
+    bodyHeight: body.style.height,
+    bodyWidth: body.style.width,
+    bodyOverflow: body.style.overflow,
+    bodyOverflowX: body.style.overflowX,
+    bodyOverflowY: body.style.overflowY,
+    bodyScrollTop: body.scrollTop,
+    bodyScrollLeft: body.scrollLeft,
+    innerMaxW: modalInner ? modalInner.style.maxWidth : '',
+    innerMaxH: modalInner ? modalInner.style.maxHeight : '',
+    innerHeight: modalInner ? modalInner.style.height : '',
+    innerOverflow: modalInner ? modalInner.style.overflow : '',
+    modalOverflow: modal ? modal.style.overflow : ''
+  };
+
+  // Scroll to top-left so capture starts from row 1
+  body.scrollTop = 0;
+  body.scrollLeft = 0;
+
+  // Remove all scroll/size constraints
+  body.style.maxHeight = 'none';
+  body.style.height = 'auto';
+  body.style.width = 'fit-content';
   body.style.overflow = 'visible';
-  body.style.width = 'auto';
-  if (modalInner) modalInner.style.maxWidth = 'none';
+  body.style.overflowX = 'visible';
+  body.style.overflowY = 'visible';
+  if (modalInner) {
+    modalInner.style.maxWidth = 'none';
+    modalInner.style.maxHeight = 'none';
+    modalInner.style.height = 'auto';
+    modalInner.style.overflow = 'visible';
+  }
   if (modal) modal.style.overflow = 'visible';
-  
-  var tableEl = document.getElementById('drReportTable');
-  var captureWidth = tableEl ? tableEl.scrollWidth + 40 : body.scrollWidth;
-  
+
+  var captureWidth = body.scrollWidth;
+  var captureHeight = body.scrollHeight;
+
+  function restore() {
+    body.style.maxHeight = old.bodyMaxHeight;
+    body.style.height = old.bodyHeight;
+    body.style.width = old.bodyWidth;
+    body.style.overflow = old.bodyOverflow;
+    body.style.overflowX = old.bodyOverflowX;
+    body.style.overflowY = old.bodyOverflowY;
+    body.scrollTop = old.bodyScrollTop;
+    body.scrollLeft = old.bodyScrollLeft;
+    if (modalInner) {
+      modalInner.style.maxWidth = old.innerMaxW;
+      modalInner.style.maxHeight = old.innerMaxH;
+      modalInner.style.height = old.innerHeight;
+      modalInner.style.overflow = old.innerOverflow;
+    }
+    if (modal) modal.style.overflow = old.modalOverflow;
+  }
+
   return html2canvas(body, {
     scale: 2,
     backgroundColor: '#ffffff',
+    useCORS: true,
     width: captureWidth,
+    height: captureHeight,
     windowWidth: captureWidth,
+    windowHeight: captureHeight,
     scrollX: 0,
-    scrollY: -window.scrollY
+    scrollY: 0
   }).then(function(canvas) {
-    // Restore
-    body.style.overflow = oldOverflow;
-    body.style.width = oldW;
-    if (modalInner) modalInner.style.maxWidth = oldMaxW;
-    if (modal) modal.style.overflow = oldPos;
+    restore();
     return canvas;
+  }, function(err) {
+    restore();
+    throw err;
   });
 }
 
