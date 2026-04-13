@@ -931,9 +931,23 @@ function buildWhere(filters) {
   if (filters.product_type && filters.product_type !== "All") {
     where.push(`pt.product_type_name = $${idx++}`); params.push(filters.product_type);
   }
-  if (filters.region) { where.push(`r.region_name = $${idx++}`); params.push(filters.region); }
-  if (filters.district) { where.push(`d.district_name = $${idx++}`); params.push(filters.district); }
-  if (filters.branch) { where.push(`b.branch_name = $${idx++}`); params.push(filters.branch); }
+  // Hierarchy filters — resolve via employee_master
+  if (filters.region || filters.state) {
+    where.push(`UPPER(b.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(region_name) ILIKE TRIM($${idx++}))`);
+    params.push(filters.region || filters.state);
+  }
+  if (filters.division) {
+    where.push(`UPPER(b.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(division_name) ILIKE TRIM($${idx++}))`);
+    params.push(filters.division);
+  }
+  if (filters.district || filters.area) {
+    where.push(`UPPER(b.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(area_name) ILIKE TRIM($${idx++}))`);
+    params.push(filters.district || filters.area);
+  }
+  if (filters.branch) {
+    where.push(`UPPER(b.branch_name) = UPPER($${idx++})`);
+    params.push(filters.branch);
+  }
   if (filters.emp_id) { where.push(`ep.emp_id = $${idx++}`); params.push(filters.emp_id); }
   return { clause: where.length ? " WHERE " + where.join(" AND ") : "", params };
 }
@@ -1696,9 +1710,23 @@ function buildPortfolioWhere(filters) {
   if (filters.product_type && filters.product_type !== 'All') {
     where.push(`pt.product_type_name = $${idx++}`); params.push(filters.product_type);
   }
-  if (filters.region) { where.push(`r.region_name = $${idx++}`); params.push(filters.region); }
-  if (filters.district) { where.push(`d.district_name = $${idx++}`); params.push(filters.district); }
-  if (filters.branch) { where.push(`b.branch_name = $${idx++}`); params.push(filters.branch); }
+  // Hierarchy filters — resolve via employee_master (case-insensitive, trimmed)
+  if (filters.region || filters.state) {
+    where.push(`UPPER(b.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(region_name) ILIKE TRIM($${idx++}))`);
+    params.push(filters.region || filters.state);
+  }
+  if (filters.division) {
+    where.push(`UPPER(b.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(division_name) ILIKE TRIM($${idx++}))`);
+    params.push(filters.division);
+  }
+  if (filters.district || filters.area) {
+    where.push(`UPPER(b.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(area_name) ILIKE TRIM($${idx++}))`);
+    params.push(filters.district || filters.area);
+  }
+  if (filters.branch) {
+    where.push(`UPPER(b.branch_name) = UPPER($${idx++})`);
+    params.push(filters.branch);
+  }
   if (filters.emp_id) { where.push(`pp.emp_id = $${idx++}`); params.push(filters.emp_id); }
   return { clause: where.length ? ' WHERE ' + where.join(' AND ') : '', params };
 }
@@ -2032,9 +2060,23 @@ function buildDailyWhere(filters) {
   if (filters.product_type && filters.product_type !== "All") {
     where.push("dp.product_type_id IN (SELECT product_type_id FROM product_types WHERE product_type_name=$" + idx++ + ")"); params.push(filters.product_type);
   }
-  if (filters.region) { where.push("r.region_name=$" + idx++); params.push(filters.region); }
-  if (filters.district) { where.push("d.district_name=$" + idx++); params.push(filters.district); }
-  if (filters.branch) { where.push("b.branch_name=$" + idx++); params.push(filters.branch); }
+  // Hierarchy filters — resolve via employee_master
+  if (filters.region || filters.state) {
+    where.push("UPPER(b.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(region_name) ILIKE TRIM($" + (idx++) + "))");
+    params.push(filters.region || filters.state);
+  }
+  if (filters.division) {
+    where.push("UPPER(b.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(division_name) ILIKE TRIM($" + (idx++) + "))");
+    params.push(filters.division);
+  }
+  if (filters.district || filters.area) {
+    where.push("UPPER(b.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(area_name) ILIKE TRIM($" + (idx++) + "))");
+    params.push(filters.district || filters.area);
+  }
+  if (filters.branch) {
+    where.push("UPPER(b.branch_name) = UPPER($" + (idx++) + ")");
+    params.push(filters.branch);
+  }
   if (filters.emp_id) { where.push("dp.emp_id=$" + idx++); params.push(filters.emp_id); }
   return { clause: where.length ? " WHERE " + where.join(" AND ") : "", params };
 }
@@ -2635,6 +2677,8 @@ function buildV2CollectionQuery(groupCol) {
   return `SELECT ${groupCol ? groupCol + "," : ""} ${V2_SELECT_METRICS} ${V2_JOIN}`;
 }
 
+// Resolve a hierarchy filter (state/region, division, area, branch) to a set of
+// v2_branches via employee_master — single source of truth, case-insensitive.
 function buildV2Where(filters) {
   const where = [];
   const params = [];
@@ -2642,10 +2686,23 @@ function buildV2Where(filters) {
   if (filters.product_type && filters.product_type !== "All") {
     where.push(`pt.product_type_name = $${idx++}`); params.push(filters.product_type);
   }
-  if (filters.state) { where.push(`s.state_name = $${idx++}`); params.push(filters.state); }
-  if (filters.division) { where.push(`dv.division_name = $${idx++}`); params.push(filters.division); }
-  if (filters.area) { where.push(`a.area_name = $${idx++}`); params.push(filters.area); }
-  if (filters.branch) { where.push(`b.branch_name = $${idx++}`); params.push(filters.branch); }
+  // Hierarchy filters — resolve via employee_master
+  if (filters.state || filters.region) {
+    where.push(`UPPER(b.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(region_name) ILIKE TRIM($${idx++}))`);
+    params.push(filters.state || filters.region);
+  }
+  if (filters.division) {
+    where.push(`UPPER(b.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(division_name) ILIKE TRIM($${idx++}))`);
+    params.push(filters.division);
+  }
+  if (filters.area || filters.district) {
+    where.push(`UPPER(b.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(area_name) ILIKE TRIM($${idx++}))`);
+    params.push(filters.area || filters.district);
+  }
+  if (filters.branch) {
+    where.push(`UPPER(b.branch_name) = UPPER($${idx++})`);
+    params.push(filters.branch);
+  }
   if (filters.emp_id) { where.push(`e.emp_id = $${idx++}`); params.push(filters.emp_id); }
   return { clause: where.length ? " WHERE " + where.join(" AND ") : "", params };
 }
@@ -2866,10 +2923,23 @@ function buildV2PortfolioWhere(filters) {
   if (filters.product_type && filters.product_type !== 'All') {
     where.push(`pt.product_type_name = $${idx++}`); params.push(filters.product_type);
   }
-  if (filters.state) { where.push(`s.state_name = $${idx++}`); params.push(filters.state); }
-  if (filters.division) { where.push(`dv.division_name = $${idx++}`); params.push(filters.division); }
-  if (filters.area) { where.push(`a.area_name = $${idx++}`); params.push(filters.area); }
-  if (filters.branch) { where.push(`b.branch_name = $${idx++}`); params.push(filters.branch); }
+  // Hierarchy filters — resolve via employee_master
+  if (filters.state || filters.region) {
+    where.push(`UPPER(b.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(region_name) ILIKE TRIM($${idx++}))`);
+    params.push(filters.state || filters.region);
+  }
+  if (filters.division) {
+    where.push(`UPPER(b.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(division_name) ILIKE TRIM($${idx++}))`);
+    params.push(filters.division);
+  }
+  if (filters.area || filters.district) {
+    where.push(`UPPER(b.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(area_name) ILIKE TRIM($${idx++}))`);
+    params.push(filters.area || filters.district);
+  }
+  if (filters.branch) {
+    where.push(`UPPER(b.branch_name) = UPPER($${idx++})`);
+    params.push(filters.branch);
+  }
   if (filters.emp_id) { where.push(`pp.emp_id = $${idx++}`); params.push(filters.emp_id); }
   return { clause: where.length ? ' WHERE ' + where.join(' AND ') : '', params };
 }
@@ -3873,9 +3943,23 @@ function buildHourlyWhere(filters) {
   if (filters.product_type && filters.product_type !== "All") {
     where.push("pt.product_type_name = $" + idx++); params.push(filters.product_type);
   }
-  if (filters.region) { where.push("r.region_name = $" + idx++); params.push(filters.region); }
-  if (filters.district) { where.push("d.district_name = $" + idx++); params.push(filters.district); }
-  if (filters.branch) { where.push("b.branch_name = $" + idx++); params.push(filters.branch); }
+  // Hierarchy filters — resolve via employee_master
+  if (filters.region || filters.state) {
+    where.push("UPPER(b.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(region_name) ILIKE TRIM($" + (idx++) + "))");
+    params.push(filters.region || filters.state);
+  }
+  if (filters.division) {
+    where.push("UPPER(b.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(division_name) ILIKE TRIM($" + (idx++) + "))");
+    params.push(filters.division);
+  }
+  if (filters.district || filters.area) {
+    where.push("UPPER(b.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(area_name) ILIKE TRIM($" + (idx++) + "))");
+    params.push(filters.district || filters.area);
+  }
+  if (filters.branch) {
+    where.push("UPPER(b.branch_name) = UPPER($" + (idx++) + ")");
+    params.push(filters.branch);
+  }
   if (filters.emp_id) { where.push("ep.emp_id = $" + idx++); params.push(filters.emp_id); }
   return { clause: where.length ? " WHERE " + where.join(" AND ") : "", params: params };
 }
