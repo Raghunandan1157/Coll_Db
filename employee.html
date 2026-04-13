@@ -3309,14 +3309,19 @@ document.addEventListener('keydown', function(e) {
 
 <script>
 (function() {
-  if (window.location.hash === '#settings') {
-    window.addEventListener('DOMContentLoaded', function() {
-      if (typeof switchEmpTab === 'function') switchEmpTab('settings');
+  // Hash-based tab routing — e.g. employee.html#dailyreports opens the embedded DR tab
+  var hash = (window.location.hash || '').replace('#', '').toLowerCase();
+  var validTabs = ['collection','portfolio','disbursement','hourly','comparison','analytical','dailyreports','settings'];
+  if (hash && validTabs.indexOf(hash) !== -1) {
+    var openTab = function() {
+      if (typeof switchEmpTab === 'function') switchEmpTab(hash);
+    };
+    window.addEventListener('DOMContentLoaded', openTab);
+    if (document.readyState !== 'loading') openTab();
+    // Re-run on bfcache restore (browser back navigation)
+    window.addEventListener('pageshow', function(e) {
+      if (e.persisted && (window.location.hash || '').replace('#','').toLowerCase() === hash) openTab();
     });
-    // Also try immediately in case DOM is already ready
-    if (document.readyState !== 'loading' && typeof switchEmpTab === 'function') {
-      switchEmpTab('settings');
-    }
   }
 })();
 </script>
