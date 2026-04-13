@@ -1986,6 +1986,44 @@ function popStack() {
 
 
 // --- RENDERERS ---
+
+// Reusable empty state builder. variant: 'no-plans' | 'no-data' | 'all-set'
+function renderEmptyState(opts) {
+    const variant = opts.variant || 'no-data';
+    const title = opts.title || 'Nothing to show';
+    const text = opts.text || '';
+    const ctaLabel = opts.ctaLabel || '';
+    const ctaOnClick = opts.ctaOnClick || '';
+    const wrapperClass = opts.wrapperClass || 'empty-state-card';
+
+    let iconSvg = '';
+    if (variant === 'no-plans') {
+        // clipboard with checkmark
+        iconSvg = '<svg class="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="m9 14 2 2 4-4"/></svg>';
+    } else if (variant === 'all-set') {
+        // green check circle
+        iconSvg = '<svg class="empty-state-icon" style="color:#10B981;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>';
+    } else {
+        // no-data: inbox / empty doc
+        iconSvg = '<svg class="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>';
+    }
+
+    const ctaHtml = ctaLabel
+        ? `<button class="empty-state-cta" onclick="${ctaOnClick}">${ctaLabel}</button>`
+        : '';
+
+    return `
+        <div class="${wrapperClass}">
+            <div class="empty-state">
+                ${iconSvg}
+                <div class="empty-state-title">${title}</div>
+                <div class="empty-state-text">${text}</div>
+                ${ctaHtml}
+            </div>
+        </div>
+    `;
+}
+
 function renderDashboard() {
     const container = document.getElementById("dashboard-container");
 
@@ -3710,6 +3748,19 @@ function renderCompletionAlert(stats, mode) {
 }
 
 function renderCEOPlanDashboard(stats, buffer) {
+    // Full empty state: no branch has set any plan for this date
+    const branchesWithPlans = stats.totalBranches - stats.noDataBranches;
+    if (stats.totalBranches > 0 && branchesWithPlans === 0 && stats.totalCollectionPlan === 0) {
+        buffer.innerHTML += renderEmptyState({
+            variant: 'no-plans',
+            title: 'No plans set for this date',
+            text: `None of the ${stats.totalBranches} branches have entered daily plans yet. Open the hierarchy to drill into a branch and set targets.`,
+            ctaLabel: 'Open Hierarchy',
+            ctaOnClick: "switchTab('hierarchy')"
+        });
+        return;
+    }
+
     // ALERT BANNER
     buffer.innerHTML += renderCompletionAlert(stats, 'PLAN');
 
@@ -3854,6 +3905,18 @@ function renderCEOPlanDashboard(stats, buffer) {
 }
 
 function renderCEOReviewDashboard(stats, buffer) {
+    // Full empty state: no branch has submitted any achievement data for this date
+    if (stats.totalBranches > 0 && stats.completedBranches === 0 && stats.onlyPlans === 0) {
+        buffer.innerHTML += renderEmptyState({
+            variant: 'no-data',
+            title: 'No reports submitted yet',
+            text: `None of the ${stats.totalBranches} branches have submitted plans or achievements for this date. Pick another date or switch to Plan mode to start setting targets.`,
+            ctaLabel: 'Switch to Plan Mode',
+            ctaOnClick: "var t=document.getElementById('viewModeToggle');if(t){t.checked=false;toggleViewMode();}"
+        });
+        return;
+    }
+
     // ALERT BANNER
     buffer.innerHTML += renderCompletionAlert(stats, 'REVIEW');
 

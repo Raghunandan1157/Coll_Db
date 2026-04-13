@@ -7,7 +7,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
-  <title>Employee Dashboard</title>
+  <title>NLPL Dashboard</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/styles.css?v=2">
   <link rel="stylesheet" href="css/desktop.css?v=5">
@@ -243,36 +243,65 @@
 
       <div class="emp-tab-content active" id="portfolioTab">
         <div id="portfolioContent">
-          <div style="text-align:center;padding:60px 20px;">
-            <div style="width:28px;height:28px;border:3px solid #E2E8F0;border-top-color:#059669;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px;"></div>
-            <p style="color:#64748B;font-size:13px;">Loading portfolio data...</p>
+          <div class="skeleton-grid">
+            <div class="skeleton skeleton-card"></div>
+            <div class="skeleton skeleton-card"></div>
+            <div class="skeleton skeleton-card"></div>
+            <div class="skeleton skeleton-card"></div>
+          </div>
+          <div class="skeleton-table">
+            <div class="skeleton-row"><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span></div>
+            <div class="skeleton-row"><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span></div>
+            <div class="skeleton-row"><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span></div>
+            <div class="skeleton-row"><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span></div>
+            <div class="skeleton-row"><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span></div>
           </div>
         </div>
       </div>
 
       <div class="emp-tab-content" id="disbursementTab">
         <div id="disbursementContent">
-          <div style="text-align:center;padding:60px 20px;">
-            <div style="width:28px;height:28px;border:3px solid #E2E8F0;border-top-color:#059669;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px;"></div>
-            <p style="color:#64748B;font-size:13px;">Loading disbursement data...</p>
+          <div class="skeleton-grid">
+            <div class="skeleton skeleton-card"></div>
+            <div class="skeleton skeleton-card"></div>
+            <div class="skeleton skeleton-card"></div>
+            <div class="skeleton skeleton-card"></div>
+          </div>
+          <div class="skeleton-table">
+            <div class="skeleton-row"><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span></div>
+            <div class="skeleton-row"><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span></div>
+            <div class="skeleton-row"><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span></div>
+            <div class="skeleton-row"><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span></div>
+            <div class="skeleton-row"><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span></div>
           </div>
         </div>
       </div>
 
       <div class="emp-tab-content" id="collectionTab">
         <div id="collectionContent">
-          <div style="text-align:center;padding:60px 20px;">
-            <div style="width:28px;height:28px;border:3px solid #E2E8F0;border-top-color:#059669;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px;"></div>
-            <p style="color:#64748B;font-size:13px;">Loading collection data...</p>
+          <div class="skeleton-grid">
+            <div class="skeleton skeleton-card"></div>
+            <div class="skeleton skeleton-card"></div>
+            <div class="skeleton skeleton-card"></div>
+            <div class="skeleton skeleton-card"></div>
+          </div>
+          <div class="skeleton-table">
+            <div class="skeleton-row"><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span></div>
+            <div class="skeleton-row"><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span></div>
+            <div class="skeleton-row"><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span></div>
+            <div class="skeleton-row"><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span></div>
+            <div class="skeleton-row"><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span></div>
           </div>
         </div>
       </div>
 
       <div class="emp-tab-content" id="hourlyTab">
         <div id="hourlyContent">
-          <div style="text-align:center;padding:60px 20px;">
-            <div style="width:28px;height:28px;border:3px solid #E2E8F0;border-top-color:#059669;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px;"></div>
-            <p style="color:#64748B;font-size:13px;">Loading hourly data...</p>
+          <div class="skeleton-wrap">
+            <div class="skeleton skeleton-line lg"></div>
+            <div class="skeleton skeleton-card" style="height:220px;"></div>
+            <div class="skeleton skeleton-line sm"></div>
+            <div class="skeleton skeleton-line"></div>
           </div>
         </div>
       </div>
@@ -2207,14 +2236,14 @@ function _drBuildReportTable(date, level, type) {
   document.getElementById('drReportModal').style.display = 'block';
 
   if (!_drHierarchyReady) {
-    document.getElementById('drReportBody').innerHTML = '<div style="text-align:center;padding:40px;color:#94A3B8;">Loading branch hierarchy…</div>';
+    document.getElementById('drReportBody').innerHTML = '<div class="skeleton-table"><div class="skeleton-row"><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span></div><div class="skeleton-row"><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span></div><div class="skeleton-row"><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span></div><div class="skeleton-row"><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span></div></div>';
     window._drHierarchyPromise.then(function() {
       _drBuildReportTable(date, level, type);
     });
     return;
   }
 
-  document.getElementById('drReportBody').innerHTML = '<div style="text-align:center;padding:40px;color:#94A3B8;">Loading…</div>';
+  document.getElementById('drReportBody').innerHTML = '<div class="skeleton-table"><div class="skeleton-row"><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span></div><div class="skeleton-row"><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span></div><div class="skeleton-row"><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span></div><div class="skeleton-row"><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span></div><div class="skeleton-row"><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span></div><div class="skeleton-row"><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span><span class="skeleton skeleton-line"></span></div></div>';
 
   // Fetch data from API
   fetch('/api/daily-plan/reports?from=' + date + '&to=' + date)
@@ -2309,6 +2338,21 @@ function _drRenderTable(title, level, planData, achData, type) {
 
   var gt = {name:'Grand Total',ftod:0,feb:0,dpd31:0,pnpa:0,npa_act:0,npa_clo:0,ns:0,ns_plan:0,disb_iglfig_acc:0,disb_iglfig_amt:0,disb_il_acc:0,disb_il_amt:0,kyc_figIgl:0,kyc_il:0};
   rows.forEach(function(r){ Object.keys(gt).forEach(function(k){ if(k!=='name') gt[k]+=r[k]||0; }); });
+
+  // Empty-state: no plans returned OR every numeric column sums to zero
+  var gtSum = 0;
+  Object.keys(gt).forEach(function(k){ if(k!=='name') gtSum += gt[k]||0; });
+  if (planData.length === 0 || gtSum === 0) {
+    var emptyIcon = '<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="opacity:.7;margin-bottom:16px;"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="m9 14 2 2 4-4"/></svg>';
+    document.getElementById('drReportBody').innerHTML =
+      '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 24px;text-align:center;">' +
+      emptyIcon +
+      '<div style="font-size:18px;font-weight:600;color:#1E293B;margin-bottom:8px;">No plans for this date</div>' +
+      '<div style="font-size:14px;color:#64748B;max-width:420px;margin-bottom:20px;line-height:1.5;">No branch has entered a daily plan for <strong>' + (title.split('— ').pop() || '') + '</strong>. Ask branch managers to submit their targets, or pick another date.</div>' +
+      '<button onclick="document.getElementById(\'drReportModal\').style.display=\'none\';" style="padding:10px 20px;border-radius:10px;border:none;background:#6366F1;color:#fff;font-weight:600;font-size:14px;cursor:pointer;">Close</button>' +
+      '</div>';
+    return;
+  }
 
   var v=function(n){return n?n.toLocaleString('en-IN'):'-';};
   var a=function(n){return n?(n>=10000000?(n/10000000).toFixed(2)+'Cr':(n>=100000?(n/100000).toFixed(2)+'L':n.toLocaleString('en-IN'))):'-';};
