@@ -3980,6 +3980,27 @@ app.get("/api/daily-plan/achievements", async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// GET /api/daily-plan/check-chain?branch=NAME&date=ISO
+// Chain-of-consistency rule: if previous-day plan exists but its achievement is missing,
+// block entry for the requested date. Returns {blocked, missingDate}.
+app.get("/api/daily-plan/check-chain", async (req, res) => {
+  try {
+    const { branch, date } = req.query;
+    if (!branch || !date) return res.json({ blocked: false });
+    const prev = await pool.query(`
+      SELECT date FROM daily_reports
+      WHERE UPPER(branch_name) = UPPER($1) AND date < $2::date
+      ORDER BY date DESC LIMIT 1`, [branch, date]);
+    if (!prev.rows.length) return res.json({ blocked: false });
+    const prevDate = prev.rows[0].date;
+    const ach = await pool.query(`
+      SELECT 1 FROM daily_reports_achievements
+      WHERE UPPER(branch_name) = UPPER($1) AND date = $2::date LIMIT 1`, [branch, prevDate]);
+    if (ach.rows.length > 0) return res.json({ blocked: false });
+    res.json({ blocked: true, missingDate: prevDate });
+  } catch(e) { res.status(500).json({ error: e.message, blocked: false }); }
+});
+
 // GET /api/daily-plan/monthly-actuals?branch=NAME&date=ISO
 // Returns the earliest row in the current month (excluding today) where any DPD actual is set.
 // Used to lock DPD actual fields once set per month.
