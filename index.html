@@ -513,6 +513,44 @@
 
     var _roleSearchPending = false;
 
+    // Render role results with a built-in filter input above the list
+    function _renderRoleResultsWithFilter(fullList, cfg, initialFilter, extra) {
+      extra = extra || {};
+      var listContainerId = 'roleListContainer';
+      var filterInputId = 'roleFilterInput';
+
+      var renderList = function (val) {
+        var filtered = val ? fullList.filter(function (n) { return n.toUpperCase().includes(val.toUpperCase()); }) : fullList.slice();
+        var box = document.getElementById(listContainerId);
+        if (!box) return;
+        if (!filtered.length) { box.innerHTML = '<div class="status" style="padding:16px;">No matches</div>'; return; }
+        box.innerHTML = filtered.map(function (name) {
+          return renderRoleRow(cfg.display, name, cfg.subtitle + ' \u2014 ' + name, val || '', extra);
+        }).join('');
+      };
+
+      var wrap = '';
+      wrap += '<div style="padding:4px 0 0;">';
+      wrap += '<div style="position:relative;margin-bottom:10px;">';
+      wrap += '<svg style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#94A3B8;" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>';
+      wrap += '<input id="' + filterInputId + '" type="text" autocomplete="off" placeholder="Filter ' + cfg.display + ' locations..." value="' + (initialFilter ? initialFilter.replace(/"/g,'&quot;') : '') + '" ';
+      wrap += 'style="width:100%;padding:10px 14px 10px 36px;border:1px solid #E2E8F0;border-radius:10px;font-size:14px;outline:none;background:#F8FAFC;">';
+      wrap += '</div>';
+      wrap += '<div id="' + listContainerId + '"></div>';
+      wrap += '</div>';
+      results.innerHTML = wrap;
+
+      var inp = document.getElementById(filterInputId);
+      if (inp) {
+        inp.addEventListener('input', function () { renderList(this.value.trim()); });
+        inp.addEventListener('focus', function () { this.style.borderColor = '#6366F1'; this.style.background = '#fff'; });
+        inp.addEventListener('blur', function () { this.style.borderColor = '#E2E8F0'; this.style.background = '#F8FAFC'; });
+        // Auto-focus the filter input
+        setTimeout(function () { try { inp.focus(); } catch (e) { } }, 50);
+      }
+      renderList(initialFilter || '');
+    }
+
     search.addEventListener('input', function () {
       var q = this.value.trim();
       if (q.length < 1) {
@@ -542,23 +580,21 @@
         if (rawRole === 'SM') rawRole = 'RM';
         if (rawRole === 'DVM') rawRole = 'DM';
 
-        // Use V2 endpoints when new structure is active
-        if (_isNew && (rawRole === 'RM' || rawRole === 'DM' || rawRole === 'AM')) {
+        // Use V2 endpoints when new structure is active — BM now included
+        if (_isNew && (rawRole === 'RM' || rawRole === 'DM' || rawRole === 'AM' || rawRole === 'BM')) {
           var v2Map = {
-            RM: { roleKey: 'states', endpoint: '/api/v2/collection/by-state', subtitle: 'Regional Manager', display: 'RM' },
-            DM: { roleKey: 'divisions', endpoint: '/api/v2/collection/by-division', subtitle: 'Division Manager', display: 'DM' },
-            AM: { roleKey: 'areas', endpoint: '/api/v2/collection/by-area', subtitle: 'Area Manager', display: 'AM' }
+            RM: { roleKey: 'regions', endpoint: null, subtitle: 'Regional Manager', display: 'RM' },
+            DM: { roleKey: 'divisions', endpoint: null, subtitle: 'Division Manager', display: 'DM' },
+            AM: { roleKey: 'areas', endpoint: null, subtitle: 'Area Manager', display: 'AM' },
+            BM: { roleKey: 'branches', endpoint: null, subtitle: 'Branch Manager', display: 'BM' }
           };
           var cfg = v2Map[rawRole];
           results.innerHTML = '<div class="status"><div class="spinner"></div>Loading locations...</div>';
           _roleSearchPending = true;
-          _fetchNewLocations(cfg.endpoint, cfg.roleKey).then(function (list) {
+          _fetchNewLocations(cfg.endpoint, cfg.roleKey).then(function (fullList) {
             if (!_roleSearchPending) return;
-            if (filter) list = list.filter(function (n) { return n.toUpperCase().includes(filter); });
-            if (!list.length) { results.innerHTML = '<div class="status">No locations found</div>'; return; }
-            results.innerHTML = list.map(function (name) {
-              return renderRoleRow(cfg.display, name, cfg.subtitle + ' \u2014 ' + name, filter, { structure: 'new' });
-            }).join('');
+            if (!fullList.length) { results.innerHTML = '<div class="status">No locations found</div>'; return; }
+            _renderRoleResultsWithFilter(fullList, cfg, filter, { structure: 'new' });
           });
           return;
         }
@@ -575,18 +611,10 @@
           else if (role === 'DM') { list = data.districts; subtitle = 'Division Manager'; }
           else { list = data.branches; subtitle = 'Branch Manager'; }
 
-          if (filter) {
-            list = list.filter(function (n) { return n.toUpperCase().includes(filter); });
-          }
+          if (!list.length) { results.innerHTML = '<div class="status">No locations found</div>'; return; }
 
-          if (!list.length) {
-            results.innerHTML = '<div class="status">No locations found</div>';
-            return;
-          }
-
-          results.innerHTML = list.map(function (name) {
-            return renderRoleRow(role, name, subtitle + ' \u2014 ' + name, filter);
-          }).join('');
+          _renderRoleResultsWithFilter(list, { display: role, subtitle: subtitle }, filter, {});
+          return;
         });
         return;
       }
