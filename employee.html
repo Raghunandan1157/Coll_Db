@@ -384,7 +384,7 @@
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
                 </div>
               </div>
-              <div id="drBranchStats" style="display:flex;gap:24px;flex-wrap:wrap;">
+              <div id="drBranchStats" class="dr-bm-stats" style="display:flex;gap:24px;flex-wrap:wrap;">
                 <div><div style="font-size:11px;opacity:0.7;">Plan Status</div><div style="font-size:18px;font-weight:700;" id="drPlanStatus">Not Set</div></div>
                 <div><div style="font-size:11px;opacity:0.7;">Today&apos;s Date</div><div style="font-size:18px;font-weight:700;" id="drTodayDate">—</div></div>
                 <div><div style="font-size:11px;opacity:0.7;">Achievement</div><div style="font-size:18px;font-weight:700;" id="drAchievement">Not Set</div></div>
@@ -392,7 +392,7 @@
             </div>
 
             <!-- BM Quick Actions -->
-            <div style="display:flex;gap:10px;margin-top:12px;">
+            <div class="dr-bm-actions" style="display:flex;gap:10px;margin-top:12px;">
               <button onclick="window._drOpenPlanEntry()" style="flex:1;padding:12px;border-radius:10px;border:2px solid #059669;background:#F0FDF4;color:#059669;font-weight:600;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 Enter Today&apos;s Plan
@@ -412,10 +412,10 @@
             </div>
 
             <!-- Date + Level row -->
-            <div style="padding:16px 20px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:16px;border-bottom:1px solid #F1F5F9;">
+            <div class="dr-builder-row" style="padding:16px 20px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:16px;border-bottom:1px solid #F1F5F9;">
               <div>
                 <div style="font-size:13px;font-weight:600;color:#475569;margin-bottom:10px;">1. Select Date Range</div>
-                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                <div class="dr-pills" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                   <button onclick="window._drSetDate(-1)" style="padding:8px 16px;border-radius:8px;border:1px solid var(--border-color,#E2E8F0);background:var(--bg-card,#fff);color:var(--text-secondary,#334155);font-weight:500;font-size:13px;cursor:pointer;">Yesterday</button>
                   <button onclick="window._drSetDate(0)" id="drBtnToday" style="padding:8px 16px;border-radius:8px;border:none;background:#6366F1;color:#fff;font-weight:600;font-size:13px;cursor:pointer;">Today</button>
                   <button onclick="window._drSetDate(1)" style="padding:8px 16px;border-radius:8px;border:1px solid var(--border-color,#E2E8F0);background:var(--bg-card,#fff);color:var(--text-secondary,#334155);font-weight:500;font-size:13px;cursor:pointer;">Tomorrow</button>
@@ -424,7 +424,7 @@
               </div>
               <div>
                 <div style="font-size:13px;font-weight:600;color:#475569;margin-bottom:10px;">2. Report Level</div>
-                <div style="display:flex;gap:8px;" id="drLevelBtns">
+                <div class="dr-pills" style="display:flex;gap:8px;" id="drLevelBtns">
                   <button onclick="window._drSetLevel('REGION')" class="dr-lvl active" style="padding:8px 18px;border-radius:8px;border:none;background:#6366F1;color:#fff;font-weight:600;font-size:13px;cursor:pointer;">Region Level</button>
                   <button onclick="window._drSetLevel('DIVISION')" class="dr-lvl" style="padding:8px 18px;border-radius:8px;border:1px solid var(--border-color,#E2E8F0);background:var(--bg-card,#fff);color:var(--text-secondary,#334155);font-weight:500;font-size:13px;cursor:pointer;">Division Level</button>
                   <button onclick="window._drSetLevel('AREA')" class="dr-lvl" style="padding:8px 18px;border-radius:8px;border:1px solid var(--border-color,#E2E8F0);background:var(--bg-card,#fff);color:var(--text-secondary,#334155);font-weight:500;font-size:13px;cursor:pointer;">Area Level</button>
@@ -434,7 +434,7 @@
             </div>
 
             <!-- Action Buttons -->
-            <div style="padding:16px 20px;display:flex;justify-content:center;gap:12px;flex-wrap:wrap;">
+            <div class="dr-builder-actions" style="padding:16px 20px;display:flex;justify-content:center;gap:12px;flex-wrap:wrap;">
               <button onclick="window._drGeneratePlan()" style="padding:12px 28px;border-radius:10px;border:2px solid #6366F1;background:var(--bg-card,#fff);color:#6366F1;font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
                 Generate Plan Report
@@ -2012,18 +2012,42 @@ document.addEventListener('click', function(e) {
 
 
 <!-- Daily Reports Branch Detail Modal (native) -->
+<style>
+  /* Daily Reports BM modal — mobile stacking */
+  @media (max-width: 767px) {
+    #drBranchModal { padding: 8px !important; }
+    #drBranchModal > div { max-width: 100% !important; }
+    #drBranchModal .dr-grid-3,
+    #drBranchModal .dr-grid-2 { grid-template-columns: 1fr !important; gap: 12px !important; }
+    #drBranchModal .dr-modal-form { padding: 16px !important; }
+    #drBranchModal .dr-modal-header { padding: 12px 16px !important; }
+    #drBranchModal .dr-modal-footer { padding: 12px 16px !important; flex-direction: column-reverse !important; }
+    #drBranchModal .dr-modal-footer button { width: 100% !important; }
+  }
+  /* BM card and report builder — mobile stacking */
+  @media (max-width: 767px) {
+    #drBranchCard .dr-bm-actions { flex-direction: column !important; }
+    #drBranchCard .dr-bm-actions button { width: 100% !important; }
+    #drBranchCard .dr-bm-stats { flex-direction: column !important; gap: 12px !important; }
+    .dr-builder-row { flex-direction: column !important; align-items: stretch !important; }
+    .dr-builder-row > div { width: 100% !important; }
+    .dr-builder-row .dr-pills { flex-wrap: wrap !important; }
+    .dr-builder-actions { flex-direction: column !important; }
+    .dr-builder-actions button { width: 100% !important; }
+  }
+</style>
 <div id="drBranchModal" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.4);backdrop-filter:blur(2px);overflow-y:auto;padding:20px;">
   <div style="max-width:900px;margin:0 auto;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,0.15);">
     <!-- Header -->
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 24px;border-bottom:1px solid #E2E8F0;">
+    <div class="dr-modal-header" style="display:flex;justify-content:space-between;align-items:center;padding:16px 24px;border-bottom:1px solid #E2E8F0;">
       <span id="drModalTitle" style="font-size:18px;font-weight:700;color:#1E293B;">Branch — Details</span>
       <button onclick="closeDrBranchModal()" style="background:none;border:none;font-size:28px;color:#94A3B8;cursor:pointer;line-height:1;">&times;</button>
     </div>
-    
+
     <!-- Form -->
-    <div style="padding:20px 24px;">
+    <div class="dr-modal-form" style="padding:20px 24px;">
       <!-- Row 1: FTOD + 1-30 DPD + Disbursement -->
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px;">
+      <div class="dr-grid-3" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px;">
         
         <!-- FTOD -->
         <div style="border:1px solid #E2E8F0;border-radius:12px;padding:16px;">
@@ -2068,7 +2092,7 @@ document.addEventListener('click', function(e) {
       </div>
       
       <!-- Row 2: 31-60 + 61-90 + KYC -->
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px;">
+      <div class="dr-grid-3" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px;">
         
         <!-- 31-60 DPD -->
         <div style="border:1px solid #EF444440;border-radius:12px;padding:16px;background:#FEF2F220;">
@@ -2107,7 +2131,7 @@ document.addEventListener('click', function(e) {
       </div>
       
       <!-- Row 3: NPA + FY Non-Starter -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+      <div class="dr-grid-2" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
         <div style="border:1px solid #E2E8F0;border-radius:12px;padding:16px;">
           <h4 style="text-align:center;font-size:13px;font-weight:700;color:#6366F1;margin:0 0 12px;">NPA ACCOUNTS</h4>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
@@ -2130,7 +2154,7 @@ document.addEventListener('click', function(e) {
     </div>
     
     <!-- Footer -->
-    <div style="display:flex;justify-content:flex-end;gap:10px;padding:16px 24px;border-top:1px solid #E2E8F0;background:#F8FAFC;border-radius:0 0 16px 16px;">
+    <div class="dr-modal-footer" style="display:flex;justify-content:flex-end;gap:10px;padding:16px 24px;border-top:1px solid #E2E8F0;background:#F8FAFC;border-radius:0 0 16px 16px;">
       <button onclick="closeDrBranchModal()" style="padding:10px 20px;border:1px solid #E2E8F0;border-radius:8px;background:#fff;color:#475569;font-weight:500;cursor:pointer;">Cancel</button>
       <button onclick="saveDrBranchData()" style="padding:10px 24px;border:none;border-radius:8px;background:#059669;color:#fff;font-weight:600;cursor:pointer;">Save &amp; Close</button>
     </div>
