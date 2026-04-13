@@ -408,21 +408,49 @@
 
     // Cached location data for new structure
     var _newLocationCache = {};
-    function _fetchNewLocations(endpoint, key) {
-      if (_newLocationCache[key]) return Promise.resolve(_newLocationCache[key]);
-      return fetch(endpoint)
+    // Single source of truth: employee_master via /api/daily-plan/branches
+    // Derive unique regions/divisions/areas/branches from one fetch.
+    var _branchHierarchyPromise = null;
+    function _getBranchHierarchy() {
+      if (_branchHierarchyPromise) return _branchHierarchyPromise;
+      _branchHierarchyPromise = fetch('/api/daily-plan/branches')
         .then(function (res) { return res.json(); })
         .then(function (data) {
-          var list = Array.isArray(data) ? data.map(function (r) {
-            return r.state_name || r.division_name || r.area_name || r.branch_name || r.name || String(r);
-          }) : [];
-          _newLocationCache[key] = list;
-          return list;
+          if (!Array.isArray(data)) return { regions: [], divisions: [], areas: [], branches: [] };
+          var regSet = new Set(), divSet = new Set(), areaSet = new Set(), brSet = new Set();
+          data.forEach(function (r) {
+            if (r.region_name) regSet.add(r.region_name);
+            if (r.division_name) divSet.add(r.division_name);
+            if (r.area_name) areaSet.add(r.area_name);
+            if (r.branch_name) brSet.add(r.branch_name);
+          });
+          var cmp = function(a,b){ return a.localeCompare(b); };
+          return {
+            regions: Array.from(regSet).sort(cmp),
+            divisions: Array.from(divSet).sort(cmp),
+            areas: Array.from(areaSet).sort(cmp),
+            branches: Array.from(brSet).sort(cmp)
+          };
         })
         .catch(function (err) {
-          console.error('New location fetch error:', err);
-          return [];
+          console.error('Branch hierarchy fetch error:', err);
+          return { regions: [], divisions: [], areas: [], branches: [] };
         });
+      return _branchHierarchyPromise;
+    }
+    function _fetchNewLocations(endpoint, key) {
+      // key maps: 'states'→regions, 'divisions'→divisions, 'areas'→areas
+      if (_newLocationCache[key]) return Promise.resolve(_newLocationCache[key]);
+      return _getBranchHierarchy().then(function (h) {
+        var list;
+        if (key === 'states' || key === 'regions') list = h.regions;
+        else if (key === 'divisions') list = h.divisions;
+        else if (key === 'areas') list = h.areas;
+        else if (key === 'branches') list = h.branches;
+        else list = [];
+        _newLocationCache[key] = list;
+        return list;
+      });
     }
 
     // Load employees from server API
