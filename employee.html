@@ -2637,62 +2637,76 @@ function _drGetKeysForLevel(level) {
   return Array.from(keys).sort();
 }
 
-function _drRenderTable(title, level, planData, achData, type) {
-  // Ensure all numeric fields are actual numbers (API may return strings)
-  var toNum = function(v){ return Number(v) || 0; };
-  // Case-insensitive keying: employee_master uses mixed case ("Bidar"),
-  // legacy employee_performance and old saves use UPPERCASE ("BIDAR").
+// Build rows for a given data source and mode ('plan' uses _plan fields, 'ach' uses _actual fields)
+function _drBuildRows(level, dataMap, mode) {
+  var N = function(x){return Number(x)||0;};
   var _key = function(s){ return (s || '').toString().trim().toUpperCase(); };
-  var planMap = {}; planData.forEach(function(r){ planMap[_key(r.branch_name)] = r; });
-  var achMap = {}; achData.forEach(function(r){ achMap[_key(r.branch_name)] = r; });
+  var rowFromData = function(name, d) {
+    d = d || {};
+    var ftod = mode === 'ach' ? N(d.ftod_actual) : N(d.ftod_plan);
+    var feb = mode === 'ach' ? N(d.dpd_1_30_actual) : N(d.dpd_1_30_plan);
+    var dpd31 = mode === 'ach' ? N(d.dpd_31_60_actual) : N(d.dpd_31_60_plan);
+    var pnpa = mode === 'ach' ? N(d.dpd_61_90_actual) : N(d.dpd_61_90_plan);
+    return {
+      name: name,
+      ftod: ftod, feb: feb, dpd31: dpd31, pnpa: pnpa,
+      npa_act: N(d.npa_activation), npa_clo: N(d.npa_closure),
+      ns: N(d.fy_non_start_acc), ns_plan: N(d.fy_non_start_plan),
+      disb_iglfig_acc: N(d.disb_igl_acc) + N(d.disb_fig_acc),
+      disb_iglfig_amt: N(d.disb_igl_amt) + N(d.disb_fig_amt),
+      disb_il_acc: N(d.disb_il_acc), disb_il_amt: N(d.disb_il_amt),
+      kyc_figIgl: N(d.kyc_igl) + N(d.kyc_fig), kyc_il: N(d.kyc_il)
+    };
+  };
 
   var rows = [];
   if (level === 'BRANCH') {
     _drAllBranches.sort().forEach(function(br){
-      var p = planMap[_key(br)] || {};
-      var N=function(x){return Number(x)||0;};
-      rows.push({name:br, ftod:N(p.ftod_plan), feb:N(p.dpd_1_30_plan), dpd31:N(p.dpd_31_60_plan), pnpa:N(p.dpd_61_90_plan), npa_act:N(p.npa_activation), npa_clo:N(p.npa_closure), ns:N(p.fy_non_start_acc), ns_plan:N(p.fy_non_start_plan), disb_iglfig_acc:N(p.disb_igl_acc)+N(p.disb_fig_acc), disb_iglfig_amt:N(p.disb_igl_amt)+N(p.disb_fig_amt), disb_il_acc:N(p.disb_il_acc), disb_il_amt:N(p.disb_il_amt), kyc_figIgl:N(p.kyc_igl)+N(p.kyc_fig), kyc_il:N(p.kyc_il)});
+      rows.push(rowFromData(br, dataMap[_key(br)]));
     });
   } else {
-    // REGION, DIVISION, or AREA level
     _drGetKeysForLevel(level).forEach(function(key){
       var branchList = _drGetBranchesForLevel(level, key);
-      var agg = _drAggregate(branchList, planMap);
-      agg.name = key;
+      var agg = rowFromData(key, {});
+      branchList.forEach(function(br){
+        var d = dataMap[_key(br)] || {};
+        agg.ftod += (mode === 'ach' ? N(d.ftod_actual) : N(d.ftod_plan));
+        agg.feb += (mode === 'ach' ? N(d.dpd_1_30_actual) : N(d.dpd_1_30_plan));
+        agg.dpd31 += (mode === 'ach' ? N(d.dpd_31_60_actual) : N(d.dpd_31_60_plan));
+        agg.pnpa += (mode === 'ach' ? N(d.dpd_61_90_actual) : N(d.dpd_61_90_plan));
+        agg.npa_act += N(d.npa_activation);
+        agg.npa_clo += N(d.npa_closure);
+        agg.ns += N(d.fy_non_start_acc);
+        agg.ns_plan += N(d.fy_non_start_plan);
+        agg.disb_iglfig_acc += N(d.disb_igl_acc) + N(d.disb_fig_acc);
+        agg.disb_iglfig_amt += N(d.disb_igl_amt) + N(d.disb_fig_amt);
+        agg.disb_il_acc += N(d.disb_il_acc);
+        agg.disb_il_amt += N(d.disb_il_amt);
+        agg.kyc_figIgl += N(d.kyc_igl) + N(d.kyc_fig);
+        agg.kyc_il += N(d.kyc_il);
+      });
       rows.push(agg);
     });
   }
+  return rows;
+}
 
-  var gt = {name:'Grand Total',ftod:0,feb:0,dpd31:0,pnpa:0,npa_act:0,npa_clo:0,ns:0,ns_plan:0,disb_iglfig_acc:0,disb_iglfig_amt:0,disb_il_acc:0,disb_il_amt:0,kyc_figIgl:0,kyc_il:0};
-  rows.forEach(function(r){ Object.keys(gt).forEach(function(k){ if(k!=='name') gt[k]+=r[k]||0; }); });
+// Build HTML for a single table (plan OR achievement)
+function _drBuildTableHTML(tableTitle, level, rows, tableId, isAch) {
+  var gt = {ftod:0,feb:0,dpd31:0,pnpa:0,npa_act:0,npa_clo:0,ns:0,ns_plan:0,disb_iglfig_acc:0,disb_iglfig_amt:0,disb_il_acc:0,disb_il_amt:0,kyc_figIgl:0,kyc_il:0};
+  rows.forEach(function(r){ Object.keys(gt).forEach(function(k){ gt[k] += r[k] || 0; }); });
 
-  // Empty-state: no plans returned OR every numeric column sums to zero
-  var gtSum = 0;
-  Object.keys(gt).forEach(function(k){ if(k!=='name') gtSum += gt[k]||0; });
-  if (planData.length === 0 || gtSum === 0) {
-    var emptyIcon = '<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="opacity:.7;margin-bottom:16px;"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="m9 14 2 2 4-4"/></svg>';
-    document.getElementById('drReportBody').innerHTML =
-      '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 24px;text-align:center;">' +
-      emptyIcon +
-      '<div style="font-size:18px;font-weight:600;color:#1E293B;margin-bottom:8px;">No plans for this date</div>' +
-      '<div style="font-size:14px;color:#64748B;max-width:420px;margin-bottom:20px;line-height:1.5;">No branch has entered a daily plan for <strong>' + (title.split('— ').pop() || '') + '</strong>. Ask branch managers to submit their targets, or pick another date.</div>' +
-      '<button onclick="document.getElementById(\'drReportModal\').style.display=\'none\';" style="padding:10px 20px;border-radius:10px;border:none;background:#6366F1;color:#fff;font-weight:600;font-size:14px;cursor:pointer;">Close</button>' +
-      '</div>';
-    return;
-  }
-
-  var v=function(n){return n?n.toLocaleString('en-IN'):'-';};
-  var a=function(n){return n?(n>=10000000?(n/10000000).toFixed(2)+'Cr':(n>=100000?(n/100000).toFixed(2)+'L':n.toLocaleString('en-IN'))):'-';};
-
+  var v = function(n){ return n ? n.toLocaleString('en-IN') : '-'; };
+  var a = function(n){ return n ? (n>=10000000 ? (n/10000000).toFixed(2)+'Cr' : (n>=100000 ? (n/100000).toFixed(2)+'L' : n.toLocaleString('en-IN'))) : '-'; };
   var colLabel = level === 'BRANCH' ? 'BRANCH' : level === 'AREA' ? 'AREA' : level === 'DIVISION' ? 'DIVISION' : 'REGION';
   var s = 'border:1px solid #C0C0C0;padding:3px 4px;text-align:center;font-size:9px;white-space:nowrap;';
+  var titleBg = isAch ? '#F0FFF0' : '#E8F0FE';
+  var subHdr = isAch ? 'Ach' : 'Plan';
+
   var h = '<div style="background:#fff;padding:8px;">';
-  h += '<table id="drReportTable" style="border-collapse:collapse;width:100%;font-size:10px;">';
+  h += '<table id="' + tableId + '" style="border-collapse:collapse;width:100%;font-size:10px;">';
+  h += '<tr><td colspan="17" style="'+s+'background:'+titleBg+';font-size:12px;font-weight:700;text-align:center;padding:6px;">'+tableTitle+'</td></tr>';
 
-  // Title row
-  h += '<tr><td colspan="17" style="'+s+'background:#E8F0FE;font-size:12px;font-weight:700;text-align:center;padding:6px;">'+title+'</td></tr>';
-
-  // Header row 1 - group headers
   h += '<tr style="font-weight:700;">';
   h += '<td rowspan="2" style="'+s+'background:#F1F5F9;text-align:left;min-width:70px;">'+colLabel+'</td>';
   h += '<td style="'+s+'background:#DBEAFE;">FTOD</td>';
@@ -2705,20 +2719,15 @@ function _drRenderTable(title, level, planData, achData, type) {
   h += '<td colspan="2" style="'+s+'background:#FBCFE8;">KYC</td>';
   h += '</tr>';
 
-  // Header row 2 - sub headers
   h += '<tr style="font-weight:600;font-size:9px;">';
-  h += '<td style="'+s+'">Plan</td>';
-  h += '<td style="'+s+'">Plan</td>';
-  h += '<td style="'+s+'">Plan</td>';
-  h += '<td style="'+s+'">Plan</td>';
+  h += '<td style="'+s+'">'+subHdr+'</td>'.repeat(4);
   h += '<td style="'+s+'">Act</td><td style="'+s+'">Clo</td>';
-  h += '<td style="'+s+'">NS Acc</td><td style="'+s+'">NS Plan</td>'; // fy_non_start_acc, fy_non_start_plan
+  h += '<td style="'+s+'">NS Acc</td><td style="'+s+'">NS Plan</td>';
   h += '<td style="'+s+'">IGL&FIG<br>Acc</td><td style="'+s+'">IGL&FIG<br>Amt</td>';
   h += '<td style="'+s+'">IL Acc</td><td style="'+s+'">IL Amt</td>';
   h += '<td style="'+s+'">FIG&<br>IGL</td><td style="'+s+'">IL</td>';
   h += '</tr>';
 
-  // Data rows
   rows.forEach(function(r){
     h += '<tr>';
     h += '<td style="'+s+'text-align:left;font-weight:600;">'+r.name+'</td>';
@@ -2739,7 +2748,6 @@ function _drRenderTable(title, level, planData, achData, type) {
     h += '</tr>';
   });
 
-  // Grand Total
   h += '<tr style="background:#FEF9C3;font-weight:700;">';
   h += '<td style="'+s+'text-align:left;">Grand Total</td>';
   h += '<td style="'+s+'">'+v(gt.ftod)+'</td>';
@@ -2758,7 +2766,50 @@ function _drRenderTable(title, level, planData, achData, type) {
   h += '<td style="'+s+'">'+v(gt.kyc_il)+'</td>';
   h += '</tr></table></div>';
 
-  document.getElementById('drReportBody').innerHTML = h;
+  return h;
+}
+
+function _drRenderTable(title, level, planData, achData, type) {
+  var _key = function(s){ return (s || '').toString().trim().toUpperCase(); };
+  var planMap = {}; planData.forEach(function(r){ planMap[_key(r.branch_name)] = r; });
+  var achMap = {}; achData.forEach(function(r){ achMap[_key(r.branch_name)] = r; });
+
+  var dateDisplay = title.split('— ').pop() || '';
+  var planRows = _drBuildRows(level, planMap, 'plan');
+  var achRows = type === 'both' ? _drBuildRows(level, achMap, 'ach') : [];
+
+  // For single-mode PLAN report: keep empty-state behavior when nothing entered
+  if (type !== 'both') {
+    var totalSum = 0;
+    planRows.forEach(function(r){
+      totalSum += (r.ftod||0)+(r.feb||0)+(r.dpd31||0)+(r.pnpa||0)+(r.npa_act||0)+(r.npa_clo||0)+(r.ns||0)+(r.ns_plan||0)+(r.disb_iglfig_acc||0)+(r.disb_iglfig_amt||0)+(r.disb_il_acc||0)+(r.disb_il_amt||0)+(r.kyc_figIgl||0)+(r.kyc_il||0);
+    });
+    if (planData.length === 0 || totalSum === 0) {
+      var emptyIcon = '<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="opacity:.7;margin-bottom:16px;"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="m9 14 2 2 4-4"/></svg>';
+      document.getElementById('drReportBody').innerHTML =
+        '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 24px;text-align:center;">' +
+        emptyIcon +
+        '<div style="font-size:18px;font-weight:600;color:#1E293B;margin-bottom:8px;">No plans for this date</div>' +
+        '<div style="font-size:14px;color:#64748B;max-width:420px;margin-bottom:20px;line-height:1.5;">No branch has entered a daily plan for <strong>' + dateDisplay + '</strong>. Ask branch managers to submit their targets, or pick another date.</div>' +
+        '<button onclick="document.getElementById(\'drReportModal\').style.display=\'none\';" style="padding:10px 20px;border-radius:10px;border:none;background:#6366F1;color:#fff;font-weight:600;font-size:14px;cursor:pointer;">Close</button>' +
+        '</div>';
+      return;
+    }
+    document.getElementById('drReportBody').innerHTML = _drBuildTableHTML(title, level, planRows, 'drReportTable', false);
+    return;
+  }
+
+  // 'both' mode — always render BOTH tables stacked (even if achievement is empty)
+  var planTitle = 'PLAN — ' + level + ' — ' + dateDisplay;
+  var achTitle = 'ACHIEVEMENT — ' + level + ' — ' + dateDisplay;
+  var html = '';
+  html += _drBuildTableHTML(planTitle, level, planRows, 'drReportTable', false);
+  html += '<div style="height:20px;"></div>';
+  html += _drBuildTableHTML(achTitle, level, achRows, 'drReportTableAch', true);
+  if (achData.length === 0) {
+    html += '<div style="margin-top:8px;padding:10px 14px;background:#FFFBEB;border:1px solid #F59E0B;color:#92400E;border-radius:8px;font-size:12px;text-align:center;">No achievements submitted for ' + dateDisplay + ' yet.</div>';
+  }
+  document.getElementById('drReportBody').innerHTML = html;
 }
 
 function _drAggregate(branches, planMap) {
