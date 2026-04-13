@@ -1097,7 +1097,7 @@ process.on("unhandledRejection", (err) => {
 // ========== AWS Panel API Endpoints ==========
 
 // Whitelisted tables for direct query
-const AWS_PANEL_TABLES = ['regions', 'districts', 'branches', 'employees', 'employee_performance', 'product_types', 'hourly_performance', 'months', 'portfolio_performance', 'employee_master', 'daily_performance', 'v2_employee_performance', 'v2_employees', 'v2_branches', 'v2_areas', 'v2_divisions', 'v2_states'];
+const AWS_PANEL_TABLES = ['regions', 'districts', 'branches', 'employees', 'employee_performance', 'product_types', 'hourly_performance', 'months', 'portfolio_performance', 'employee_master', 'daily_performance', 'v2_employee_performance', 'v2_employees', 'v2_branches', 'v2_areas', 'v2_divisions', 'v2_states', 'daily_reports', 'daily_reports_achievements'];
 
 // Whitelisted base directories for file browsing
 const AWS_PANEL_DIRS = ['/home/ec2-user/Coll_Db', '/var/www/html/coll-db'];
