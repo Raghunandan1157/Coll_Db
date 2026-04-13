@@ -146,133 +146,7 @@ function setCachedData(key, data) {
 // --- DATA & STATE ---
 // V2 hierarchy: Branch → Area → Division → Region (state)
 const defaultTSVData = `Branch	Area	Division	Region
-BUDWAL	KADAPA	ANDRA PRADESH	ANDRA PRADESH
-DHARMAVARAM	KADAPA	ANDRA PRADESH	ANDRA PRADESH
-KADAPA	KADAPA	ANDRA PRADESH	ANDRA PRADESH
-KADIRI	KADAPA	ANDRA PRADESH	ANDRA PRADESH
-CHALLAKERE	CHITRADURGA	CHITRADURGA	CHITRADURGA
-CHANNAGIRI	CHITRADURGA	CHITRADURGA	CHITRADURGA
-CHITRADURGA	CHITRADURGA	CHITRADURGA	CHITRADURGA
-HIRIYUR	CHITRADURGA	CHITRADURGA	CHITRADURGA
-HOLAKERE	CHITRADURGA	CHITRADURGA	CHITRADURGA
-HOSADURGA	CHITRADURGA	CHITRADURGA	CHITRADURGA
-DAVANAGERE	DAVANAGERE	CHITRADURGA	CHITRADURGA
-HARIHARA	DAVANAGERE	CHITRADURGA	CHITRADURGA
-HONNALI	DAVANAGERE	CHITRADURGA	CHITRADURGA
-SANTHEBENNURU	DAVANAGERE	CHITRADURGA	CHITRADURGA
-AJJAMPURA	KADUR	CHITRADURGA	CHITRADURGA
-KADUR	KADUR	CHITRADURGA	CHITRADURGA
-PANCHANHALLI	KADUR	CHITRADURGA	CHITRADURGA
-TARIKERE	KADUR	CHITRADURGA	CHITRADURGA
-BALLARI	BALLARI	HOSPET	CHITRADURGA
-KUDATHINI	BALLARI	HOSPET	CHITRADURGA
-SANDURU	BALLARI	HOSPET	CHITRADURGA
-SIRUGUPPA	BALLARI	HOSPET	CHITRADURGA
-HAGARIBOMMANAHALLI	HOSPET	HOSPET	CHITRADURGA
-HOSPET	HOSPET	HOSPET	CHITRADURGA
-HUVENAHADAGALLI	HOSPET	HOSPET	CHITRADURGA
-KUDLIGI	HOSPET	HOSPET	CHITRADURGA
-HARAPANAHALLI	KOTTURU	HOSPET	CHITRADURGA
-JAGALORE	KOTTURU	HOSPET	CHITRADURGA
-KHANAHOSAHALLI	KOTTURU	HOSPET	CHITRADURGA
-KOTTURU	KOTTURU	HOSPET	CHITRADURGA
-BAGALKOT	BAGALKOT	BELAGAVI	DHARWAD
-BILAGI	BAGALKOT	BELAGAVI	DHARWAD
-JAMAKHANDI	BAGALKOT	BELAGAVI	DHARWAD
-LOKAPUR	BAGALKOT	BELAGAVI	DHARWAD
-BAILHONGAL	BELAGAVI	BELAGAVI	DHARWAD
-BELAGAVI	BELAGAVI	BELAGAVI	DHARWAD
-GOKAK	BELAGAVI	BELAGAVI	DHARWAD
-KITTUR	BELAGAVI	BELAGAVI	DHARWAD
-YARAGATTI	BELAGAVI	BELAGAVI	DHARWAD
-ATHANI	CHIKKODI	BELAGAVI	DHARWAD
-CHIKKODI	CHIKKODI	BELAGAVI	DHARWAD
-MUDALAGI	CHIKKODI	BELAGAVI	DHARWAD
-NIPPANI	CHIKKODI	BELAGAVI	DHARWAD
-BADAMI	BADAMI	HUBLI	DHARWAD
-GAJENDRAGAD	BADAMI	HUBLI	DHARWAD
-NARAGUNDA	BADAMI	HUBLI	DHARWAD
-RAMDURGA	BADAMI	HUBLI	DHARWAD
-DHARWAD	DHARWAD	HUBLI	DHARWAD
-HUBLI	DHARWAD	HUBLI	DHARWAD
-HUBLI-2	DHARWAD	HUBLI	DHARWAD
-KALGHATGI	DHARWAD	HUBLI	DHARWAD
-GADAG	GADAG	HUBLI	DHARWAD
-LAXMESHWAR	GADAG	HUBLI	DHARWAD
-MUNDARAGI	GADAG	HUBLI	DHARWAD
-GANGAVATHI	KUSHTAGI	HUBLI	DHARWAD
-HUNGUND	KUSHTAGI	HUBLI	DHARWAD
-KOPPAL	KUSHTAGI	HUBLI	DHARWAD
-KUSHTAGI	KUSHTAGI	HUBLI	DHARWAD
-AURAD	BIDAR	BIDAR	KALBURGI
-BHALKI	BIDAR	BIDAR	KALBURGI
-BIDAR	BIDAR	BIDAR	KALBURGI
-BIDAR-2	BIDAR	BIDAR	KALBURGI
-BASAVAKALYAN	HUMNABAD	BIDAR	KALBURGI
-HULSOOR	HUMNABAD	BIDAR	KALBURGI
-HUMNABAD	HUMNABAD	BIDAR	KALBURGI
-KAMALAPURA	HUMNABAD	BIDAR	KALBURGI
-LINGSUGUR	LINGSUGUR	BIDAR	KALBURGI
-MANVI	LINGSUGUR	BIDAR	KALBURGI
-RAICHUR	LINGSUGUR	BIDAR	KALBURGI
-SINDHNUR	LINGSUGUR	BIDAR	KALBURGI
-SIRWAR	LINGSUGUR	BIDAR	KALBURGI
-CHINCHOLI	SEDAM	BIDAR	KALBURGI
-KALAGI	SEDAM	BIDAR	KALBURGI
-SEDAM	SEDAM	BIDAR	KALBURGI
-ALMEL	INDI	KALBURGI	KALBURGI
-CHADCHAN	INDI	KALBURGI	KALBURGI
-INDI	INDI	KALBURGI	KALBURGI
-AFZALPUR	KALBURGI	KALBURGI	KALBURGI
-ALAND	KALBURGI	KALBURGI	KALBURGI
-JEVARGI	KALBURGI	KALBURGI	KALBURGI
-KALABURAGI	KALBURGI	KALBURGI	KALBURGI
-KALBURGI-2	KALBURGI	KALBURGI	KALBURGI
-DEVADURGA	SHAHAPUR	KALBURGI	KALBURGI
-SHAHAPUR	SHAHAPUR	KALBURGI	KALBURGI
-YADGIR	SHAHAPUR	KALBURGI	KALBURGI
-MUDDEBIHAL	VIJAYAPUR	KALBURGI	KALBURGI
-SINDAGI	VIJAYAPUR	KALBURGI	KALBURGI
-TALIKOTI	VIJAYAPUR	KALBURGI	KALBURGI
-TIKOTA	VIJAYAPUR	KALBURGI	KALBURGI
-VIJAYAPUR	VIJAYAPUR	KALBURGI	KALBURGI
-GADWAL	MAHABOOBNAGAR	TELANGANA	TELANGANA
-MAHABUB NAGAR	MAHABOOBNAGAR	TELANGANA	TELANGANA
-MARIKAL	MAHABOOBNAGAR	TELANGANA	TELANGANA
-TANDUR	MAHABOOBNAGAR	TELANGANA	TELANGANA
-KODANGAL	SANGAREDDY	TELANGANA	TELANGANA
-NARAYANKHED	SANGAREDDY	TELANGANA	TELANGANA
-SANGAREDDY	SANGAREDDY	TELANGANA	TELANGANA
-ZAHEERABAD	SANGAREDDY	TELANGANA	TELANGANA
-CHANDAPURA	BANGALORE URBAN	DODDABALLAPURA	TUMKUR
-HEBBAL	BANGALORE URBAN	DODDABALLAPURA	TUMKUR
-J P NAGAR	BANGALORE URBAN	DODDABALLAPURA	TUMKUR
-KENGERI	BANGALORE URBAN	DODDABALLAPURA	TUMKUR
-BAGEPALLI	CHIKBALLAPURA	DODDABALLAPURA	TUMKUR
-CHIKBALLAPURA	CHIKBALLAPURA	DODDABALLAPURA	TUMKUR
-CHINTAMANI	CHIKBALLAPURA	DODDABALLAPURA	TUMKUR
-SRINIVASPURA	CHIKBALLAPURA	DODDABALLAPURA	TUMKUR
-DEVANAHALLI	DODDABALLAPURA	DODDABALLAPURA	TUMKUR
-DODDABALLAPURA	DODDABALLAPURA	DODDABALLAPURA	TUMKUR
-GOWRIBIDANUR	DODDABALLAPURA	DODDABALLAPURA	TUMKUR
-BANGARPET	KOLAR	DODDABALLAPURA	TUMKUR
-BETHAMANGALA	KOLAR	DODDABALLAPURA	TUMKUR
-KOLAR	KOLAR	DODDABALLAPURA	TUMKUR
-MALUR	KOLAR	DODDABALLAPURA	TUMKUR
-CHIKKAMAGALURU	CHIKKAMAGALURU	TUMKUR	TUMKUR
-MUDIGERE	CHIKKAMAGALURU	TUMKUR	TUMKUR
-NR PURA	CHIKKAMAGALURU	TUMKUR	TUMKUR
-CHIKKANAYAKANAHALLI	TIPTUR	TUMKUR	TUMKUR
-GUBBI	TIPTUR	TUMKUR	TUMKUR
-HULIYAR	TIPTUR	TUMKUR	TUMKUR
-TIPTUR	TIPTUR	TUMKUR	TUMKUR
-TUREVEKERE	TIPTUR	TUMKUR	TUMKUR
-DABUSPET	TUMKUR	TUMKUR	TUMKUR
-KORATAGERE	TUMKUR	TUMKUR	TUMKUR
-KUNIGAL	TUMKUR	TUMKUR	TUMKUR
-MADHUGIRI	TUMKUR	TUMKUR	TUMKUR
-SIRA	TUMKUR	TUMKUR	TUMKUR
-TUMKUR	TUMKUR	TUMKUR	TUMKUR`;
+PLACEHOLDER	PLACEHOLDER	PLACEHOLDER	PLACEHOLDER`;
 
 let state = {
     currentUser: null,
@@ -374,8 +248,6 @@ function calculateTotalCollectionPercentage() {
 
     const idxBranch = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === 'branch');
     const idxRegion = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === 'region');
-    const idxDistrict = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === 'district');
-    const idxDM = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === 'dm name');
 
     // DM Restriction
     const isDM = state.role === 'DM';
@@ -2674,7 +2546,7 @@ async function handleGeneratePlanReport() {
     // 1. Validate
     if (!state.branchDetails) state.branchDetails = {};
 
-    const level = state.reportLevel; // REGION, DISTRICT, BRANCH
+    const level = state.reportLevel; // REGION, DIVISION, AREA, BRANCH
     const dateStr = state.systemDate;
     const dateDisplay = formatDateForDisplay(dateStr);
 
@@ -2708,7 +2580,7 @@ async function handleGenerateBothReports() {
     // 1. Validate
     if (!state.branchDetails) state.branchDetails = {};
 
-    const level = state.reportLevel; // REGION, DISTRICT, BRANCH
+    const level = state.reportLevel; // REGION, DIVISION, AREA, BRANCH
     const dateStr = state.systemDate;
     const dateDisplay = formatDateForDisplay(dateStr);
 
@@ -5201,9 +5073,9 @@ function loadNextBranch() {
     let dmBranches = [];
 
     if (state.role === 'DM') {
-        const idxDM = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === "dm name");
+        const idxDivision = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === "division");
         // Get rows for this DM ONLY
-        const dmRows = state.rawData.rows.filter(r => (r[idxDM] || "").trim() === state.currentUser);
+        const dmRows = state.rawData.rows.filter(r => (r[idxDivision] || "").trim() === state.currentUser);
         // Extract branch names and sort
         dmBranches = dmRows.map(r => r[0]).filter(Boolean).sort();
     } else {
@@ -5743,15 +5615,15 @@ function renderLeaderboard(data, tbody) {
 }
 
 function renderDMTable(tbody) {
-    const idxDM = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === "division");
+    const idxDivision = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === "division");
     const idxBranch = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === "branch");
-    const idxDistrict = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === "area");
+    const idxArea = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === "area");
 
-    const rows = state.rawData.rows.filter(r => (r[idxDM] || "").trim() === state.currentUser);
+    const rows = state.rawData.rows.filter(r => (r[idxDivision] || "").trim() === state.currentUser);
 
     rows.forEach(row => {
         const branch = row[idxBranch];
-        const district = row[idxDistrict];
+        const district = row[idxArea];
         const val = state.targetData[branch] || 0;
 
         tbody.innerHTML += `
@@ -7352,8 +7224,8 @@ function renderKYCDetail(stats) {
 function getBranchListByStatus() {
     const branches = [];
     const idxBranch = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === 'branch');
-    const idxDistrict = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === 'area');
-    const idxDM = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === 'division');
+    const idxArea = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === 'area');
+    const idxDivision = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === 'division');
     const idxRegion = state.rawData.headers.findIndex(h => h.trim().toLowerCase() === 'region');
 
     state.rawData.rows.forEach(row => {
@@ -7387,8 +7259,8 @@ function getBranchListByStatus() {
 
         branches.push({
             name,
-            district: row[idxDistrict] || '',
-            dm: row[idxDM] || '',
+            district: row[idxArea] || '',
+            dm: row[idxDivision] || '',
             region: row[idxRegion] || '',
             status,
             statusLabel,
@@ -7766,7 +7638,7 @@ function toggleProfileModal() {
                 modalPhone.textContent = "8792320623"; // Default for CEO/Support
             } else {
                 // Find user in rawData
-                // [0]=Branch, [1]=District, [2]=DM Name, [3]=Region, [4]=Phone
+                // [0]=Branch, [1]=Area, [2]=Division, [3]=Region, [4]=Phone
                 const dmRow = state.rawData.rows.find(row => row[2] === name);
                 const phone = (dmRow && dmRow[4]) ? dmRow[4] : "Not Available";
                 modalPhone.textContent = phone;

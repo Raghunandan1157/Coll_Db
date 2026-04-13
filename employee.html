@@ -2173,35 +2173,49 @@ document.addEventListener('keydown', function(e) {
 // V2 Branch hierarchy — loaded dynamically from API
 var _drHierarchy = {}; // Region → Division → Area → [branches]
 var _drAllBranches = []; // flat list of all branch names
+var _drHierarchyReady = false;
 
-(function() {
-  fetch('/api/daily-plan/branches')
-    .then(function(r){ return r.json(); })
-    .then(function(data) {
-      if (!data || !data.length) return;
-      var tree = {};
-      var branches = [];
-      data.forEach(function(r) {
-        var region = r.region_name || 'Unknown';
-        var division = r.division_name || 'Unknown';
-        var area = r.area_name || 'Unknown';
-        var branch = r.branch_name;
-        if (!tree[region]) tree[region] = {};
-        if (!tree[region][division]) tree[region][division] = {};
-        if (!tree[region][division][area]) tree[region][division][area] = [];
-        tree[region][division][area].push(branch);
-        branches.push(branch);
-      });
-      _drHierarchy = tree;
-      _drAllBranches = branches;
-    })
-    .catch(function(e) { console.warn('Failed to load branch hierarchy:', e); });
-})();
+window._drHierarchyPromise = fetch('/api/daily-plan/branches')
+  .then(function(r){ return r.json(); })
+  .then(function(data) {
+    if (!data || !data.length) { _drHierarchyReady = true; return; }
+    var tree = {};
+    var branches = [];
+    data.forEach(function(r) {
+      var region = r.region_name || 'Unknown';
+      var division = r.division_name || 'Unknown';
+      var area = r.area_name || 'Unknown';
+      var branch = r.branch_name;
+      if (!tree[region]) tree[region] = {};
+      if (!tree[region][division]) tree[region][division] = {};
+      if (!tree[region][division][area]) tree[region][division][area] = [];
+      tree[region][division][area].push(branch);
+      branches.push(branch);
+    });
+    _drHierarchy = tree;
+    _drAllBranches = branches;
+    _drHierarchyReady = true;
+  })
+  .catch(function(e) {
+    console.warn('Failed to load branch hierarchy:', e);
+    _drHierarchyReady = true; // unblock — let report attempt render/fail gracefully
+  });
 
 function _drBuildReportTable(date, level, type) {
   var title = (type === 'both' ? 'PLAN & ACHIEVEMENT' : 'PLAN') + ' — ' + level + ' — ' + _drFormatDate(date);
   document.getElementById('drReportTitle').textContent = title;
-  
+  document.getElementById('drReportModal').style.display = 'block';
+
+  if (!_drHierarchyReady) {
+    document.getElementById('drReportBody').innerHTML = '<div style="text-align:center;padding:40px;color:#94A3B8;">Loading branch hierarchy…</div>';
+    window._drHierarchyPromise.then(function() {
+      _drBuildReportTable(date, level, type);
+    });
+    return;
+  }
+
+  document.getElementById('drReportBody').innerHTML = '<div style="text-align:center;padding:40px;color:#94A3B8;">Loading…</div>';
+
   // Fetch data from API
   fetch('/api/daily-plan/reports?from=' + date + '&to=' + date)
     .then(function(r){return r.json();})
@@ -2219,9 +2233,6 @@ function _drBuildReportTable(date, level, type) {
         _drRenderTable(title, level, planData, [], type);
       }
     });
-  
-  document.getElementById('drReportModal').style.display = 'block';
-  document.getElementById('drReportBody').innerHTML = '<div style="text-align:center;padding:40px;color:#94A3B8;">Loading...</div>';
 }
 
 function _drGetBranchesForLevel(level, key) {
