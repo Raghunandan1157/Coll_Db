@@ -52,7 +52,7 @@
         }
 
         .date-btn {
-            background: white;
+            background: var(--bg-card);
             border: 2px solid var(--border-color);
             border-radius: 16px;
             padding: 20px 24px;
@@ -915,7 +915,7 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: white;
+            background: var(--bg-card);
             z-index: 200;
             /* Above login */
             display: flex;
@@ -1065,7 +1065,7 @@
         }
 
         .read-only-mode .form-input {
-            background: white;
+            background: var(--bg-card);
             color: var(--text-primary);
             border-color: var(--success);
             cursor: not-allowed;
@@ -3001,7 +3001,7 @@
 
         /* --- PREMIUM PROFILE MODAL --- */
         .premium-modal-container {
-            background: white;
+            background: var(--bg-card);
             width: 90%;
             max-width: 380px;
             /* Slightly narrower for mobile card feel */
@@ -3063,7 +3063,7 @@
 
         .premium-avatar-ring {
             padding: 4px;
-            background: white;
+            background: var(--bg-card);
             border-radius: 50%;
             box-shadow: 0 0 0 1px #E5E7EB, 0 8px 16px rgba(0, 0, 0, 0.05);
             margin-bottom: 16px;
@@ -3131,7 +3131,7 @@
         }
 
         .detail-item:hover .detail-icon-box {
-            background: white;
+            background: var(--bg-card);
             color: var(--primary-accent);
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
         }
@@ -3179,7 +3179,7 @@
 
         /* --- SUMMARY DASHBOARD STYLES --- */
         #lastMonthSummaryModal .detail-modal-header {
-            background: #ffffff;
+            background: var(--bg-card);
             color: var(--text-primary);
             border-bottom: 1px solid #e5e7eb;
         }
@@ -3222,7 +3222,7 @@
             display: flex;
             gap: 16px;
             padding: 12px 20px;
-            background: white;
+            background: var(--bg-card);
             border-radius: 8px;
             border: 1px solid #e5e7eb;
         }
@@ -3245,7 +3245,7 @@
         }
 
         .s-metric-card {
-            background: white;
+            background: var(--bg-card);
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
@@ -3319,7 +3319,7 @@
         }
 
         .s-widget {
-            background: white;
+            background: var(--bg-card);
             border-radius: 8px;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
             padding: 20px;

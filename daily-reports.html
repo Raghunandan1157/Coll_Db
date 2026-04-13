@@ -39,8 +39,8 @@
     html:not(.in-iframe) #dpTopTabs { display: flex !important; }
   }
   #dpTopTabs { display: none; gap: 8px; padding: 12px 24px 0; background: transparent; }
-  #dpTopTabs .dp-tab { padding: 8px 16px; border-radius: 20px; border: 1px solid #E2E8F0; background: #fff; color: #64748B; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .2s; display: flex; align-items: center; gap: 6px; }
-  #dpTopTabs .dp-tab:hover { background: #F1F5F9; color: #1E293B; }
+  #dpTopTabs .dp-tab { padding: 8px 16px; border-radius: 20px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-secondary); font-size: 13px; font-weight: 600; cursor: pointer; transition: all .2s; display: flex; align-items: center; gap: 6px; }
+  #dpTopTabs .dp-tab:hover { background: var(--bg-body); color: var(--text-primary); }
   #dpTopTabs .dp-tab.active { background: #EEF2FF; color: #6366F1; border-color: #C7D2FE; }
   #dpTopTabs .dp-tab.hidden { display: none; }
 </style>
@@ -56,27 +56,27 @@
 <style>
   /* Role popup */
   .dr-popup-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.35); z-index:10001; display:flex; align-items:center; justify-content:center; }
-  .dr-popup { background:#fff; border-radius:16px; width:90%; max-width:380px; max-height:80vh; overflow:hidden; box-shadow:0 12px 40px rgba(0,0,0,0.15); }
-  .dr-popup-header { display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid #F1F5F9; font-weight:700; font-size:16px; color:#1E293B; }
+  .dr-popup { background:var(--bg-card); border-radius:16px; width:90%; max-width:380px; max-height:80vh; overflow:hidden; box-shadow:0 12px 40px rgba(0,0,0,0.15); }
+  .dr-popup-header { display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid var(--border-color); font-weight:700; font-size:16px; color:var(--text-primary); }
   .dr-popup-header button { background:none; border:none; font-size:24px; cursor:pointer; color:#94A3B8; line-height:1; padding:0 4px; }
-  .dr-popup-header button:hover { color:#1E293B; }
+  .dr-popup-header button:hover { color:var(--text-primary); }
   .dr-popup-list { padding:4px 0; overflow-y:auto; max-height:60vh; }
   .dr-popup-item { padding:12px 20px; cursor:pointer; transition:background .15s; }
   .dr-popup-item:hover { background:#F8FAFC; }
-  .dr-popup-title { font-size:15px; font-weight:600; color:#1E293B; }
+  .dr-popup-title { font-size:15px; font-weight:600; color:var(--text-primary); }
   .dr-popup-sub { font-size:12px; color:#94A3B8; margin-top:2px; }
   .dr-popup-divider { height:1px; background:#E2E8F0; margin:4px 16px; }
 
   /* Emp search */
   .dr-search-wrap { position:relative; }
-  #drEmpSearch { width:100%; padding:14px 16px; border:1px solid #E2E8F0; border-radius:12px; font-size:16px; font-family:inherit; outline:none; transition:border-color .2s; background:#fff; }
+  #drEmpSearch { width:100%; padding:14px 16px; border:1px solid var(--border-color); border-radius:12px; font-size:16px; font-family:inherit; outline:none; transition:border-color .2s; background:var(--bg-card); }
   #drEmpSearch:focus { border-color:#6366F1; box-shadow:0 0 0 3px rgba(99,102,241,0.1); }
-  .dr-search-results { position:absolute; top:100%; left:0; right:0; background:#fff; border:1px solid #E2E8F0; border-radius:12px; margin-top:4px; max-height:220px; overflow-y:auto; z-index:100; box-shadow:0 8px 24px rgba(0,0,0,0.1); display:none; }
+  .dr-search-results { position:absolute; top:100%; left:0; right:0; background:var(--bg-card); border:1px solid var(--border-color); border-radius:12px; margin-top:4px; max-height:220px; overflow-y:auto; z-index:100; box-shadow:0 8px 24px rgba(0,0,0,0.1); display:none; }
   .dr-search-results.open { display:block; }
   .dr-emp-row { padding:12px 16px; cursor:pointer; border-bottom:1px solid #F8FAFC; transition:background .1s; }
   .dr-emp-row:last-child { border-bottom:none; }
   .dr-emp-row:hover, .dr-emp-row.active { background:#F1F5F9; }
-  .dr-emp-id { font-size:14px; font-weight:600; color:#1E293B; }
+  .dr-emp-id { font-size:14px; font-weight:600; color:var(--text-primary); }
   .dr-emp-name { font-size:12px; color:#64748B; margin-top:2px; }
   .dr-role-chip { display:inline-flex; align-items:center; gap:6px; background:#EEF2FF; color:#6366F1; padding:6px 14px; border-radius:20px; font-size:13px; font-weight:600; margin-bottom:10px; cursor:pointer; }
   .dr-role-chip:hover { background:#E0E7FF; }
