@@ -1702,6 +1702,8 @@ function buildPortfolioQuery(groupCol) {
   JOIN regions r ON d.region_id = r.region_id`;
 }
 
+// Old-structure portfolio — portfolio DB has regions/districts/branches
+// tables. Use direct case-insensitive matching (no employee_master here).
 function buildPortfolioWhere(filters) {
   const where = [];
   const params = [];
@@ -1710,21 +1712,16 @@ function buildPortfolioWhere(filters) {
   if (filters.product_type && filters.product_type !== 'All') {
     where.push(`pt.product_type_name = $${idx++}`); params.push(filters.product_type);
   }
-  // Hierarchy filters — resolve via employee_master (case-insensitive, trimmed)
   if (filters.region || filters.state) {
-    where.push(`UPPER(b.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(region_name) ILIKE TRIM($${idx++}))`);
-    params.push(filters.region || filters.state);
-  }
-  if (filters.division) {
-    where.push(`UPPER(b.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(division_name) ILIKE TRIM($${idx++}))`);
-    params.push(filters.division);
+    where.push(`(TRIM(r.region_name) ILIKE TRIM($${idx}) OR TRIM(d.district_name) ILIKE TRIM($${idx}))`);
+    params.push(filters.region || filters.state); idx++;
   }
   if (filters.district || filters.area) {
-    where.push(`UPPER(b.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(area_name) ILIKE TRIM($${idx++}))`);
+    where.push(`TRIM(d.district_name) ILIKE TRIM($${idx++})`);
     params.push(filters.district || filters.area);
   }
   if (filters.branch) {
-    where.push(`UPPER(b.branch_name) = UPPER($${idx++})`);
+    where.push(`TRIM(b.branch_name) ILIKE TRIM($${idx++})`);
     params.push(filters.branch);
   }
   if (filters.emp_id) { where.push(`pp.emp_id = $${idx++}`); params.push(filters.emp_id); }
@@ -2915,6 +2912,10 @@ function buildV2PortfolioQuery(groupCol) {
   JOIN v2_states s ON dv.state_id = s.state_id`;
 }
 
+// Portfolio DB has its own v2_* tables without employee_master — use direct
+// case-insensitive matching. For region/state, also try division_name since
+// KA sub-region names (Chitradurga, Dharwad, etc.) live as divisions in the
+// portfolio DB, not as distinct states.
 function buildV2PortfolioWhere(filters) {
   const where = [];
   const params = [];
@@ -2923,21 +2924,20 @@ function buildV2PortfolioWhere(filters) {
   if (filters.product_type && filters.product_type !== 'All') {
     where.push(`pt.product_type_name = $${idx++}`); params.push(filters.product_type);
   }
-  // Hierarchy filters — resolve via employee_master
   if (filters.state || filters.region) {
-    where.push(`UPPER(b.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(region_name) ILIKE TRIM($${idx++}))`);
-    params.push(filters.state || filters.region);
+    where.push(`(TRIM(s.state_name) ILIKE TRIM($${idx}) OR TRIM(dv.division_name) ILIKE TRIM($${idx}))`);
+    params.push(filters.state || filters.region); idx++;
   }
   if (filters.division) {
-    where.push(`UPPER(b.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(division_name) ILIKE TRIM($${idx++}))`);
+    where.push(`TRIM(dv.division_name) ILIKE TRIM($${idx++})`);
     params.push(filters.division);
   }
   if (filters.area || filters.district) {
-    where.push(`UPPER(b.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(area_name) ILIKE TRIM($${idx++}))`);
+    where.push(`TRIM(a.area_name) ILIKE TRIM($${idx++})`);
     params.push(filters.area || filters.district);
   }
   if (filters.branch) {
-    where.push(`UPPER(b.branch_name) = UPPER($${idx++})`);
+    where.push(`TRIM(b.branch_name) ILIKE TRIM($${idx++})`);
     params.push(filters.branch);
   }
   if (filters.emp_id) { where.push(`pp.emp_id = $${idx++}`); params.push(filters.emp_id); }
