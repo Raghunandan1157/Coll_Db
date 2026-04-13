@@ -3980,6 +3980,27 @@ app.get("/api/daily-plan/achievements", async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// GET /api/daily-plan/monthly-actuals?branch=NAME&date=ISO
+// Returns the earliest row in the current month (excluding today) where any DPD actual is set.
+// Used to lock DPD actual fields once set per month.
+app.get("/api/daily-plan/monthly-actuals", async (req, res) => {
+  try {
+    const { branch, date } = req.query;
+    if (!branch || !date) return res.json({ data: null });
+    const sql = `
+      SELECT dpd_1_30_actual, dpd_31_60_actual, dpd_61_90_actual, date
+      FROM daily_reports
+      WHERE UPPER(branch_name) = UPPER($1)
+        AND date >= date_trunc('month', $2::date)
+        AND date <  date_trunc('month', $2::date) + interval '1 month'
+        AND date != $2::date
+        AND (dpd_1_30_actual IS NOT NULL OR dpd_31_60_actual IS NOT NULL OR dpd_61_90_actual IS NOT NULL)
+      ORDER BY date ASC LIMIT 1`;
+    const result = await pool.query(sql, [branch, date]);
+    res.json({ data: result.rows[0] || null });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // GET /api/daily-plan/exists?date=DATE&branch=NAME&table=reports|achievements
 app.get("/api/daily-plan/exists", async (req, res) => {
   try {

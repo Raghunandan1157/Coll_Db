@@ -2076,9 +2076,9 @@ document.addEventListener('click', function(e) {
           <h4 style="text-align:center;font-size:13px;font-weight:700;color:#6366F1;margin:0 0 12px;">FTOD — ACCOUNTS</h4>
           <div style="display:flex;flex-direction:column;gap:8px;">
             <label style="font-size:12px;font-weight:600;color:#475569;">Actual FTOD Account</label>
-            <input id="dr_ftod_actual" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="0" class="dr-modal-input" style="padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;">
+            <input id="dr_ftod_actual" type="text" inputmode="numeric" pattern="[0-9,]*" placeholder="0" class="dr-modal-input" style="padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;">
             <label style="font-size:12px;font-weight:600;color:#475569;">FTOD Collection Plan</label>
-            <input id="dr_ftod_plan" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="0" class="dr-modal-input" style="padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;">
+            <input id="dr_ftod_plan" type="text" inputmode="numeric" pattern="[0-9,]*" placeholder="0" class="dr-modal-input" style="padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;">
           </div>
         </div>
         
@@ -2087,9 +2087,9 @@ document.addEventListener('click', function(e) {
           <h4 style="text-align:center;font-size:13px;font-weight:700;color:#F59E0B;margin:0 0 12px;">1-30 DPD</h4>
           <div style="display:flex;flex-direction:column;gap:8px;">
             <label style="font-size:12px;font-weight:600;color:#475569;">Actual Account</label>
-            <input id="dr_dpd_1_30_actual" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="0" class="dr-modal-input" style="padding:8px 12px;border:1px solid #F59E0B40;border-radius:8px;font-size:14px;">
+            <input id="dr_dpd_1_30_actual" type="text" inputmode="numeric" pattern="[0-9,]*" placeholder="0" class="dr-modal-input" style="padding:8px 12px;border:1px solid #F59E0B40;border-radius:8px;font-size:14px;">
             <label style="font-size:12px;font-weight:600;color:#475569;">Collection Plan</label>
-            <input id="dr_dpd_1_30_plan" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="0" class="dr-modal-input" style="padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;">
+            <input id="dr_dpd_1_30_plan" type="text" inputmode="numeric" pattern="[0-9,]*" placeholder="0" class="dr-modal-input" style="padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;">
           </div>
         </div>
         
@@ -2098,17 +2098,17 @@ document.addEventListener('click', function(e) {
           <h4 style="text-align:center;font-size:13px;font-weight:700;color:#475569;margin:0 0 12px;">DISBURSEMENT TARGETS</h4>
           <div style="display:flex;flex-direction:column;gap:6px;">
             <label style="font-size:11px;color:#64748B;">IGL (Accounts)</label>
-            <input id="dr_disb_igl_acc" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="0" class="dr-modal-input" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">
+            <input id="dr_disb_igl_acc" type="text" inputmode="numeric" pattern="[0-9,]*" placeholder="0" class="dr-modal-input" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">
             <label style="font-size:11px;color:#64748B;">IGL (Amount)</label>
-            <input id="dr_disb_igl_amt" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="0" class="dr-modal-input" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">
+            <input id="dr_disb_igl_amt" type="text" inputmode="numeric" pattern="[0-9,]*" placeholder="0" class="dr-modal-input" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">
             <label style="font-size:11px;color:#64748B;">FIG (Accounts)</label>
-            <input id="dr_disb_fig_acc" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="0" class="dr-modal-input" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">
+            <input id="dr_disb_fig_acc" type="text" inputmode="numeric" pattern="[0-9,]*" placeholder="0" class="dr-modal-input" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">
             <label style="font-size:11px;color:#64748B;">FIG (Amount)</label>
-            <input id="dr_disb_fig_amt" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="0" class="dr-modal-input" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">
+            <input id="dr_disb_fig_amt" type="text" inputmode="numeric" pattern="[0-9,]*" placeholder="0" class="dr-modal-input" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">
             <label style="font-size:11px;color:#64748B;">IL (Accounts)</label>
-            <input id="dr_disb_il_acc" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="0" class="dr-modal-input" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">
+            <input id="dr_disb_il_acc" type="text" inputmode="numeric" pattern="[0-9,]*" placeholder="0" class="dr-modal-input" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">
             <label style="font-size:11px;color:#64748B;">IL (Amount)</label>
-            <input id="dr_disb_il_amt" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="0" class="dr-modal-input" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">
+            <input id="dr_disb_il_amt" type="text" inputmode="numeric" pattern="[0-9,]*" placeholder="0" class="dr-modal-input" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">
           </div>
         </div>
       </div>
@@ -2121,9 +2121,9 @@ document.addEventListener('click', function(e) {
           <h4 style="text-align:center;font-size:13px;font-weight:700;color:#EF4444;margin:0 0 12px;">31-60 DPD</h4>
           <div style="display:flex;flex-direction:column;gap:8px;">
             <label style="font-size:12px;font-weight:600;color:#475569;">Actual Account</label>
-            <input id="dr_dpd_31_60_actual" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="0" class="dr-modal-input" style="padding:8px 12px;border:1px solid #EF444440;border-radius:8px;font-size:14px;">
+            <input id="dr_dpd_31_60_actual" type="text" inputmode="numeric" pattern="[0-9,]*" placeholder="0" class="dr-modal-input" style="padding:8px 12px;border:1px solid #EF444440;border-radius:8px;font-size:14px;">
             <label style="font-size:12px;font-weight:600;color:#475569;">Collection Plan</label>
-            <input id="dr_dpd_31_60_plan" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="0" class="dr-modal-input" style="padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;">
+            <input id="dr_dpd_31_60_plan" type="text" inputmode="numeric" pattern="[0-9,]*" placeholder="0" class="dr-modal-input" style="padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;">
           </div>
         </div>
         
@@ -2132,9 +2132,9 @@ document.addEventListener('click', function(e) {
           <h4 style="text-align:center;font-size:13px;font-weight:700;color:#DC2626;margin:0 0 12px;">61-90 DPD</h4>
           <div style="display:flex;flex-direction:column;gap:8px;">
             <label style="font-size:12px;font-weight:600;color:#475569;">Actual Account</label>
-            <input id="dr_dpd_61_90_actual" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="0" class="dr-modal-input" style="padding:8px 12px;border:1px solid #DC262640;border-radius:8px;font-size:14px;">
+            <input id="dr_dpd_61_90_actual" type="text" inputmode="numeric" pattern="[0-9,]*" placeholder="0" class="dr-modal-input" style="padding:8px 12px;border:1px solid #DC262640;border-radius:8px;font-size:14px;">
             <label style="font-size:12px;font-weight:600;color:#475569;">Collection Plan</label>
-            <input id="dr_dpd_61_90_plan" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="0" class="dr-modal-input" style="padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;">
+            <input id="dr_dpd_61_90_plan" type="text" inputmode="numeric" pattern="[0-9,]*" placeholder="0" class="dr-modal-input" style="padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;">
           </div>
         </div>
         
@@ -2143,11 +2143,11 @@ document.addEventListener('click', function(e) {
           <h4 style="text-align:center;font-size:13px;font-weight:700;color:#475569;margin:0 0 12px;">KYC SOURCING</h4>
           <div style="display:flex;flex-direction:column;gap:6px;">
             <label style="font-size:11px;color:#64748B;">IGL</label>
-            <input id="dr_kyc_igl" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="0" class="dr-modal-input" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">
+            <input id="dr_kyc_igl" type="text" inputmode="numeric" pattern="[0-9,]*" placeholder="0" class="dr-modal-input" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">
             <label style="font-size:11px;color:#64748B;">FIG</label>
-            <input id="dr_kyc_fig" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="0" class="dr-modal-input" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">
+            <input id="dr_kyc_fig" type="text" inputmode="numeric" pattern="[0-9,]*" placeholder="0" class="dr-modal-input" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">
             <label style="font-size:11px;color:#64748B;">IL</label>
-            <input id="dr_kyc_il" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="0" class="dr-modal-input" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">
+            <input id="dr_kyc_il" type="text" inputmode="numeric" pattern="[0-9,]*" placeholder="0" class="dr-modal-input" style="padding:6px 10px;border:1px solid #E2E8F0;border-radius:6px;font-size:13px;">
           </div>
         </div>
       </div>
@@ -2158,18 +2158,18 @@ document.addEventListener('click', function(e) {
           <h4 style="text-align:center;font-size:13px;font-weight:700;color:#6366F1;margin:0 0 12px;">NPA ACCOUNTS</h4>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
             <div><label style="font-size:12px;font-weight:600;color:#475569;">NPA Activation</label>
-            <input id="dr_npa_activation" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="0" class="dr-modal-input" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;margin-top:4px;"></div>
+            <input id="dr_npa_activation" type="text" inputmode="numeric" pattern="[0-9,]*" placeholder="0" class="dr-modal-input" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;margin-top:4px;"></div>
             <div><label style="font-size:12px;font-weight:600;color:#475569;">NPA Closure</label>
-            <input id="dr_npa_closure" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="0" class="dr-modal-input" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;margin-top:4px;"></div>
+            <input id="dr_npa_closure" type="text" inputmode="numeric" pattern="[0-9,]*" placeholder="0" class="dr-modal-input" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;margin-top:4px;"></div>
           </div>
         </div>
         <div style="border:1px solid #E2E8F0;border-radius:12px;padding:16px;">
           <h4 style="text-align:center;font-size:13px;font-weight:700;color:#6366F1;margin:0 0 12px;">FY NON-STARTER ACCOUNTS</h4>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
             <div><label style="font-size:12px;font-weight:600;color:#475569;">Non-Starter Accounts</label>
-            <input id="dr_fy_non_start_acc" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="0" class="dr-modal-input" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;margin-top:4px;"></div>
+            <input id="dr_fy_non_start_acc" type="text" inputmode="numeric" pattern="[0-9,]*" placeholder="0" class="dr-modal-input" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;margin-top:4px;"></div>
             <div><label style="font-size:12px;font-weight:600;color:#475569;">Collection Plan</label>
-            <input id="dr_fy_non_start_plan" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="0" class="dr-modal-input" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;margin-top:4px;"></div>
+            <input id="dr_fy_non_start_plan" type="text" inputmode="numeric" pattern="[0-9,]*" placeholder="0" class="dr-modal-input" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;margin-top:4px;"></div>
           </div>
         </div>
       </div>
@@ -2187,6 +2187,58 @@ document.addEventListener('click', function(e) {
 var _drCurrentBranch = '';
 var _drCurrentTable = 'reports';
 
+// Indian-format helpers
+function _drFormatIndian(num) {
+  if (num === '' || num === null || num === undefined) return '';
+  var str = String(num).replace(/,/g, '');
+  if (isNaN(str) || str === '') return '';
+  var parts = str.split('.');
+  var intPart = parts[0];
+  var decPart = parts[1];
+  var lastThree = intPart.slice(-3);
+  var other = intPart.slice(0, -3);
+  var formatted = other.replace(/\B(?=(\d{2})+(?!\d))/g, ',') + (other ? ',' : '') + lastThree;
+  return decPart !== undefined ? formatted + '.' + decPart : formatted;
+}
+function _drStripCommas(str) {
+  if (str === '' || str === null || str === undefined) return '';
+  return String(str).replace(/,/g, '');
+}
+
+// Account fields (3-digit limit)
+var _DR_ACC_FIELDS = ['dr_ftod_actual','dr_dpd_1_30_actual','dr_dpd_31_60_actual','dr_dpd_61_90_actual','dr_npa_activation','dr_npa_closure','dr_fy_non_start_acc','dr_disb_igl_acc','dr_disb_fig_acc','dr_disb_il_acc','dr_kyc_igl','dr_kyc_fig','dr_kyc_il'];
+// Plan/amount fields (Indian comma format, no length limit)
+var _DR_AMT_FIELDS = ['dr_ftod_plan','dr_dpd_1_30_plan','dr_dpd_31_60_plan','dr_dpd_61_90_plan','dr_fy_non_start_plan','dr_disb_igl_amt','dr_disb_fig_amt','dr_disb_il_amt'];
+// DPD actuals — once-per-month lock
+var _DR_MONTHLY_LOCK_FIELDS = ['dr_dpd_1_30_actual','dr_dpd_31_60_actual','dr_dpd_61_90_actual'];
+
+function _drSetupModalInputs() {
+  // Account fields: 3-digit cap with slice handler
+  _DR_ACC_FIELDS.forEach(function(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.setAttribute('maxlength', '3');
+    el.oninput = function() {
+      this.value = this.value.replace(/[^0-9]/g, '');
+      if (this.value.length > 3) this.value = this.value.slice(0, 3);
+    };
+  });
+  // Amount/plan fields: Indian comma formatter (live)
+  _DR_AMT_FIELDS.forEach(function(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.removeAttribute('maxlength');
+    el.oninput = function() {
+      var cursorPos = this.selectionStart;
+      var oldLen = this.value.length;
+      var raw = this.value.replace(/[^0-9]/g, '');
+      this.value = _drFormatIndian(raw);
+      var newLen = this.value.length;
+      try { this.setSelectionRange(cursorPos + (newLen - oldLen), cursorPos + (newLen - oldLen)); } catch(e) {}
+    };
+  });
+}
+
 function openDrBranchModal(branchName, table) {
   // Normalize branch name to canonical V2 spelling from _drAllBranches
   // (handles legacy roleLocation casing like "BIDAR" → "Bidar")
@@ -2201,13 +2253,20 @@ function openDrBranchModal(branchName, table) {
   _drCurrentTable = table || 'reports';
   document.getElementById('drModalTitle').textContent = canonical + ' — Details';
   // Clear all fields and unlock by default
-  document.querySelectorAll('#drBranchModal input[type=number]').forEach(function(el) {
+  document.querySelectorAll('#drBranchModal input.dr-modal-input').forEach(function(el) {
     el.value = '';
     el.readOnly = false;
+    el.disabled = false;
     el.style.background = '';
+    el.style.border = '';
     el.style.cursor = '';
+    el.title = '';
   });
+  _drSetupModalInputs();
   _drSetSaveButtonState(false);
+  // Hide any 6PM banner from previous session
+  var banner = document.getElementById('drAchievementBanner');
+  if (banner) banner.remove();
   // Load existing data (use canonical name for fetches)
   var today = new Date().toISOString().split('T')[0];
   fetch('/api/daily-plan/exists?table=' + _drCurrentTable + '&date=' + today + '&branch=' + encodeURIComponent(canonical))
@@ -2222,7 +2281,13 @@ function openDrBranchModal(branchName, table) {
               var map = {ftod_actual:'dr_ftod_actual',ftod_plan:'dr_ftod_plan',dpd_1_30_actual:'dr_dpd_1_30_actual',dpd_1_30_plan:'dr_dpd_1_30_plan',dpd_31_60_actual:'dr_dpd_31_60_actual',dpd_31_60_plan:'dr_dpd_31_60_plan',dpd_61_90_actual:'dr_dpd_61_90_actual',dpd_61_90_plan:'dr_dpd_61_90_plan',npa_activation:'dr_npa_activation',npa_closure:'dr_npa_closure',fy_non_start_acc:'dr_fy_non_start_acc',fy_non_start_plan:'dr_fy_non_start_plan',disb_igl_acc:'dr_disb_igl_acc',disb_igl_amt:'dr_disb_igl_amt',disb_fig_acc:'dr_disb_fig_acc',disb_fig_amt:'dr_disb_fig_amt',disb_il_acc:'dr_disb_il_acc',disb_il_amt:'dr_disb_il_amt',kyc_igl:'dr_kyc_igl',kyc_fig:'dr_kyc_fig',kyc_il:'dr_kyc_il'};
               Object.keys(map).forEach(function(k){
                 var el = document.getElementById(map[k]);
-                if (el && row[k] != null) el.value = row[k];
+                if (!el || row[k] == null) return;
+                // Format amount fields with Indian commas
+                if (_DR_AMT_FIELDS.indexOf(map[k]) >= 0) {
+                  el.value = _drFormatIndian(row[k]);
+                } else {
+                  el.value = row[k];
+                }
               });
               // Lock fields — already saved
               _drLockModalFields();
@@ -2231,6 +2296,10 @@ function openDrBranchModal(branchName, table) {
       }
     });
   document.getElementById('drBranchModal').style.display = 'block';
+  // 6 PM gate for achievements — if blocked, stop here
+  if (_drCheck6PMGate()) return;
+  // Monthly lock for DPD actual fields (plan mode only)
+  if (_drCurrentTable !== 'achievements') _drApplyMonthlyLock(canonical);
   // Wire Enter-to-next on numeric inputs (idempotent — only attach once)
   if (!window._drEnterWired) {
     var inputs = Array.prototype.slice.call(document.querySelectorAll('#drBranchModal input.dr-modal-input'));
@@ -2253,12 +2322,58 @@ function closeDrBranchModal() {
 }
 
 function _drLockModalFields() {
-  document.querySelectorAll('#drBranchModal input[type=number]').forEach(function(el) {
+  document.querySelectorAll('#drBranchModal input.dr-modal-input').forEach(function(el) {
     el.readOnly = true;
     el.style.background = '#F1F5F9';
     el.style.cursor = 'not-allowed';
   });
   _drSetSaveButtonState(true);
+}
+
+// Lock specific DPD-actual fields that were already set this month (on a different date)
+function _drApplyMonthlyLock(branchName) {
+  var isoToday = new Date().toISOString().split('T')[0];
+  fetch('/api/daily-plan/monthly-actuals?branch=' + encodeURIComponent(branchName) + '&date=' + isoToday)
+    .then(function(r){ return r.json(); })
+    .then(function(res){
+      if (!res || !res.data) return;
+      var row = res.data;
+      _DR_MONTHLY_LOCK_FIELDS.forEach(function(id) {
+        var dbKey = id.replace('dr_', '');
+        var val = row[dbKey];
+        if (val == null) return;
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.value = val;
+        el.disabled = true;
+        el.readOnly = true;
+        el.style.background = '#FFFDE7';
+        el.style.border = '2px solid #F59E0B';
+        el.style.cursor = 'not-allowed';
+        el.title = 'Already set this month on ' + (row.date || '').slice(0, 10);
+      });
+    })
+    .catch(function(){});
+}
+
+// 6 PM gate for achievement entry
+function _drCheck6PMGate() {
+  if (_drCurrentTable !== 'achievements') return false;
+  var todayISO = new Date().toISOString().split('T')[0];
+  var isoNow = new Date();
+  var isToday = (isoNow.toISOString().split('T')[0] === todayISO);
+  var currentHour = isoNow.getHours();
+  if (!isToday || currentHour >= 18) return false;
+  // Block: show banner, lock fields, disable save
+  var banner = document.createElement('div');
+  banner.id = 'drAchievementBanner';
+  banner.style.cssText = 'background:#FEF3C7;border:1px solid #F59E0B;color:#92400E;padding:12px 16px;margin:12px 20px 0;border-radius:10px;font-size:13px;font-weight:500;text-align:center;';
+  banner.innerHTML = '⏰ Achievement entry opens at 6:00 PM. Please come back after 6 PM to enter today\'s achievement.';
+  var modalInner = document.querySelector('#drBranchModal > div');
+  var form = document.querySelector('#drBranchModal .dr-modal-form');
+  if (modalInner && form) modalInner.insertBefore(banner, form);
+  _drLockModalFields();
+  return true;
 }
 
 function _drSetSaveButtonState(locked) {
@@ -2280,6 +2395,11 @@ function _drSetSaveButtonState(locked) {
 function saveDrBranchData() {
   var today = new Date().toISOString().split('T')[0];
   var session = window.getEmployeeSession ? getEmployeeSession() : {};
+  // Helper to get numeric value (strips commas from Indian-format amount fields)
+  var _val = function(id) {
+    var raw = document.getElementById(id).value;
+    return Number(_drStripCommas(raw)) || 0;
+  };
   // Validation: plan must be <= actual for collection pairs
   var pairs = [
     {actual:'dr_ftod_actual', plan:'dr_ftod_plan', label:'FTOD'},
@@ -2289,8 +2409,8 @@ function saveDrBranchData() {
     {actual:'dr_fy_non_start_acc', plan:'dr_fy_non_start_plan', label:'FY Non-Starter'}
   ];
   for (var i = 0; i < pairs.length; i++) {
-    var actVal = Number(document.getElementById(pairs[i].actual).value) || 0;
-    var planVal = Number(document.getElementById(pairs[i].plan).value) || 0;
+    var actVal = _val(pairs[i].actual);
+    var planVal = _val(pairs[i].plan);
     if (planVal > actVal) {
       alert(pairs[i].label + ': Plan (' + planVal + ') cannot be greater than Actual (' + actVal + ')');
       document.getElementById(pairs[i].plan).focus();
@@ -2301,27 +2421,27 @@ function saveDrBranchData() {
     branch_name: _drCurrentBranch,
     date: today,
     region: '', district: '', dm_name: '',
-    ftod_actual: Number(document.getElementById('dr_ftod_actual').value) || 0,
-    ftod_plan: Number(document.getElementById('dr_ftod_plan').value) || 0,
-    dpd_1_30_actual: Number(document.getElementById('dr_dpd_1_30_actual').value) || 0,
-    dpd_1_30_plan: Number(document.getElementById('dr_dpd_1_30_plan').value) || 0,
-    dpd_31_60_actual: Number(document.getElementById('dr_dpd_31_60_actual').value) || 0,
-    dpd_31_60_plan: Number(document.getElementById('dr_dpd_31_60_plan').value) || 0,
-    dpd_61_90_actual: Number(document.getElementById('dr_dpd_61_90_actual').value) || 0,
-    dpd_61_90_plan: Number(document.getElementById('dr_dpd_61_90_plan').value) || 0,
-    npa_activation: Number(document.getElementById('dr_npa_activation').value) || 0,
-    npa_closure: Number(document.getElementById('dr_npa_closure').value) || 0,
-    fy_non_start_acc: Number(document.getElementById('dr_fy_non_start_acc').value) || 0,
-    fy_non_start_plan: Number(document.getElementById('dr_fy_non_start_plan').value) || 0,
-    disb_igl_acc: Number(document.getElementById('dr_disb_igl_acc').value) || 0,
-    disb_igl_amt: Number(document.getElementById('dr_disb_igl_amt').value) || 0,
-    disb_fig_acc: Number(document.getElementById('dr_disb_fig_acc').value) || 0,
-    disb_fig_amt: Number(document.getElementById('dr_disb_fig_amt').value) || 0,
-    disb_il_acc: Number(document.getElementById('dr_disb_il_acc').value) || 0,
-    disb_il_amt: Number(document.getElementById('dr_disb_il_amt').value) || 0,
-    kyc_igl: Number(document.getElementById('dr_kyc_igl').value) || 0,
-    kyc_fig: Number(document.getElementById('dr_kyc_fig').value) || 0,
-    kyc_il: Number(document.getElementById('dr_kyc_il').value) || 0,
+    ftod_actual: _val('dr_ftod_actual'),
+    ftod_plan: _val('dr_ftod_plan'),
+    dpd_1_30_actual: _val('dr_dpd_1_30_actual'),
+    dpd_1_30_plan: _val('dr_dpd_1_30_plan'),
+    dpd_31_60_actual: _val('dr_dpd_31_60_actual'),
+    dpd_31_60_plan: _val('dr_dpd_31_60_plan'),
+    dpd_61_90_actual: _val('dr_dpd_61_90_actual'),
+    dpd_61_90_plan: _val('dr_dpd_61_90_plan'),
+    npa_activation: _val('dr_npa_activation'),
+    npa_closure: _val('dr_npa_closure'),
+    fy_non_start_acc: _val('dr_fy_non_start_acc'),
+    fy_non_start_plan: _val('dr_fy_non_start_plan'),
+    disb_igl_acc: _val('dr_disb_igl_acc'),
+    disb_igl_amt: _val('dr_disb_igl_amt'),
+    disb_fig_acc: _val('dr_disb_fig_acc'),
+    disb_fig_amt: _val('dr_disb_fig_amt'),
+    disb_il_acc: _val('dr_disb_il_acc'),
+    disb_il_amt: _val('dr_disb_il_amt'),
+    kyc_igl: _val('dr_kyc_igl'),
+    kyc_fig: _val('dr_kyc_fig'),
+    kyc_il: _val('dr_kyc_il'),
   };
   fetch('/api/daily-plan/save', {
     method: 'POST',
