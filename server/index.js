@@ -3954,7 +3954,7 @@ app.get("/api/daily-plan/reports", async (req, res) => {
     const where = []; const params = []; let idx = 1;
     if (req.query.from) { where.push("date >= $" + idx++); params.push(req.query.from); }
     if (req.query.to) { where.push("date <= $" + idx++); params.push(req.query.to); }
-    if (req.query.branch) { where.push("branch_name = $" + idx++); params.push(req.query.branch); }
+    if (req.query.branch) { where.push("UPPER(branch_name) = UPPER($" + idx++ + ")"); params.push(req.query.branch); }
     if (req.query.region) { where.push("region = $" + idx++); params.push(req.query.region); }
     if (req.query.district) { where.push("district = $" + idx++); params.push(req.query.district); }
     if (req.query.dm_name) { where.push("dm_name = $" + idx++); params.push(req.query.dm_name); }
@@ -3970,7 +3970,7 @@ app.get("/api/daily-plan/achievements", async (req, res) => {
     const where = []; const params = []; let idx = 1;
     if (req.query.from) { where.push("date >= $" + idx++); params.push(req.query.from); }
     if (req.query.to) { where.push("date <= $" + idx++); params.push(req.query.to); }
-    if (req.query.branch) { where.push("branch_name = $" + idx++); params.push(req.query.branch); }
+    if (req.query.branch) { where.push("UPPER(branch_name) = UPPER($" + idx++ + ")"); params.push(req.query.branch); }
     if (req.query.region) { where.push("region = $" + idx++); params.push(req.query.region); }
     if (req.query.district) { where.push("district = $" + idx++); params.push(req.query.district); }
     if (req.query.dm_name) { where.push("dm_name = $" + idx++); params.push(req.query.dm_name); }
@@ -3984,7 +3984,7 @@ app.get("/api/daily-plan/achievements", async (req, res) => {
 app.get("/api/daily-plan/exists", async (req, res) => {
   try {
     const table = req.query.table === 'achievements' ? 'daily_reports_achievements' : 'daily_reports';
-    const result = await pool.query("SELECT COUNT(*)::int AS cnt FROM " + table + " WHERE date=$1 AND branch_name=$2", [req.query.date, req.query.branch]);
+    const result = await pool.query("SELECT COUNT(*)::int AS cnt FROM " + table + " WHERE date=$1 AND UPPER(branch_name)=UPPER($2)", [req.query.date, req.query.branch]);
     res.json({ exists: result.rows[0].cnt > 0 });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });

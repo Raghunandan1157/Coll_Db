@@ -508,7 +508,29 @@
           openDrBranchModal(location, 'achievements');
         };
         var drDate = new Date().toISOString().split('T')[0];
-        var drLevel = 'REGION';
+        // Role-aware level button filtering
+        var allowedLevels = (function(r){
+          if (r === 'BM' || r === 'FO') return ['BRANCH'];
+          if (r === 'AM') return ['AREA','BRANCH'];
+          if (r === 'DM') return ['DIVISION','AREA','BRANCH'];
+          return ['REGION','DIVISION','AREA','BRANCH'];
+        })(role);
+        var defaultLevel = allowedLevels[0];
+        var drLevel = defaultLevel;
+        (function(){
+          var btns = document.querySelectorAll('#drLevelBtns button');
+          btns.forEach(function(b){
+            var txt = b.textContent.trim().toUpperCase();
+            var match = allowedLevels.find(function(lv){ return txt.indexOf(lv) >= 0; });
+            if (!match) {
+              b.style.display = 'none';
+            } else if (match === defaultLevel) {
+              b.style.background = '#6366F1'; b.style.color = '#fff'; b.style.border = 'none';
+            } else {
+              b.style.background = '#fff'; b.style.color = '#334155'; b.style.border = '1px solid #E2E8F0';
+            }
+          });
+        })();
         var dateInput = document.getElementById('drDateInput');
         if (dateInput) dateInput.value = drDate;
         window._drDate = drDate;
@@ -2166,18 +2188,27 @@ var _drCurrentBranch = '';
 var _drCurrentTable = 'reports';
 
 function openDrBranchModal(branchName, table) {
-  _drCurrentBranch = branchName;
+  // Normalize branch name to canonical V2 spelling from _drAllBranches
+  // (handles legacy roleLocation casing like "BIDAR" → "Bidar")
+  var canonical = branchName;
+  if (window._drAllBranches && _drAllBranches.length) {
+    var match = _drAllBranches.find(function(b){
+      return (b || '').toUpperCase() === (branchName || '').toUpperCase();
+    });
+    if (match) canonical = match;
+  }
+  _drCurrentBranch = canonical;
   _drCurrentTable = table || 'reports';
-  document.getElementById('drModalTitle').textContent = branchName + ' — Details';
+  document.getElementById('drModalTitle').textContent = canonical + ' — Details';
   // Clear all fields
   document.querySelectorAll('#drBranchModal input[type=number]').forEach(function(el) { el.value = ''; });
-  // Load existing data
+  // Load existing data (use canonical name for fetches)
   var today = new Date().toISOString().split('T')[0];
-  fetch('/api/daily-plan/exists?table=' + _drCurrentTable + '&date=' + today + '&branch=' + encodeURIComponent(branchName))
+  fetch('/api/daily-plan/exists?table=' + _drCurrentTable + '&date=' + today + '&branch=' + encodeURIComponent(canonical))
     .then(function(r){return r.json();})
     .then(function(d){
       if (d.exists) {
-        fetch('/api/daily-plan/' + (_drCurrentTable === 'achievements' ? 'achievements' : 'reports') + '?from=' + today + '&to=' + today + '&branch=' + encodeURIComponent(branchName))
+        fetch('/api/daily-plan/' + (_drCurrentTable === 'achievements' ? 'achievements' : 'reports') + '?from=' + today + '&to=' + today + '&branch=' + encodeURIComponent(canonical))
           .then(function(r){return r.json();})
           .then(function(result){
             if (result.data && result.data.length) {
@@ -2412,13 +2443,16 @@ function _drGetKeysForLevel(level) {
 function _drRenderTable(title, level, planData, achData, type) {
   // Ensure all numeric fields are actual numbers (API may return strings)
   var toNum = function(v){ return Number(v) || 0; };
-  var planMap = {}; planData.forEach(function(r){ planMap[r.branch_name] = r; });
-  var achMap = {}; achData.forEach(function(r){ achMap[r.branch_name] = r; });
+  // Case-insensitive keying: employee_master uses mixed case ("Bidar"),
+  // legacy employee_performance and old saves use UPPERCASE ("BIDAR").
+  var _key = function(s){ return (s || '').toString().trim().toUpperCase(); };
+  var planMap = {}; planData.forEach(function(r){ planMap[_key(r.branch_name)] = r; });
+  var achMap = {}; achData.forEach(function(r){ achMap[_key(r.branch_name)] = r; });
 
   var rows = [];
   if (level === 'BRANCH') {
     _drAllBranches.sort().forEach(function(br){
-      var p = planMap[br] || {};
+      var p = planMap[_key(br)] || {};
       var N=function(x){return Number(x)||0;};
       rows.push({name:br, ftod:N(p.ftod_plan), feb:N(p.dpd_1_30_plan), dpd31:N(p.dpd_31_60_plan), pnpa:N(p.dpd_61_90_plan), npa_act:N(p.npa_activation), npa_clo:N(p.npa_closure), ns:N(p.fy_non_start_acc), ns_plan:N(p.fy_non_start_plan), disb_iglfig_acc:N(p.disb_igl_acc)+N(p.disb_fig_acc), disb_iglfig_amt:N(p.disb_igl_amt)+N(p.disb_fig_amt), disb_il_acc:N(p.disb_il_acc), disb_il_amt:N(p.disb_il_amt), kyc_figIgl:N(p.kyc_igl)+N(p.kyc_fig), kyc_il:N(p.kyc_il)});
     });
@@ -2532,9 +2566,10 @@ function _drRenderTable(title, level, planData, achData, type) {
 
 function _drAggregate(branches, planMap) {
   var n = function(v){ return Number(v) || 0; };
+  var _key = function(s){ return (s || '').toString().trim().toUpperCase(); };
   var r = {ftod:0,feb:0,dpd31:0,pnpa:0,npa_act:0,npa_clo:0,ns:0,ns_plan:0,disb_iglfig_acc:0,disb_iglfig_amt:0,disb_il_acc:0,disb_il_amt:0,kyc_figIgl:0,kyc_il:0};
   branches.forEach(function(br){
-    var p = planMap[br] || {};
+    var p = planMap[_key(br)] || planMap[br] || {};
     r.ftod += n(p.ftod_plan);
     r.feb += n(p.dpd_1_30_plan);
     r.dpd31 += n(p.dpd_31_60_plan);
