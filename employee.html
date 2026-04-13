@@ -2200,8 +2200,14 @@ function openDrBranchModal(branchName, table) {
   _drCurrentBranch = canonical;
   _drCurrentTable = table || 'reports';
   document.getElementById('drModalTitle').textContent = canonical + ' — Details';
-  // Clear all fields
-  document.querySelectorAll('#drBranchModal input[type=number]').forEach(function(el) { el.value = ''; });
+  // Clear all fields and unlock by default
+  document.querySelectorAll('#drBranchModal input[type=number]').forEach(function(el) {
+    el.value = '';
+    el.readOnly = false;
+    el.style.background = '';
+    el.style.cursor = '';
+  });
+  _drSetSaveButtonState(false);
   // Load existing data (use canonical name for fetches)
   var today = new Date().toISOString().split('T')[0];
   fetch('/api/daily-plan/exists?table=' + _drCurrentTable + '&date=' + today + '&branch=' + encodeURIComponent(canonical))
@@ -2218,6 +2224,8 @@ function openDrBranchModal(branchName, table) {
                 var el = document.getElementById(map[k]);
                 if (el && row[k] != null) el.value = row[k];
               });
+              // Lock fields — already saved
+              _drLockModalFields();
             }
           });
       }
@@ -2244,9 +2252,51 @@ function closeDrBranchModal() {
   document.getElementById('drBranchModal').style.display = 'none';
 }
 
+function _drLockModalFields() {
+  document.querySelectorAll('#drBranchModal input[type=number]').forEach(function(el) {
+    el.readOnly = true;
+    el.style.background = '#F1F5F9';
+    el.style.cursor = 'not-allowed';
+  });
+  _drSetSaveButtonState(true);
+}
+
+function _drSetSaveButtonState(locked) {
+  var btn = document.querySelector('#drBranchModal button[onclick="saveDrBranchData()"]');
+  if (!btn) return;
+  if (locked) {
+    btn.textContent = '✓ Already Saved (Locked)';
+    btn.disabled = true;
+    btn.style.background = '#94A3B8';
+    btn.style.cursor = 'not-allowed';
+  } else {
+    btn.textContent = 'Save & Close';
+    btn.disabled = false;
+    btn.style.background = '#059669';
+    btn.style.cursor = 'pointer';
+  }
+}
+
 function saveDrBranchData() {
   var today = new Date().toISOString().split('T')[0];
   var session = window.getEmployeeSession ? getEmployeeSession() : {};
+  // Validation: plan must be <= actual for collection pairs
+  var pairs = [
+    {actual:'dr_ftod_actual', plan:'dr_ftod_plan', label:'FTOD'},
+    {actual:'dr_dpd_1_30_actual', plan:'dr_dpd_1_30_plan', label:'1-30 DPD'},
+    {actual:'dr_dpd_31_60_actual', plan:'dr_dpd_31_60_plan', label:'31-60 DPD'},
+    {actual:'dr_dpd_61_90_actual', plan:'dr_dpd_61_90_plan', label:'61-90 DPD'},
+    {actual:'dr_fy_non_start_acc', plan:'dr_fy_non_start_plan', label:'FY Non-Starter'}
+  ];
+  for (var i = 0; i < pairs.length; i++) {
+    var actVal = Number(document.getElementById(pairs[i].actual).value) || 0;
+    var planVal = Number(document.getElementById(pairs[i].plan).value) || 0;
+    if (planVal > actVal) {
+      alert(pairs[i].label + ': Plan (' + planVal + ') cannot be greater than Actual (' + actVal + ')');
+      document.getElementById(pairs[i].plan).focus();
+      return;
+    }
+  }
   var data = {
     branch_name: _drCurrentBranch,
     date: today,
@@ -2279,10 +2329,11 @@ function saveDrBranchData() {
     body: JSON.stringify({ table: _drCurrentTable, data: data })
   }).then(function(r){return r.json();}).then(function(result){
     if (result.success) {
-      closeDrBranchModal();
-      // Update plan status on card
-      var el = document.getElementById('drPlanStatus');
-      if (el) el.textContent = '✓ Set';
+      _drLockModalFields();
+      // Update plan/achievement status on card
+      var el = document.getElementById(_drCurrentTable === 'achievements' ? 'drAchievement' : 'drPlanStatus');
+      if (el) { el.textContent = _drCurrentTable === 'achievements' ? '✓ Entered' : '✓ Set'; el.style.color = '#D1FAE5'; }
+      setTimeout(closeDrBranchModal, 800);
     } else {
       alert('Save failed: ' + (result.error || 'Unknown error'));
     }
