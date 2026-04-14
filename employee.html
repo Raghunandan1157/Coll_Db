@@ -2755,7 +2755,7 @@ function _drBuildTableHTML(tableTitle, level, rows, tableId, isAch) {
   h += '</tr>';
 
   h += '<tr style="font-weight:600;font-size:9px;">';
-  h += '<td style="'+s+'">'+subHdr+'</td>'.repeat(4);
+  h += ('<td style="'+s+'">'+subHdr+'</td>').repeat(4);
   h += '<td style="'+s+'">Act</td><td style="'+s+'">Clo</td>';
   h += '<td style="'+s+'">NS Acc</td><td style="'+s+'">NS Plan</td>';
   h += '<td style="'+s+'">IGL&FIG<br>Acc</td><td style="'+s+'">IGL&FIG<br>Amt</td>';
