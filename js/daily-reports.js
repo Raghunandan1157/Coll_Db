@@ -1728,39 +1728,22 @@ function toggleSidebar() {
     overlay.classList.toggle("visible");
 }
 
-function validatePlanVsActual(inputEl, actualId) {
-    var actualEl = document.getElementById(actualId);
-    if (!actualEl || actualEl.disabled) return; // actual not visible or locked
-    var actualVal = parseInt(actualEl.value) || 0;
-    if (actualVal === 0) return; // no actual entered yet, skip validation
-    var planVal = parseInt(inputEl.value) || 0;
-    if (planVal > actualVal) {
-        // Revert last keystroke
-        inputEl.value = inputEl.value.slice(0, -1);
-        inputEl.classList.add('plan-exceed-flash');
-        setTimeout(function() { inputEl.classList.remove('plan-exceed-flash'); }, 600);
-        // Show warning
-        var row = inputEl.closest('.form-row');
-        if (!row) return;
-        var existing = row.querySelector('#plan-exceed-warning');
-        if (existing) existing.remove();
-        var warn = document.createElement('div');
-        warn.id = 'plan-exceed-warning';
-        warn.textContent = 'Plan cannot exceed actual (' + actualVal + ' accounts)';
-        row.appendChild(warn);
-        clearTimeout(inputEl._warnTimer);
-        inputEl._warnTimer = setTimeout(function() {
-            var w = row.querySelector('#plan-exceed-warning');
-            if (w) w.remove();
-        }, 2500);
-    } else {
-        // Clear warning if valid
-        var row = inputEl.closest('.form-row');
-        if (row) {
-            var w = row.querySelector('#plan-exceed-warning');
-            if (w) w.remove();
-        }
-    }
+function showPlanExceedPopup(inputEl, actualVal) {
+    inputEl.classList.add('plan-exceed-shake');
+    setTimeout(function(){ inputEl.classList.remove('plan-exceed-shake'); }, 500);
+    var row = inputEl.closest('.form-row');
+    if (!row) return;
+    var existing = row.querySelector('.plan-exceed-popup');
+    if (existing) existing.remove();
+    var pop = document.createElement('div');
+    pop.className = 'plan-exceed-popup';
+    pop.innerHTML = '<strong>⚠ Plan exceeds Actual</strong><br>Plan cannot be more than ' + actualVal + ' accounts';
+    row.appendChild(pop);
+    clearTimeout(inputEl._warnTimer);
+    inputEl._warnTimer = setTimeout(function(){
+        var p = row.querySelector('.plan-exceed-popup');
+        if (p) p.remove();
+    }, 3000);
 }
 
 // --- ACTIONS ---
@@ -5009,22 +4992,48 @@ async function openBranchModal(branchName) {
         footer.insertBefore(btn, footer.firstChild);
     }
 
-    // Add Indian number formatting to amount fields
+    // Add Indian number formatting + plan-vs-actual validation
+    const planActualPairs = {
+        'ftod_plan': 'ftod_actual',
+        'dpd_1_30_plan': 'dpd_1_30_actual',
+        'dpd_31_60_plan': 'dpd_31_60_actual',
+        'dpd_61_90_plan': 'dpd_61_90_actual',
+        'fy_non_start_plan': 'fy_non_start_acc'
+    };
     const amountFields = ['ftod_plan', 'dpd_1_30_plan', 'dpd_31_60_plan', 'dpd_61_90_plan',
                           'fy_non_start_plan', 'disb_igl_amt', 'disb_fig_amt', 'disb_il_amt'];
     amountFields.forEach(id => {
         const el = document.getElementById(id);
-        if (el) {
-            el.oninput = function() {
-                const cursorPos = this.selectionStart;
-                const oldLength = this.value.length;
-                const raw = this.value.replace(/,/g, '');
-                this.value = formatIndianNumber(raw);
-                const newLength = this.value.length;
-                const newPos = cursorPos + (newLength - oldLength);
-                this.setSelectionRange(newPos, newPos);
-            };
-        }
+        if (!el) return;
+        el.dataset.lastValid = el.value.replace(/,/g, '');
+        el.oninput = function() {
+            const cursorPos = this.selectionStart;
+            const oldLength = this.value.length;
+            const raw = this.value.replace(/,/g, '');
+            // --- Plan vs Actual validation ---
+            const actualId = planActualPairs[id];
+            if (actualId && (typeof currentModalState === 'undefined' || currentModalState !== 'ACHIEVEMENT')) {
+                const actualEl = document.getElementById(actualId);
+                if (actualEl) {
+                    const actualRaw = (actualEl.value || '').replace(/,/g, '');
+                    const actualVal = parseInt(actualRaw) || 0;
+                    const planVal = parseInt(raw) || 0;
+                    if (actualVal > 0 && planVal > actualVal) {
+                        // Restore previous valid value
+                        const prev = this.dataset.lastValid || '';
+                        this.value = prev ? formatIndianNumber(prev) : '';
+                        showPlanExceedPopup(this, actualVal);
+                        return;
+                    }
+                }
+            }
+            // Format and save as last valid
+            this.value = formatIndianNumber(raw);
+            this.dataset.lastValid = raw;
+            const newLength = this.value.length;
+            const newPos = cursorPos + (newLength - oldLength);
+            this.setSelectionRange(newPos, newPos);
+        };
     });
 
     document.getElementById("branchModal").classList.add("visible");
@@ -7656,52 +7665,6 @@ function filterPortfolio(filter) {
     // For now just visual feedback, could implement actual filtering
 }
 
-// --- INPUT VALIDATION ---
-function setupInputValidators() {
-    const pairs = [
-        { plan: 'ftod_plan', actual: 'ftod_actual', name: 'FTOD Collection Plan' },
-        { plan: 'dpd_1_30_plan', actual: 'dpd_1_30_actual', name: '1-30 DPD Collection Plan' },
-        { plan: 'dpd_31_60_plan', actual: 'dpd_31_60_actual', name: '31-60 DPD Collection Plan' },
-        { plan: 'dpd_61_90_plan', actual: 'dpd_61_90_actual', name: '61-90 DPD Collection Plan' },
-        { plan: 'fy_non_start_plan', actual: 'fy_non_start_acc', name: 'Non-Starter Collection Plan' }
-    ];
-
-    pairs.forEach(pair => {
-        const planInput = document.getElementById(pair.plan);
-        const actualInput = document.getElementById(pair.actual);
-
-        if (planInput && actualInput) {
-            // Validate when plan input changes
-            planInput.addEventListener('input', function () {
-                // SKIP VALIDATION IN ACHIEVEMENT MODE (Actuals are 0/hidden)
-                if (typeof currentModalState !== 'undefined' && currentModalState === 'ACHIEVEMENT') return;
-
-                // Remove non-numeric characters for safety if needed, or just parse
-                const planVal = parseInt(this.value) || 0;
-                const actualVal = parseInt(actualInput.value) || 0;
-
-                if (planVal > actualVal) {
-                    showToast(`${pair.name} cannot be more than Actual Account (${actualVal})`, "alert");
-                    this.value = actualVal;
-                }
-            });
-
-            // Re-validate when actual input changes
-            actualInput.addEventListener('input', function () {
-                const planVal = parseInt(planInput.value) || 0;
-                const actualVal = parseInt(this.value) || 0;
-                if (planVal > actualVal) {
-                    planInput.value = actualVal;
-                }
-            });
-        }
-    });
-}
-
-// Initialize validators
-document.addEventListener('DOMContentLoaded', setupInputValidators);
-// Also call immediately in case DOM is already loaded (script is at end of body)
-setupInputValidators();
 // --- PROFILE MODAL ---
 function toggleProfileModal() {
     const modal = document.getElementById('profileModal');

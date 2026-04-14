@@ -9,14 +9,14 @@
   <title>NLPL Dashboard</title>
   <link rel="icon" href="logo-plan.png" type="image/png">
   <!-- Preload critical resources so browser starts downloading early -->
-  <link rel="preload" href="js/daily-reports.js?v=15" as="script">
+  <link rel="preload" href="js/daily-reports.js?v=16" as="script">
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="css/daily-reports.css?v=2">
+  <link rel="stylesheet" href="css/daily-reports.css?v=3">
 
 <style>
   /* When loaded in iframe, hide the sidebar and make content full-width */
@@ -617,7 +617,7 @@
               </div>
               <div class="form-row">
                 <label class="form-label">FTOD Collection Plan</label>
-                <input class="form-input" id="ftod_plan" placeholder="FTOD Collection Plan" inputmode="numeric" oninput="validatePlanVsActual(this, 'ftod_actual')">
+                <input class="form-input" id="ftod_plan" placeholder="FTOD Collection Plan" inputmode="numeric">
               </div>
             </div>
 
@@ -630,7 +630,7 @@
               </div>
               <div class="form-row">
                 <label class="form-label">Collection Plan</label>
-                <input class="form-input" id="dpd_1_30_plan" placeholder="Collection Plan" inputmode="numeric" oninput="validatePlanVsActual(this, 'dpd_1_30_actual')">
+                <input class="form-input" id="dpd_1_30_plan" placeholder="Collection Plan" inputmode="numeric">
               </div>
             </div>
           </div>
@@ -646,7 +646,7 @@
               </div>
               <div class="form-row">
                 <label class="form-label">Collection Plan</label>
-                <input class="form-input" id="dpd_31_60_plan" placeholder="Collection Plan" inputmode="numeric" oninput="validatePlanVsActual(this, 'dpd_31_60_actual')">
+                <input class="form-input" id="dpd_31_60_plan" placeholder="Collection Plan" inputmode="numeric">
               </div>
             </div>
 
@@ -659,7 +659,7 @@
               </div>
               <div class="form-row">
                 <label class="form-label">Collection Plan</label>
-                <input class="form-input" id="dpd_61_90_plan" placeholder="Collection Plan" inputmode="numeric" oninput="validatePlanVsActual(this, 'dpd_61_90_actual')">
+                <input class="form-input" id="dpd_61_90_plan" placeholder="Collection Plan" inputmode="numeric">
               </div>
             </div>
           </div>
@@ -693,7 +693,7 @@
                 </div>
                 <div class="form-row">
                   <label class="form-label">COLLECTION PLAN</label>
-                  <input class="form-input" id="fy_non_start_plan" placeholder="COLLECTION PLAN" inputmode="numeric" oninput="validatePlanVsActual(this, 'fy_non_start_acc')">
+                  <input class="form-input" id="fy_non_start_plan" placeholder="COLLECTION PLAN" inputmode="numeric">
                 </div>
               </div>
             </div>
@@ -968,7 +968,7 @@
     </div>
   </div>
 
-  <script src="js/daily-reports.js?v=15"></script>
+  <script src="js/daily-reports.js?v=16"></script>
   </div><!-- .desktop-main -->
 </div><!-- .desktop-layout -->
 </body>
