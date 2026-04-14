@@ -1,4 +1,4 @@
-var CACHE_NAME = 'coll-report-v33';
+var CACHE_NAME = 'coll-report-v34';
 var ASSETS = [
   './',
   './index.html',

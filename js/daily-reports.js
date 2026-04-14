@@ -37,6 +37,45 @@
 })();
 
 
+// === PLAN vs ACTUAL VALIDATOR (event delegation, always active) ===
+(function() {
+    var PAIRS = {
+        'ftod_plan': 'ftod_actual',
+        'dpd_1_30_plan': 'dpd_1_30_actual',
+        'dpd_31_60_plan': 'dpd_31_60_actual',
+        'dpd_61_90_plan': 'dpd_61_90_actual',
+        'fy_non_start_plan': 'fy_non_start_acc'
+    };
+    var lastValid = {};
+    document.addEventListener('input', function(e) {
+        var t = e.target;
+        if (!t || !t.id || !(t.id in PAIRS)) return;
+        if (typeof currentModalState !== 'undefined' && currentModalState === 'ACHIEVEMENT') return;
+        var actualId = PAIRS[t.id];
+        var actualEl = document.getElementById(actualId);
+        if (!actualEl) return;
+        var actualVal = parseInt((actualEl.value || '').replace(/,/g, '')) || 0;
+        if (actualVal <= 0) { lastValid[t.id] = (t.value || '').replace(/,/g, ''); return; }
+        var planVal = parseInt((t.value || '').replace(/,/g, '')) || 0;
+        if (planVal > actualVal) {
+            // Restore previous valid value
+            var prev = lastValid[t.id] || '';
+            if (typeof formatIndianNumber === 'function') {
+                t.value = prev ? formatIndianNumber(prev) : '';
+            } else {
+                t.value = prev;
+            }
+            if (typeof showPlanExceedPopup === 'function') {
+                showPlanExceedPopup(t, actualVal);
+            }
+            e.preventDefault();
+            e.stopPropagation();
+        } else {
+            lastValid[t.id] = (t.value || '').replace(/,/g, '');
+        }
+    }, true); // useCapture=true so we run BEFORE other input handlers
+})();
+
 // --- EC2 API WRAPPER (replaces Neon direct connection) ---
 async function neonQuery(sqlText, params = []) {
     // Route SQL queries to appropriate EC2 API endpoints
