@@ -1728,6 +1728,41 @@ function toggleSidebar() {
     overlay.classList.toggle("visible");
 }
 
+function validatePlanVsActual(inputEl, actualId) {
+    var actualEl = document.getElementById(actualId);
+    if (!actualEl || actualEl.disabled) return; // actual not visible or locked
+    var actualVal = parseInt(actualEl.value) || 0;
+    if (actualVal === 0) return; // no actual entered yet, skip validation
+    var planVal = parseInt(inputEl.value) || 0;
+    if (planVal > actualVal) {
+        // Revert last keystroke
+        inputEl.value = inputEl.value.slice(0, -1);
+        inputEl.classList.add('plan-exceed-flash');
+        setTimeout(function() { inputEl.classList.remove('plan-exceed-flash'); }, 600);
+        // Show warning
+        var row = inputEl.closest('.form-row');
+        if (!row) return;
+        var existing = row.querySelector('#plan-exceed-warning');
+        if (existing) existing.remove();
+        var warn = document.createElement('div');
+        warn.id = 'plan-exceed-warning';
+        warn.textContent = 'Plan cannot exceed actual (' + actualVal + ' accounts)';
+        row.appendChild(warn);
+        clearTimeout(inputEl._warnTimer);
+        inputEl._warnTimer = setTimeout(function() {
+            var w = row.querySelector('#plan-exceed-warning');
+            if (w) w.remove();
+        }, 2500);
+    } else {
+        // Clear warning if valid
+        var row = inputEl.closest('.form-row');
+        if (row) {
+            var w = row.querySelector('#plan-exceed-warning');
+            if (w) w.remove();
+        }
+    }
+}
+
 // --- ACTIONS ---
 function handleLogin(role) {
     let user = "";

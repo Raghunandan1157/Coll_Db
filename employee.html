@@ -1459,10 +1459,14 @@ body.emp-dark .ai-bar-icon { background: rgba(99,102,241,0.15); color: #A5B4FC; 
         .replace(/\n/g, '<br>');
     }
 
-    function buildSystemPrompt(ctx) {
+    function buildSystemPrompt(ctx, session) {
       var o = ctx.overallSummary || {};
       var pct = o.total_rd > 0 ? ((o.total_rc / o.total_rd) * 100).toFixed(1) + '%' : '-';
       var sys = 'You are the NLPL AI Assistant — a data analyst for NLPL (Nava Chetana Livelihoods) employee dashboard.\n\n';
+      if (session && session.role) {
+        var loc = session.location || 'Overall';
+        sys += 'USER CONTEXT: You are helping a ' + session.role + ' whose scope is ' + loc + '. Tailor your answers to their scope.\n\n';
+      }
       sys += 'CURRENT DATA (latest: ' + (ctx.latestDate || 'unknown') + '):\n\n';
       sys += 'OVERALL: RD=' + fmtIN(o.total_rd) + ', RC=' + fmtIN(o.total_rc) + ', Coll%=' + pct + '\n';
       sys += 'SMA-0: D=' + fmtIN(o.sma0_d) + ' C=' + fmtIN(o.sma0_c) + ' | SMA-1: D=' + fmtIN(o.sma1_d) + ' C=' + fmtIN(o.sma1_c) + '\n';
@@ -1487,10 +1491,11 @@ body.emp-dark .ai-bar-icon { background: rgba(99,102,241,0.15); color: #A5B4FC; 
 
     // Call server-side Gemini proxy
     function callAI(messages, callback) {
+      var session = (typeof getEmployeeSession === 'function') ? getEmployeeSession() : {};
       fetch('/api/ai-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: messages })
+        body: JSON.stringify({ messages: messages, role: session.role || '', location: session.location || '' })
       })
       .then(function(r) { return r.json(); })
       .then(function(data) {
@@ -1526,7 +1531,7 @@ body.emp-dark .ai-bar-icon { background: rgba(99,102,241,0.15); color: #A5B4FC; 
       box.scrollTop = box.scrollHeight;
 
       function doSend(ctx) {
-        var sysPr = buildSystemPrompt(ctx);
+        var sysPr = buildSystemPrompt(ctx, (typeof getEmployeeSession === 'function') ? getEmployeeSession() : {});
         var msgs = [{ role: 'system', content: sysPr }];
         _aiHistory.slice(-6).forEach(function(h) { msgs.push({ role: h.role, content: h.content }); });
         // Last one is already in history, but let's ensure user message is last
