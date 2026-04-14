@@ -4205,73 +4205,77 @@ async function safeQuery(sql, params, maxRows) {
 // Build context snapshot for the AI
 async function buildDataContext(session) {
   const ctx = {};
+  const role = (session.role || '').toUpperCase();
+  const loc = (session.location || '').trim();
+  const isCeo = !role || role === 'CEO' || !loc;
 
   // Latest dates available
   const dates = await safeQuery("SELECT MAX(report_date) as latest FROM daily_performance", [], 1);
   ctx.latestDate = dates[0]?.latest || 'unknown';
 
-  // Summary: overall totals from employee_performance (current month cumulative)
-  const overall = await safeQuery(`
-    SELECT SUM(regular_demand) as total_rd, SUM(regular_collection) as total_rc,
-           SUM(demand_1_30) as sma0_d, SUM(collection_1_30) as sma0_c,
-           SUM(demand_31_60) as sma1_d, SUM(collection_31_60) as sma1_c,
-           SUM(pnpa_demand) as pnpa_d, SUM(pnpa_collection) as pnpa_c,
-           SUM(npa_cases) as npa_cases, SUM(npa_act_acc) as npa_act
-    FROM employee_performance`, [], 1);
-  ctx.overallSummary = overall[0] || {};
-
-  // Branch-wise top 10 by regular_demand
-  ctx.topBranches = await safeQuery(`
-    SELECT b.branch_name, SUM(ep.regular_demand) as rd, SUM(ep.regular_collection) as rc
-    FROM employee_performance ep
-    JOIN employees e ON ep.emp_id = e.emp_id
-    JOIN branches b ON e.branch_id = b.branch_id
-    GROUP BY b.branch_name ORDER BY rd DESC LIMIT 10`, [], 10);
-
-  // Region-wise summary
-  ctx.regionSummary = await safeQuery(`
-    SELECT r.region_name, SUM(ep.regular_demand) as rd, SUM(ep.regular_collection) as rc
-    FROM employee_performance ep
-    JOIN employees e ON ep.emp_id = e.emp_id
-    JOIN branches b ON e.branch_id = b.branch_id
-    JOIN districts d ON b.district_id = d.district_id
-    JOIN regions r ON d.region_id = r.region_id
-    GROUP BY r.region_name ORDER BY rd DESC`, [], 20);
-
-  // Disbursement summary (latest month)
-  ctx.disbursement = await safeQuery(`
-    SELECT db_month, SUM(disb_count) as total_count, SUM(disb_amount) as total_amount
-    FROM disbursement GROUP BY db_month ORDER BY db_month DESC LIMIT 2`, [], 2);
-
-  // If user has a specific role/location, add their filtered data
-  if (session.role && session.location) {
-    let filter = '', params = [];
-    if (session.role === 'RM' || session.role === 'SM') {
-      filter = `JOIN employees e ON ep.emp_id = e.emp_id
-        JOIN branches b ON e.branch_id = b.branch_id
-        JOIN districts d ON b.district_id = d.district_id
-        JOIN regions r ON d.region_id = r.region_id WHERE r.region_name = $1`;
-      params = [session.location];
-    } else if (session.role === 'DM' || session.role === 'DvM') {
-      filter = `JOIN employees e ON ep.emp_id = e.emp_id
-        JOIN branches b ON e.branch_id = b.branch_id
-        JOIN districts d ON b.district_id = d.district_id WHERE d.district_name = $1`;
-      params = [session.location];
-    } else if (session.role === 'BM') {
-      filter = `JOIN employees e ON ep.emp_id = e.emp_id
-        JOIN branches b ON e.branch_id = b.branch_id WHERE b.branch_name = $1`;
-      params = [session.location];
-    }
-    if (filter) {
-      ctx.myData = await safeQuery(`
-        SELECT SUM(ep.regular_demand) as rd, SUM(ep.regular_collection) as rc,
-               SUM(ep.demand_1_30) as sma0_d, SUM(ep.collection_1_30) as sma0_c,
-               SUM(ep.npa_cases) as npa_cases, SUM(ep.npa_act_acc) as npa_act
-        FROM employee_performance ep ${filter}`, params, 1);
+  // Build a branch-name IN clause via employee_master — single source of truth
+  let branchFilter = '';
+  let params = [];
+  if (!isCeo) {
+    let emCol = null;
+    if (role === 'RM' || role === 'SM') emCol = 'region_name';
+    else if (role === 'DM' || role === 'DVM') emCol = 'division_name';
+    else if (role === 'AM') emCol = 'area_name';
+    else if (role === 'BM' || role === 'FO') emCol = 'branch_name';
+    if (emCol) {
+      branchFilter = `WHERE UPPER(b.branch_name) IN (
+        SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(${emCol}) ILIKE TRIM($1)
+      )`;
+      params = [loc];
     }
   }
 
+  // Scoped overall summary
+  const overall = await safeQuery(`
+    SELECT SUM(ep.regular_demand) as total_rd, SUM(ep.regular_collection) as total_rc,
+           SUM(ep.demand_1_30) as sma0_d, SUM(ep.collection_1_30) as sma0_c,
+           SUM(ep.demand_31_60) as sma1_d, SUM(ep.collection_31_60) as sma1_c,
+           SUM(ep.pnpa_demand) as pnpa_d, SUM(ep.pnpa_collection) as pnpa_c,
+           SUM(ep.npa_cases) as npa_cases, SUM(ep.npa_act_acc) as npa_act
+    FROM employee_performance ep
+    JOIN employees e ON ep.emp_id = e.emp_id
+    JOIN branches b ON e.branch_id = b.branch_id
+    ${branchFilter}`, params, 1);
+  ctx.summary = overall[0] || {};
+  ctx.scope = isCeo ? 'all' : `${role} — ${loc}`;
+
+  // Scoped branch-level breakdown (top 10 by demand for non-CEO, top 10 overall for CEO)
+  ctx.branches = await safeQuery(`
+    SELECT b.branch_name, SUM(ep.regular_demand) as rd, SUM(ep.regular_collection) as rc,
+           SUM(ep.npa_cases) as npa_cases
+    FROM employee_performance ep
+    JOIN employees e ON ep.emp_id = e.emp_id
+    JOIN branches b ON e.branch_id = b.branch_id
+    ${branchFilter}
+    GROUP BY b.branch_name ORDER BY rd DESC LIMIT 20`, params, 20);
+
+  // Scoped disbursement (latest 2 months)
+  let disbFilter = '';
+  if (!isCeo && emCol_for_disb(role)) {
+    disbFilter = `WHERE UPPER(d.branch_name) IN (
+      SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(${emCol_for_disb(role)}) ILIKE TRIM($1)
+    )`;
+  }
+  ctx.disbursement = await safeQuery(`
+    SELECT d.db_month, SUM(d.disb_count) as total_count, SUM(d.disb_amount) as total_amount
+    FROM disbursement d ${disbFilter}
+    GROUP BY d.db_month ORDER BY d.db_month DESC LIMIT 2`, disbFilter ? [loc] : [], 2);
+
   return ctx;
+}
+
+function emCol_for_disb(role) {
+  role = (role || '').toUpperCase();
+  if (role === 'RM' || role === 'SM') return 'region_name';
+  if (role === 'DM' || role === 'DVM') return 'division_name';
+  if (role === 'AM') return 'area_name';
+  if (role === 'BM' || role === 'FO') return 'branch_name';
+  return null;
 }
 
 // Endpoint: provide data context for client-side AI calls
@@ -4297,9 +4301,21 @@ app.post("/api/ai-chat", aiLimiter, async (req, res) => {
     return res.status(403).json({ error: 'Forbidden' });
   }
   if (!GEMINI_KEY) return res.status(503).json({ error: 'AI not configured.' });
-  const { messages } = req.body;
+  const { messages, role, location } = req.body;
   if (!messages || !Array.isArray(messages)) {
     return res.status(400).json({ error: 'messages array required' });
+  }
+
+  // Fetch role-scoped data and inject into system prompt
+  let scopedSystemText = '';
+  try {
+    const session = (role && location) ? { role, location } : {};
+    const ctx = await buildDataContext(session);
+    const scopeLabel = (role && location) ? `${role} for ${location}` : 'CEO (all data)';
+    scopedSystemText = `\n\nYou are helping a ${scopeLabel}. Here is their current portfolio data:\n${JSON.stringify(ctx, null, 2)}\n\nOnly answer based on this scoped data. If asked about data outside this scope, politely refuse.`;
+  } catch (e) {
+    console.error('AI chat scope fetch error:', e.message);
+    // non-fatal: proceed without scoped data
   }
 
   // Convert OpenAI-style messages to Gemini format
@@ -4309,7 +4325,10 @@ app.post("/api/ai-chat", aiLimiter, async (req, res) => {
     role: m.role === 'assistant' ? 'model' : 'user',
     parts: [{ text: m.content }]
   }));
-  const systemInstruction = systemMsg ? { parts: [{ text: systemMsg.content }] } : undefined;
+  const baseSystemText = systemMsg ? systemMsg.content : '';
+  const systemInstruction = (baseSystemText || scopedSystemText)
+    ? { parts: [{ text: baseSystemText + scopedSystemText }] }
+    : undefined;
 
   for (const model of GEMINI_MODELS) {
     try {
