@@ -4287,10 +4287,16 @@ app.post("/api/ai-context", async (req, res) => {
 });
 
 // ========== AI Chat Proxy — Google Gemini ==========
-const GEMINI_KEY = process.env.GEMINI_KEY || 'AIzaSyBSEy2K28PeONUjBIL91Wk4j7ju9jaXNRA';
+const GEMINI_KEY = process.env.GEMINI_KEY;
 const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'];
 
 app.post("/api/ai-chat", aiLimiter, async (req, res) => {
+  // Only allow requests from the dashboard domain
+  const origin = req.headers.origin || req.headers.referer || '';
+  if (origin && !origin.includes('navachetanalivelihoods.com') && !origin.includes('localhost')) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  if (!GEMINI_KEY) return res.status(503).json({ error: 'AI not configured.' });
   const { messages } = req.body;
   if (!messages || !Array.isArray(messages)) {
     return res.status(400).json({ error: 'messages array required' });
