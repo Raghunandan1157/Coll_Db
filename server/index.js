@@ -4016,14 +4016,21 @@ app.get("/api/hourly/by-employee", async (req, res) => {
 // ========== DAILY PLAN / DAILY REPORTS API ==========
 
 // Branch hierarchy from employee_master (V2 structure)
+// Dedupes by branch_name — some branches appear under multiple rows in
+// employee_master with slight hierarchy variations; keep the first one.
 app.get("/api/daily-plan/branches", async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT DISTINCT branch_name, area_name, division_name, region_name
-      FROM employee_master
-      WHERE branch_name IS NOT NULL AND branch_name != ''
-        AND status = 'Working'
-        AND region_name NOT IN ('Corporate Office', 'Head Office')
+      SELECT branch_name, area_name, division_name, region_name
+      FROM (
+        SELECT DISTINCT ON (branch_name)
+          branch_name, area_name, division_name, region_name
+        FROM employee_master
+        WHERE branch_name IS NOT NULL AND branch_name != ''
+          AND status = 'Working'
+          AND region_name NOT IN ('Corporate Office', 'Head Office')
+        ORDER BY branch_name, region_name, division_name, area_name
+      ) s
       ORDER BY region_name, division_name, area_name, branch_name
     `);
     res.json(result.rows);
