@@ -9,14 +9,14 @@
   <title>NLPL Dashboard</title>
   <link rel="icon" href="logo-plan.png" type="image/png">
   <!-- Preload critical resources so browser starts downloading early -->
-  <link rel="preload" href="js/daily-reports.js?v=17" as="script">
+  <link rel="preload" href="js/daily-reports.js?v=18" as="script">
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="css/daily-reports.css?v=4">
+  <link rel="stylesheet" href="css/daily-reports.css?v=5">
 
 <style>
   /* When loaded in iframe, hide the sidebar and make content full-width */
@@ -49,6 +49,26 @@
   if (window.self !== window.top) {
     document.documentElement.classList.add('in-iframe');
   }
+  // Stale-cache auto-healer: if the page JS doesn't report v17 within 2s,
+  // the user is on a stale service-worker cache — wipe everything and reload.
+  setTimeout(function() {
+    if (typeof window._planValidatorVersion === 'undefined' || window._planValidatorVersion < 17) {
+      console.warn('[daily-reports] stale JS detected, clearing caches and reloading');
+      if ('serviceWorker' in navigator && 'caches' in window) {
+        navigator.serviceWorker.getRegistrations().then(function(regs) {
+          return Promise.all(regs.map(function(r) { return r.unregister(); }));
+        }).then(function() {
+          return caches.keys();
+        }).then(function(keys) {
+          return Promise.all(keys.map(function(k) { return caches.delete(k); }));
+        }).then(function() {
+          location.reload();
+        }).catch(function() { location.reload(); });
+      } else {
+        location.reload();
+      }
+    }
+  }, 2500);
 </script>
 
   <link rel="stylesheet" href="css/desktop.css?v=4">
@@ -968,7 +988,7 @@
     </div>
   </div>
 
-  <script src="js/daily-reports.js?v=17"></script>
+  <script src="js/daily-reports.js?v=18"></script>
   </div><!-- .desktop-main -->
 </div><!-- .desktop-layout -->
 </body>

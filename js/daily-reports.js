@@ -38,6 +38,8 @@
 
 
 // === PLAN vs ACTUAL VALIDATOR (event delegation, always active) ===
+window._planValidatorVersion = 17;
+console.log('[daily-reports] Plan validator v17 loaded');
 (function() {
     var PAIRS = {
         'ftod_plan': 'ftod_actual',
@@ -47,33 +49,53 @@
         'fy_non_start_plan': 'fy_non_start_acc'
     };
     var lastValid = {};
-    document.addEventListener('input', function(e) {
+
+    function handleInput(e) {
         var t = e.target;
         if (!t || !t.id || !(t.id in PAIRS)) return;
         if (typeof currentModalState !== 'undefined' && currentModalState === 'ACHIEVEMENT') return;
-        var actualId = PAIRS[t.id];
-        var actualEl = document.getElementById(actualId);
+        var actualEl = document.getElementById(PAIRS[t.id]);
         if (!actualEl) return;
         var actualVal = parseInt((actualEl.value || '').replace(/,/g, '')) || 0;
         if (actualVal <= 0) { lastValid[t.id] = (t.value || '').replace(/,/g, ''); return; }
         var planVal = parseInt((t.value || '').replace(/,/g, '')) || 0;
         if (planVal > actualVal) {
-            // Restore previous valid value
             var prev = lastValid[t.id] || '';
-            if (typeof formatIndianNumber === 'function') {
-                t.value = prev ? formatIndianNumber(prev) : '';
-            } else {
-                t.value = prev;
-            }
-            if (typeof showPlanExceedPopup === 'function') {
-                showPlanExceedPopup(t, actualVal);
-            }
+            t.value = prev ? (typeof formatIndianNumber === 'function' ? formatIndianNumber(prev) : prev) : '';
+            if (typeof showPlanExceedPopup === 'function') showPlanExceedPopup(t, actualVal);
             e.preventDefault();
             e.stopPropagation();
         } else {
             lastValid[t.id] = (t.value || '').replace(/,/g, '');
         }
-    }, true); // useCapture=true so we run BEFORE other input handlers
+    }
+
+    function handleBeforeInput(e) {
+        var t = e.target;
+        if (!t || !t.id || !(t.id in PAIRS)) return;
+        if (typeof currentModalState !== 'undefined' && currentModalState === 'ACHIEVEMENT') return;
+        if (e.inputType !== 'insertText' && e.inputType !== 'insertFromPaste') return;
+        var actualEl = document.getElementById(PAIRS[t.id]);
+        if (!actualEl) return;
+        var actualVal = parseInt((actualEl.value || '').replace(/,/g, '')) || 0;
+        if (actualVal <= 0) return;
+        var currentRaw = (t.value || '').replace(/,/g, '');
+        var incoming = e.data || '';
+        var start = t.selectionStart || 0;
+        var end = t.selectionEnd || 0;
+        // Approximate: build what the raw will look like after insertion
+        var beforeSel = (t.value || '').substring(0, start).replace(/,/g, '');
+        var afterSel = (t.value || '').substring(end).replace(/,/g, '');
+        var newRaw = beforeSel + incoming + afterSel;
+        if ((parseInt(newRaw) || 0) > actualVal) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (typeof showPlanExceedPopup === 'function') showPlanExceedPopup(t, actualVal);
+        }
+    }
+
+    document.addEventListener('beforeinput', handleBeforeInput, true);
+    document.addEventListener('input', handleInput, true);
 })();
 
 // --- EC2 API WRAPPER (replaces Neon direct connection) ---
