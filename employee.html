@@ -2029,6 +2029,38 @@ document.addEventListener('click', function(e) {
 
 <!-- Daily Reports Branch Detail Modal (native) -->
 <style>
+  /* Plan-exceed popup + shake animation for DR modal */
+  @keyframes drPlanPopIn {
+    0%   { opacity: 0; transform: translateY(-6px) scale(0.95); }
+    60%  { opacity: 1; transform: translateY(2px) scale(1.02); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  @keyframes drPlanShake {
+    0%, 100% { transform: translateX(0); }
+    20%      { transform: translateX(-6px); }
+    40%      { transform: translateX(6px); }
+    60%      { transform: translateX(-4px); }
+    80%      { transform: translateX(4px); }
+  }
+  .dr-plan-exceed-popup {
+    margin-top: 8px;
+    background: linear-gradient(135deg, #FEE2E2 0%, #FECACA 100%);
+    border: 2px solid #EF4444;
+    color: #991B1B;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 8px 12px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
+    animation: drPlanPopIn 0.25s ease-out;
+    line-height: 1.4;
+  }
+  .dr-plan-exceed-popup strong { color: #B91C1C; font-size: 13px; }
+  .dr-modal-input.dr-plan-shake {
+    animation: drPlanShake 0.4s ease;
+    border-color: #EF4444 !important;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15) !important;
+  }
   /* Daily Reports BM modal — mobile stacking */
   @media (max-width: 767px) {
     #drBranchModal { padding: 8px !important; }
@@ -2206,6 +2238,34 @@ var _DR_AMT_FIELDS = ['dr_ftod_plan','dr_dpd_1_30_plan','dr_dpd_31_60_plan','dr_
 // DPD actuals — once-per-month lock
 var _DR_MONTHLY_LOCK_FIELDS = ['dr_dpd_1_30_actual','dr_dpd_31_60_actual','dr_dpd_61_90_actual'];
 
+// Plan→Actual pairs for validation
+var _DR_PLAN_ACTUAL_PAIRS = {
+  'dr_ftod_plan': 'dr_ftod_actual',
+  'dr_dpd_1_30_plan': 'dr_dpd_1_30_actual',
+  'dr_dpd_31_60_plan': 'dr_dpd_31_60_actual',
+  'dr_dpd_61_90_plan': 'dr_dpd_61_90_actual',
+  'dr_fy_non_start_plan': 'dr_fy_non_start_acc'
+};
+var _drLastValid = {};
+
+function _drShowPlanExceedPopup(inputEl, actualVal) {
+  inputEl.classList.add('dr-plan-shake');
+  setTimeout(function(){ inputEl.classList.remove('dr-plan-shake'); }, 500);
+  var parent = inputEl.parentElement;
+  if (!parent) return;
+  var existing = parent.querySelector('.dr-plan-exceed-popup');
+  if (existing) existing.remove();
+  var pop = document.createElement('div');
+  pop.className = 'dr-plan-exceed-popup';
+  pop.innerHTML = '<strong>⚠ Plan exceeds Actual</strong><br>Cannot be more than ' + actualVal + ' accounts';
+  parent.appendChild(pop);
+  clearTimeout(inputEl._drWarnTimer);
+  inputEl._drWarnTimer = setTimeout(function(){
+    var p = parent.querySelector('.dr-plan-exceed-popup');
+    if (p) p.remove();
+  }, 3000);
+}
+
 function _drSetupModalInputs() {
   // Account fields: 3-digit cap with slice handler
   _DR_ACC_FIELDS.forEach(function(id) {
@@ -2217,16 +2277,33 @@ function _drSetupModalInputs() {
       if (this.value.length > 3) this.value = this.value.slice(0, 3);
     };
   });
-  // Amount/plan fields: Indian comma formatter (live)
+  // Amount/plan fields: Indian comma formatter + plan-vs-actual validation (live)
   _DR_AMT_FIELDS.forEach(function(id) {
     var el = document.getElementById(id);
     if (!el) return;
     el.removeAttribute('maxlength');
+    _drLastValid[id] = (el.value || '').replace(/,/g, '');
     el.oninput = function() {
       var cursorPos = this.selectionStart;
       var oldLen = this.value.length;
       var raw = this.value.replace(/[^0-9]/g, '');
+      // Plan vs Actual validation
+      var actualId = _DR_PLAN_ACTUAL_PAIRS[id];
+      if (actualId) {
+        var actualEl = document.getElementById(actualId);
+        if (actualEl) {
+          var actualVal = Number((actualEl.value || '').replace(/,/g, '')) || 0;
+          var planVal = Number(raw) || 0;
+          if (actualVal > 0 && planVal > actualVal) {
+            var prev = _drLastValid[id] || '';
+            this.value = prev ? _drFormatIndian(prev) : '';
+            _drShowPlanExceedPopup(this, actualVal);
+            return;
+          }
+        }
+      }
       this.value = _drFormatIndian(raw);
+      _drLastValid[id] = raw;
       var newLen = this.value.length;
       try { this.setSelectionRange(cursorPos + (newLen - oldLen), cursorPos + (newLen - oldLen)); } catch(e) {}
     };
