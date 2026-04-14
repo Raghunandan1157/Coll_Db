@@ -51,10 +51,11 @@
     var p = [];
     if (_db.month) p.push('month=' + encodeURIComponent(_db.month));
     if (_db.product && _db.product !== 'all') p.push('product_name=' + encodeURIComponent(_db.product.toUpperCase()));
-    // Disbursement always uses old-structure endpoints (no v2 disbursement API exists)
+    // Role-based filtering — server resolves via employee_master
     if ((session.role === 'RM' || session.role === 'SM') && session.location) p.push('region=' + encodeURIComponent(session.location));
-    else if ((session.role === 'DM' || session.role === 'DvM') && session.location) p.push('district=' + encodeURIComponent(session.location));
-    else if ((session.role === 'BM' || session.role === 'AM') && session.location) p.push('branch=' + encodeURIComponent(session.location));
+    else if ((session.role === 'DM' || session.role === 'DvM') && session.location) p.push('division=' + encodeURIComponent(session.location));
+    else if (session.role === 'AM' && session.location) p.push('area=' + encodeURIComponent(session.location));
+    else if (session.role === 'BM' && session.location) p.push('branch=' + encodeURIComponent(session.location));
     else if ((!session.role || session.role === 'FO') && session.id) p.push('emp_id=' + encodeURIComponent(session.id));
     return p.length ? '?' + p.join('&') : '';
   }
@@ -64,17 +65,20 @@
     if (_db.month) base.push('month=' + encodeURIComponent(_db.month));
     if (_db.product && _db.product !== 'all') base.push('product_name=' + encodeURIComponent(_db.product.toUpperCase()));
 
-    // Disbursement always uses old-structure endpoints (no v2 disbursement API exists)
     if (session.role === 'CEO') return '/api/disbursement/by-region' + (base.length ? '?' + base.join('&') : '');
     if ((session.role === 'RM' || session.role === 'SM') && session.location) {
       base.push('region=' + encodeURIComponent(session.location));
       return '/api/disbursement/by-district?' + base.join('&');
     }
     if ((session.role === 'DM' || session.role === 'DvM') && session.location) {
-      base.push('district=' + encodeURIComponent(session.location));
+      base.push('division=' + encodeURIComponent(session.location));
       return '/api/disbursement/by-branch?' + base.join('&');
     }
-    if ((session.role === 'BM' || session.role === 'AM') && session.location) {
+    if (session.role === 'AM' && session.location) {
+      base.push('area=' + encodeURIComponent(session.location));
+      return '/api/disbursement/by-branch?' + base.join('&');
+    }
+    if (session.role === 'BM' && session.location) {
       base.push('branch=' + encodeURIComponent(session.location));
       return '/api/disbursement/by-employee?' + base.join('&');
     }

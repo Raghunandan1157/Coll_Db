@@ -2239,6 +2239,9 @@ app.get("/api/disbursement/months", async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// Route all hierarchy filters through employee_master via branch_name.
+// Case-insensitive, whitespace-trimmed. Works for region/division/area/branch
+// regardless of casing differences between disbursement table and employee_master.
 function buildDisbWhere(filters) {
   var where = [];
   var params = [];
@@ -2247,9 +2250,22 @@ function buildDisbWhere(filters) {
   if (filters.product_name && filters.product_name !== 'All') {
     where.push("d.product_name=$" + idx++); params.push(filters.product_name);
   }
-  if (filters.region) { where.push("d.region_name=$" + idx++); params.push(filters.region); }
-  if (filters.district) { where.push("d.district_name=$" + idx++); params.push(filters.district); }
-  if (filters.branch) { where.push("d.branch_name=$" + idx++); params.push(filters.branch); }
+  if (filters.region || filters.state) {
+    where.push("UPPER(d.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(region_name) ILIKE TRIM($" + (idx++) + "))");
+    params.push(filters.region || filters.state);
+  }
+  if (filters.division) {
+    where.push("UPPER(d.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(division_name) ILIKE TRIM($" + (idx++) + "))");
+    params.push(filters.division);
+  }
+  if (filters.district || filters.area) {
+    where.push("UPPER(d.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(area_name) ILIKE TRIM($" + (idx++) + "))");
+    params.push(filters.district || filters.area);
+  }
+  if (filters.branch) {
+    where.push("UPPER(d.branch_name) = UPPER($" + (idx++) + ")");
+    params.push(filters.branch);
+  }
   if (filters.emp_id) { where.push("d.emp_id=$" + idx++); params.push(filters.emp_id); }
   return { clause: where.length ? " WHERE " + where.join(" AND ") : "", params };
 }
