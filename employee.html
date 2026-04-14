@@ -1441,15 +1441,10 @@ body.emp-dark .ai-bar-icon { background: rgba(99,102,241,0.15); color: #A5B4FC; 
   <script src="js/analytical.js?v=26"></script>
   <script src="js/employee.js?v=44"></script>
   <script>
-  // AI Chat — browser calls OpenRouter directly, server provides DB context
+  // AI Chat — browser calls server /api/ai-chat (Gemini backend)
   (function(){
     var _aiHistory = [];
     var _aiCtx = null;
-    // OpenRouter must be called from browser (EC2 IP is blocked by OpenRouter)
-    // Key is split to avoid plain-text exposure in source
-    var _k = ['sk-or-v1-','314cfd188457820219519881','823be40d651bfaf60307e181','fe8efb6a7edf19ea'];
-    var _OR_KEY = _k.join('');
-    var _AI_MODELS = ['minimax/minimax-m2.5:free','google/gemma-4-26b-a4b-it:free','nvidia/nemotron-3-super-120b-a12b:free','stepfun/step-3.5-flash:free'];
     var botIcon = '<div class="ai-msg-avatar">'
       + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>';
 
@@ -1490,28 +1485,22 @@ body.emp-dark .ai-bar-icon { background: rgba(99,102,241,0.15); color: #A5B4FC; 
       return sys;
     }
 
-    // Call OpenRouter from browser with model fallback (EC2 IP blocked by OpenRouter)
+    // Call server-side Gemini proxy
     function callAI(messages, callback) {
-      var idx = 0;
-      function tryNext() {
-        if (idx >= _AI_MODELS.length) return callback(null, 'All AI models are busy. Please try again.');
-        var model = _AI_MODELS[idx++];
-        fetch('https://openrouter.ai/api/v1/chat/completions', {
-          method: 'POST',
-          headers: { 'Authorization': 'Bearer ' + _OR_KEY, 'Content-Type': 'application/json', 'HTTP-Referer': location.origin, 'X-Title': 'NLPL Dashboard AI' },
-          body: JSON.stringify({ model: model, messages: messages, max_tokens: 1024, temperature: 0.3 })
-        })
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-          if (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) {
-            callback(data.choices[0].message.content, null);
-          } else {
-            tryNext();
-          }
-        })
-        .catch(function(e) { console.warn('AI model failed:', model, e); tryNext(); });
-      }
-      tryNext();
+      fetch('/api/ai-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: messages })
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.reply) {
+          callback(data.reply, null);
+        } else {
+          callback(null, data.error || 'AI is busy. Please try again.');
+        }
+      })
+      .catch(function(e) { callback(null, 'Could not reach AI. Please try again.'); });
     }
 
     window._aiSend = function() {

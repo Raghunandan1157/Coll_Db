@@ -4286,9 +4286,9 @@ app.post("/api/ai-context", async (req, res) => {
   }
 });
 
-// ========== AI Chat Proxy (keeps API key server-side) ==========
-const OR_KEY = process.env.OPENROUTER_KEY || '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';
-const AI_MODELS = ['minimax/minimax-m2.5:free','google/gemma-4-26b-a4b-it:free','nvidia/nemotron-3-super-120b-a12b:free','stepfun/step-3.5-flash:free'];
+// ========== AI Chat Proxy — Google Gemini ==========
+const GEMINI_KEY = process.env.GEMINI_KEY || 'AIzaSyBSEy2K28PeONUjBIL91Wk4j7ju9jaXNRA';
+const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'];
 
 app.post("/api/ai-chat", aiLimiter, async (req, res) => {
   const { messages } = req.body;
@@ -4296,19 +4296,27 @@ app.post("/api/ai-chat", aiLimiter, async (req, res) => {
     return res.status(400).json({ error: 'messages array required' });
   }
 
-  for (const model of AI_MODELS) {
+  // Convert OpenAI-style messages to Gemini format
+  const systemMsg = messages.find(m => m.role === 'system');
+  const chatMessages = messages.filter(m => m.role !== 'system');
+  const contents = chatMessages.map(m => ({
+    role: m.role === 'assistant' ? 'model' : 'user',
+    parts: [{ text: m.content }]
+  }));
+  const systemInstruction = systemMsg ? { parts: [{ text: systemMsg.content }] } : undefined;
+
+  for (const model of GEMINI_MODELS) {
     try {
-      const payload = JSON.stringify({ model, messages, max_tokens: 1024, temperature: 0.3 });
+      const payload = JSON.stringify({
+        contents,
+        ...(systemInstruction ? { systemInstruction } : {}),
+        generationConfig: { maxOutputTokens: 1024, temperature: 0.3 }
+      });
       const result = await new Promise((resolve, reject) => {
+        const path = `/v1beta/models/${model}:generateContent?key=${GEMINI_KEY}`;
         const options = {
-          hostname: 'openrouter.ai', path: '/api/v1/chat/completions', method: 'POST',
-          headers: {
-            'Authorization': 'Bearer ' + OR_KEY,
-            'Content-Type': 'application/json',
-            'Content-Length': Buffer.byteLength(payload),
-            'HTTP-Referer': 'https://growwithme.navachetanalivelihoods.com',
-            'X-Title': 'NLPL Dashboard AI'
-          }
+          hostname: 'generativelanguage.googleapis.com', path, method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) }
         };
         const r = https.request(options, (resp) => {
           let body = '';
@@ -4321,14 +4329,14 @@ app.post("/api/ai-chat", aiLimiter, async (req, res) => {
         r.write(payload);
         r.end();
       });
-      if (result.choices && result.choices[0] && result.choices[0].message) {
-        return res.json({ reply: result.choices[0].message.content });
-      }
+      const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (text) return res.json({ reply: text });
+      console.error('Gemini model ' + model + ' empty response:', JSON.stringify(result).slice(0, 200));
     } catch (e) {
-      console.error('AI model ' + model + ' failed:', e.message);
+      console.error('Gemini model ' + model + ' failed:', e.message);
     }
   }
-  res.status(502).json({ error: 'All AI models are busy. Please try again.' });
+  res.status(502).json({ error: 'AI is busy. Please try again.' });
 });
 
 // Serve daily-reports.html
