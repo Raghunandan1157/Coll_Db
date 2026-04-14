@@ -4293,6 +4293,62 @@ app.post("/api/ai-context", async (req, res) => {
 // ========== AI Chat Proxy — Google Gemini ==========
 const GEMINI_KEY = process.env.GEMINI_KEY;
 const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'];
+const CLAUDE_CLI_PATH = process.env.CLAUDE_CLI_PATH || '/home/ec2-user/.local/bin/claude';
+const { spawn } = require('child_process');
+
+// Call Claude Code CLI headlessly. Prompt goes via stdin (safe from shell injection).
+// Returns a Promise<string|null>. Null on failure.
+function callClaudeCli(prompt, timeoutMs) {
+  timeoutMs = timeoutMs || 30000;
+  return new Promise((resolve) => {
+    let finished = false;
+    let stdout = '';
+    let stderr = '';
+    let child;
+    try {
+      child = spawn(CLAUDE_CLI_PATH, ['-p', '--output-format', 'text'], {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        env: Object.assign({}, process.env, { HOME: '/home/ec2-user' })
+      });
+    } catch (e) {
+      console.error('Claude CLI spawn failed:', e.message);
+      return resolve(null);
+    }
+    const timer = setTimeout(function() {
+      if (finished) return;
+      finished = true;
+      try { child.kill('SIGKILL'); } catch (_) {}
+      console.error('Claude CLI timed out after ' + timeoutMs + 'ms');
+      resolve(null);
+    }, timeoutMs);
+    child.stdout.on('data', function(d){ stdout += d.toString(); });
+    child.stderr.on('data', function(d){ stderr += d.toString(); });
+    child.on('error', function(e) {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
+      console.error('Claude CLI error:', e.message);
+      resolve(null);
+    });
+    child.on('close', function(code) {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
+      if (code !== 0) {
+        console.error('Claude CLI exit code ' + code + ':', stderr.slice(0, 300));
+        return resolve(null);
+      }
+      var out = stdout.trim();
+      resolve(out || null);
+    });
+    try {
+      child.stdin.write(prompt);
+      child.stdin.end();
+    } catch (e) {
+      if (!finished) { finished = true; clearTimeout(timer); resolve(null); }
+    }
+  });
+}
 
 app.post("/api/ai-chat", aiLimiter, async (req, res) => {
   // Only allow requests from the dashboard domain
@@ -4330,6 +4386,23 @@ app.post("/api/ai-chat", aiLimiter, async (req, res) => {
     ? { parts: [{ text: baseSystemText + scopedSystemText }] }
     : undefined;
 
+  // Primary: Claude Code CLI (uses Claude Max subscription, no API cost)
+  try {
+    const sys = baseSystemText + scopedSystemText;
+    const convo = chatMessages.map(function(m){
+      return (m.role === 'assistant' ? 'Assistant' : 'User') + ': ' + m.content;
+    }).join('\n\n');
+    const fullPrompt = (sys ? sys + '\n\n---\n\n' : '') + convo + '\n\nAssistant:';
+    const claudeReply = await callClaudeCli(fullPrompt, 45000);
+    if (claudeReply) {
+      return res.json({ reply: claudeReply, provider: 'claude-cli' });
+    }
+    console.warn('Claude CLI returned empty — falling back to Gemini');
+  } catch (e) {
+    console.error('Claude CLI call threw:', e.message);
+  }
+
+  // Fallback: Gemini API
   for (const model of GEMINI_MODELS) {
     try {
       const payload = JSON.stringify({
