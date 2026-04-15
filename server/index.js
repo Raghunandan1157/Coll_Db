@@ -4406,10 +4406,3 @@ app.post("/api/ai-chat", aiLimiter, async (req, res) => {
   res.status(429).json({ error: 'AI is briefly busy. Please retry in a moment.' });
 });
 
-// Serve daily-reports.html
-app.get("/daily-reports", (req, res) => {
-  res.sendFile(__dirname + "/../daily-reports.html");
-});
-app.get("/daily-reports.html", (req, res) => {
-  res.sendFile(__dirname + "/../daily-reports.html");
-});
