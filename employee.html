@@ -528,7 +528,7 @@
           var iso = t.toISOString().split('T')[0];
           openDrBranchModal(location, 'reports', iso);
         };
-        function _drShowTomorrowPlanButton() {
+        window._drShowTomorrowPlanButton = function _drShowTomorrowPlanButton() {
           var wrap = document.querySelector('.dr-bm-actions');
           if (!wrap) return;
           wrap.innerHTML =
@@ -571,7 +571,7 @@
           // Update the subtitle so the BM knows why it's here
           var subEl = document.getElementById('drSubtitle');
           if (subEl) subEl.textContent = '✅ Today\'s plan & achievement are set — get ahead by entering tomorrow\'s plan.';
-        }
+        };
         var drDate = new Date().toISOString().split('T')[0];
         // Role-aware level button filtering
         var allowedLevels = (function(r){
@@ -3135,9 +3135,48 @@ function openDrBranchModal(branchName, table, dateOverride) {
   });
   _drSetupModalInputs();
   _drSetSaveButtonState(false);
-  // Hide any 6PM banner from previous session
+  // Hide any previous banners
   var banner = document.getElementById('drAchievementBanner');
   if (banner) banner.remove();
+  var planBanner = document.getElementById('drPlanRequiredBanner');
+  if (planBanner) planBanner.remove();
+
+  // Achievement requires plan first — check before opening
+  if (_drCurrentTable === 'achievements') {
+    var checkDate = window._drCurrentDate;
+    fetch('/api/daily-plan/exists?table=reports&date=' + checkDate + '&branch=' + encodeURIComponent(canonical))
+      .then(function(r){return r.json();})
+      .then(function(d){
+        if (!d.exists) {
+          // No plan exists — show banner and redirect to plan entry
+          document.getElementById('drBranchModal').style.display = 'block';
+          _drLockModalFields();
+          var nb = document.createElement('div');
+          nb.id = 'drPlanRequiredBanner';
+          nb.style.cssText = 'background:#FEF3C7;border:1px solid #F59E0B;color:#92400E;padding:16px 20px;margin:12px 20px 0;border-radius:10px;font-size:13px;font-weight:500;text-align:center;';
+          nb.innerHTML = '📋 <strong>Plan Required First</strong> — Please fill in today\'s plan before entering achievements.'
+            + '<div style="margin-top:12px;">'
+            + '<button onclick="document.getElementById(\'drPlanRequiredBanner\').remove(); closeDrBranchModal(); setTimeout(function(){ openDrBranchModal(\'' + canonical.replace(/'/g, "\\'") + '\', \'reports\'); }, 200);" '
+            + 'style="padding:10px 20px;background:#059669;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">Enter Plan Now</button>'
+            + '</div>';
+          var modalInner = document.querySelector('#drBranchModal > div');
+          var form = document.querySelector('#drBranchModal .dr-modal-form');
+          if (modalInner && form) modalInner.insertBefore(nb, form);
+          return;
+        }
+        // Plan exists — proceed with achievement flow
+        _drOpenModalContinue(canonical, _isTomorrow);
+      }).catch(function(){
+        _drOpenModalContinue(canonical, _isTomorrow);
+      });
+    return;
+  }
+
+  // Plan mode — always open, load and continue
+  _drOpenModalContinue(canonical, _isTomorrow);
+}
+
+function _drOpenModalContinue(canonical, _isTomorrow) {
   // Load existing data (use canonical name for fetches)
   var today = window._drCurrentDate;
   fetch('/api/daily-plan/exists?table=' + _drCurrentTable + '&date=' + today + '&branch=' + encodeURIComponent(canonical))
@@ -3167,7 +3206,7 @@ function openDrBranchModal(branchName, table, dateOverride) {
       }
     });
   document.getElementById('drBranchModal').style.display = 'block';
-  // 6 PM gate for achievements — if blocked, stop here
+  // 6 PM gate for achievements — if blocked, stop here (plan is always open)
   if (_drCheck6PMGate()) return;
   // Chain gate: block today's plan if yesterday's achievement missing
   _drCheckChainGate(canonical).then(function(blocked) {
@@ -3369,6 +3408,18 @@ function saveDrBranchData() {
       // Update plan/achievement status on card
       var el = document.getElementById(_drCurrentTable === 'achievements' ? 'drAchievement' : 'drPlanStatus');
       if (el) { el.textContent = _drCurrentTable === 'achievements' ? '✓ Entered' : '✓ Set'; el.style.color = '#D1FAE5'; }
+      // Check if both plan and achievement are now done — show tomorrow button (BM only)
+      var session = window.getEmployeeSession ? getEmployeeSession() : {};
+      var role = session.role || localStorage.getItem('roleName') || '';
+      if (role === 'BM') {
+        var planEl = document.getElementById('drPlanStatus');
+        var achEl = document.getElementById('drAchievement');
+        var planDone = planEl && planEl.textContent.indexOf('✓') >= 0;
+        var achDone = achEl && achEl.textContent.indexOf('✓') >= 0;
+        if (planDone && achDone && window._drShowTomorrowPlanButton) {
+          window._drShowTomorrowPlanButton();
+        }
+      }
       setTimeout(closeDrBranchModal, 800);
     } else {
       alert('Save failed: ' + (result.error || 'Unknown error'));
