@@ -3124,7 +3124,7 @@ var _DR_ACC_FIELDS = ['dr_ftod_actual','dr_dpd_1_30_actual','dr_dpd_31_60_actual
 // Plan/amount fields (Indian comma format, no length limit)
 var _DR_AMT_FIELDS = ['dr_ftod_plan','dr_dpd_1_30_plan','dr_dpd_31_60_plan','dr_dpd_61_90_plan','dr_fy_non_start_plan','dr_disb_igl_amt','dr_disb_fig_amt','dr_disb_il_amt'];
 // DPD actuals — once-per-month lock
-var _DR_MONTHLY_LOCK_FIELDS = ['dr_dpd_1_30_actual','dr_dpd_31_60_actual','dr_dpd_61_90_actual'];
+var _DR_MONTHLY_LOCK_FIELDS = ['dr_ftod_actual','dr_dpd_1_30_actual','dr_dpd_31_60_actual','dr_dpd_61_90_actual'];
 
 // Plan→Actual pairs for validation
 var _DR_PLAN_ACTUAL_PAIRS = {
@@ -3317,8 +3317,8 @@ function _drOpenModalContinue(canonical, _isTomorrow) {
   // Chain gate: block today's plan if yesterday's achievement missing
   _drCheckChainGate(canonical).then(function(blocked) {
     if (blocked) return;
-    // Monthly lock for DPD actual fields (plan mode only)
-    if (_drCurrentTable !== 'achievements') _drApplyMonthlyLock(canonical);
+    // Monthly lock for FTOD + DPD actual fields — applies to plan, achievement, and tomorrow's plan
+    _drApplyMonthlyLock(canonical);
   });
   // Wire Enter-to-next on numeric inputs (idempotent — only attach once)
   if (!window._drEnterWired) {

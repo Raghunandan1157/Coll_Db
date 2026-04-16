@@ -4116,13 +4116,13 @@ app.get("/api/daily-plan/monthly-actuals", async (req, res) => {
     const { branch, date } = req.query;
     if (!branch || !date) return res.json({ data: null });
     const sql = `
-      SELECT dpd_1_30_actual, dpd_31_60_actual, dpd_61_90_actual, date
+      SELECT ftod_actual, dpd_1_30_actual, dpd_31_60_actual, dpd_61_90_actual, date
       FROM daily_reports
       WHERE UPPER(branch_name) = UPPER($1)
         AND date >= date_trunc('month', $2::date)
         AND date <  date_trunc('month', $2::date) + interval '1 month'
         AND date != $2::date
-        AND (dpd_1_30_actual IS NOT NULL OR dpd_31_60_actual IS NOT NULL OR dpd_61_90_actual IS NOT NULL)
+        AND (ftod_actual IS NOT NULL OR dpd_1_30_actual IS NOT NULL OR dpd_31_60_actual IS NOT NULL OR dpd_61_90_actual IS NOT NULL)
       ORDER BY date ASC LIMIT 1`;
     const result = await pool.query(sql, [branch, date]);
     res.json({ data: result.rows[0] || null });
