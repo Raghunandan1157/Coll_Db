@@ -197,7 +197,7 @@
       </a>
       <a href="javascript:void(0)" class="desktop-sidebar-item editbranch-nav-item" data-dtab="editbranch" onclick="if(typeof switchEmpTab==='function')switchEmpTab('editbranch')" style="display:none">
         <span class="desktop-sidebar-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span>
-        <span class="desktop-sidebar-label">Edit Branch DR</span>
+        <span class="desktop-sidebar-label">EDIT_BRANCH_DAILY_REPORT</span>
       </a>
     </nav>
     <div class="desktop-sidebar-footer">
@@ -807,13 +807,19 @@
         clearTimeout(el._t); el._t = setTimeout(function(){ el.classList.remove('show'); }, 2500);
       }
 
-      // Show sidebar items for AM/CEO/RM/DM
+      // Show sidebar items for AM only
       (function(){
-        var s = window.getEmployeeSession ? getEmployeeSession() : {};
-        var r = s.role || localStorage.getItem('roleName') || '';
-        if (r === 'AM' || r === 'CEO' || r === 'RM' || r === 'DM') {
-          document.querySelectorAll('.editbranch-nav-item, .editbranch-mob-nav').forEach(function(el){ el.style.display = ''; });
+        function _ebShowNav() {
+          var s = window.getEmployeeSession ? getEmployeeSession() : {};
+          var r = s.role || localStorage.getItem('roleName') || '';
+          if (r === 'AM') {
+            document.querySelectorAll('.editbranch-nav-item, .editbranch-mob-nav').forEach(function(el){ el.style.display = ''; });
+          }
         }
+        _ebShowNav();
+        // Retry after session loads (may not be ready on first paint)
+        setTimeout(_ebShowNav, 500);
+        setTimeout(_ebShowNav, 1500);
       })();
 
       function ebUnlock() {
@@ -1470,7 +1476,7 @@ body.emp-dark .ai-bar-icon { background: rgba(99,102,241,0.15); color: #A5B4FC; 
       </a>
       <a href="javascript:void(0)" class="sidebar-nav-item editbranch-mob-nav" data-sidebar-tab="editbranch" onclick="closeSidebar(); switchEmpTab('editbranch');" style="display:none">
         <span class="sidebar-nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span>
-        <span class="sidebar-nav-label">Edit Branch DR</span>
+        <span class="sidebar-nav-label">EDIT_BRANCH_DAILY_REPORT</span>
       </a>
       <a href="javascript:void(0)" class="sidebar-nav-item" data-sidebar-tab="settings" onclick="closeSidebar(); switchEmpTab('settings');">
         <span class="sidebar-nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
