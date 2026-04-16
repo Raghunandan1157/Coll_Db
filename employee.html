@@ -603,6 +603,10 @@
         window._drDate = drDate;
 
         window._drStepDate = function(delta) {
+          // Guard against duplicate/rapid fire (touch + click on mobile)
+          var now = Date.now();
+          if (window._drLastStep && (now - window._drLastStep) < 250) return;
+          window._drLastStep = now;
           var cur = window._drDate || drDate;
           var d = new Date(cur + 'T00:00:00');
           d.setDate(d.getDate() + delta);
