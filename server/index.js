@@ -4065,7 +4065,7 @@ app.get("/api/daily-plan/reports", async (req, res) => {
     if (req.query.region) { where.push("region = $" + idx++); params.push(req.query.region); }
     if (req.query.district) { where.push("district = $" + idx++); params.push(req.query.district); }
     if (req.query.dm_name) { where.push("dm_name = $" + idx++); params.push(req.query.dm_name); }
-    const sql = "SELECT " + DAILY_PLAN_COLS + ",created_at FROM daily_reports" + (where.length ? " WHERE " + where.join(" AND ") : "") + " ORDER BY date, branch_name";
+    const sql = "SELECT id," + DAILY_PLAN_COLS + ",created_at FROM daily_reports" + (where.length ? " WHERE " + where.join(" AND ") : "") + " ORDER BY date, branch_name";
     const result = await pool.query(sql, params);
     res.json({ data: result.rows, count: result.rowCount });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -4081,7 +4081,7 @@ app.get("/api/daily-plan/achievements", async (req, res) => {
     if (req.query.region) { where.push("region = $" + idx++); params.push(req.query.region); }
     if (req.query.district) { where.push("district = $" + idx++); params.push(req.query.district); }
     if (req.query.dm_name) { where.push("dm_name = $" + idx++); params.push(req.query.dm_name); }
-    const sql = "SELECT " + DAILY_PLAN_COLS + ",created_at FROM daily_reports_achievements" + (where.length ? " WHERE " + where.join(" AND ") : "") + " ORDER BY date, branch_name";
+    const sql = "SELECT id," + DAILY_PLAN_COLS + ",created_at FROM daily_reports_achievements" + (where.length ? " WHERE " + where.join(" AND ") : "") + " ORDER BY date, branch_name";
     const result = await pool.query(sql, params);
     res.json({ data: result.rows, count: result.rowCount });
   } catch(e) { res.status(500).json({ error: e.message }); }
