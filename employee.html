@@ -3662,9 +3662,8 @@ function _drBuildReportTable(date, level, type) {
   } else if (role === 'AM' && loc) {
     if (level === 'AREA') scopeLabel = loc + ' Area';
     else if (level === 'BRANCH') scopeLabel = 'Branches in ' + loc + ' Area';
-  } else if ((role === 'BM' || role === 'FO') && loc) {
-    if (level === 'BRANCH') scopeLabel = loc + ' Branch';
   }
+  // BM/FO don't have report generation — Custom Report Builder is hidden for them
   if (!scopeLabel) {
     // CEO or any unmatched role/level combo — describe based on level
     if (level === 'REGION') scopeLabel = 'All Regions';
