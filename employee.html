@@ -4000,7 +4000,8 @@ function _drRenderTable(title, level, planData, achData, type) {
   }
 
   // 'both' mode — single merged table with PLAN columns + ACHIEVEMENT columns per row
-  var combinedTitle = 'PLAN & ACHIEVEMENT — ' + level + ' — ' + dateDisplay;
+  // Use the same detailed title as the modal header
+  var combinedTitle = document.getElementById('drReportTitle').textContent || ('Plan & Achievement Report — ' + level + ' Level — ' + dateDisplay);
   var html = '';
   html += _drBuildCombinedTableHTML(combinedTitle, level, planRows, achRows);
   if (achData.length === 0) {
