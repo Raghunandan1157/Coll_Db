@@ -751,9 +751,9 @@
         .eb-mob-field{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid #F1F5F9}
         .eb-mob-field:last-child{border-bottom:none}
         .eb-mob-field-label{font-size:13px;color:#64748B;font-weight:500}
-        .eb-mob-field-value{font-size:15px;font-weight:600;color:#1E293B;min-width:60px;text-align:right;padding:6px 12px;border:1px solid transparent;border-radius:8px;background:transparent;cursor:pointer;-webkit-appearance:none}
-        .eb-mob-field-value:focus{border-color:#6366F1;background:#fff;outline:none}
-        .eb-mob-field-saved{background:#F0FDF4!important;border-color:#059669!important;transition:all .3s}
+        .eb-mob-field-value{font-size:16px;font-weight:600;color:#1E293B;width:90px;text-align:center;padding:10px 12px;border:1.5px solid #E2E8F0;border-radius:10px;background:#F8FAFC;cursor:text;-webkit-appearance:none;appearance:none;font-family:inherit}
+        .eb-mob-field-value:focus{border-color:#6366F1;background:#fff;outline:none;box-shadow:0 0 0 3px rgba(99,102,241,.15)}
+        .eb-mob-field-saved{background:#F0FDF4!important;border-color:#059669!important;box-shadow:0 0 0 3px rgba(5,150,105,.15)!important;transition:all .3s}
         .eb-mob-actions{display:flex;gap:8px;padding:16px;position:sticky;bottom:0;background:#fff;border-top:1px solid #E2E8F0}
         .eb-mob-actions button{flex:1;padding:12px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;border:none;font-family:inherit}
         @media(max-width:640px){
@@ -1301,10 +1301,11 @@
             var display = val != null ? String(val) : '';
             html += '<div class="eb-mob-field">'
               + '<div class="eb-mob-field-label">' + f.label + '</div>'
-              + '<input class="eb-mob-field-value" type="text" inputmode="numeric" value="' + display + '" '
-              + 'data-key="' + f.key + '" data-id="' + row.id + '" '
+              + '<input class="eb-mob-field-value" type="text" inputmode="numeric" placeholder="0" value="' + display + '" '
+              + 'data-key="' + f.key + '" data-id="' + row.id + '" data-orig="' + display + '" '
               + 'onfocus="this.select()" '
-              + 'onblur="ebMobSaveField(this)">'
+              + 'onchange="ebMobSaveField(this)" onblur="ebMobSaveField(this)" '
+              + 'enterkeyhint="next">'
               + '</div>';
           });
           html += '</div>';
@@ -1313,13 +1314,15 @@
       }
 
       async function ebMobSaveField(input) {
+        if (input._saving) return;
         var key = input.dataset.key;
         var rowId = input.dataset.id;
         var newVal = input.value.trim();
         var row = ebMobSelectedRow;
         if (!row) return;
-        var oldVal = row[key] != null ? String(row[key]) : '';
+        var oldVal = input.dataset.orig || '';
         if (newVal === oldVal) return;
+        input._saving = true;
 
         var sqlVal = newVal === '' ? 'NULL' : "'" + newVal.replace(/'/g,"''") + "'";
         try {
@@ -1331,6 +1334,7 @@
           var r = await res.json();
           if (r.error) throw new Error(r.error);
           row[key] = newVal === '' ? null : newVal;
+          input.dataset.orig = newVal;
           input.classList.add('eb-mob-field-saved');
           setTimeout(function(){ input.classList.remove('eb-mob-field-saved'); }, 1500);
           ebToast(row.branch_name + ' — ' + (EB_NAMES[key]||key) + ' updated', 'success');
@@ -1338,6 +1342,7 @@
           input.value = oldVal;
           ebToast('Save failed: ' + e.message, 'error');
         }
+        input._saving = false;
       }
 
       // Hook into unlock to init mobile view too
