@@ -1034,14 +1034,14 @@ app.get("/api/collection/by-employee", async (req, res) => {
 
 app.get("/api/product_types", async (req, res) => {
   try {
-    const result = await pool.query("SELECT * FROM product_types ORDER BY product_type_id");
+    const result = await pool.query("SELECT product_type_id, product_type_name FROM product_types ORDER BY product_type_id");
     res.json(result.rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.get("/api/regions", async (req, res) => {
   try {
-    const result = await pool.query("SELECT * FROM regions ORDER BY region_name");
+    const result = await pool.query("SELECT region_id, region_name FROM regions ORDER BY region_name");
     res.json(result.rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });

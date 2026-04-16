@@ -16,9 +16,11 @@
 
   /* ========== Employee name map from master ========== */
   var _empNames = window._empNameMap || {};
-  (function() {
+  if (window._empNameMapPromise) {
+    window._empNameMapPromise.then(function(m) { _empNames = m || {}; });
+  } else if (!window._empNameMap) {
     fetch('/api/employees/names').then(function(r) { return r.json(); }).then(function(m) { _empNames = m || {}; window._empNameMap = m; }).catch(function(e) { console.warn('Failed to load employee names:', e); });
-  })();
+  }
   function getFullName(empId, fallback) {
     var mapped = _empNames[empId];
     if (mapped && mapped.trim()) return mapped;
