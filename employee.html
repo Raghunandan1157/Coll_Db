@@ -195,6 +195,10 @@
         <span class="desktop-sidebar-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
         <span class="desktop-sidebar-label">Daily Reports</span>
       </a>
+      <a href="javascript:void(0)" class="desktop-sidebar-item editbranch-nav-item" data-dtab="editbranch" onclick="if(typeof switchEmpTab==='function')switchEmpTab('editbranch')" style="display:none">
+        <span class="desktop-sidebar-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span>
+        <span class="desktop-sidebar-label">Edit Branch DR</span>
+      </a>
     </nav>
     <div class="desktop-sidebar-footer">
       <button class="desktop-sidebar-logout" id="desktop-logout-btn">
@@ -662,6 +666,437 @@
       </div>
     </div>
 
+    <!-- EDIT_BRANCH_DAILY_REPORT Tab (AM only) -->
+    <div class="emp-tab-content" id="editbranchTab">
+      <style>
+        .eb-lock{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;gap:16px}
+        .eb-lock h3{font-size:20px;font-weight:700;color:var(--text-primary,#1E293B)}
+        .eb-lock p{font-size:13px;color:#94A3B8;margin-top:-8px}
+        .eb-lock-row{display:flex;gap:8px;align-items:center}
+        .eb-lock-row input{width:220px;padding:10px 14px;border:1px solid #E2E8F0;border-radius:10px;font-size:14px;outline:none}
+        .eb-lock-row input:focus{border-color:#6366F1}
+        .eb-lock-row button{padding:10px 20px;background:#6366F1;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer}
+        .eb-lock-row button:hover{background:#4F46E5}
+        .eb-lock-err{color:#EF4444;font-size:12px;height:16px}
+        .eb-pw-wrap{position:relative;display:inline-block}
+        .eb-pw-toggle{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:#94A3B8;cursor:pointer;padding:4px}
+        .eb-toolbar{display:flex;align-items:center;gap:12px;padding:16px 0;flex-wrap:wrap}
+        .eb-area-sel{padding:8px 14px;border:1px solid #E2E8F0;border-radius:10px;font-size:13px;color:#334155;outline:none;background:#fff;min-width:160px}
+        .eb-search{flex:1;min-width:180px;max-width:360px;display:flex;align-items:center;gap:8px;border:1px solid #E2E8F0;border-radius:10px;padding:8px 14px;background:#fff}
+        .eb-search input{flex:1;border:none;outline:none;font-size:13px;color:#334155}
+        .eb-search input::placeholder{color:#94A3B8}
+        .eb-date-group{display:flex;align-items:center;gap:4px}
+        .eb-date-arrow{width:32px;height:32px;border-radius:8px;border:1px solid #E2E8F0;background:#fff;color:#334155;cursor:pointer;display:flex;align-items:center;justify-content:center}
+        .eb-date-arrow:hover{background:#F1F5F9}
+        .eb-date-input{padding:8px 12px;border:1px solid #E2E8F0;border-radius:10px;font-size:13px;color:#334155;outline:none}
+        .eb-tabs{display:flex;gap:2px;background:#F1F5F9;border-radius:10px;padding:3px}
+        .eb-tab{padding:8px 18px;border-radius:8px;font-size:13px;color:#64748B;cursor:pointer;border:none;background:transparent;font-weight:500;font-family:inherit}
+        .eb-tab:hover{color:#334155}
+        .eb-tab.active{background:#fff;color:#1E293B;font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+        .eb-btn{padding:8px 16px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;color:#334155;cursor:pointer;font-size:13px;font-weight:500;font-family:inherit;display:flex;align-items:center;gap:6px}
+        .eb-btn:hover{background:#F1F5F9;border-color:#CBD5E1}
+        .eb-table-wrap{border:1px solid #E2E8F0;border-radius:12px;overflow:auto;max-height:65vh;background:#fff}
+        .eb-table{width:100%;border-collapse:collapse;font-size:13px}
+        .eb-table thead{background:#F8FAFC;position:sticky;top:0;z-index:2}
+        .eb-table th{padding:10px 14px;text-align:left;font-weight:600;color:#64748B;border-bottom:1px solid #E2E8F0;font-size:12px;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap}
+        .eb-table td{padding:8px 14px;border-bottom:1px solid #F1F5F9;color:#334155;white-space:nowrap;max-width:180px;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+        .eb-table td[data-col]:hover{background:#EEF2FF}
+        .eb-table tr:nth-child(even) td{background:#FAFAFA}
+        .eb-table tr:hover td{background:#F1F5F9}
+        .eb-table td.eb-null{color:#CBD5E1;font-style:italic}
+        .eb-table td.eb-editing{padding:4px 6px;overflow:visible;cursor:text}
+        .eb-table td.eb-editing input,.eb-table td.eb-editing select{width:100%;padding:6px 10px;border:1px solid #6366F1;border-radius:6px;color:#1E293B;font-size:13px;outline:none}
+        .eb-table td.eb-saved{background:#F0FDF4!important;transition:background .3s}
+        .eb-table .eb-sticky{position:sticky;left:0;z-index:1;background:#fff}
+        .eb-table .eb-sticky-2{position:sticky;left:50px;z-index:1;background:#fff;border-right:2px solid #E2E8F0}
+        .eb-table thead .eb-sticky,.eb-table thead .eb-sticky-2{background:#F8FAFC;z-index:3}
+        .eb-table tr:nth-child(even) .eb-sticky{background:#FAFAFA}
+        .eb-table tr:hover .eb-sticky,.eb-table tr:hover .eb-sticky-2{background:#F1F5F9}
+        .eb-empty{padding:40px;text-align:center;color:#94A3B8;font-size:14px}
+        .eb-status{display:flex;align-items:center;gap:12px;padding:12px 0;font-size:12px;color:#94A3B8}
+        .eb-status .eb-count{font-weight:600;color:#475569}
+        .eb-toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);padding:10px 24px;border-radius:10px;font-size:13px;font-weight:600;pointer-events:none;opacity:0;transition:opacity .25s,transform .25s;z-index:99999;box-shadow:0 4px 16px rgba(0,0,0,.12)}
+        .eb-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+        .eb-toast.success{background:#059669;color:#fff}
+        .eb-toast.error{background:#EF4444;color:#fff}
+        .eb-toast.info{background:#6366F1;color:#fff}
+        @media(max-width:640px){
+          .eb-toolbar{flex-direction:column;gap:10px}
+          .eb-search{max-width:100%;width:100%}
+          .eb-date-group{width:100%;justify-content:center}
+          .eb-tabs{width:100%;justify-content:center}
+          .eb-tab{flex:1;text-align:center;font-size:12px;padding:8px 10px}
+          .eb-lock-row{flex-direction:column;width:80%}
+          .eb-lock-row input{width:100%}
+          .eb-lock-row button{width:100%}
+          .eb-pw-wrap{width:100%}
+          .eb-area-sel{width:100%}
+        }
+      </style>
+
+      <!-- Password Gate -->
+      <div class="eb-lock" id="ebLock">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+        <h3>Edit Branch Daily Report</h3>
+        <p>Enter password to access the editor</p>
+        <div class="eb-lock-row">
+          <div class="eb-pw-wrap">
+            <input type="password" id="ebPassword" placeholder="Password" onkeydown="if(event.key==='Enter')ebUnlock()">
+            <button class="eb-pw-toggle" onclick="var i=document.getElementById('ebPassword');i.type=i.type==='password'?'text':'password'" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+          </div>
+          <button onclick="ebUnlock()">Unlock</button>
+        </div>
+        <div class="eb-lock-err" id="ebLockErr"></div>
+      </div>
+
+      <!-- Editor -->
+      <div id="ebEditor" style="display:none;padding:16px 20px;">
+        <div class="eb-toolbar">
+          <select class="eb-area-sel" id="ebAreaFilter" onchange="ebLoadData()">
+            <option value="">All Areas</option>
+          </select>
+          <div class="eb-search">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input placeholder="Search branch, region..." id="ebSearchInput" oninput="ebFilterRows()">
+          </div>
+          <div class="eb-date-group">
+            <button class="eb-date-arrow" onclick="ebShiftDate(-1)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
+            <input type="date" class="eb-date-input" id="ebDateInput" onchange="ebLoadData()">
+            <button class="eb-date-arrow" onclick="ebShiftDate(1)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></button>
+          </div>
+          <div class="eb-tabs">
+            <button class="eb-tab active" id="ebTabPlans" onclick="ebSwitchTable('plans')">Daily Reports</button>
+            <button class="eb-tab" id="ebTabAch" onclick="ebSwitchTable('achievements')">Achievements</button>
+          </div>
+          <button class="eb-btn" onclick="ebShowAddRow()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add Row</button>
+          <button class="eb-btn" onclick="ebExportCsv()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>CSV</button>
+        </div>
+        <div class="eb-table-wrap">
+          <table class="eb-table" id="ebTable"><thead></thead><tbody></tbody></table>
+        </div>
+        <div class="eb-status">
+          <span class="eb-count" id="ebRowCount">0 rows</span>
+          <span id="ebTableName">daily_reports</span>
+          <button class="eb-btn" onclick="ebLoadData()" style="margin-left:auto;padding:4px 12px;font-size:12px">Refresh</button>
+        </div>
+      </div>
+      <div class="eb-toast" id="ebToast"></div>
+
+      <script>
+      // ===== EDIT_BRANCH_DAILY_REPORT =====
+      var ebUnlockedState = false;
+      var ebCurrentTable = 'daily_reports';
+      var ebRows = [];
+      var ebCols = ['id','branch_name','date','region','district','dm_name','ftod_actual','ftod_plan','dpd_1_30_actual','dpd_1_30_plan','dpd_31_60_actual','dpd_31_60_plan','dpd_61_90_actual','dpd_61_90_plan','npa_activation','npa_closure','fy_non_start_acc','fy_non_start_plan','disb_igl_acc','disb_igl_amt','disb_fig_acc','disb_fig_amt','disb_il_acc','disb_il_amt','kyc_igl','kyc_fig','kyc_il'];
+      var ebBranchList = [];
+      var ebAreaList = [];
+      var ebAreaBranchMap = {};
+
+      var EB_NAMES = {
+        id:'ID',branch_name:'Branch',date:'Date',region:'Region',district:'District',dm_name:'DM Name',
+        ftod_actual:'FTOD Actual',ftod_plan:'FTOD Plan',dpd_1_30_actual:'DPD 1-30 Act',dpd_1_30_plan:'DPD 1-30 Plan',
+        dpd_31_60_actual:'DPD 31-60 Act',dpd_31_60_plan:'DPD 31-60 Plan',dpd_61_90_actual:'DPD 61-90 Act',dpd_61_90_plan:'DPD 61-90 Plan',
+        npa_activation:'NPA Act',npa_closure:'NPA Clo',fy_non_start_acc:'FY NS Acc',fy_non_start_plan:'FY NS Plan',
+        disb_igl_acc:'Disb IGL Acc',disb_igl_amt:'Disb IGL Amt',disb_fig_acc:'Disb FIG Acc',disb_fig_amt:'Disb FIG Amt',
+        disb_il_acc:'Disb IL Acc',disb_il_amt:'Disb IL Amt',kyc_igl:'KYC IGL',kyc_fig:'KYC FIG',kyc_il:'KYC IL'
+      };
+
+      function ebToast(msg, type) {
+        var el = document.getElementById('ebToast');
+        el.textContent = msg; el.className = 'eb-toast ' + (type||'info'); el.classList.add('show');
+        clearTimeout(el._t); el._t = setTimeout(function(){ el.classList.remove('show'); }, 2500);
+      }
+
+      // Show sidebar items for AM/CEO/RM/DM
+      (function(){
+        var s = window.getEmployeeSession ? getEmployeeSession() : {};
+        var r = s.role || localStorage.getItem('roleName') || '';
+        if (r === 'AM' || r === 'CEO' || r === 'RM' || r === 'DM') {
+          document.querySelectorAll('.editbranch-nav-item, .editbranch-mob-nav').forEach(function(el){ el.style.display = ''; });
+        }
+      })();
+
+      function ebUnlock() {
+        if (document.getElementById('ebPassword').value === 'Nava@123') {
+          ebUnlockedState = true;
+          document.getElementById('ebLock').style.display = 'none';
+          document.getElementById('ebEditor').style.display = 'block';
+          document.getElementById('ebDateInput').value = new Date().toISOString().slice(0,10);
+          ebLoadBranches().then(function(){ ebLoadData(); });
+        } else {
+          document.getElementById('ebLockErr').textContent = 'Incorrect password. Try again.';
+          document.getElementById('ebPassword').value = '';
+          document.getElementById('ebPassword').focus();
+        }
+      }
+
+      function ebShiftDate(dir) {
+        var inp = document.getElementById('ebDateInput');
+        var d = inp.value ? new Date(inp.value + 'T00:00:00') : new Date();
+        d.setDate(d.getDate() + dir);
+        inp.value = d.toISOString().slice(0,10);
+        ebLoadData();
+      }
+
+      function ebSwitchTable(which) {
+        document.getElementById('ebTabPlans').classList.toggle('active', which === 'plans');
+        document.getElementById('ebTabAch').classList.toggle('active', which === 'achievements');
+        ebCurrentTable = which === 'plans' ? 'daily_reports' : 'daily_reports_achievements';
+        document.getElementById('ebTableName').textContent = ebCurrentTable;
+        document.getElementById('ebSearchInput').value = '';
+        ebLoadData();
+      }
+
+      async function ebLoadBranches() {
+        try {
+          var res = await fetch('/api/daily-plan/branches');
+          var data = await res.json();
+          ebBranchList = []; ebAreaBranchMap = {};
+          var areaSet = new Set();
+          (data || []).forEach(function(r) {
+            ebBranchList.push(r.branch_name);
+            var area = r.area_name || 'Unknown';
+            areaSet.add(area);
+            if (!ebAreaBranchMap[area]) ebAreaBranchMap[area] = [];
+            ebAreaBranchMap[area].push(r.branch_name);
+          });
+          ebAreaList = Array.from(areaSet).sort();
+          var sel = document.getElementById('ebAreaFilter');
+          sel.innerHTML = '<option value="">All Areas (' + ebBranchList.length + ')</option>';
+          ebAreaList.forEach(function(a) {
+            var cnt = ebAreaBranchMap[a] ? ebAreaBranchMap[a].length : 0;
+            sel.innerHTML += '<option value="' + a + '">' + a + ' (' + cnt + ')</option>';
+          });
+          // Auto-select AM's area
+          var sess = window.getEmployeeSession ? getEmployeeSession() : {};
+          var role = sess.role || localStorage.getItem('roleName') || '';
+          var loc = (sess.location || localStorage.getItem('roleLocation') || '').trim();
+          if (role === 'AM' && loc) {
+            // Match area by name (case-insensitive)
+            for (var i = 0; i < sel.options.length; i++) {
+              if (sel.options[i].value.toUpperCase() === loc.toUpperCase()) {
+                sel.selectedIndex = i; break;
+              }
+            }
+          }
+        } catch(e) { ebBranchList = []; }
+      }
+
+      async function ebLoadData() {
+        var date = document.getElementById('ebDateInput').value;
+        var area = document.getElementById('ebAreaFilter').value;
+        var tbody = document.querySelector('#ebTable tbody');
+        tbody.innerHTML = '<tr><td colspan="99" style="padding:24px;text-align:center;color:#94A3B8">Loading...</td></tr>';
+
+        var params = [];
+        if (date) params.push('from=' + date + '&to=' + date);
+        if (area) {
+          // Get branches in this area and filter by them
+          var branches = ebAreaBranchMap[area];
+          if (branches && branches.length) {
+            params.push('district=' + encodeURIComponent(area));
+          }
+        }
+        var endpoint = ebCurrentTable === 'daily_reports_achievements' ? 'achievements' : 'reports';
+        var url = '/api/daily-plan/' + endpoint + '?' + params.join('&');
+
+        try {
+          var res = await fetch(url);
+          var result = await res.json();
+          ebRows = result.data || [];
+          // If area filter, also filter client-side by district (belt-and-suspenders)
+          if (area) {
+            var areaUp = area.toUpperCase();
+            ebRows = ebRows.filter(function(r){ return (r.district||'').toUpperCase() === areaUp; });
+          }
+          ebRenderTable();
+        } catch(e) {
+          tbody.innerHTML = '<tr><td colspan="99" style="padding:24px;text-align:center;color:#EF4444">Error: ' + e.message + '</td></tr>';
+        }
+      }
+
+      function ebGetFiltered() {
+        var term = (document.getElementById('ebSearchInput').value || '').toLowerCase().trim();
+        if (!term) return ebRows;
+        return ebRows.filter(function(r) {
+          return ['branch_name','region','district','dm_name'].some(function(c){ return r[c] && String(r[c]).toLowerCase().includes(term); });
+        });
+      }
+      function ebFilterRows() { ebRenderTable(); }
+
+      function ebRenderTable() {
+        var thead = document.querySelector('#ebTable thead');
+        var tbody = document.querySelector('#ebTable tbody');
+        var filtered = ebGetFiltered();
+        document.getElementById('ebRowCount').textContent = filtered.length + ' row' + (filtered.length !== 1 ? 's' : '');
+
+        thead.innerHTML = '<tr>' + ebCols.map(function(c) {
+          var sty = '';
+          if (c === 'id') sty = ' class="eb-sticky" style="min-width:50px;position:sticky;left:0;z-index:3;background:#F8FAFC"';
+          else if (c === 'branch_name') sty = ' class="eb-sticky-2" style="min-width:120px;position:sticky;left:50px;z-index:3;background:#F8FAFC;border-right:2px solid #E2E8F0"';
+          return '<th' + sty + '>' + (EB_NAMES[c]||c) + '</th>';
+        }).join('') + '<th style="width:50px"></th></tr>';
+
+        if (!filtered.length) {
+          tbody.innerHTML = '<tr><td colspan="' + (ebCols.length+1) + '"><div class="eb-empty">No data for this date. Click "Add Row" to create one.</div></td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = filtered.map(function(row) {
+          return '<tr data-id="' + row.id + '">' + ebCols.map(function(c) {
+            var val = row[c];
+            var editable = c !== 'id' && c !== 'created_at';
+            var sty = '';
+            if (c === 'id') sty = ' style="position:sticky;left:0;z-index:1;background:inherit;min-width:50px"';
+            else if (c === 'branch_name') sty = ' style="position:sticky;left:50px;z-index:1;background:inherit;min-width:120px;border-right:2px solid #F1F5F9"';
+            if (val === null || val === undefined) {
+              return '<td class="eb-null"' + sty + (editable ? ' data-col="' + c + '" onclick="ebEditCell(this,\'' + c + '\',' + row.id + ')"' : '') + '>NULL</td>';
+            }
+            var display = c === 'date' && val ? String(val).slice(0,10) : String(val);
+            return '<td' + sty + (editable ? ' data-col="' + c + '" onclick="ebEditCell(this,\'' + c + '\',' + row.id + ')"' : '') + '>' + display + '</td>';
+          }).join('') + '<td style="text-align:center"><button onclick="ebDeleteRow(' + row.id + ')" style="background:none;border:none;color:#CBD5E1;cursor:pointer;padding:4px" title="Delete"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button></td></tr>';
+        }).join('');
+      }
+
+      function ebEditCell(td, col, rowId) {
+        if (td.querySelector('input') || td.querySelector('select')) return;
+        var oldVal = td.classList.contains('eb-null') ? '' : td.textContent.trim();
+        var input;
+        if (col === 'date') { input = document.createElement('input'); input.type = 'date'; input.value = oldVal; }
+        else if (col === 'branch_name' && ebBranchList.length) {
+          input = document.createElement('select');
+          input.innerHTML = '<option value="">-- Select --</option>' + ebBranchList.map(function(b){
+            return '<option value="' + b + '"' + (b.toUpperCase() === oldVal.toUpperCase() ? ' selected' : '') + '>' + b + '</option>';
+          }).join('');
+        } else { input = document.createElement('input'); input.type = 'text'; input.value = oldVal; }
+        td.textContent = ''; td.classList.add('eb-editing'); td.classList.remove('eb-null');
+        td.appendChild(input); input.focus(); if (input.select) input.select();
+
+        var saved = false;
+        function save() {
+          if (saved) return; saved = true;
+          var newVal = input.value.trim();
+          td.classList.remove('eb-editing');
+          if (newVal === oldVal) { td.textContent = oldVal || 'NULL'; if (!oldVal) td.classList.add('eb-null'); return; }
+          td.textContent = newVal || 'NULL'; if (!newVal) td.classList.add('eb-null');
+
+          var sqlVal = newVal === '' ? 'NULL' : "'" + newVal.replace(/'/g,"''") + "'";
+          var endpoint = ebCurrentTable === 'daily_reports_achievements' ? 'achievements' : 'reports';
+          fetch('/api/daily-plan/' + endpoint + '?from=2000-01-01&to=2099-12-31&branch=__NONE__').catch(function(){});
+          // Use the aws-panel SQL endpoint for direct update
+          fetch('/api/aws-panel/sql', {
+            method:'POST',
+            headers:{'Content-Type':'application/json','X-Dashboard-Token':'colldb-admin-2024'},
+            body:JSON.stringify({sql:'UPDATE "' + ebCurrentTable + '" SET "' + col + '" = ' + sqlVal + ' WHERE id = ' + rowId})
+          }).then(function(r){return r.json();}).then(function(res) {
+            if (res.error) throw new Error(res.error);
+            td.classList.add('eb-saved');
+            setTimeout(function(){ td.classList.remove('eb-saved'); }, 1500);
+            var row = ebRows.find(function(r){ return r.id === rowId; });
+            if (row) row[col] = newVal === '' ? null : newVal;
+            var friendly = EB_NAMES[col] || col;
+            ebToast((row ? row.branch_name + ' — ' : '') + friendly + ': ' + (oldVal||'NULL') + ' → ' + (newVal||'NULL'), 'success');
+          }).catch(function(e) {
+            ebToast('Update failed: ' + e.message, 'error');
+            td.textContent = oldVal || 'NULL'; if (!oldVal) td.classList.add('eb-null');
+          });
+        }
+        input.addEventListener('keydown', function(e) {
+          if (e.key === 'Enter') { e.preventDefault(); save(); }
+          if (e.key === 'Escape') { saved = true; td.classList.remove('eb-editing'); td.textContent = oldVal || 'NULL'; if (!oldVal) td.classList.add('eb-null'); }
+        });
+        input.addEventListener('blur', save);
+      }
+
+      async function ebDeleteRow(rowId) {
+        if (!confirm('Delete row #' + rowId + '?')) return;
+        try {
+          var res = await fetch('/api/aws-panel/sql', {
+            method:'POST', headers:{'Content-Type':'application/json','X-Dashboard-Token':'colldb-admin-2024'},
+            body:JSON.stringify({sql:'DELETE FROM "' + ebCurrentTable + '" WHERE id = ' + rowId})
+          });
+          var r = await res.json(); if (r.error) throw new Error(r.error);
+          var del = ebRows.find(function(r){ return r.id === rowId; });
+          ebRows = ebRows.filter(function(r){ return r.id !== rowId; });
+          ebRenderTable();
+          ebToast('Deleted ' + (del ? del.branch_name : '#' + rowId), 'info');
+        } catch(e) { ebToast('Delete failed: ' + e.message, 'error'); }
+      }
+
+      function ebShowAddRow() {
+        var date = document.getElementById('ebDateInput').value || new Date().toISOString().slice(0,10);
+        var overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:10000;display:flex;align-items:center;justify-content:center';
+        var card = document.createElement('div');
+        card.style.cssText = 'background:#fff;border-radius:14px;padding:24px;width:380px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,.15)';
+        card.innerHTML = '<div style="font-size:16px;font-weight:700;color:#1E293B;margin-bottom:16px">Add New Row</div>'
+          + '<div style="font-size:12px;color:#64748B;margin-bottom:6px">Date</div>'
+          + '<input type="date" value="' + date + '" style="width:100%;padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;margin-bottom:12px;outline:none" id="ebAddDate">'
+          + '<div style="font-size:12px;color:#64748B;margin-bottom:6px">Branch</div>'
+          + '<input list="ebAddBranchDL" placeholder="Type to search..." style="width:100%;padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;margin-bottom:16px;outline:none" id="ebAddBranch" autocomplete="off">'
+          + '<datalist id="ebAddBranchDL">' + ebBranchList.map(function(b){ return '<option value="' + b + '">'; }).join('') + '</datalist>'
+          + '<div style="display:flex;gap:8px;justify-content:flex-end">'
+          + '<button onclick="this.closest(\'div[style*=fixed]\').remove()" style="padding:8px 16px;border:1px solid #E2E8F0;border-radius:8px;background:#fff;color:#64748B;cursor:pointer;font-size:13px">Cancel</button>'
+          + '<button id="ebAddConfirm" style="padding:8px 16px;background:#6366F1;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:13px;font-weight:600">Add</button>'
+          + '</div>';
+        overlay.appendChild(card); document.body.appendChild(overlay);
+        overlay.addEventListener('click', function(e){ if(e.target===overlay) overlay.remove(); });
+        card.querySelector('#ebAddBranch').focus();
+        card.querySelector('#ebAddConfirm').addEventListener('click', function(){
+          var br = card.querySelector('#ebAddBranch').value.trim();
+          var dt = card.querySelector('#ebAddDate').value;
+          if (!br) { card.querySelector('#ebAddBranch').style.borderColor = '#EF4444'; return; }
+          overlay.remove(); ebAddRow(br, dt);
+        });
+        card.querySelector('#ebAddBranch').addEventListener('keydown', function(e){ if(e.key==='Enter') card.querySelector('#ebAddConfirm').click(); });
+      }
+
+      async function ebAddRow(branch, date) {
+        date = date || document.getElementById('ebDateInput').value || new Date().toISOString().slice(0,10);
+        // Lookup region/district
+        var region = '', district = '';
+        try {
+          var lr = await fetch('/api/aws-panel/sql', {
+            method:'POST', headers:{'Content-Type':'application/json','X-Dashboard-Token':'colldb-admin-2024'},
+            body:JSON.stringify({sql:"SELECT r.region_name, d.district_name FROM branches b JOIN districts d ON b.district_id = d.district_id JOIN regions r ON d.region_id = r.region_id WHERE UPPER(b.branch_name) = '" + branch.toUpperCase().replace(/'/g,"''") + "'"})
+          });
+          var lrd = await lr.json();
+          if (lrd.rows && lrd.rows.length) { region = lrd.rows[0].region_name||''; district = lrd.rows[0].district_name||''; }
+        } catch(e){}
+        var sql = "INSERT INTO \"" + ebCurrentTable + "\" (branch_name, date, region, district) VALUES ('" + branch.replace(/'/g,"''") + "','" + date + "','" + region.replace(/'/g,"''") + "','" + district.replace(/'/g,"''") + "') RETURNING *";
+        try {
+          var res = await fetch('/api/aws-panel/sql', {
+            method:'POST', headers:{'Content-Type':'application/json','X-Dashboard-Token':'colldb-admin-2024'},
+            body:JSON.stringify({sql:sql})
+          });
+          var r = await res.json(); if (r.error) throw new Error(r.error);
+          if (r.rows && r.rows.length) { ebRows.push(r.rows[0]); ebRenderTable(); }
+          else { ebLoadData(); }
+          ebToast('Added: ' + branch + ' (' + date + ')', 'success');
+        } catch(e) { ebToast('Insert failed: ' + e.message, 'error'); }
+      }
+
+      function ebExportCsv() {
+        var filtered = ebGetFiltered();
+        if (!filtered.length) { ebToast('No data to export', 'error'); return; }
+        var headers = ebCols.map(function(c){ return EB_NAMES[c]||c; });
+        var rows = [headers.join(',')];
+        filtered.forEach(function(row) {
+          rows.push(ebCols.map(function(c) {
+            var v = row[c]; if (v == null) return '';
+            var s = c === 'date' && v ? String(v).slice(0,10) : String(v);
+            return '"' + s.replace(/"/g,'""') + '"';
+          }).join(','));
+        });
+        var blob = new Blob([rows.join('\n')], {type:'text/csv'});
+        var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+        a.download = ebCurrentTable + '_' + (document.getElementById('ebDateInput').value||'all') + '.csv';
+        a.click(); URL.revokeObjectURL(a.href);
+        ebToast('Exported ' + filtered.length + ' rows', 'success');
+      }
+      </script>
+    </div>
+
     <div class="emp-tab-bar">
       <div class="emp-tab-item active" data-tab="portfolio" onclick="switchEmpTab('portfolio')">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
@@ -1032,6 +1467,10 @@ body.emp-dark .ai-bar-icon { background: rgba(99,102,241,0.15); color: #A5B4FC; 
       <a href="javascript:void(0)" class="sidebar-nav-item" data-sidebar-tab="dailyreports" onclick="closeSidebar(); switchEmpTab('dailyreports');">
         <span class="sidebar-nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
         <span class="sidebar-nav-label">Daily Reports</span>
+      </a>
+      <a href="javascript:void(0)" class="sidebar-nav-item editbranch-mob-nav" data-sidebar-tab="editbranch" onclick="closeSidebar(); switchEmpTab('editbranch');" style="display:none">
+        <span class="sidebar-nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span>
+        <span class="sidebar-nav-label">Edit Branch DR</span>
       </a>
       <a href="javascript:void(0)" class="sidebar-nav-item" data-sidebar-tab="settings" onclick="closeSidebar(); switchEmpTab('settings');">
         <span class="sidebar-nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
@@ -1519,7 +1958,7 @@ body.emp-dark .ai-bar-icon { background: rgba(99,102,241,0.15); color: #A5B4FC; 
   <script src="js/disbursement.js?v=42"></script>
   <script src="js/comparison.js?v=23"></script>
   <script src="js/analytical.js?v=26"></script>
-  <script src="js/employee.js?v=44"></script>
+  <script src="js/employee.js?v=45"></script>
   <script>
   // AI Chat — browser calls server /api/ai-chat (Gemini backend)
   (function(){
