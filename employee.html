@@ -2991,7 +2991,7 @@ document.addEventListener('click', function(e) {
           <div style="display:flex;flex-direction:column;gap:8px;">
             <label style="font-size:12px;font-weight:600;color:#475569;">Actual FTOD Account</label>
             <input id="dr_ftod_actual" type="text" inputmode="numeric" pattern="[0-9,]*" placeholder="0" class="dr-modal-input" style="padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;">
-            <label style="font-size:12px;font-weight:600;color:#475569;">FTOD Collection Plan</label>
+            <label class="dr-plan-label" style="font-size:12px;font-weight:600;color:#475569;">FTOD Collection Plan</label>
             <input id="dr_ftod_plan" type="text" inputmode="numeric" pattern="[0-9,]*" placeholder="0" class="dr-modal-input" style="padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;">
           </div>
         </div>
@@ -3002,7 +3002,7 @@ document.addEventListener('click', function(e) {
           <div style="display:flex;flex-direction:column;gap:8px;">
             <label style="font-size:12px;font-weight:600;color:#475569;">Actual Account</label>
             <input id="dr_dpd_1_30_actual" type="text" inputmode="numeric" pattern="[0-9,]*" placeholder="0" class="dr-modal-input" style="padding:8px 12px;border:1px solid #F59E0B40;border-radius:8px;font-size:14px;">
-            <label style="font-size:12px;font-weight:600;color:#475569;">Collection Plan</label>
+            <label class="dr-plan-label" style="font-size:12px;font-weight:600;color:#475569;">Collection Plan</label>
             <input id="dr_dpd_1_30_plan" type="text" inputmode="numeric" pattern="[0-9,]*" placeholder="0" class="dr-modal-input" style="padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;">
           </div>
         </div>
@@ -3036,7 +3036,7 @@ document.addEventListener('click', function(e) {
           <div style="display:flex;flex-direction:column;gap:8px;">
             <label style="font-size:12px;font-weight:600;color:#475569;">Actual Account</label>
             <input id="dr_dpd_31_60_actual" type="text" inputmode="numeric" pattern="[0-9,]*" placeholder="0" class="dr-modal-input" style="padding:8px 12px;border:1px solid #EF444440;border-radius:8px;font-size:14px;">
-            <label style="font-size:12px;font-weight:600;color:#475569;">Collection Plan</label>
+            <label class="dr-plan-label" style="font-size:12px;font-weight:600;color:#475569;">Collection Plan</label>
             <input id="dr_dpd_31_60_plan" type="text" inputmode="numeric" pattern="[0-9,]*" placeholder="0" class="dr-modal-input" style="padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;">
           </div>
         </div>
@@ -3047,7 +3047,7 @@ document.addEventListener('click', function(e) {
           <div style="display:flex;flex-direction:column;gap:8px;">
             <label style="font-size:12px;font-weight:600;color:#475569;">Actual Account</label>
             <input id="dr_dpd_61_90_actual" type="text" inputmode="numeric" pattern="[0-9,]*" placeholder="0" class="dr-modal-input" style="padding:8px 12px;border:1px solid #DC262640;border-radius:8px;font-size:14px;">
-            <label style="font-size:12px;font-weight:600;color:#475569;">Collection Plan</label>
+            <label class="dr-plan-label" style="font-size:12px;font-weight:600;color:#475569;">Collection Plan</label>
             <input id="dr_dpd_61_90_plan" type="text" inputmode="numeric" pattern="[0-9,]*" placeholder="0" class="dr-modal-input" style="padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;">
           </div>
         </div>
@@ -3082,7 +3082,7 @@ document.addEventListener('click', function(e) {
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
             <div><label style="font-size:12px;font-weight:600;color:#475569;">Non-Starter Accounts</label>
             <input id="dr_fy_non_start_acc" type="text" inputmode="numeric" pattern="[0-9,]*" placeholder="0" class="dr-modal-input" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;margin-top:4px;"></div>
-            <div><label style="font-size:12px;font-weight:600;color:#475569;">Collection Plan</label>
+            <div><label class="dr-plan-label" style="font-size:12px;font-weight:600;color:#475569;">Collection Plan</label>
             <input id="dr_fy_non_start_plan" type="text" inputmode="numeric" pattern="[0-9,]*" placeholder="0" class="dr-modal-input" style="width:100%;padding:8px;border:1px solid #E2E8F0;border-radius:8px;font-size:14px;margin-top:4px;"></div>
           </div>
         </div>
@@ -3213,9 +3213,20 @@ function openDrBranchModal(branchName, table, dateOverride) {
   window._drCurrentDate = dateOverride || new Date().toISOString().split('T')[0];
   var _isTomorrow = !!dateOverride;
   document.getElementById('drModalTitle').textContent = canonical + (_isTomorrow ? ' — Tomorrow\'s Plan' : _drCurrentTable === 'achievements' ? ' — Enter Achievement' : ' — Enter Plan');
-  // Update section headers based on mode
+  // Update section headers and labels based on mode
+  var isAch = _drCurrentTable === 'achievements';
   var disbH = document.getElementById('drDisbHeader');
-  if (disbH) disbH.textContent = _drCurrentTable === 'achievements' ? 'DISBURSEMENT ACHIEVEMENT' : 'DISBURSEMENT TARGETS';
+  if (disbH) disbH.textContent = isAch ? 'DISBURSEMENT ACHIEVEMENT' : 'DISBURSEMENT TARGETS';
+  document.querySelectorAll('.dr-plan-label').forEach(function(el) {
+    var txt = el.textContent.trim();
+    if (isAch) {
+      if (txt === 'FTOD Collection Plan') el.textContent = 'FTOD Achievement';
+      else if (txt === 'Collection Plan') el.textContent = 'Achievement';
+    } else {
+      if (txt === 'FTOD Achievement') el.textContent = 'FTOD Collection Plan';
+      else if (txt === 'Achievement') el.textContent = 'Collection Plan';
+    }
+  });
   // Clear all fields and unlock by default
   document.querySelectorAll('#drBranchModal input.dr-modal-input').forEach(function(el) {
     el.value = '';
