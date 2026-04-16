@@ -459,58 +459,62 @@
       </div>
 
       <script>
-      // Daily Reports inline logic
+      // Daily Reports inline logic — deferred until session is ready
       (function(){
-        // Role-aware rendering
-        var session = window.getEmployeeSession ? getEmployeeSession() : {};
-        var role = session.role || localStorage.getItem('roleName') || 'CEO';
-        var location = session.location || localStorage.getItem('roleLocation') || '';
-        
-        // BM: show branch card
-        if (role === 'BM' || role === 'FO') {
-          var card = document.getElementById('drBranchCard');
-          if (card) card.style.display = 'block';
-          var nameEl = document.getElementById('drBranchName');
-          if (nameEl) nameEl.textContent = location || 'Your Branch';
-          var subEl = document.getElementById('drSubtitle');
-          if (subEl) subEl.textContent = 'Manage your branch daily plan & achievements';
-          
-          // Set today's date
-          var now = new Date();
-          var dateStr = now.toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'});
-          var todayEl = document.getElementById('drTodayDate');
-          if (todayEl) todayEl.textContent = dateStr;
-          
-          // Check plan status from API
-          var isoToday = now.toISOString().split('T')[0];
-          var _planDone = fetch('/api/daily-plan/exists?table=reports&date=' + isoToday + '&branch=' + encodeURIComponent(location))
-            .then(function(r){return r.json();})
-            .then(function(d){
-              var el = document.getElementById('drPlanStatus');
-              if (el) el.textContent = d.exists ? '✓ Set' : 'Pending';
-              if (el && d.exists) el.style.color = '#D1FAE5';
-              return !!d.exists;
-            }).catch(function(){ return false; });
+        function _drInit() {
+          var session = window.getEmployeeSession ? getEmployeeSession() : {};
+          var role = session.role || localStorage.getItem('roleName') || 'CEO';
+          var location = session.location || localStorage.getItem('roleLocation') || '';
 
-          var _achDone = fetch('/api/daily-plan/exists?table=achievements&date=' + isoToday + '&branch=' + encodeURIComponent(location))
-            .then(function(r){return r.json();})
-            .then(function(d){
-              var el = document.getElementById('drAchievement');
-              if (el) el.textContent = d.exists ? '✓ Entered' : 'Pending';
-              if (el && d.exists) el.style.color = '#D1FAE5';
-              return !!d.exists;
-            }).catch(function(){ return false; });
+          // BM: show branch card
+          if (role === 'BM' || role === 'FO') {
+            var card = document.getElementById('drBranchCard');
+            if (card) card.style.display = 'block';
+            var nameEl = document.getElementById('drBranchName');
+            if (nameEl) nameEl.textContent = location || 'Your Branch';
+            var subEl = document.getElementById('drSubtitle');
+            if (subEl) subEl.textContent = 'Manage your branch daily plan & achievements';
 
-          Promise.all([_planDone, _achDone]).then(function(flags){
-            if (flags[0] && flags[1]) _drShowTomorrowPlanButton();
-          });
-        }
-        
-        // DM: update subtitle
-        if (role === 'DM') {
-          var subEl = document.getElementById('drSubtitle');
-          if (subEl) subEl.textContent = 'View reports for ' + (location || 'your area');
-        }
+            // Set today's date
+            var now = new Date();
+            var dateStr = now.toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'});
+            var todayEl = document.getElementById('drTodayDate');
+            if (todayEl) todayEl.textContent = dateStr;
+
+            // Check plan status from API
+            var isoToday = now.toISOString().split('T')[0];
+            var _planDone = fetch('/api/daily-plan/exists?table=reports&date=' + isoToday + '&branch=' + encodeURIComponent(location))
+              .then(function(r){return r.json();})
+              .then(function(d){
+                var el = document.getElementById('drPlanStatus');
+                if (el) el.textContent = d.exists ? '✓ Set' : 'Pending';
+                if (el && d.exists) el.style.color = '#D1FAE5';
+                return !!d.exists;
+              }).catch(function(){ return false; });
+
+            var _achDone = fetch('/api/daily-plan/exists?table=achievements&date=' + isoToday + '&branch=' + encodeURIComponent(location))
+              .then(function(r){return r.json();})
+              .then(function(d){
+                var el = document.getElementById('drAchievement');
+                if (el) el.textContent = d.exists ? '✓ Entered' : 'Pending';
+                if (el && d.exists) el.style.color = '#D1FAE5';
+                return !!d.exists;
+              }).catch(function(){ return false; });
+
+            Promise.all([_planDone, _achDone]).then(function(flags){
+              console.log('[DR] Plan done:', flags[0], 'Ach done:', flags[1]);
+              if (flags[0] && flags[1]) {
+                console.log('[DR] Both done — showing tomorrow button');
+                _drShowTomorrowPlanButton();
+              }
+            }).catch(function(e){ console.error('[DR] Promise.all error:', e); });
+          }
+
+          // DM: update subtitle
+          if (role === 'DM') {
+            var subEl = document.getElementById('drSubtitle');
+            if (subEl) subEl.textContent = 'View reports for ' + (location || 'your area');
+          }
         
         // Open plan entry in full app
         window._drOpenPlanEntry = function() {
@@ -658,6 +662,14 @@
         window._drGenerateBoth = function() {
           _drBuildReportTable(window._drDate || drDate, drLevel, 'both');
         };
+        } // end _drInit
+
+        // Defer until session is available (auth.js loads after this script)
+        if (window.getEmployeeSession) {
+          _drInit();
+        } else {
+          window.addEventListener('load', _drInit);
+        }
       })();
       </script>
 

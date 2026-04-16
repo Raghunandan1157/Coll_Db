@@ -505,6 +505,10 @@ svg.sv-lines{position:absolute;top:0;left:0;width:100%;height:100%;pointer-event
 .ne-add-row-btn:hover{background:#111;color:#fff;border-color:#444}
 .ne-export-btn{padding:6px 14px;border-radius:var(--r-lg);border:1px solid var(--border);background:transparent;color:var(--tx2);cursor:pointer;font-size:13px;font-family:inherit;display:flex;align-items:center;gap:6px;transition:all var(--ease)}
 .ne-export-btn:hover{background:#111;color:#fff;border-color:#444}
+.ne-chk{width:40px;min-width:40px;max-width:40px;text-align:center;padding:0!important}
+.ne-chk input[type=checkbox]{width:16px;height:16px;cursor:pointer;accent-color:var(--blue)}
+.ne-del-sel-btn{padding:6px 14px;border-radius:var(--r-lg);border:1px solid #c0392b;background:transparent;color:#e74c3c;cursor:pointer;font-size:13px;font-family:inherit;display:flex;align-items:center;gap:6px;transition:all var(--ease)}
+.ne-del-sel-btn:hover{background:#c0392b;color:#fff;border-color:#c0392b}
 .ne-toast{position:fixed;bottom:32px;left:50%;transform:translateX(-50%) translateY(20px);padding:10px 24px;border-radius:8px;font-size:13px;font-weight:600;pointer-events:none;opacity:0;transition:opacity .25s,transform .25s;z-index:99999;box-shadow:0 4px 16px rgba(0,0,0,.4)}
 .ne-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .ne-toast.success{background:#50e3c2;color:#111}
@@ -948,6 +952,7 @@ svg.sv-lines{position:absolute;top:0;left:0;width:100%;height:100%;pointer-event
           </div>
           <button class="ne-add-row-btn" onclick="neShowAddRow()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add Row</button>
           <button class="ne-export-btn" onclick="neExportCsv()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export CSV</button>
+          <button class="ne-del-sel-btn" onclick="neDeleteSelected()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>Delete Selected</button>
         </div>
         <div class="ne-content">
           <div class="ne-table-wrap">
@@ -3696,27 +3701,27 @@ function neRenderTable() {
   document.getElementById('neRowCount').textContent = filtered.length + ' row' + (filtered.length !== 1 ? 's' : '');
 
   var stickyLeft = 0;
-  thead.innerHTML = '<tr>' + neCols.map(function(c, ci) {
+  thead.innerHTML = '<tr><th class="ne-chk" style="position:sticky;left:0;z-index:4;background:#111"><input type="checkbox" onchange="neToggleAllChk(this)"></th>' + neCols.map(function(c, ci) {
     var sticky = NE_STICKY_COLS.indexOf(c) !== -1;
     var cls = sticky ? ' class="ne-sticky"' : '';
     var style = '';
-    if (c === 'id') { style = ' style="position:sticky;left:0;z-index:3;background:#111;min-width:50px"'; }
-    else if (c === 'branch_name') { style = ' style="position:sticky;left:50px;z-index:3;background:#111;min-width:120px;border-right:2px solid #333"'; }
+    if (c === 'id') { style = ' style="position:sticky;left:40px;z-index:3;background:#111;min-width:50px"'; }
+    else if (c === 'branch_name') { style = ' style="position:sticky;left:90px;z-index:3;background:#111;min-width:120px;border-right:2px solid #333"'; }
     return '<th' + style + '>' + escHtml(NE_FRIENDLY_NAMES[c] || c) + '</th>';
   }).join('') + '<th style="width:60px">Delete</th></tr>';
 
   if (filtered.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="' + (neCols.length + 1) + '"><div class="ne-empty">No data found for this date. Click "Add Row" to create one.</div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="' + (neCols.length + 2) + '"><div class="ne-empty">No data found for this date. Click "Add Row" to create one.</div></td></tr>';
     return;
   }
 
   tbody.innerHTML = filtered.map(function(row) {
-    return '<tr data-id="' + row.id + '">' + neCols.map(function(c) {
+    return '<tr data-id="' + row.id + '"><td class="ne-chk" style="position:sticky;left:0;z-index:2;background:inherit"><input type="checkbox" value="' + row.id + '" class="ne-row-chk"></td>' + neCols.map(function(c) {
       var val = row[c];
       var isEditable = c !== 'id' && c !== 'created_at';
       var stickyStyle = '';
-      if (c === 'id') stickyStyle = ' style="position:sticky;left:0;z-index:1;background:inherit;min-width:50px"';
-      else if (c === 'branch_name') stickyStyle = ' style="position:sticky;left:50px;z-index:1;background:inherit;min-width:120px;border-right:2px solid #222"';
+      if (c === 'id') stickyStyle = ' style="position:sticky;left:40px;z-index:1;background:inherit;min-width:50px"';
+      else if (c === 'branch_name') stickyStyle = ' style="position:sticky;left:90px;z-index:1;background:inherit;min-width:120px;border-right:2px solid #222"';
       if (val === null || val === undefined) {
         return '<td class="ne-null"' + stickyStyle + (isEditable ? ' data-col="' + c + '" onclick="neEditCell(this,\'' + c + '\',' + row.id + ')"' : '') + '>NULL</td>';
       }
@@ -3808,6 +3813,24 @@ async function neDeleteRow(rowId) {
     neRenderTable();
     neToast('Deleted ' + (deleted ? deleted.branch_name : 'row #' + rowId), 'info');
   } catch(e) { neToast('Delete failed: ' + e.message, 'error'); }
+}
+
+function neToggleAllChk(master) {
+  document.querySelectorAll('.ne-row-chk').forEach(function(cb) { cb.checked = master.checked; });
+}
+
+async function neDeleteSelected() {
+  var checked = Array.from(document.querySelectorAll('.ne-row-chk:checked'));
+  if (checked.length === 0) { neToast('No rows selected', 'info'); return; }
+  var ids = checked.map(function(cb) { return parseInt(cb.value); });
+  if (!confirm('Delete ' + ids.length + ' selected row' + (ids.length > 1 ? 's' : '') + '?')) return;
+  try {
+    var sql = 'DELETE FROM "' + neCurrentTable + '" WHERE id IN (' + ids.join(',') + ')';
+    await apiFetch('/api/aws-panel/sql', { method:'POST', body:JSON.stringify({sql:sql}) });
+    neRows = neRows.filter(function(r) { return ids.indexOf(r.id) === -1; });
+    neRenderTable();
+    neToast('Deleted ' + ids.length + ' row' + (ids.length > 1 ? 's' : ''), 'success');
+  } catch(e) { neToast('Bulk delete failed: ' + e.message, 'error'); }
 }
 
 function neShowAddRow() {
