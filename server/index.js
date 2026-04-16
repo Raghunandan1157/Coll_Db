@@ -776,7 +776,6 @@ app.post("/api/upload", uploadLimiter, upload.single("file"), async (req, res) =
         UNIQUE(emp_id, product_type_id)
       )`);
       await pool.query("CREATE INDEX idx_hp_emp_id ON hourly_performance(emp_id)");
-      await pool.query("CREATE INDEX idx_hp_product_type_id ON hourly_performance(product_type_id)");
       await pool.query('GRANT ALL ON ALL TABLES IN SCHEMA public TO "Raghunandan1157"');
       await pool.query('GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO "Raghunandan1157"');
       console.log("hourly_performance reset after EOD upload");
@@ -3494,7 +3493,6 @@ server.listen(PORT, "0.0.0.0", async () => {
       UNIQUE(emp_id, product_type_id)
     )`);
     await pool.query("CREATE INDEX IF NOT EXISTS idx_hp_emp_id ON hourly_performance(emp_id)");
-    await pool.query("CREATE INDEX IF NOT EXISTS idx_hp_product_type_id ON hourly_performance(product_type_id)");
     console.log("hourly_performance table ready");
   } catch (err) {
     // Table creation may fail if employees/product_types dont exist yet — thats OK
@@ -3629,7 +3627,6 @@ app.post("/api/upload-hourly", upload.single("file"), async (req, res) => {
         UNIQUE(emp_id, product_type_id)
       )`);
       await client.query("CREATE INDEX idx_hp_emp_id ON hourly_performance(emp_id)");
-      await client.query("CREATE INDEX idx_hp_product_type_id ON hourly_performance(product_type_id)");
 
       const ptRows = await client.query("SELECT product_type_id, product_type_name FROM product_types");
       const ptMap = {};
@@ -3844,7 +3841,6 @@ app.post("/api/upload-hourly", upload.single("file"), async (req, res) => {
       UNIQUE(emp_id, product_type_id)
     )`);
     await client.query("CREATE INDEX idx_hp_emp_id ON hourly_performance(emp_id)");
-    await client.query("CREATE INDEX idx_hp_product_type_id ON hourly_performance(product_type_id)");
 
     // Ensure "ALL" product type exists for combined data
     let allPtId;
