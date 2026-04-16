@@ -404,8 +404,8 @@
             </div>
           </div>
 
-          <!-- Report Builder Card -->
-          <div style="background:var(--bg-card,#fff);border:1px solid var(--border-color,#E2E8F0);border-radius:14px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+          <!-- Report Builder Card (hidden for BM/FO) -->
+          <div id="drReportBuilderCard" style="background:var(--bg-card,#fff);border:1px solid var(--border-color,#E2E8F0);border-radius:14px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
             <div style="padding:16px 20px;border-bottom:1px solid var(--border-color,#F1F5F9);display:flex;justify-content:space-between;align-items:center;">
               <div style="font-size:16px;font-weight:700;color:var(--text-primary,#1E293B);">📊 Custom Report Builder</div>
               <div style="font-size:12px;color:#94A3B8;">Select date &amp; level to generate reports</div>
@@ -466,10 +466,12 @@
           var role = session.role || localStorage.getItem('roleName') || 'CEO';
           var location = session.location || localStorage.getItem('roleLocation') || '';
 
-          // BM: show branch card
+          // BM: show branch card, hide report builder
           if (role === 'BM' || role === 'FO') {
             var card = document.getElementById('drBranchCard');
             if (card) card.style.display = 'block';
+            var rbc = document.getElementById('drReportBuilderCard');
+            if (rbc) rbc.style.display = 'none';
             var nameEl = document.getElementById('drBranchName');
             if (nameEl) nameEl.textContent = location || 'Your Branch';
             var subEl = document.getElementById('drSubtitle');
