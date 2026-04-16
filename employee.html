@@ -1373,26 +1373,33 @@
 
       function ebMobRenderBuckets() {
         var row = ebMobSelectedRow;
-        if (!row) return;
-        var html = '';
+        if (!row) { document.getElementById('ebMobBuckets').innerHTML = '<div style="padding:20px;text-align:center;color:#94A3B8">No data</div>'; return; }
+        var parts = [];
         EB_BUCKETS.forEach(function(bucket) {
-          html += '<div class="eb-mob-bucket" style="border-left:4px solid ' + bucket.color + '">';
-          html += '<div class="eb-mob-bucket-head" style="background:' + bucket.color + '10"><span class="eb-mob-bucket-icon" style="background:' + bucket.color + '"></span>' + bucket.name + '</div>';
+          var fieldHtml = '';
           bucket.fields.forEach(function(f) {
             var val = row[f.key];
             var display = val != null ? String(val) : '';
-            html += '<div class="eb-mob-field">'
-              + '<div class="eb-mob-field-label">' + f.label + '</div>'
-              + '<input class="eb-mob-field-value" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="0" value="' + display + '" '
+            fieldHtml += '<div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid #F1F5F9">'
+              + '<span style="font-size:14px;color:#64748B;font-weight:500">' + f.label + '</span>'
+              + '<input type="text" inputmode="numeric" pattern="[0-9]*" placeholder="0" value="' + display + '" '
+              + 'style="width:100px;text-align:center;padding:12px 14px;border:1.5px solid #E2E8F0;border-radius:12px;background:#F8FAFC;font-size:16px;font-weight:600;color:#1E293B;min-height:44px;box-sizing:border-box;-webkit-appearance:none;font-family:inherit" '
               + 'data-key="' + f.key + '" data-id="' + row.id + '" data-orig="' + display + '" '
-              + 'onfocus="this.select()" '
-              + 'onchange="ebMobSaveField(this)" onblur="ebMobSaveField(this)" '
+              + 'onfocus="this.select();this.style.borderColor=\'#6366F1\';this.style.background=\'#fff\';this.style.boxShadow=\'0 0 0 3px rgba(99,102,241,.15)\'" '
+              + 'onblur="this.style.borderColor=\'#E2E8F0\';this.style.background=\'#F8FAFC\';this.style.boxShadow=\'none\';ebMobSaveField(this)" '
+              + 'onchange="ebMobSaveField(this)" '
               + 'enterkeyhint="next">'
               + '</div>';
           });
-          html += '</div>';
+          parts.push(
+            '<div style="background:#fff;border:1px solid #E2E8F0;border-left:4px solid ' + bucket.color + ';border-radius:14px;overflow:hidden;margin-bottom:10px">'
+            + '<div style="padding:12px 16px;background:' + bucket.color + '15;font-size:13px;font-weight:700;color:#475569;border-bottom:1px solid #E2E8F0;display:flex;align-items:center;gap:8px">'
+            + '<span style="width:8px;height:8px;border-radius:50%;background:' + bucket.color + ';flex-shrink:0"></span>' + bucket.name + '</div>'
+            + fieldHtml
+            + '</div>'
+          );
         });
-        document.getElementById('ebMobBuckets').innerHTML = html;
+        document.getElementById('ebMobBuckets').innerHTML = parts.join('');
       }
 
       async function ebMobSaveField(input) {
