@@ -415,7 +415,13 @@
                   <button onclick="window._drSetDate(-1)" style="padding:8px 16px;border-radius:8px;border:1px solid var(--border-color,#E2E8F0);background:var(--bg-card,#fff);color:var(--text-secondary,#334155);font-weight:500;font-size:13px;cursor:pointer;">Yesterday</button>
                   <button onclick="window._drSetDate(0)" id="drBtnToday" style="padding:8px 16px;border-radius:8px;border:none;background:#6366F1;color:#fff;font-weight:600;font-size:13px;cursor:pointer;">Today</button>
                   <button onclick="window._drSetDate(1)" style="padding:8px 16px;border-radius:8px;border:1px solid var(--border-color,#E2E8F0);background:var(--bg-card,#fff);color:var(--text-secondary,#334155);font-weight:500;font-size:13px;cursor:pointer;">Tomorrow</button>
+                  <button onclick="window._drStepDate(-1)" aria-label="Previous day" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border-color,#E2E8F0);background:var(--bg-card,#fff);color:#334155;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                  </button>
                   <input type="date" id="drDateInput" style="padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;color:#334155;" onchange="window._drDate=this.value">
+                  <button onclick="window._drStepDate(1)" aria-label="Next day" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border-color,#E2E8F0);background:var(--bg-card,#fff);color:#334155;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                  </button>
                 </div>
               </div>
               <div>
@@ -473,21 +479,27 @@
           
           // Check plan status from API
           var isoToday = now.toISOString().split('T')[0];
-          fetch('/api/daily-plan/exists?table=reports&date=' + isoToday + '&branch=' + encodeURIComponent(location))
+          var _planDone = fetch('/api/daily-plan/exists?table=reports&date=' + isoToday + '&branch=' + encodeURIComponent(location))
             .then(function(r){return r.json();})
             .then(function(d){
               var el = document.getElementById('drPlanStatus');
               if (el) el.textContent = d.exists ? '✓ Set' : 'Pending';
               if (el && d.exists) el.style.color = '#D1FAE5';
-            }).catch(function(){});
-          
-          fetch('/api/daily-plan/exists?table=achievements&date=' + isoToday + '&branch=' + encodeURIComponent(location))
+              return !!d.exists;
+            }).catch(function(){ return false; });
+
+          var _achDone = fetch('/api/daily-plan/exists?table=achievements&date=' + isoToday + '&branch=' + encodeURIComponent(location))
             .then(function(r){return r.json();})
             .then(function(d){
               var el = document.getElementById('drAchievement');
               if (el) el.textContent = d.exists ? '✓ Entered' : 'Pending';
               if (el && d.exists) el.style.color = '#D1FAE5';
-            }).catch(function(){});
+              return !!d.exists;
+            }).catch(function(){ return false; });
+
+          Promise.all([_planDone, _achDone]).then(function(flags){
+            if (flags[0] && flags[1]) _drShowTomorrowPlanButton();
+          });
         }
         
         // DM: update subtitle
@@ -503,6 +515,55 @@
         window._drOpenAchievementEntry = function() {
           openDrBranchModal(location, 'achievements');
         };
+        window._drOpenTomorrowPlan = function() {
+          var t = new Date(); t.setDate(t.getDate() + 1);
+          var iso = t.toISOString().split('T')[0];
+          openDrBranchModal(location, 'reports', iso);
+        };
+        function _drShowTomorrowPlanButton() {
+          var wrap = document.querySelector('.dr-bm-actions');
+          if (!wrap) return;
+          wrap.innerHTML =
+            '<button id="drTomorrowBtn" onclick="window._drOpenTomorrowPlan()" ' +
+            'style="flex:1;padding:16px 24px;border-radius:14px;border:none;' +
+            'background:linear-gradient(135deg,#6366F1 0%,#8B5CF6 50%,#EC4899 100%);' +
+            'background-size:200% 200%;color:#fff;font-weight:700;font-size:16px;' +
+            'cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;' +
+            'box-shadow:0 8px 24px rgba(99,102,241,0.45),0 0 0 0 rgba(139,92,246,0.6);' +
+            'animation:drTmrGlow 2.4s ease-in-out infinite, drTmrShift 6s ease infinite;' +
+            'position:relative;overflow:hidden;letter-spacing:0.3px;">' +
+              '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="filter:drop-shadow(0 0 4px rgba(255,255,255,0.6));">' +
+                '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>' +
+                '<line x1="16" y1="2" x2="16" y2="6"/>' +
+                '<line x1="8" y1="2" x2="8" y2="6"/>' +
+                '<line x1="3" y1="10" x2="21" y2="10"/>' +
+                '<path d="M12 14l2 2 4-4"/>' +
+              '</svg>' +
+              'Enter Tomorrow\'s Plan' +
+              '<span style="position:absolute;top:0;left:-100%;width:60%;height:100%;' +
+              'background:linear-gradient(90deg,transparent,rgba(255,255,255,0.35),transparent);' +
+              'animation:drTmrShine 3s ease-in-out infinite;"></span>' +
+            '</button>';
+          if (!document.getElementById('drTmrKeyframes')) {
+            var st = document.createElement('style');
+            st.id = 'drTmrKeyframes';
+            st.textContent =
+              '@keyframes drTmrGlow{' +
+                '0%,100%{box-shadow:0 8px 24px rgba(99,102,241,0.45),0 0 0 0 rgba(139,92,246,0.6);}' +
+                '50%{box-shadow:0 12px 32px rgba(139,92,246,0.6),0 0 0 8px rgba(139,92,246,0);}}' +
+              '@keyframes drTmrShift{' +
+                '0%,100%{background-position:0% 50%;}' +
+                '50%{background-position:100% 50%;}}' +
+              '@keyframes drTmrShine{' +
+                '0%{left:-100%;}60%,100%{left:120%;}}' +
+              '#drTomorrowBtn:hover{transform:translateY(-2px) scale(1.01);transition:transform 0.2s;}' +
+              '#drTomorrowBtn:active{transform:translateY(0) scale(0.99);}';
+            document.head.appendChild(st);
+          }
+          // Update the subtitle so the BM knows why it's here
+          var subEl = document.getElementById('drSubtitle');
+          if (subEl) subEl.textContent = '✅ Today\'s plan & achievement are set — get ahead by entering tomorrow\'s plan.';
+        }
         var drDate = new Date().toISOString().split('T')[0];
         // Role-aware level button filtering
         var allowedLevels = (function(r){
@@ -530,6 +591,29 @@
         var dateInput = document.getElementById('drDateInput');
         if (dateInput) dateInput.value = drDate;
         window._drDate = drDate;
+
+        window._drStepDate = function(delta) {
+          var cur = window._drDate || drDate;
+          var d = new Date(cur + 'T00:00:00');
+          d.setDate(d.getDate() + delta);
+          drDate = d.toISOString().split('T')[0];
+          window._drDate = drDate;
+          if (dateInput) dateInput.value = drDate;
+          // Clear Yesterday/Today/Tomorrow highlights since we're off those presets now
+          var today0 = new Date(); today0.setHours(0,0,0,0);
+          var diff = Math.round((d - today0) / 86400000);
+          var labels = {'-1':'Yesterday','0':'Today','1':'Tomorrow'};
+          document.querySelectorAll('#dailyreportsTab button').forEach(function(b) {
+            var t = b.textContent.trim();
+            if (t === 'Yesterday' || t === 'Today' || t === 'Tomorrow') {
+              if (t === labels[String(diff)]) {
+                b.style.background = '#6366F1'; b.style.color = '#fff'; b.style.border = 'none';
+              } else {
+                b.style.background = '#fff'; b.style.color = '#334155'; b.style.border = '1px solid #E2E8F0';
+              }
+            }
+          });
+        };
 
         window._drSetDate = function(offset) {
           var d = new Date(); d.setDate(d.getDate() + offset);
@@ -2306,7 +2390,7 @@ function _drSetupModalInputs() {
   });
 }
 
-function openDrBranchModal(branchName, table) {
+function openDrBranchModal(branchName, table, dateOverride) {
   // Normalize branch name to canonical V2 spelling from _drAllBranches
   // (handles legacy roleLocation casing like "BIDAR" → "Bidar")
   var canonical = branchName;
@@ -2318,7 +2402,9 @@ function openDrBranchModal(branchName, table) {
   }
   _drCurrentBranch = canonical;
   _drCurrentTable = table || 'reports';
-  document.getElementById('drModalTitle').textContent = canonical + ' — Details';
+  window._drCurrentDate = dateOverride || new Date().toISOString().split('T')[0];
+  var _isTomorrow = !!dateOverride;
+  document.getElementById('drModalTitle').textContent = canonical + (_isTomorrow ? ' — Tomorrow\'s Plan' : ' — Details');
   // Clear all fields and unlock by default
   document.querySelectorAll('#drBranchModal input.dr-modal-input').forEach(function(el) {
     el.value = '';
@@ -2335,7 +2421,7 @@ function openDrBranchModal(branchName, table) {
   var banner = document.getElementById('drAchievementBanner');
   if (banner) banner.remove();
   // Load existing data (use canonical name for fetches)
-  var today = new Date().toISOString().split('T')[0];
+  var today = window._drCurrentDate;
   fetch('/api/daily-plan/exists?table=' + _drCurrentTable + '&date=' + today + '&branch=' + encodeURIComponent(canonical))
     .then(function(r){return r.json();})
     .then(function(d){
@@ -2486,7 +2572,7 @@ function _drSetSaveButtonState(locked) {
 }
 
 function saveDrBranchData() {
-  var today = new Date().toISOString().split('T')[0];
+  var today = window._drCurrentDate || new Date().toISOString().split('T')[0];
   var session = window.getEmployeeSession ? getEmployeeSession() : {};
   // Helper to get numeric value (strips commas from Indian-format amount fields)
   var _val = function(id) {
@@ -2799,7 +2885,7 @@ function _drBuildTableHTML(tableTitle, level, rows, tableId, isAch) {
   rows.forEach(function(r){ Object.keys(gt).forEach(function(k){ gt[k] += r[k] || 0; }); });
 
   var v = function(n){ return n ? n.toLocaleString('en-IN') : '-'; };
-  var a = function(n){ return n ? (n>=10000000 ? (n/10000000).toFixed(2)+'Cr' : (n>=100000 ? (n/100000).toFixed(2)+'L' : n.toLocaleString('en-IN'))) : '-'; };
+  var a = function(n){ return n ? (n/100000).toFixed(2)+' L' : '-'; };
   var colLabel = level === 'BRANCH' ? 'BRANCH' : level === 'AREA' ? 'AREA' : level === 'DIVISION' ? 'DIVISION' : 'REGION';
   var s = 'border:1px solid #C0C0C0;padding:3px 4px;text-align:center;font-size:9px;white-space:nowrap;';
   var titleBg = isAch ? '#F0FFF0' : '#E8F0FE';
@@ -2874,7 +2960,7 @@ function _drBuildTableHTML(tableTitle, level, rows, tableId, isAch) {
 // Build a single combined PLAN + ACHIEVEMENT table (29 columns: name + 14 plan + 14 ach)
 function _drBuildCombinedTableHTML(title, level, planRows, achRows) {
   var v = function(n){ return n ? n.toLocaleString('en-IN') : '-'; };
-  var a = function(n){ return n ? (n>=10000000 ? (n/10000000).toFixed(2)+'Cr' : (n>=100000 ? (n/100000).toFixed(2)+'L' : n.toLocaleString('en-IN'))) : '-'; };
+  var a = function(n){ return n ? (n/100000).toFixed(2)+' L' : '-'; };
   var colLabel = level === 'BRANCH' ? 'BRANCH' : level === 'AREA' ? 'AREA' : level === 'DIVISION' ? 'DIVISION' : 'REGION';
   var s = 'border:1px solid #C0C0C0;padding:3px 4px;text-align:center;font-size:9px;white-space:nowrap;';
   var planBg = '#E8F0FE';

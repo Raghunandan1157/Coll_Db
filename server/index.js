@@ -4146,13 +4146,30 @@ app.post("/api/daily-plan/save", async (req, res) => {
       return res.status(400).json({ error: "Missing date or branch_name" });
     }
     const targetTable = table === 'achievements' ? 'daily_reports_achievements' : 'daily_reports';
-    
+
+    // Auto-populate region/district from branches hierarchy if not provided
+    if (!data.region || !data.district) {
+      try {
+        const lookup = await pool.query(
+          `SELECT r.region_name, d.district_name FROM branches b
+           JOIN districts d ON b.district_id = d.district_id
+           JOIN regions r ON d.region_id = r.region_id
+           WHERE UPPER(b.branch_name) = UPPER($1) LIMIT 1`, [data.branch_name]);
+        if (lookup.rows.length) {
+          if (!data.region) data.region = lookup.rows[0].region_name;
+          if (!data.district) data.district = lookup.rows[0].district_name;
+        }
+      } catch(e) { /* lookup optional */ }
+    }
+
     const cols = DAILY_PLAN_COLS.split(',');
     const values = cols.map(c => data[c] != null ? data[c] : 0);
     const placeholders = cols.map((_, i) => "$" + (i + 1));
-    
-    const sql = "INSERT INTO " + targetTable + " (" + cols.join(",") + ") VALUES (" + placeholders.join(",") + ") ON CONFLICT (branch_name, date) DO UPDATE SET " + cols.filter(c => c !== 'branch_name' && c !== 'date').map(c => c + "=EXCLUDED." + c).join(",");
-    
+
+    // Exclude region/district from ON CONFLICT UPDATE so existing values aren't overwritten with empty
+    const updateCols = cols.filter(c => c !== 'branch_name' && c !== 'date' && c !== 'region' && c !== 'district');
+    const sql = "INSERT INTO " + targetTable + " (" + cols.join(",") + ") VALUES (" + placeholders.join(",") + ") ON CONFLICT (branch_name, date) DO UPDATE SET " + updateCols.map(c => c + "=EXCLUDED." + c).join(",") + ", region = CASE WHEN EXCLUDED.region = '' OR EXCLUDED.region = '0' THEN " + targetTable + ".region ELSE EXCLUDED.region END, district = CASE WHEN EXCLUDED.district = '' OR EXCLUDED.district = '0' THEN " + targetTable + ".district ELSE EXCLUDED.district END";
+
     await pool.query(sql, values);
     res.json({ success: true, table: targetTable, branch: data.branch_name, date: data.date });
   } catch(e) { res.status(500).json({ error: e.message }); }
