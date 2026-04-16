@@ -3212,7 +3212,7 @@ function openDrBranchModal(branchName, table, dateOverride) {
   _drCurrentTable = table || 'reports';
   window._drCurrentDate = dateOverride || new Date().toISOString().split('T')[0];
   var _isTomorrow = !!dateOverride;
-  document.getElementById('drModalTitle').textContent = canonical + (_isTomorrow ? ' — Tomorrow\'s Plan' : ' — Details');
+  document.getElementById('drModalTitle').textContent = canonical + (_isTomorrow ? ' — Tomorrow\'s Plan' : _drCurrentTable === 'achievements' ? ' — Enter Achievement' : ' — Enter Plan');
   // Clear all fields and unlock by default
   document.querySelectorAll('#drBranchModal input.dr-modal-input').forEach(function(el) {
     el.value = '';
@@ -3293,6 +3293,9 @@ function _drOpenModalContinue(canonical, _isTomorrow) {
               _drLockModalFields();
             }
           });
+      } else {
+        // No existing data — pre-fill from plan if entering achievement or tomorrow's plan
+        _drPrefillFromPlan(canonical, _isTomorrow);
       }
     });
   document.getElementById('drBranchModal').style.display = 'block';
@@ -3435,6 +3438,59 @@ function _drSetSaveButtonState(locked) {
     btn.style.background = '#059669';
     btn.style.cursor = 'pointer';
   }
+}
+
+// Pre-fill and lock plan values when entering achievement or tomorrow's plan
+function _drPrefillFromPlan(canonical, _isTomorrow) {
+  if (_drCurrentTable !== 'achievements' && !_isTomorrow) return;
+  // For achievements: fetch today's plan. For tomorrow's plan: fetch today's plan too.
+  var planDate = new Date().toISOString().split('T')[0];
+  fetch('/api/daily-plan/reports?from=' + planDate + '&to=' + planDate + '&branch=' + encodeURIComponent(canonical))
+    .then(function(r){ return r.json(); })
+    .then(function(result) {
+      if (!result.data || !result.data.length) return;
+      var planRow = result.data[0];
+      // Map plan DB keys to modal input element IDs
+      var lockFields = {
+        'dr_ftod_actual': 'ftod_actual',
+        'dr_dpd_1_30_actual': 'dpd_1_30_actual',
+        'dr_dpd_31_60_actual': 'dpd_31_60_actual',
+        'dr_dpd_61_90_actual': 'dpd_61_90_actual',
+        'dr_npa_activation': 'npa_activation',
+        'dr_npa_closure': 'npa_closure',
+        'dr_fy_non_start_acc': 'fy_non_start_acc',
+        'dr_disb_igl_acc': 'disb_igl_acc',
+        'dr_disb_igl_amt': 'disb_igl_amt',
+        'dr_disb_fig_acc': 'disb_fig_acc',
+        'dr_disb_fig_amt': 'disb_fig_amt',
+        'dr_disb_il_acc': 'disb_il_acc',
+        'dr_disb_il_amt': 'disb_il_amt',
+        'dr_kyc_igl': 'kyc_igl',
+        'dr_kyc_fig': 'kyc_fig',
+        'dr_kyc_il': 'kyc_il'
+      };
+      Object.keys(lockFields).forEach(function(elId) {
+        var dbKey = lockFields[elId];
+        var val = planRow[dbKey];
+        if (val == null) return;
+        var el = document.getElementById(elId);
+        if (!el) return;
+        // Only lock if the field hasn't been set already
+        if (el.value && el.readOnly) return;
+        if (_DR_AMT_FIELDS.indexOf(elId) >= 0) {
+          el.value = _drFormatIndian(val);
+        } else {
+          el.value = val;
+        }
+        el.readOnly = true;
+        el.style.background = '#F1F5F9';
+        el.style.border = '2px solid #94A3B8';
+        el.style.cursor = 'not-allowed';
+        el.title = 'Carried from plan';
+      });
+    }).catch(function(e) {
+      console.warn('[DR] Could not load plan data for pre-fill:', e);
+    });
 }
 
 function saveDrBranchData() {
