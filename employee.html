@@ -3216,44 +3216,63 @@ function _drApplyMonthlyLock(branchName) {
 
 // Chain-of-consistency gate: block today's plan entry if yesterday's achievement is missing
 function _drCheckChainGate(branchName) {
-  if (_drCurrentTable !== 'reports') return Promise.resolve(false);
-  var today = new Date().toISOString().split('T')[0];
-  return fetch('/api/daily-plan/check-chain?branch=' + encodeURIComponent(branchName) + '&date=' + today)
-    .then(function(r){ return r.json(); })
-    .then(function(res){
-      if (!res || !res.blocked) return false;
-      var missingDate = (res.missingDate || '').slice(0, 10);
-      var banner = document.createElement('div');
-      banner.id = 'drAchievementBanner';
-      banner.style.cssText = 'background:#FEE2E2;border:1px solid #EF4444;color:#991B1B;padding:12px 16px;margin:12px 20px 0;border-radius:10px;font-size:13px;font-weight:500;text-align:center;';
-      banner.innerHTML = '🔒 You must enter <strong>achievement for ' + missingDate + '</strong> before entering today\'s plan. Close this dialog and use "Enter Achievement" for ' + missingDate + ' first.';
-      var modalInner = document.querySelector('#drBranchModal > div');
-      var form = document.querySelector('#drBranchModal .dr-modal-form');
-      if (modalInner && form) modalInner.insertBefore(banner, form);
-      _drLockModalFields();
-      return true;
-    })
-    .catch(function(){ return false; });
+  // Chain gate disabled — allow plan entry regardless of yesterday's achievement
+  return Promise.resolve(false);
 }
 
-// 6 PM gate for achievement entry
+// 6 PM gate for achievement entry (with password bypass)
 function _drCheck6PMGate() {
   if (_drCurrentTable !== 'achievements') return false;
+  // If already bypassed this session, skip
+  if (window._dr6PMBypassed) return false;
   var todayISO = new Date().toISOString().split('T')[0];
   var isoNow = new Date();
-  var isToday = (isoNow.toISOString().split('T')[0] === todayISO);
+  var isToday = (window._drCurrentDate === todayISO);
   var currentHour = isoNow.getHours();
   if (!isToday || currentHour >= 18) return false;
-  // Block: show banner, lock fields, disable save
+  // Block: show banner with password bypass option
   var banner = document.createElement('div');
   banner.id = 'drAchievementBanner';
-  banner.style.cssText = 'background:#FEF3C7;border:1px solid #F59E0B;color:#92400E;padding:12px 16px;margin:12px 20px 0;border-radius:10px;font-size:13px;font-weight:500;text-align:center;';
-  banner.innerHTML = '⏰ Achievement entry opens at 6:00 PM. Please come back after 6 PM to enter today\'s achievement.';
+  banner.style.cssText = 'background:#FEF3C7;border:1px solid #F59E0B;color:#92400E;padding:16px 20px;margin:12px 20px 0;border-radius:10px;font-size:13px;font-weight:500;text-align:center;';
+  banner.innerHTML = '⏰ Achievement entry opens at <strong>6:00 PM</strong>. Please come back after 6 PM to enter today\'s achievement.'
+    + '<div style="margin-top:12px;display:flex;align-items:center;justify-content:center;gap:8px;">'
+    + '<input type="password" id="dr6PMBypassPw" placeholder="Admin password" style="padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;width:160px;outline:none;">'
+    + '<button onclick="_dr6PMBypass()" style="padding:8px 14px;background:#6366F1;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">Unlock</button>'
+    + '</div>'
+    + '<div id="dr6PMBypassErr" style="color:#EF4444;font-size:11px;margin-top:6px;height:14px;"></div>';
   var modalInner = document.querySelector('#drBranchModal > div');
   var form = document.querySelector('#drBranchModal .dr-modal-form');
   if (modalInner && form) modalInner.insertBefore(banner, form);
   _drLockModalFields();
+  // Allow Enter key on password input
+  setTimeout(function(){
+    var inp = document.getElementById('dr6PMBypassPw');
+    if (inp) inp.addEventListener('keydown', function(e){ if(e.key==='Enter') _dr6PMBypass(); });
+  }, 100);
   return true;
+}
+
+function _dr6PMBypass() {
+  var inp = document.getElementById('dr6PMBypassPw');
+  if (!inp) return;
+  if (inp.value === 'Raghu2005!') {
+    window._dr6PMBypassed = true;
+    var banner = document.getElementById('drAchievementBanner');
+    if (banner) banner.remove();
+    // Unlock fields
+    document.querySelectorAll('#drBranchModal input.dr-modal-input').forEach(function(el) {
+      el.readOnly = false;
+      el.disabled = false;
+      el.style.background = '';
+      el.style.cursor = '';
+    });
+    _drSetSaveButtonState(false);
+  } else {
+    var err = document.getElementById('dr6PMBypassErr');
+    if (err) err.textContent = 'Incorrect password';
+    inp.value = '';
+    inp.focus();
+  }
 }
 
 function _drSetSaveButtonState(locked) {
