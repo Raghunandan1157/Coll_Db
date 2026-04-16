@@ -3650,12 +3650,23 @@ function _drBuildReportTable(date, level, type) {
   var role = sess.role || localStorage.getItem('roleName') || 'CEO';
   var loc = (sess.location || localStorage.getItem('roleLocation') || '').trim();
   var scopeLabel = '';
-  if (role === 'RM' && loc) scopeLabel = loc + ' Region';
-  else if (role === 'DM' && loc) scopeLabel = loc + ' Division';
-  else if (role === 'AM' && loc) scopeLabel = loc + ' Area';
-  else if ((role === 'BM' || role === 'FO') && loc) scopeLabel = loc + ' Branch';
-  else {
-    // CEO or unscoped — describe based on level
+  if (role === 'RM' && loc) {
+    if (level === 'REGION') scopeLabel = loc + ' Region';
+    else if (level === 'DIVISION') scopeLabel = 'Divisions in ' + loc + ' Region';
+    else if (level === 'AREA') scopeLabel = 'Areas in ' + loc + ' Region';
+    else if (level === 'BRANCH') scopeLabel = 'Branches in ' + loc + ' Region';
+  } else if (role === 'DM' && loc) {
+    if (level === 'DIVISION') scopeLabel = loc + ' Division';
+    else if (level === 'AREA') scopeLabel = 'Areas in ' + loc + ' Division';
+    else if (level === 'BRANCH') scopeLabel = 'Branches in ' + loc + ' Division';
+  } else if (role === 'AM' && loc) {
+    if (level === 'AREA') scopeLabel = loc + ' Area';
+    else if (level === 'BRANCH') scopeLabel = 'Branches in ' + loc + ' Area';
+  } else if ((role === 'BM' || role === 'FO') && loc) {
+    if (level === 'BRANCH') scopeLabel = loc + ' Branch';
+  }
+  if (!scopeLabel) {
+    // CEO or any unmatched role/level combo — describe based on level
     if (level === 'REGION') scopeLabel = 'All Regions';
     else if (level === 'DIVISION') scopeLabel = 'All Divisions';
     else if (level === 'AREA') scopeLabel = 'All Areas';
