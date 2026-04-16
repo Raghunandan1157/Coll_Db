@@ -3722,16 +3722,18 @@ function _drGetKeysForLevel(level) {
   return Array.from(keys).sort();
 }
 
-// Build rows for a given data source and mode ('plan' uses _plan fields, 'ach' uses _actual fields)
+// Build rows. Both plan and ach modes read from the _plan columns (daily_reports.ftod_plan = today's plan;
+// daily_reports_achievements.ftod_plan = today's achievement — the field labeled "Achievement" in the modal).
+// The _actual columns hold historical/reference values and should NOT drive the report.
 function _drBuildRows(level, dataMap, mode) {
   var N = function(x){return Number(x)||0;};
   var _key = function(s){ return (s || '').toString().trim().toUpperCase(); };
   var rowFromData = function(name, d) {
     d = d || {};
-    var ftod = mode === 'ach' ? N(d.ftod_actual) : N(d.ftod_plan);
-    var feb = mode === 'ach' ? N(d.dpd_1_30_actual) : N(d.dpd_1_30_plan);
-    var dpd31 = mode === 'ach' ? N(d.dpd_31_60_actual) : N(d.dpd_31_60_plan);
-    var pnpa = mode === 'ach' ? N(d.dpd_61_90_actual) : N(d.dpd_61_90_plan);
+    var ftod = N(d.ftod_plan);
+    var feb = N(d.dpd_1_30_plan);
+    var dpd31 = N(d.dpd_31_60_plan);
+    var pnpa = N(d.dpd_61_90_plan);
     return {
       name: name,
       ftod: ftod, feb: feb, dpd31: dpd31, pnpa: pnpa,
@@ -3755,10 +3757,10 @@ function _drBuildRows(level, dataMap, mode) {
       var agg = rowFromData(key, {});
       branchList.forEach(function(br){
         var d = dataMap[_key(br)] || {};
-        agg.ftod += (mode === 'ach' ? N(d.ftod_actual) : N(d.ftod_plan));
-        agg.feb += (mode === 'ach' ? N(d.dpd_1_30_actual) : N(d.dpd_1_30_plan));
-        agg.dpd31 += (mode === 'ach' ? N(d.dpd_31_60_actual) : N(d.dpd_31_60_plan));
-        agg.pnpa += (mode === 'ach' ? N(d.dpd_61_90_actual) : N(d.dpd_61_90_plan));
+        agg.ftod += N(d.ftod_plan);
+        agg.feb += N(d.dpd_1_30_plan);
+        agg.dpd31 += N(d.dpd_31_60_plan);
+        agg.pnpa += N(d.dpd_61_90_plan);
         agg.npa_act += N(d.npa_activation);
         agg.npa_clo += N(d.npa_closure);
         agg.ns += N(d.fy_non_start_acc);
