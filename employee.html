@@ -3638,7 +3638,26 @@ window._drHierarchyPromise = fetch('/api/daily-plan/branches')
   });
 
 function _drBuildReportTable(date, level, type) {
-  var title = (type === 'both' ? 'PLAN & ACHIEVEMENT' : 'PLAN') + ' — ' + level + ' — ' + _drFormatDate(date);
+  // Build rich title: "Plan & Achievement Report — Region Level — All Regions — 16 Apr 2026"
+  // Or: "Plan Report — Area Level — Kadapa Area — 16 Apr 2026"
+  var typeLabel = type === 'both' ? 'Plan & Achievement Report' : 'Plan Report';
+  var levelLabel = (level.charAt(0) + level.slice(1).toLowerCase()) + ' Level'; // Region / Division / Area / Branch
+  var sess = window.getEmployeeSession ? getEmployeeSession() : {};
+  var role = sess.role || localStorage.getItem('roleName') || 'CEO';
+  var loc = (sess.location || localStorage.getItem('roleLocation') || '').trim();
+  var scopeLabel = '';
+  if (role === 'RM' && loc) scopeLabel = loc + ' Region';
+  else if (role === 'DM' && loc) scopeLabel = loc + ' Division';
+  else if (role === 'AM' && loc) scopeLabel = loc + ' Area';
+  else if ((role === 'BM' || role === 'FO') && loc) scopeLabel = loc + ' Branch';
+  else {
+    // CEO or unscoped — describe based on level
+    if (level === 'REGION') scopeLabel = 'All Regions';
+    else if (level === 'DIVISION') scopeLabel = 'All Divisions';
+    else if (level === 'AREA') scopeLabel = 'All Areas';
+    else if (level === 'BRANCH') scopeLabel = 'All Branches';
+  }
+  var title = typeLabel + ' — ' + levelLabel + ' — ' + scopeLabel + ' — ' + _drFormatDate(date);
   document.getElementById('drReportTitle').textContent = title;
   document.getElementById('drReportModal').style.display = 'block';
 
