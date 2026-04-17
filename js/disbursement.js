@@ -98,6 +98,28 @@
     if (!container) return;
     container.innerHTML = '<div style="text-align:center;padding:80px 20px;"><div style="width:32px;height:32px;border:3px solid #E2E8F0;border-top-color:#F59E0B;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 12px;"></div><div style="color:#64748B;font-size:14px;">Loading disbursement data...</div></div>';
 
+    // Fetch availableDates once (needed for keyboard nav + first-load default).
+    var initPromise;
+    if (!_db.availableDates || !_db.availableDates.length) {
+      initPromise = apiFetch('/api/disbursement/daily/dates').then(function(data) {
+        var list = Array.isArray(data) ? data.map(function(x) { return String(x.disb_date || x.date || x).slice(0, 10); }) : [];
+        _db.availableDates = list;
+        // First-load default: pick newest if neither date nor month selected yet.
+        if (!_db.date && !_db.month && list.length) {
+          _db.date = list[0];
+          localStorage.setItem('dbSelectedDate', list[0]);
+        }
+      }).catch(function() { _db.availableDates = _db.availableDates || []; });
+    } else {
+      initPromise = Promise.resolve();
+    }
+
+    initPromise.then(function() { runLoad(); });
+  }
+
+  function runLoad() {
+    var container = document.getElementById('disbursementContent');
+    if (!container) return;
     var monthPromise;
     if (_db.date) {
       monthPromise = Promise.resolve();
@@ -421,4 +443,66 @@
   window._loadDisbursementTab = function() {
     try { loadAndRender(); } catch(e) { console.error('Disbursement load failed:', e); }
   };
+
+  // ── Keyboard navigation: Left/Right = prev/next date; Up/Down = next/prev month ──
+  function dbArrowHandler(e) {
+    var key = e.key;
+    if (key !== 'ArrowLeft' && key !== 'ArrowRight' && key !== 'ArrowUp' && key !== 'ArrowDown') return;
+    // Only on disbursement tab
+    var disbTab = document.getElementById('disbursementTab');
+    if (!disbTab || !disbTab.classList.contains('active')) return;
+    // Skip if a text input / editable element is focused
+    var ae = document.activeElement;
+    if (ae) {
+      var tag = (ae.tagName || '').toUpperCase();
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (ae.isContentEditable) return;
+    }
+    // Skip if any modal is visible
+    var mp = document.getElementById('monthPickerOverlay');
+    if (mp && mp.style.display === 'flex') return;
+    var cal = document.getElementById('calendarOverlay');
+    if (cal && cal.classList.contains('show')) return;
+    // Need a populated list + current selection
+    var list = _db.availableDates || [];
+    if (!list.length) return;
+    var cur = _db.date;
+    if (!cur) return;
+    var idx = list.indexOf(cur);
+    if (idx < 0) return;
+
+    var target = null;
+    if (key === 'ArrowLeft') {
+      // older date = higher idx in desc-sorted list
+      if (idx < list.length - 1) target = list[idx + 1];
+    } else if (key === 'ArrowRight') {
+      // newer date = lower idx
+      if (idx > 0) target = list[idx - 1];
+    } else if (key === 'ArrowUp') {
+      // next (newer) month — walk to lower idx, first hit with ym > curYm
+      var curYmU = cur.slice(0, 7);
+      for (var i = idx - 1; i >= 0; i--) {
+        if (list[i].slice(0, 7) > curYmU) { target = list[i]; break; }
+      }
+    } else if (key === 'ArrowDown') {
+      // prev (older) month — walk to higher idx, first hit with ym < curYm
+      var curYmD = cur.slice(0, 7);
+      for (var j = idx + 1; j < list.length; j++) {
+        if (list[j].slice(0, 7) < curYmD) { target = list[j]; break; }
+      }
+    }
+    if (!target) return;
+    e.preventDefault();
+    _db.date = target;
+    _db.month = '';
+    localStorage.setItem('dbSelectedDate', target);
+    localStorage.setItem('dbMonth', '');
+    if (typeof window.updateArrowVisibility === 'function') window.updateArrowVisibility('disbursement');
+    loadAndRender();
+  }
+
+  if (!window._dbKeyboardBound) {
+    window._dbKeyboardBound = true;
+    window.addEventListener('keydown', dbArrowHandler);
+  }
 })();
