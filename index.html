@@ -729,5 +729,207 @@
   </script>
   <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js');}</script>
 
+  <!-- ========== OTP Gate for sensitive roles (CEO / RM / DM) ========== -->
+  <style>
+    .otp-overlay{position:fixed;inset:0;background:rgba(15,23,42,0.5);display:none;align-items:center;justify-content:center;z-index:1000;padding:20px;backdrop-filter:blur(4px);}
+    .otp-overlay.show{display:flex;}
+    .otp-modal{background:#fff;border-radius:20px;padding:28px;width:100%;max-width:420px;box-shadow:0 20px 40px rgba(0,0,0,0.2);}
+    .otp-modal h2{font-size:20px;margin-bottom:6px;color:#1E293B;font-weight:700;}
+    .otp-modal .sub{color:#64748B;font-size:13px;margin-bottom:18px;line-height:1.5;}
+    .otp-role-pill{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;margin-bottom:14px;letter-spacing:0.5px;text-transform:uppercase;}
+    .otp-input-group{margin-bottom:12px;}
+    .otp-input-group label{display:block;font-size:12px;font-weight:600;color:#64748B;margin-bottom:6px;}
+    .otp-input-group input{width:100%;padding:14px 16px;border:1px solid #E2E8F0;border-radius:12px;background:#F1F5F9;font-size:16px;font-family:inherit;outline:none;transition:all 0.15s;color:#1E293B;}
+    .otp-input-group input:focus{border-color:#059669;box-shadow:0 0 0 4px rgba(5,150,105,0.1);background:#fff;}
+    .otp-code-input{letter-spacing:8px;text-align:center;font-weight:700;font-size:22px!important;}
+    .otp-btn{width:100%;padding:14px;border:none;border-radius:12px;background:#059669;color:#fff;font-weight:600;font-size:15px;font-family:inherit;cursor:pointer;transition:all 0.15s;}
+    .otp-btn:hover:not(:disabled){background:#047857;}
+    .otp-btn:disabled{background:#94A3B8;cursor:not-allowed;}
+    .otp-btn-secondary{background:transparent;color:#64748B;border:1px solid #E2E8F0;}
+    .otp-btn-secondary:hover:not(:disabled){background:#F1F5F9;color:#1E293B;}
+    .otp-btn-row{display:flex;gap:10px;margin-top:10px;}
+    .otp-btn-row .otp-btn{flex:1;}
+    .otp-resend{text-align:center;margin-top:12px;font-size:13px;color:#64748B;}
+    .otp-resend a{color:#059669;font-weight:600;text-decoration:none;cursor:pointer;}
+    .otp-resend a.disabled{color:#94A3B8;cursor:not-allowed;pointer-events:none;}
+    .otp-msg{margin-top:8px;font-size:13px;min-height:18px;line-height:1.4;}
+    .otp-msg-err{color:#DC2626;}
+    .otp-view{display:none;}
+    .otp-view.active{display:block;}
+    .otp-success-ic{width:64px;height:64px;margin:8px auto 16px;border-radius:50%;background:#D1FAE5;color:#059669;display:flex;align-items:center;justify-content:center;font-size:36px;font-weight:700;}
+    .otp-success-text{text-align:center;}
+    .otp-success-text h2{margin-bottom:8px;}
+    .otp-success-text p{color:#64748B;margin-bottom:0;}
+  </style>
+
+  <div class="otp-overlay" id="otpOverlay">
+    <div class="otp-modal">
+      <div class="otp-view active" id="otpViewMobile">
+        <div class="otp-role-pill" id="otpRolePill1"></div>
+        <h2>Enter mobile number</h2>
+        <p class="sub">We'll send a 4-digit OTP to this number. Any valid Indian mobile works.</p>
+        <div class="otp-input-group">
+          <label>Mobile number</label>
+          <input type="tel" id="otpMobileInput" placeholder="10-digit number" maxlength="10" inputmode="numeric" autocomplete="off">
+        </div>
+        <div class="otp-msg otp-msg-err" id="otpMobileMsg"></div>
+        <button class="otp-btn" id="otpSendBtn">Send OTP</button>
+        <div class="otp-btn-row">
+          <button class="otp-btn otp-btn-secondary" id="otpCancelBtn">Cancel</button>
+        </div>
+      </div>
+      <div class="otp-view" id="otpViewCode">
+        <div class="otp-role-pill" id="otpRolePill2"></div>
+        <h2>Enter the 4-digit OTP</h2>
+        <p class="sub" id="otpCodeSub">Sent to +91 •••• •• ••••</p>
+        <div class="otp-input-group">
+          <input type="tel" id="otpCodeInput" class="otp-code-input" placeholder="• • • •" maxlength="4" inputmode="numeric" autocomplete="one-time-code">
+        </div>
+        <div class="otp-msg otp-msg-err" id="otpCodeMsg"></div>
+        <button class="otp-btn" id="otpVerifyBtn">Verify</button>
+        <div class="otp-resend">Didn't get it? <a id="otpResendLink" class="disabled">Resend in 30s</a></div>
+        <div class="otp-btn-row">
+          <button class="otp-btn otp-btn-secondary" id="otpBackBtn">← Back</button>
+        </div>
+      </div>
+      <div class="otp-view" id="otpViewSuccess">
+        <div class="otp-success-ic">✓</div>
+        <div class="otp-success-text">
+          <h2>Verified</h2>
+          <p id="otpSuccessText">Logging you in…</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      var SENSITIVE = { CEO:1, RM:1, DM:1 };
+      var state = { role:null, location:null, structure:null, mobile:null };
+      var $ = function(id){ return document.getElementById(id); };
+      var cooldownTimer = null;
+
+      function maskMobile(m){ if(!m||m.length<10) return m; return '+91 '+m.slice(0,2)+' ••• •'+m.slice(-3); }
+
+      function setRolePill(el, role, loc){
+        var colors = { CEO:{bg:'#FEF3C7',fg:'#D97706'}, RM:{bg:'#F3E8FF',fg:'#7C3AED'}, DM:{bg:'#DBEAFE',fg:'#2563EB'} };
+        var c = colors[role] || { bg:'#E2E8F0', fg:'#475569' };
+        el.style.background = c.bg; el.style.color = c.fg;
+        el.textContent = role + ' — ' + loc;
+      }
+
+      function showView(id){
+        var vs = document.querySelectorAll('.otp-view');
+        for (var i=0;i<vs.length;i++) vs[i].classList.remove('active');
+        $(id).classList.add('active');
+      }
+
+      function openModal(role, location, structure){
+        state.role = role; state.location = location; state.structure = structure; state.mobile = null;
+        setRolePill($('otpRolePill1'), role, location);
+        setRolePill($('otpRolePill2'), role, location);
+        $('otpMobileInput').value = '';
+        $('otpCodeInput').value = '';
+        $('otpMobileMsg').textContent = '';
+        $('otpCodeMsg').textContent = '';
+        showView('otpViewMobile');
+        $('otpOverlay').classList.add('show');
+        setTimeout(function(){ $('otpMobileInput').focus(); }, 50);
+      }
+
+      function closeModal(){ $('otpOverlay').classList.remove('show'); }
+
+      // Intercept role clicks in capture phase for CEO / RM / DM
+      document.addEventListener('click', function(ev){
+        var row = ev.target.closest && ev.target.closest('.emp-row');
+        if (!row) return;
+        var role = row.dataset.role;
+        if (!role || !SENSITIVE[role]) return;
+        ev.stopPropagation();
+        ev.preventDefault();
+        openModal(role, row.dataset.location, row.dataset.structure || null);
+      }, true);
+
+      $('otpMobileInput').addEventListener('input', function(e){ e.target.value = e.target.value.replace(/\D/g,'').slice(0,10); });
+      $('otpCodeInput').addEventListener('input', function(e){ e.target.value = e.target.value.replace(/\D/g,'').slice(0,4); });
+      $('otpCancelBtn').addEventListener('click', closeModal);
+      $('otpBackBtn').addEventListener('click', function(){ showView('otpViewMobile'); });
+
+      var sendBtn = $('otpSendBtn');
+      sendBtn.addEventListener('click', async function(){
+        var mob = $('otpMobileInput').value.trim();
+        var msg = $('otpMobileMsg');
+        msg.textContent = '';
+        if (mob.length !== 10) { msg.textContent = 'Enter a 10-digit mobile number.'; return; }
+        sendBtn.disabled = true; sendBtn.textContent = 'Sending…';
+        try {
+          var r = await fetch('/api/otp/send', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ mobile: mob, role: state.role }) });
+          var data = await r.json().catch(function(){ return {}; });
+          if (!r.ok) throw new Error(data.error || 'Send failed ('+r.status+')');
+          state.mobile = mob;
+          $('otpCodeSub').textContent = 'Sent to ' + maskMobile(mob);
+          showView('otpViewCode');
+          setTimeout(function(){ $('otpCodeInput').focus(); }, 50);
+          startResendCountdown();
+        } catch (err) {
+          msg.textContent = err.message || 'Could not send OTP.';
+        } finally {
+          sendBtn.disabled = false; sendBtn.textContent = 'Send OTP';
+        }
+      });
+
+      var verifyBtn = $('otpVerifyBtn');
+      verifyBtn.addEventListener('click', async function(){
+        var code = $('otpCodeInput').value.trim();
+        var msg = $('otpCodeMsg');
+        msg.textContent = '';
+        if (code.length !== 4) { msg.textContent = 'Enter the 4-digit OTP.'; return; }
+        verifyBtn.disabled = true; verifyBtn.textContent = 'Verifying…';
+        try {
+          var r = await fetch('/api/otp/verify', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ mobile: state.mobile, role: state.role, code: code }) });
+          var data = await r.json().catch(function(){ return {}; });
+          if (!r.ok) throw new Error(data.error || 'Verification failed');
+          $('otpSuccessText').textContent = 'Logging you in as ' + state.role + ' — ' + state.location;
+          showView('otpViewSuccess');
+          setTimeout(function(){
+            if (typeof clearRoleNavStack === 'function') clearRoleNavStack();
+            if (typeof setRoleSession === 'function') setRoleSession(state.role, state.location, state.structure);
+            window.location.href = 'employee.html';
+          }, 1000);
+        } catch (err) {
+          msg.textContent = err.message || 'Invalid OTP.';
+          $('otpCodeInput').value = '';
+          $('otpCodeInput').focus();
+        } finally {
+          verifyBtn.disabled = false; verifyBtn.textContent = 'Verify';
+        }
+      });
+
+      function startResendCountdown(){
+        var link = $('otpResendLink');
+        var remaining = 30;
+        link.classList.add('disabled');
+        link.textContent = 'Resend in ' + remaining + 's';
+        clearInterval(cooldownTimer);
+        cooldownTimer = setInterval(function(){
+          remaining--;
+          if (remaining <= 0) { clearInterval(cooldownTimer); link.classList.remove('disabled'); link.textContent = 'Resend'; }
+          else link.textContent = 'Resend in ' + remaining + 's';
+        }, 1000);
+      }
+      $('otpResendLink').addEventListener('click', function(e){
+        e.preventDefault();
+        if (this.classList.contains('disabled')) return;
+        showView('otpViewMobile');
+        setTimeout(function(){ sendBtn.click(); }, 30);
+      });
+
+      $('otpMobileInput').addEventListener('keydown', function(e){ if (e.key === 'Enter') sendBtn.click(); });
+      $('otpCodeInput').addEventListener('keydown', function(e){ if (e.key === 'Enter') verifyBtn.click(); });
+      $('otpOverlay').addEventListener('click', function(e){ if (e.target === this) closeModal(); });
+      document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeModal(); });
+    })();
+  </script>
+
 </body>
 </html>
