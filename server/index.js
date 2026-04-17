@@ -2347,6 +2347,114 @@ app.get("/api/disbursement/by-month", async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// ========== DISBURSEMENT DAILY API (date-grain) ==========
+function buildDisbDailyWhere(filters) {
+  var where = [];
+  var params = [];
+  var idx = 1;
+  if (filters.date) { where.push("d.disb_date=$" + idx++); params.push(filters.date); }
+  if (filters.product_name && filters.product_name !== 'All') {
+    where.push("d.product_name=$" + idx++); params.push(filters.product_name);
+  }
+  if (filters.region || filters.state) {
+    where.push("UPPER(d.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(region_name) ILIKE TRIM($" + (idx++) + "))");
+    params.push(filters.region || filters.state);
+  }
+  if (filters.division) {
+    where.push("UPPER(d.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(division_name) ILIKE TRIM($" + (idx++) + "))");
+    params.push(filters.division);
+  }
+  if (filters.district || filters.area) {
+    where.push("UPPER(d.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(area_name) ILIKE TRIM($" + (idx++) + "))");
+    params.push(filters.district || filters.area);
+  }
+  if (filters.branch) {
+    where.push("UPPER(d.branch_name) = UPPER($" + (idx++) + ")");
+    params.push(filters.branch);
+  }
+  if (filters.emp_id) { where.push("d.emp_id=$" + idx++); params.push(filters.emp_id); }
+  return { clause: where.length ? " WHERE " + where.join(" AND ") : "", params };
+}
+
+app.get("/api/disbursement/daily/dates", async (req, res) => {
+  try {
+    // Allow scope filtering but ignore `date` itself for the list
+    var q = Object.assign({}, req.query); delete q.date;
+    const { clause, params } = buildDisbDailyWhere(q);
+    const result = await pool.query(
+      "SELECT DISTINCT d.disb_date FROM disbursement_daily d" + clause + " ORDER BY d.disb_date DESC", params
+    );
+    res.json(result.rows.map(function(r) {
+      var dt = r.disb_date;
+      if (dt instanceof Date) {
+        var y = dt.getFullYear(), m = String(dt.getMonth()+1).padStart(2,'0'), day = String(dt.getDate()).padStart(2,'0');
+        return y + '-' + m + '-' + day;
+      }
+      return dt;
+    }));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/api/disbursement/daily/summary", async (req, res) => {
+  try {
+    const { clause, params } = buildDisbDailyWhere(req.query);
+    const result = await pool.query(
+      "SELECT SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount FROM disbursement_daily d" + clause, params
+    );
+    res.json(result.rows[0] || {});
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/api/disbursement/daily/by-product", async (req, res) => {
+  try {
+    const { clause, params } = buildDisbDailyWhere(req.query);
+    const result = await pool.query(
+      "SELECT d.product_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount FROM disbursement_daily d" + clause + " GROUP BY d.product_name ORDER BY total_amount DESC", params
+    );
+    res.json(result.rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/api/disbursement/daily/by-region", async (req, res) => {
+  try {
+    const { clause, params } = buildDisbDailyWhere(req.query);
+    const result = await pool.query(
+      "SELECT d.region_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount FROM disbursement_daily d" + clause + " GROUP BY d.region_name ORDER BY total_amount DESC", params
+    );
+    res.json(result.rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/api/disbursement/daily/by-district", async (req, res) => {
+  try {
+    const { clause, params } = buildDisbDailyWhere(req.query);
+    const result = await pool.query(
+      "SELECT d.district_name, d.region_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount FROM disbursement_daily d" + clause + " GROUP BY d.district_name, d.region_name ORDER BY total_amount DESC", params
+    );
+    res.json(result.rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/api/disbursement/daily/by-branch", async (req, res) => {
+  try {
+    const { clause, params } = buildDisbDailyWhere(req.query);
+    const result = await pool.query(
+      "SELECT d.branch_name, d.district_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount FROM disbursement_daily d" + clause + " GROUP BY d.branch_name, d.district_name ORDER BY total_amount DESC", params
+    );
+    res.json(result.rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/api/disbursement/daily/by-employee", async (req, res) => {
+  try {
+    const { clause, params } = buildDisbDailyWhere(req.query);
+    const result = await pool.query(
+      "SELECT d.emp_id, d.officer_name AS name, d.branch_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount FROM disbursement_daily d" + clause + " GROUP BY d.emp_id, d.officer_name, d.branch_name ORDER BY total_amount DESC", params
+    );
+    res.json(result.rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 
 const PORT = 3000;
 

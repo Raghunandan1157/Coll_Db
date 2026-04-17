@@ -240,7 +240,15 @@
     var data = _collState.summaryData;
 
     if (!data || (typeof data === 'object' && Object.keys(data).length === 0)) {
-      container.innerHTML = '<div class="desktop-content-area">' + viewToggleHtml() + dateSelectorHtml() + productPillsHtml() + noDataHtml('No data found for this view') + '</div>';
+      var msg = 'No data found for this view';
+      var r = session.role;
+      if (r && r !== 'CEO' && r !== 'FO' && session.location) {
+        var struct = isNewStructure() ? 'new (Region/Division/Area/Branch)' : 'old (Region/District/Branch)';
+        msg = 'No data for ' + r + ' \u201C' + session.location + '\u201D under ' + struct + ' structure.<br>' +
+          '<span style="font-size:12px;color:#94A3B8;">If this is unexpected, the hierarchy tables may be out of sync with employee_master. Try the other structure from Settings.</span>';
+        console.warn('[collection] empty result for', r, session.location, 'structure=', isNewStructure() ? 'new' : 'old');
+      }
+      container.innerHTML = '<div class="desktop-content-area">' + viewToggleHtml() + dateSelectorHtml() + productPillsHtml() + noDataHtml(msg) + '</div>';
       attachHandlers();
       return;
     }

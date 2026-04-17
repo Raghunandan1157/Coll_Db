@@ -794,6 +794,61 @@
         .eb-mob-skeleton{padding:16px;display:flex;flex-direction:column;gap:10px}
         .eb-mob-skeleton-card{height:64px;border-radius:14px;background:linear-gradient(90deg,#F1F5F9 25%,#E2E8F0 50%,#F1F5F9 75%);background-size:200% 100%;animation:ebShimmer 1.5s infinite}
         @keyframes ebShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+        /* Wizard buttons */
+        .eb-mob-primary-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:52px;width:100%;padding:14px 20px;border-radius:12px;border:none;background:linear-gradient(135deg,#6366F1,#8B5CF6);color:#fff;font-size:16px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 4px 12px rgba(99,102,241,.28);-webkit-tap-highlight-color:transparent;transition:transform .12s ease,box-shadow .12s ease,filter .12s ease}
+        .eb-mob-primary-btn:hover{filter:brightness(1.04)}
+        .eb-mob-primary-btn:active{transform:scale(0.985);box-shadow:0 2px 6px rgba(99,102,241,.22)}
+        .eb-mob-primary-btn:disabled{opacity:.5;cursor:not-allowed;box-shadow:none;filter:none}
+        .eb-mob-primary-btn svg{flex-shrink:0}
+        .eb-mob-secondary-btn{min-height:48px;padding:14px 20px;border-radius:12px;border:1px solid #E2E8F0;background:#fff;color:#475569;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent}
+        .eb-mob-secondary-btn:active{background:#F1F5F9}
+        .eb-mob-type-card{display:flex;align-items:center;gap:14px;min-height:88px;padding:18px;background:#fff;border:1px solid #E2E8F0;border-radius:12px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .12s ease,box-shadow .12s ease,border-color .12s ease,background .12s ease}
+        .eb-mob-type-card:hover{border-color:#C7D2FE;box-shadow:0 2px 8px rgba(99,102,241,.08)}
+        .eb-mob-type-card:active{transform:scale(0.98);background:#EEF2FF;border-color:#6366F1;box-shadow:0 0 0 3px rgba(99,102,241,.15)}
+        .eb-mob-type-icon{width:52px;height:52px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:linear-gradient(135deg,#EEF2FF,#E0E7FF);color:#6366F1}
+        .eb-mob-type-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+        .eb-mob-type-title{font-size:16px;font-weight:700;color:#1E293B;line-height:1.2}
+        .eb-mob-type-sub{font-size:12px;color:#94A3B8;margin-top:3px;line-height:1.4}
+        .eb-mob-type-chevron{color:#CBD5E1;flex-shrink:0;margin-left:auto}
+        /* Fixed save bar on step 4 */
+        .eb-mob-save-fixed{position:fixed;bottom:0;left:0;right:0;padding:12px 16px;background:#fff;border-top:1px solid #E2E8F0;z-index:50;box-shadow:0 -2px 12px rgba(0,0,0,.06)}
+        .eb-mob-save-fixed .eb-mob-primary-btn{width:100%}
+        /* Dirty field highlight */
+        .eb-mob-field-dirty{border-color:#F59E0B!important;background:#FFFBEB!important}
+        /* Confirm modal */
+        .eb-mob-modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9999;display:flex;align-items:flex-end;justify-content:center;animation:ebFadeIn .18s ease;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
+        .eb-mob-modal{width:100%;max-width:540px;background:#fff;border-radius:20px 20px 0 0;max-height:85vh;display:flex;flex-direction:column;animation:ebSlideUp .22s cubic-bezier(.2,.8,.2,1);box-shadow:0 -8px 32px rgba(15,23,42,.18)}
+        @media(min-width:640px){
+          .eb-mob-modal-backdrop{align-items:center;padding:20px}
+          .eb-mob-modal{border-radius:16px;max-height:80vh}
+        }
+        .eb-mob-modal-head{padding:18px 20px 12px;border-bottom:1px solid #F1F5F9}
+        .eb-mob-modal-title{font-size:18px;font-weight:700;color:#1E293B}
+        .eb-mob-modal-sub{font-size:13px;color:#94A3B8;margin-top:3px}
+        .eb-mob-modal-body{flex:1;overflow-y:auto;padding:8px 20px 16px;-webkit-overflow-scrolling:touch}
+        .eb-mob-diff-row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #F1F5F9;gap:12px}
+        .eb-mob-diff-row:last-child{border-bottom:none}
+        .eb-mob-diff-label{font-size:14px;color:#475569;font-weight:500;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .eb-mob-diff-vals{font-size:13px;font-weight:600;color:#1E293B;display:flex;align-items:center;gap:8px;flex-shrink:0}
+        .eb-mob-diff-old{color:#EF4444;text-decoration:line-through;opacity:.7}
+        .eb-mob-diff-arrow{color:#CBD5E1;font-size:12px}
+        .eb-mob-diff-new{color:#059669}
+        .eb-mob-modal-actions{display:flex;gap:10px;padding:14px 16px;border-top:1px solid #F1F5F9;background:#fff}
+        .eb-mob-modal-actions button{flex:1}
+        @keyframes ebFadeIn{from{opacity:0}to{opacity:1}}
+        @keyframes ebSlideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+        /* === Wizard polish === */
+        .eb-mob-step-pane{animation:ebStepIn .22s cubic-bezier(.2,.8,.2,1) both;will-change:transform,opacity}
+        .eb-mob-step-pane.is-leaving{animation:ebStepOut .18s cubic-bezier(.4,0,1,1) both}
+        .eb-mob-step-pane.is-back{animation:ebStepBackIn .22s cubic-bezier(.2,.8,.2,1) both}
+        .eb-mob-step-pane.is-back-leaving{animation:ebStepBackOut .18s cubic-bezier(.4,0,1,1) both}
+        @keyframes ebStepIn{from{transform:translateX(24px);opacity:0}to{transform:translateX(0);opacity:1}}
+        @keyframes ebStepOut{from{transform:translateX(0);opacity:1}to{transform:translateX(-24px);opacity:0}}
+        @keyframes ebStepBackIn{from{transform:translateX(-24px);opacity:0}to{transform:translateX(0);opacity:1}}
+        @keyframes ebStepBackOut{from{transform:translateX(0);opacity:1}to{transform:translateX(24px);opacity:0}}
+        @media(prefers-reduced-motion:reduce){
+          .eb-mob-step-pane,.eb-mob-step-pane.is-leaving,.eb-mob-step-pane.is-back,.eb-mob-step-pane.is-back-leaving{animation:none}
+        }
         /* Empty state */
         .eb-mob-empty{padding:48px 24px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px}
         .eb-mob-empty svg{color:#CBD5E1}
@@ -859,39 +914,102 @@
           </div>
         </div>
 
-        <!-- Mobile: card flow -->
+        <!-- Mobile: wizard flow -->
         <div class="eb-mobile-view" id="ebMobileView">
-          <!-- Step 1: Date + Table + Branch list -->
-          <div id="ebMobStep1">
-            <div class="eb-mob-date-row">
-              <button class="eb-mob-date-arrow" onclick="ebMobShiftDate(-1)">‹</button>
-              <input type="date" class="eb-mob-date" id="ebMobDateInput" onchange="ebMobLoadBranches()">
-              <button class="eb-mob-date-arrow" onclick="ebMobShiftDate(1)">›</button>
+          <!-- Step 1: Date picker -->
+          <div id="ebMobStep1" class="eb-mob-step-pane">
+            <div class="eb-mob-header">
+              <div style="flex:1;min-width:0">
+                <div class="eb-mob-title">Pick a date</div>
+                <div class="eb-mob-subtitle">Step 1 of 4</div>
+              </div>
             </div>
-            <div class="eb-mob-tabs">
-              <button class="eb-mob-tab active" id="ebMobTabPlans" onclick="ebMobSwitchTable('plans')">Plan</button>
-              <button class="eb-mob-tab" id="ebMobTabAch" onclick="ebMobSwitchTable('achievements')">Achievement</button>
+            <div style="padding:24px 16px;display:flex;flex-direction:column;gap:20px;align-items:center">
+              <div class="eb-mob-date-row" style="padding:0">
+                <button class="eb-mob-date-arrow" onclick="ebMobShiftDate(-1)">‹</button>
+                <input type="date" class="eb-mob-date" id="ebMobDateInput" style="font-size:17px;padding:14px 18px">
+                <button class="eb-mob-date-arrow" onclick="ebMobShiftDate(1)">›</button>
+              </div>
+              <button class="eb-mob-primary-btn" style="width:100%;max-width:320px" onclick="ebMobGoToStep(2)">Next <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-left:4px"><polyline points="9 18 15 12 9 6"/></svg></button>
             </div>
-            <div class="eb-mob-search">
+          </div>
+
+          <!-- Step 2: Report type chooser -->
+          <div id="ebMobStep2" class="eb-mob-step-pane" style="display:none">
+            <div class="eb-mob-header">
+              <button class="eb-mob-back" onclick="ebMobGoToStep(1)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg> Back</button>
+              <div style="flex:1;min-width:0">
+                <div class="eb-mob-title">Choose report type</div>
+                <div class="eb-mob-subtitle" id="ebMobStep2Sub">Step 2 of 4</div>
+              </div>
+            </div>
+            <div style="padding:20px 16px;display:flex;flex-direction:column;gap:14px">
+              <div class="eb-mob-type-card" onclick="ebMobPickType('plans')">
+                <div class="eb-mob-type-icon" style="background:#EEF2FF;color:#6366F1">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11H7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2h-2"/><rect x="9" y="2" width="6" height="4" rx="1"/></svg>
+                </div>
+                <div style="flex:1">
+                  <div class="eb-mob-type-title">Daily Plan</div>
+                  <div class="eb-mob-type-sub">Enter today's branch targets</div>
+                </div>
+                <span class="eb-mob-branch-arrow"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
+              </div>
+              <div class="eb-mob-type-card" onclick="ebMobPickType('achievements')">
+                <div class="eb-mob-type-icon" style="background:#ECFDF5;color:#059669">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                </div>
+                <div style="flex:1">
+                  <div class="eb-mob-type-title">Achievement</div>
+                  <div class="eb-mob-type-sub">Record actuals against plan</div>
+                </div>
+                <span class="eb-mob-branch-arrow"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 3: Branch search + list -->
+          <div id="ebMobStep3" class="eb-mob-step-pane" style="display:none">
+            <div class="eb-mob-header">
+              <button class="eb-mob-back" onclick="ebMobGoToStep(2)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg> Back</button>
+              <div style="flex:1;min-width:0">
+                <div class="eb-mob-title">Pick a branch</div>
+                <div class="eb-mob-subtitle" id="ebMobStep3Sub">Step 3 of 4</div>
+              </div>
+            </div>
+            <div class="eb-mob-search" style="margin-top:12px">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#CBD5E1" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
               <input placeholder="Search branch..." id="ebMobSearchInput" oninput="ebMobFilterBranches()">
             </div>
-            <div class="eb-mob-branch-list" id="ebMobBranchList"></div>
+            <div class="eb-mob-branch-list" id="ebMobBranchList" style="max-height:calc(100vh - 240px)"></div>
           </div>
 
-          <!-- Step 2: Edit branch fields -->
-          <div id="ebMobStep2" style="display:none">
+          <!-- Step 4: Edit branch buckets -->
+          <div id="ebMobStep4" class="eb-mob-step-pane" style="display:none">
             <div class="eb-mob-header">
-              <button class="eb-mob-back" onclick="ebMobGoBack()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg> Back</button>
+              <button class="eb-mob-back" onclick="ebMobBackFromStep4()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg> Back</button>
               <div style="flex:1;min-width:0">
                 <div class="eb-mob-title" id="ebMobBranchTitle">Branch</div>
                 <div class="eb-mob-subtitle" id="ebMobBranchSub">Date • Table</div>
               </div>
             </div>
             <div class="eb-mob-buckets" id="ebMobBuckets"></div>
-            <div class="eb-mob-save-bar saved" id="ebMobSaveBar" style="display:none">
-              <span class="eb-save-dot" style="background:#059669"></span>
-              <span id="ebMobSaveText">All saved</span>
+            <div class="eb-mob-save-fixed">
+              <button class="eb-mob-primary-btn" id="ebMobSaveBtn" onclick="ebMobOpenConfirm()">Save Changes <span id="ebMobDirtyCount" style="opacity:.8;font-weight:500"></span></button>
+            </div>
+          </div>
+
+          <!-- Confirm modal -->
+          <div class="eb-mob-modal-backdrop" id="ebMobConfirmBackdrop" style="display:none" onclick="ebMobCloseConfirm(event)">
+            <div class="eb-mob-modal" onclick="event.stopPropagation()">
+              <div class="eb-mob-modal-head">
+                <div class="eb-mob-modal-title">Confirm changes</div>
+                <div class="eb-mob-modal-sub" id="ebMobConfirmSub">Review edits before saving</div>
+              </div>
+              <div class="eb-mob-modal-body" id="ebMobConfirmList"></div>
+              <div class="eb-mob-modal-actions">
+                <button class="eb-mob-secondary-btn" onclick="ebMobCloseConfirm()">Cancel</button>
+                <button class="eb-mob-primary-btn" id="ebMobConfirmBtn" onclick="ebMobConfirmSave()">Confirm</button>
+              </div>
             </div>
           </div>
         </div>
@@ -1225,10 +1343,12 @@
         ebToast('Exported ' + filtered.length + ' rows', 'success');
       }
 
-      // ===== MOBILE CARD VIEW =====
+      // ===== MOBILE WIZARD VIEW =====
       var ebMobTable = 'daily_reports';
       var ebMobRows = [];
       var ebMobSelectedRow = null;
+      var ebMobStep = 1;
+      var ebMobDirty = {}; // { key: {old, new, label} }
 
       var EB_BUCKETS = [
         {name:'FTOD', color:'#059669', fields:[{key:'ftod_actual',label:'Actual'},{key:'ftod_plan',label:'Plan'}]},
@@ -1246,7 +1366,7 @@
       function ebMobInit() {
         var today = new Date().toISOString().slice(0,10);
         document.getElementById('ebMobDateInput').value = today;
-        ebMobLoadBranches();
+        ebMobGoToStep(1);
       }
 
       function ebMobShiftDate(dir) {
@@ -1254,14 +1374,49 @@
         var d = inp.value ? new Date(inp.value + 'T00:00:00') : new Date();
         d.setDate(d.getDate() + dir);
         inp.value = d.toISOString().slice(0,10);
-        ebMobLoadBranches();
       }
 
-      function ebMobSwitchTable(which) {
-        document.getElementById('ebMobTabPlans').classList.toggle('active', which === 'plans');
-        document.getElementById('ebMobTabAch').classList.toggle('active', which === 'achievements');
+      function ebMobGoToStep(step) {
+        for (var i = 1; i <= 4; i++) {
+          var el = document.getElementById('ebMobStep' + i);
+          if (el) el.style.display = (i === step) ? 'block' : 'none';
+        }
+        ebMobStep = step;
+        if (step === 3) {
+          // Update subtitle and (re)load branches
+          var d = document.getElementById('ebMobDateInput').value || '';
+          var tbl = ebMobTable === 'daily_reports_achievements' ? 'Achievement' : 'Daily Plan';
+          var sub = document.getElementById('ebMobStep3Sub');
+          if (sub) sub.textContent = ebMobFormatDate(d) + ' • ' + tbl;
+          ebMobLoadBranches();
+        }
+        if (step === 2) {
+          var sub2 = document.getElementById('ebMobStep2Sub');
+          var d2 = document.getElementById('ebMobDateInput').value || '';
+          if (sub2) sub2.textContent = ebMobFormatDate(d2);
+        }
+      }
+
+      function ebMobBackFromStep4() {
+        var count = Object.keys(ebMobDirty).length;
+        if (count > 0) {
+          var msg = 'You have ' + count + ' unsaved change' + (count === 1 ? '' : 's') + '. Discard and go back?';
+          if (!confirm(msg)) return;
+          ebMobDirty = {};
+        }
+        ebMobGoToStep(3);
+      }
+
+      function ebMobPickType(which) {
         ebMobTable = which === 'plans' ? 'daily_reports' : 'daily_reports_achievements';
-        ebMobLoadBranches();
+        ebMobGoToStep(3);
+      }
+
+      function ebMobFormatDate(d) {
+        if (!d) return '';
+        var parts = d.split('-');
+        var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        return parts.length === 3 ? parts[2] + ' ' + months[parseInt(parts[1],10)-1] + ' ' + parts[0] : d;
       }
 
       async function ebMobLoadBranches() {
@@ -1332,49 +1487,23 @@
       function ebMobOpenBranch(rowId) {
         ebMobSelectedRow = ebMobRows.find(function(r){ return Number(r.id) === Number(rowId); });
         if (!ebMobSelectedRow) return;
-        var step1 = document.getElementById('ebMobStep1');
-        var step2 = document.getElementById('ebMobStep2');
-        step1.classList.add('eb-mob-slide-out');
-        setTimeout(function() {
-          step1.style.display = 'none';
-          step1.classList.remove('eb-mob-slide-out');
-          step2.style.display = 'block';
-          step2.classList.add('eb-mob-slide-in');
-          setTimeout(function(){ step2.classList.remove('eb-mob-slide-in'); }, 200);
-        }, 180);
+        ebMobDirty = {};
         document.getElementById('ebMobBranchTitle').textContent = ebMobSelectedRow.branch_name;
         var d = document.getElementById('ebMobDateInput').value || '';
-        var parts = d.split('-');
-        var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-        var dateStr = parts.length === 3 ? parts[2] + ' ' + months[parseInt(parts[1],10)-1] + ' ' + parts[0] : d;
-        var tblLabel = ebMobTable === 'daily_reports_achievements' ? 'Achievement' : 'Plan';
-        document.getElementById('ebMobBranchSub').textContent = dateStr + ' • ' + tblLabel;
-        // Show save bar
-        var saveBar = document.getElementById('ebMobSaveBar');
-        if (saveBar) { saveBar.style.display = 'flex'; saveBar.className = 'eb-mob-save-bar saved'; document.getElementById('ebMobSaveText').textContent = 'All saved'; document.querySelector('#ebMobSaveBar .eb-save-dot').style.background = '#059669'; }
-        ebMobSaveCount = 0;
+        var tblLabel = ebMobTable === 'daily_reports_achievements' ? 'Achievement' : 'Daily Plan';
+        document.getElementById('ebMobBranchSub').textContent = ebMobFormatDate(d) + ' • ' + tblLabel;
         ebMobRenderBuckets();
+        ebMobUpdateSaveBtn();
+        ebMobGoToStep(4);
       }
 
-      var ebMobSaveCount = 0;
-
-      function ebMobGoBack() {
-        var step1 = document.getElementById('ebMobStep1');
-        var step2 = document.getElementById('ebMobStep2');
-        step2.classList.add('eb-mob-slide-back-out');
-        setTimeout(function() {
-          step2.style.display = 'none';
-          step2.classList.remove('eb-mob-slide-back-out');
-          step1.style.display = 'block';
-          step1.classList.add('eb-mob-slide-back-in');
-          setTimeout(function(){ step1.classList.remove('eb-mob-slide-back-in'); }, 200);
-        }, 180);
-        // Hide save bar
-        var saveBar = document.getElementById('ebMobSaveBar');
-        if (saveBar) saveBar.style.display = 'none';
-        ebMobSelectedRow = null;
-        // Refresh branch list to show updated FTOD
-        ebMobRenderBranches();
+      function ebMobUpdateSaveBtn() {
+        var btn = document.getElementById('ebMobSaveBtn');
+        var badge = document.getElementById('ebMobDirtyCount');
+        if (!btn) return;
+        var count = Object.keys(ebMobDirty).length;
+        btn.disabled = count === 0;
+        if (badge) badge.textContent = count ? '(' + count + ')' : '';
       }
 
       function ebMobRenderBuckets() {
@@ -1389,11 +1518,9 @@
             fieldHtml += '<div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid #F1F5F9">'
               + '<span style="font-size:14px;color:#64748B;font-weight:500">' + f.label + '</span>'
               + '<input type="text" inputmode="numeric" pattern="[0-9]*" placeholder="0" value="' + display + '" '
-              + 'style="width:100px;text-align:center;padding:12px 14px;border:1.5px solid #E2E8F0;border-radius:12px;background:#F8FAFC;font-size:16px;font-weight:600;color:#1E293B;min-height:44px;box-sizing:border-box;-webkit-appearance:none;font-family:inherit" '
-              + 'data-key="' + f.key + '" data-id="' + row.id + '" data-orig="' + display + '" '
-              + 'onfocus="this.select();this.style.borderColor=\'#6366F1\';this.style.background=\'#fff\';this.style.boxShadow=\'0 0 0 3px rgba(99,102,241,.15)\'" '
-              + 'onblur="this.style.borderColor=\'#E2E8F0\';this.style.background=\'#F8FAFC\';this.style.boxShadow=\'none\';ebMobSaveField(this)" '
-              + 'onchange="ebMobSaveField(this)" '
+              + 'class="eb-mob-field-value" '
+              + 'data-key="' + f.key + '" data-bucket="' + bucket.name + '" data-flabel="' + f.label + '" data-orig="' + display + '" '
+              + 'oninput="ebMobMarkDirty(this)" '
               + 'enterkeyhint="next">'
               + '</div>';
           });
@@ -1408,46 +1535,87 @@
         document.getElementById('ebMobBuckets').innerHTML = parts.join('');
       }
 
-      async function ebMobSaveField(input) {
-        if (input._saving) return;
+      function ebMobMarkDirty(input) {
         var key = input.dataset.key;
-        var rowId = input.dataset.id;
         var newVal = input.value.trim();
+        var oldVal = (input.dataset.orig || '').trim();
+        if (newVal === oldVal) {
+          delete ebMobDirty[key];
+          input.classList.remove('eb-mob-field-dirty');
+        } else {
+          ebMobDirty[key] = {
+            old: oldVal,
+            "new": newVal,
+            label: (input.dataset.bucket || '') + ' — ' + (input.dataset.flabel || key)
+          };
+          input.classList.add('eb-mob-field-dirty');
+        }
+        ebMobUpdateSaveBtn();
+      }
+
+      function ebMobOpenConfirm() {
+        var keys = Object.keys(ebMobDirty);
+        if (!keys.length) return;
+        var list = document.getElementById('ebMobConfirmList');
+        list.innerHTML = keys.map(function(k) {
+          var d = ebMobDirty[k];
+          var oldDisp = d.old === '' ? '—' : d.old;
+          var newDisp = d["new"] === '' ? '—' : d["new"];
+          return '<div class="eb-mob-diff-row">'
+            + '<div class="eb-mob-diff-label">' + d.label + '</div>'
+            + '<div class="eb-mob-diff-vals"><span class="eb-mob-diff-old">' + oldDisp + '</span>'
+            + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>'
+            + '<span class="eb-mob-diff-new">' + newDisp + '</span></div>'
+            + '</div>';
+        }).join('');
+        document.getElementById('ebMobConfirmSub').textContent = keys.length + ' field' + (keys.length === 1 ? '' : 's') + ' will be updated';
+        document.getElementById('ebMobConfirmBackdrop').style.display = 'flex';
+      }
+
+      function ebMobCloseConfirm(evt) {
+        if (evt && evt.target && evt.target.id !== 'ebMobConfirmBackdrop') return;
+        document.getElementById('ebMobConfirmBackdrop').style.display = 'none';
+      }
+
+      async function ebMobConfirmSave() {
         var row = ebMobSelectedRow;
         if (!row) return;
-        var oldVal = input.dataset.orig || '';
-        if (newVal === oldVal) return;
-        input._saving = true;
-
-        // Update save bar to "Saving..."
-        ebMobSaveCount++;
-        var saveBar = document.getElementById('ebMobSaveBar');
-        if (saveBar) { saveBar.className = 'eb-mob-save-bar saving'; document.getElementById('ebMobSaveText').textContent = 'Saving...'; document.querySelector('#ebMobSaveBar .eb-save-dot').style.background = '#F59E0B'; }
-
-        var sqlVal = newVal === '' ? 'NULL' : "'" + newVal.replace(/'/g,"''") + "'";
-        try {
-          var res = await fetch('/api/aws-panel/sql', {
+        var keys = Object.keys(ebMobDirty);
+        if (!keys.length) { ebMobCloseConfirm(); return; }
+        var btn = document.getElementById('ebMobConfirmBtn');
+        btn.disabled = true;
+        btn.textContent = 'Saving...';
+        var results = await Promise.all(keys.map(function(k) {
+          var v = ebMobDirty[k]["new"];
+          var sqlVal = v === '' ? 'NULL' : "'" + v.replace(/'/g,"''") + "'";
+          return fetch('/api/aws-panel/sql', {
             method:'POST',
             headers:{'Content-Type':'application/json','X-Dashboard-Token':'colldb-admin-2024'},
-            body:JSON.stringify({sql:'UPDATE "' + ebMobTable + '" SET "' + key + '" = ' + sqlVal + ' WHERE id = ' + rowId})
-          });
-          var r = await res.json();
-          if (r.error) throw new Error(r.error);
-          row[key] = newVal === '' ? null : newVal;
-          input.dataset.orig = newVal;
-          input.classList.add('eb-mob-field-saved');
-          setTimeout(function(){ input.classList.remove('eb-mob-field-saved'); }, 1500);
-          ebToast(row.branch_name + ' — ' + (EB_NAMES[key]||key) + ' updated', 'success');
-        } catch(e) {
-          input.value = oldVal;
-          ebToast('Save failed: ' + e.message, 'error');
-        }
-        input._saving = false;
-        ebMobSaveCount--;
-        // Update save bar back to "All saved" when no pending saves
-        if (ebMobSaveCount <= 0) {
-          ebMobSaveCount = 0;
-          if (saveBar) { saveBar.className = 'eb-mob-save-bar saved'; document.getElementById('ebMobSaveText').textContent = 'All saved ✓'; document.querySelector('#ebMobSaveBar .eb-save-dot').style.background = '#059669'; }
+            body:JSON.stringify({sql:'UPDATE "' + ebMobTable + '" SET "' + k + '" = ' + sqlVal + ' WHERE id = ' + row.id})
+          }).then(function(res){ return res.json(); }).then(function(r) {
+            if (r.error) throw new Error(r.error);
+            return {key:k, ok:true};
+          }).catch(function(e) { return {key:k, ok:false, err:e.message}; });
+        }));
+        var failed = results.filter(function(r){ return !r.ok; });
+        var okKeys = results.filter(function(r){ return r.ok; }).map(function(r){ return r.key; });
+        okKeys.forEach(function(k) {
+          var v = ebMobDirty[k]["new"];
+          row[k] = v === '' ? null : v;
+          delete ebMobDirty[k];
+        });
+        btn.disabled = false;
+        btn.textContent = 'Confirm';
+        if (failed.length) {
+          ebToast(failed.length + ' field(s) failed to save', 'error');
+          ebMobCloseConfirm();
+          ebMobUpdateSaveBtn();
+        } else {
+          document.getElementById('ebMobConfirmBackdrop').style.display = 'none';
+          ebToast('Saved ' + okKeys.length + ' change' + (okKeys.length === 1 ? '' : 's'), 'success');
+          ebMobDirty = {};
+          ebMobUpdateSaveBtn();
+          ebMobGoToStep(3);
         }
       }
 
@@ -2333,9 +2501,9 @@ body.emp-dark .ai-bar-icon { background: rgba(99,102,241,0.15); color: #A5B4FC; 
   <script src="js/auth.js?v=49"></script>
   <script src="js/settings.js?v=49"></script>
   <script src="js/portfolio.js?v=49"></script>
-  <script src="js/collection.js?v=49"></script>
+  <script src="js/collection.js?v=50"></script>
   <script src="js/hourly.js?v=49"></script>
-  <script src="js/disbursement.js?v=49"></script>
+  <script src="js/disbursement.js?v=50"></script>
   <script src="js/comparison.js?v=49"></script>
   <script src="js/analytical.js?v=49"></script>
   <script src="js/employee.js?v=49"></script>
@@ -2775,8 +2943,13 @@ function updateArrowVisibility(tab) {
       badge.style.cursor = 'pointer';
       badge.style.opacity = '1';
     } else if (tab === 'disbursement') {
-      var dbMonth = localStorage.getItem('dbMonth') || '';
-      badgeText.textContent = dbMonth || 'All Months';
+      var dbDate = localStorage.getItem('dbSelectedDate') || '';
+      if (dbDate) {
+        badgeText.textContent = (typeof formatDbDate === 'function') ? formatDbDate(dbDate) : dbDate;
+      } else {
+        var dbMonth = localStorage.getItem('dbMonth') || '';
+        badgeText.textContent = dbMonth || 'All Months';
+      }
       badge.style.cursor = 'pointer';
       badge.style.opacity = '1';
     } else if (tab === 'collection') {
@@ -2819,16 +2992,32 @@ document.addEventListener('keydown', function(e) {
 
 
 // ── Month Picker (Portfolio & Disbursement) ──
+var _dbDateFmtMap = {'01':'Jan','02':'Feb','03':'Mar','04':'Apr','05':'May','06':'Jun','07':'Jul','08':'Aug','09':'Sep','10':'Oct','11':'Nov','12':'Dec'};
+function formatDbDate(iso) {
+  if (!iso) return '';
+  var s = String(iso).slice(0, 10);
+  var parts = s.split('-');
+  if (parts.length !== 3) return s;
+  var mon = _dbDateFmtMap[parts[1]] || parts[1];
+  return parseInt(parts[2], 10) + ' ' + mon + ' ' + parts[0].slice(2);
+}
+
 function openMonthPicker(tab) {
   var overlay = document.getElementById('monthPickerOverlay');
   var grid = document.getElementById('monthPickerGrid');
   var title = document.getElementById('monthPickerTitle');
   if (!overlay || !grid) return;
-  
+
+  if (tab === 'disbursement') {
+    renderDisbPicker(overlay, grid, title);
+    overlay.style.display = 'flex';
+    return;
+  }
+
   var months = [];
   var currentMonth = '';
   var color = '';
-  
+
   if (tab === 'portfolio') {
     if (window._pf && window._pf.months) {
       months = window._pf.months.map(function(m) { return m.month_label; });
@@ -2838,19 +3027,11 @@ function openMonthPicker(tab) {
     title.textContent = 'Portfolio — Select Month';
     // Add "All" option for portfolio too
     months = [''].concat(months);
-  } else if (tab === 'disbursement') {
-    if (window._db && window._db.months) {
-      months = window._db.months.slice();
-    }
-    currentMonth = localStorage.getItem('dbMonth') || '';
-    color = '#F59E0B';
-    title.textContent = 'Disbursement — Select Month';
-    months = [''].concat(months);
   }
-  
+
   // FY month-to-year suffix map (Apr=25, May=25...Mar=26)
   var fyYearMap = {APR:'25',MAY:'25',JUN:'25',JUL:'25',AUG:'25',SEP:'25',OCT:'25',NOV:'25',DEC:'25',JAN:'26',FEB:'26',MAR:'26'};
-  
+
   if (!months.length) {
     grid.innerHTML = '<div style="text-align:center;padding:24px;color:#94A3B8;font-size:14px;grid-column:1/-1;">No months available yet.<br>Open the tab first to load data.</div>';
   } else {
@@ -2868,16 +3049,16 @@ function openMonthPicker(tab) {
         'padding:10px 8px;border-radius:10px;font-size:13px;font-weight:600;' +
         'cursor:pointer;border:none;transition:all .15s;text-align:center;' +
         (isAll ? 'grid-column:1/-1;' : '') +
-        (isActive 
+        (isActive
           ? 'background:' + color + ';color:#fff;box-shadow:0 2px 8px ' + color + '40;'
           : 'background:#F8FAFC;color:#1E293B;') +
       '">' + escHtml(label) + '</button>';
     }
     grid.innerHTML = html;
   }
-  
+
   overlay.style.display = 'flex';
-  
+
   // Attach click handlers
   grid.querySelectorAll('[data-mp-month]').forEach(function(btn) {
     btn.onclick = function() {
@@ -2888,18 +3069,141 @@ function openMonthPicker(tab) {
         // Trigger portfolio reload
         if (typeof window.loadPortfolio === 'function') window.loadPortfolio();
         else if (typeof window.switchEmpTab === 'function') window.switchEmpTab('portfolio');
-      } else if (tab === 'disbursement') {
-        localStorage.setItem('dbMonth', selected);
-        if (window._db) { window._db.month = selected; }
-        // Trigger disbursement reload
-        if (typeof window.loadDisbursement === 'function') window.loadDisbursement();
-        else if (typeof window.switchEmpTab === 'function') window.switchEmpTab('disbursement');
       }
       closeMonthPicker();
       // Update badge
       updateArrowVisibility(tab);
     };
   });
+}
+
+// ── Disbursement picker (Month/Date toggle) ──
+function renderDisbPicker(overlay, grid, title) {
+  var color = '#F59E0B';
+  var mode = localStorage.getItem('dbPickerMode') || (localStorage.getItem('dbSelectedDate') ? 'date' : 'month');
+  title.textContent = mode === 'date' ? 'Disbursement — Select Date' : 'Disbursement — Select Month';
+
+  // Toggle header (grid-column: 1 / -1 so it spans the 3-col grid)
+  function toggleHtml() {
+    var base = 'flex:1;padding:8px 10px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .15s;';
+    return '<div style="grid-column:1/-1;display:flex;gap:6px;background:#F1F5F9;padding:4px;border-radius:10px;margin-bottom:10px;">' +
+      '<button data-mp-mode="month" style="' + base + (mode === 'month' ? 'background:' + color + ';color:#fff;' : 'background:transparent;color:#64748B;') + '">Month</button>' +
+      '<button data-mp-mode="date" style="' + base + (mode === 'date' ? 'background:' + color + ';color:#fff;' : 'background:transparent;color:#64748B;') + '">Date</button>' +
+    '</div>';
+  }
+
+  function renderMonth() {
+    var rawMonths = (window._db && window._db.months) ? window._db.months.slice() : [];
+    if (!rawMonths.length) {
+      grid.innerHTML = toggleHtml() + '<div style="grid-column:1/-1;text-align:center;padding:24px;color:#94A3B8;font-size:13px;">Loading months…</div>';
+      attachDisbHandlers();
+      fetch('/api/disbursement/months').then(function(r) { return r.json(); }).then(function(m) {
+        if (window._db) window._db.months = m || [];
+        renderMonth();
+      }).catch(function() {
+        grid.innerHTML = toggleHtml() + '<div style="grid-column:1/-1;text-align:center;padding:24px;color:#EF4444;font-size:13px;">Failed to load months.</div>';
+        attachDisbHandlers();
+      });
+      return;
+    }
+    var months = rawMonths;
+    months = [''].concat(months);
+    var currentMonth = localStorage.getItem('dbMonth') || '';
+    var fyYearMap = {APR:'25',MAY:'25',JUN:'25',JUL:'25',AUG:'25',SEP:'25',OCT:'25',NOV:'25',DEC:'25',JAN:'26',FEB:'26',MAR:'26'};
+    var html = toggleHtml();
+    if (months.length <= 1) {
+      html += '<div style="grid-column:1/-1;text-align:center;padding:24px;color:#94A3B8;font-size:14px;">No months available yet.<br>Open the tab first to load data.</div>';
+    } else {
+      for (var i = 0; i < months.length; i++) {
+        var m = months[i];
+        var label = m || 'All';
+        if (m && fyYearMap[m.toUpperCase()]) label = m + '_' + fyYearMap[m.toUpperCase()];
+        var isActive = m === currentMonth && !localStorage.getItem('dbSelectedDate');
+        var isAll = !m;
+        html += '<button data-mp-month="' + (m || '') + '" style="' +
+          'padding:10px 8px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .15s;text-align:center;' +
+          (isAll ? 'grid-column:1/-1;' : '') +
+          (isActive ? 'background:' + color + ';color:#fff;box-shadow:0 2px 8px ' + color + '40;' : 'background:#F8FAFC;color:#1E293B;') +
+        '">' + escHtml(label) + '</button>';
+      }
+    }
+    grid.innerHTML = html;
+    attachDisbHandlers();
+  }
+
+  function renderDate(dates) {
+    var currentDate = localStorage.getItem('dbSelectedDate') || '';
+    var html = toggleHtml();
+    if (!dates || !dates.length) {
+      html += '<div style="grid-column:1/-1;text-align:center;padding:24px;color:#94A3B8;font-size:14px;">No dates available.</div>';
+    } else {
+      for (var i = 0; i < dates.length; i++) {
+        var d = dates[i];
+        var iso = String(d).slice(0, 10);
+        var isActive = iso === currentDate;
+        html += '<button data-mp-date="' + iso + '" style="' +
+          'padding:10px 8px;border-radius:10px;font-size:12px;font-weight:600;cursor:pointer;border:none;transition:all .15s;text-align:center;' +
+          (isActive ? 'background:' + color + ';color:#fff;box-shadow:0 2px 8px ' + color + '40;' : 'background:#F8FAFC;color:#1E293B;') +
+        '">' + escHtml(formatDbDate(iso)) + '</button>';
+      }
+    }
+    grid.innerHTML = html;
+    attachDisbHandlers();
+  }
+
+  function attachDisbHandlers() {
+    grid.querySelectorAll('[data-mp-mode]').forEach(function(btn) {
+      btn.onclick = function() {
+        var next = btn.dataset.mpMode;
+        if (next === mode) return;
+        mode = next;
+        localStorage.setItem('dbPickerMode', mode);
+        title.textContent = mode === 'date' ? 'Disbursement — Select Date' : 'Disbursement — Select Month';
+        if (mode === 'month') renderMonth();
+        else loadAndRenderDates();
+      };
+    });
+    grid.querySelectorAll('[data-mp-month]').forEach(function(btn) {
+      btn.onclick = function() {
+        var selected = btn.dataset.mpMonth;
+        localStorage.setItem('dbMonth', selected);
+        localStorage.removeItem('dbSelectedDate');
+        if (window._db) { window._db.month = selected; window._db.date = null; }
+        if (typeof window.loadDisbursement === 'function') window.loadDisbursement();
+        closeMonthPicker();
+        updateArrowVisibility('disbursement');
+      };
+    });
+    grid.querySelectorAll('[data-mp-date]').forEach(function(btn) {
+      btn.onclick = function() {
+        var iso = btn.dataset.mpDate;
+        localStorage.setItem('dbSelectedDate', iso);
+        localStorage.setItem('dbMonth', '');
+        if (window._db) { window._db.date = iso; window._db.month = ''; }
+        if (typeof window.loadDisbursement === 'function') window.loadDisbursement();
+        closeMonthPicker();
+        updateArrowVisibility('disbursement');
+      };
+    });
+  }
+
+  function loadAndRenderDates() {
+    var cached = (window._db && window._db.availableDates) || [];
+    if (cached && cached.length) { renderDate(cached); return; }
+    grid.innerHTML = toggleHtml() + '<div style="grid-column:1/-1;text-align:center;padding:24px;color:#94A3B8;font-size:13px;">Loading dates…</div>';
+    attachDisbHandlers();
+    fetch('/api/disbursement/daily/dates').then(function(r) { return r.json(); }).then(function(data) {
+      var list = Array.isArray(data) ? data.map(function(x) { return x.disb_date || x.date || x; }) : [];
+      if (window._db) window._db.availableDates = list;
+      renderDate(list);
+    }).catch(function() {
+      grid.innerHTML = toggleHtml() + '<div style="grid-column:1/-1;text-align:center;padding:24px;color:#EF4444;font-size:13px;">Failed to load dates.</div>';
+      attachDisbHandlers();
+    });
+  }
+
+  if (mode === 'date') loadAndRenderDates();
+  else renderMonth();
 }
 
 function closeMonthPicker() {

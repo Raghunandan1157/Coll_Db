@@ -41,15 +41,20 @@
   var _db = window._db = {
     months: [],
     month: localStorage.getItem('dbMonth') || '',
+    date: localStorage.getItem('dbSelectedDate') || null,
+    availableDates: [],
     product: localStorage.getItem('dbProduct') || 'all',
     summary: null,
     children: [],
     byMonth: []
   };
 
+  function dbBase() { return _db.date ? '/api/disbursement/daily' : '/api/disbursement'; }
+
   function queryParams() {
     var p = [];
-    if (_db.month) p.push('month=' + encodeURIComponent(_db.month));
+    if (_db.date) p.push('date=' + encodeURIComponent(_db.date));
+    else if (_db.month) p.push('month=' + encodeURIComponent(_db.month));
     if (_db.product && _db.product !== 'all') p.push('product_name=' + encodeURIComponent(_db.product.toUpperCase()));
     // Role-based filtering — server resolves via employee_master
     if ((session.role === 'RM' || session.role === 'SM') && session.location) p.push('region=' + encodeURIComponent(session.location));
@@ -62,25 +67,27 @@
 
   function childrenUrl() {
     var base = [];
-    if (_db.month) base.push('month=' + encodeURIComponent(_db.month));
+    if (_db.date) base.push('date=' + encodeURIComponent(_db.date));
+    else if (_db.month) base.push('month=' + encodeURIComponent(_db.month));
     if (_db.product && _db.product !== 'all') base.push('product_name=' + encodeURIComponent(_db.product.toUpperCase()));
 
-    if (session.role === 'CEO') return '/api/disbursement/by-region' + (base.length ? '?' + base.join('&') : '');
+    var root = dbBase();
+    if (session.role === 'CEO') return root + '/by-region' + (base.length ? '?' + base.join('&') : '');
     if ((session.role === 'RM' || session.role === 'SM') && session.location) {
       base.push('region=' + encodeURIComponent(session.location));
-      return '/api/disbursement/by-district?' + base.join('&');
+      return root + '/by-district?' + base.join('&');
     }
     if ((session.role === 'DM' || session.role === 'DvM') && session.location) {
       base.push('division=' + encodeURIComponent(session.location));
-      return '/api/disbursement/by-branch?' + base.join('&');
+      return root + '/by-branch?' + base.join('&');
     }
     if (session.role === 'AM' && session.location) {
       base.push('area=' + encodeURIComponent(session.location));
-      return '/api/disbursement/by-branch?' + base.join('&');
+      return root + '/by-branch?' + base.join('&');
     }
     if (session.role === 'BM' && session.location) {
       base.push('branch=' + encodeURIComponent(session.location));
-      return '/api/disbursement/by-employee?' + base.join('&');
+      return root + '/by-employee?' + base.join('&');
     }
     return null;
   }
@@ -91,35 +98,43 @@
     if (!container) return;
     container.innerHTML = '<div style="text-align:center;padding:80px 20px;"><div style="width:32px;height:32px;border:3px solid #E2E8F0;border-top-color:#F59E0B;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 12px;"></div><div style="color:#64748B;font-size:14px;">Loading disbursement data...</div></div>';
 
-    var monthPromise = _db.months.length ? Promise.resolve() : apiFetch('/api/disbursement/months').then(function(m) {
-      _db.months = m || [];
-      if (!_db.month && m.length) {
-        // Pick latest month that has data
-        var cidx = m.length - 1;
-        function tryDbMonth(idx) {
-          if (idx < 0) { _db.month = m[m.length - 1]; localStorage.setItem('dbMonth', _db.month); return Promise.resolve(); }
-          var label = m[idx];
-          return apiFetch('/api/disbursement/summary?month=' + encodeURIComponent(label)).then(function(d) {
-            var hasData = d && ((d.total_amount && parseFloat(d.total_amount) > 0) || (d.total_accounts && parseInt(d.total_accounts) > 0));
-            if (hasData) { _db.month = label; localStorage.setItem('dbMonth', label); return; }
-            return tryDbMonth(idx - 1);
-          }).catch(function() { _db.month = label; localStorage.setItem('dbMonth', label); });
+    var monthPromise;
+    if (_db.date) {
+      monthPromise = Promise.resolve();
+    } else if (_db.months.length) {
+      monthPromise = Promise.resolve();
+    } else {
+      monthPromise = apiFetch('/api/disbursement/months').then(function(m) {
+        _db.months = m || [];
+        if (!_db.month && m.length) {
+          // Pick latest month that has data
+          var cidx = m.length - 1;
+          function tryDbMonth(idx) {
+            if (idx < 0) { _db.month = m[m.length - 1]; localStorage.setItem('dbMonth', _db.month); return Promise.resolve(); }
+            var label = m[idx];
+            return apiFetch('/api/disbursement/summary?month=' + encodeURIComponent(label)).then(function(d) {
+              var hasData = d && ((d.total_amount && parseFloat(d.total_amount) > 0) || (d.total_accounts && parseInt(d.total_accounts) > 0));
+              if (hasData) { _db.month = label; localStorage.setItem('dbMonth', label); return; }
+              return tryDbMonth(idx - 1);
+            }).catch(function() { _db.month = label; localStorage.setItem('dbMonth', label); });
+          }
+          return tryDbMonth(cidx);
         }
-        return tryDbMonth(cidx);
-      }
-    });
+      });
+    }
 
     monthPromise.then(function() {
+      var base = dbBase();
       var promises = [
-        apiFetch('/api/disbursement/summary' + queryParams()),
-        apiFetch('/api/disbursement/by-month' + queryParams()),
+        apiFetch(base + '/summary' + queryParams()),
+        _db.date ? Promise.resolve([]) : apiFetch(base + '/by-month' + queryParams()),
       ];
       var chUrl = childrenUrl();
       if (chUrl && session.role && session.role !== 'FO') promises.push(apiFetch(chUrl));
       else promises.push(Promise.resolve([]));
 
       // Product breakdown
-      promises.push(apiFetch('/api/disbursement/by-product' + queryParams()));
+      promises.push(apiFetch(base + '/by-product' + queryParams()));
 
       return Promise.all(promises);
     }).then(function(res) {
