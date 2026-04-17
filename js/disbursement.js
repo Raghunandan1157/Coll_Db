@@ -227,9 +227,9 @@
   function trendLineSvg(entries, nameFn) {
     if (!entries || !entries.length) return '';
     var n = entries.length;
-    var W = 500, H = 180;
-    var rotate = n > 5;
-    var padL = 30, padR = 20, padT = 24, padB = rotate ? 56 : 40;
+    var W = 540, H = 210;
+    var rotate = n > 6;
+    var padL = 50, padR = 50, padT = 28, padB = rotate ? 64 : 44;
     var plotW = W - padL - padR;
     var plotH = H - padT - padB;
     var maxV = 0;
@@ -249,7 +249,7 @@
     for (var i4 = 0; i4 < n; i4++) areaD += 'L' + xs[i4].toFixed(1) + ' ' + ys[i4].toFixed(1) + ' ';
     areaD += 'L' + xs[n - 1].toFixed(1) + ' ' + baseY.toFixed(1) + ' Z';
 
-    var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" style="width:100%;height:clamp(160px,22vw,220px);display:block;">';
+    var svg = '<svg viewBox="-20 0 ' + (W + 40) + ' ' + (H + 10) + '" style="width:100%;height:clamp(180px,24vw,240px);display:block;overflow:visible;">';
     svg += '<defs><linearGradient id="dbTrendGrad" x1="0" y1="0" x2="0" y2="1">' +
       '<stop offset="0%" stop-color="#F59E0B" stop-opacity="0.35"/>' +
       '<stop offset="100%" stop-color="#F59E0B" stop-opacity="0"/>' +
@@ -260,7 +260,7 @@
       var e = entries[i5];
       var nm = nameFn(e) || '';
       var amt2 = numVal(e.total_amount);
-      var maxLen = rotate ? 12 : 14;
+      var maxLen = rotate ? 14 : 16;
       var shortNm = nm.length > maxLen ? nm.slice(0, maxLen - 1) + '…' : nm;
       var labY = Math.max(ys[i5] - 8, 12);
       svg += '<circle cx="' + xs[i5].toFixed(1) + '" cy="' + ys[i5].toFixed(1) + '" r="4" fill="#F59E0B" stroke="#fff" stroke-width="2">' +
@@ -269,10 +269,10 @@
       svg += '<text class="db-line-amt" x="' + xs[i5].toFixed(1) + '" y="' + labY.toFixed(1) + '" text-anchor="middle">' + esc(fmtAmt(amt2)) + '</text>';
       if (rotate) {
         var nx = xs[i5].toFixed(1);
-        var ny = (H - 22).toFixed(1);
+        var ny = (H - 26).toFixed(1);
         svg += '<text class="db-line-name" x="' + nx + '" y="' + ny + '" text-anchor="end" transform="rotate(-30 ' + nx + ' ' + ny + ')">' + esc(shortNm) + '</text>';
       } else {
-        svg += '<text class="db-line-name" x="' + xs[i5].toFixed(1) + '" y="' + (H - 18) + '" text-anchor="middle">' + esc(shortNm) + '</text>';
+        svg += '<text class="db-line-name" x="' + xs[i5].toFixed(1) + '" y="' + (H - 20) + '" text-anchor="middle">' + esc(shortNm) + '</text>';
       }
     }
     svg += '</svg>';
