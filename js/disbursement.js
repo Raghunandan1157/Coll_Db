@@ -191,7 +191,9 @@
       '.db-section-head{padding:12px 16px;border-bottom:1px solid #F1F5F9;font-weight:700;font-size:14px;color:#1E293B;display:flex;align-items:center;gap:6px;}',
       '.db-section-body{padding:12px 16px;overflow-x:auto;}',
       '.db-top-badge{background:#FEF3C7;color:#92400E;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;letter-spacing:.04em;text-transform:uppercase;}',
-      '@media (max-width:640px){.db-hbar-name{flex-basis:88px;font-size:11px;}.db-hbar-val{min-width:60px;font-size:11px;}.db-donut{width:84px;height:84px;}}'
+      '.db-line-amt{font-size:11px;font-weight:700;fill:#1E293B;}',
+      '.db-line-name{font-size:10px;fill:#64748B;text-transform:uppercase;letter-spacing:.02em;}',
+      '@media (max-width:640px){.db-hbar-name{flex-basis:88px;font-size:11px;}.db-hbar-val{min-width:60px;font-size:11px;}.db-donut{width:84px;height:84px;}.db-line-amt{font-size:9px;}.db-line-name{font-size:8px;letter-spacing:0;}}'
     ].join('\n');
     document.head.appendChild(st);
   }
@@ -222,11 +224,12 @@
     return '<div class="db-donut" style="background:conic-gradient(' + stops.join(',') + ');"></div>';
   }
 
-  function top5LineSvg(entries, nameFn) {
+  function trendLineSvg(entries, nameFn) {
     if (!entries || !entries.length) return '';
     var n = entries.length;
     var W = 500, H = 180;
-    var padL = 30, padR = 20, padT = 24, padB = 40;
+    var rotate = n > 5;
+    var padL = 30, padR = 20, padT = 24, padB = rotate ? 56 : 40;
     var plotW = W - padL - padR;
     var plotH = H - padT - padB;
     var maxV = 0;
@@ -246,24 +249,31 @@
     for (var i4 = 0; i4 < n; i4++) areaD += 'L' + xs[i4].toFixed(1) + ' ' + ys[i4].toFixed(1) + ' ';
     areaD += 'L' + xs[n - 1].toFixed(1) + ' ' + baseY.toFixed(1) + ' Z';
 
-    var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" style="width:100%;height:200px;display:block;">';
-    svg += '<defs><linearGradient id="dbTop5Grad" x1="0" y1="0" x2="0" y2="1">' +
+    var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" style="width:100%;height:clamp(160px,22vw,220px);display:block;">';
+    svg += '<defs><linearGradient id="dbTrendGrad" x1="0" y1="0" x2="0" y2="1">' +
       '<stop offset="0%" stop-color="#F59E0B" stop-opacity="0.35"/>' +
       '<stop offset="100%" stop-color="#F59E0B" stop-opacity="0"/>' +
     '</linearGradient></defs>';
-    svg += '<path d="' + areaD + '" fill="url(#dbTop5Grad)"/>';
+    svg += '<path d="' + areaD + '" fill="url(#dbTrendGrad)"/>';
     svg += '<path d="' + lineD + '" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
     for (var i5 = 0; i5 < n; i5++) {
       var e = entries[i5];
       var nm = nameFn(e) || '';
       var amt2 = numVal(e.total_amount);
-      var shortNm = nm.length > 14 ? nm.slice(0, 13) + '…' : nm;
+      var maxLen = rotate ? 12 : 14;
+      var shortNm = nm.length > maxLen ? nm.slice(0, maxLen - 1) + '…' : nm;
       var labY = Math.max(ys[i5] - 8, 12);
       svg += '<circle cx="' + xs[i5].toFixed(1) + '" cy="' + ys[i5].toFixed(1) + '" r="4" fill="#F59E0B" stroke="#fff" stroke-width="2">' +
         '<title>' + esc(nm) + ' — ' + fmtAmt(amt2) + '</title>' +
       '</circle>';
-      svg += '<text x="' + xs[i5].toFixed(1) + '" y="' + labY.toFixed(1) + '" text-anchor="middle" font-size="10" font-weight="700" fill="#1E293B">' + esc(fmtAmt(amt2)) + '</text>';
-      svg += '<text x="' + xs[i5].toFixed(1) + '" y="' + (H - 18) + '" text-anchor="middle" font-size="10" fill="#64748B">' + esc(shortNm) + '</text>';
+      svg += '<text class="db-line-amt" x="' + xs[i5].toFixed(1) + '" y="' + labY.toFixed(1) + '" text-anchor="middle">' + esc(fmtAmt(amt2)) + '</text>';
+      if (rotate) {
+        var nx = xs[i5].toFixed(1);
+        var ny = (H - 22).toFixed(1);
+        svg += '<text class="db-line-name" x="' + nx + '" y="' + ny + '" text-anchor="end" transform="rotate(-30 ' + nx + ' ' + ny + ')">' + esc(shortNm) + '</text>';
+      } else {
+        svg += '<text class="db-line-name" x="' + xs[i5].toFixed(1) + '" y="' + (H - 18) + '" text-anchor="middle">' + esc(shortNm) + '</text>';
+      }
     }
     svg += '</svg>';
     return svg;
@@ -321,13 +331,13 @@
 
     var html = '';
 
-    // Top-5 line graph (children already sorted desc by amount)
-    var top5 = children.slice(0, Math.min(5, children.length));
-    if (top5.length > 0) {
+    // Trend line graph — all children up to cap of 15 (already sorted desc by amount)
+    var trendList = children.slice(0, Math.min(15, children.length));
+    if (trendList.length > 0) {
       html += '<div class="emp-fade db-section-wrap">';
-      html += '<div class="db-section-head">Top ' + top5.length + ' ' + label + ' <span class="db-top-badge">by Amount</span></div>';
+      html += '<div class="db-section-head">' + label + ' — Trend <span class="db-top-badge">' + trendList.length + ' by Amount</span></div>';
       html += '<div class="db-section-body">';
-      html += top5LineSvg(top5, nameOf);
+      html += trendLineSvg(trendList, nameOf);
       html += '</div></div>';
     }
 
@@ -431,7 +441,7 @@
     html += '<div style="font-size:24px;font-weight:700;">' + fmtNum(totalCount) + '</div></div>';
     html += '<div style="background:linear-gradient(135deg,#F59E0B,#FBBF24);border-radius:14px;padding:18px 20px;color:#fff;">';
     html += '<div style="font-size:12px;opacity:.8;margin-bottom:4px;">Amount</div>';
-    html += '<div style="font-size:24px;font-weight:700;">' + fmtAmt(totalAmount) + '</div></div>';
+    html += '<div style="font-size:24px;font-weight:700;">' + (totalAmount / 10000000).toFixed(2) + ' Cr</div></div>';
     html += '<div style="background:linear-gradient(135deg,#F59E0B,#FBBF24);border-radius:14px;padding:18px 20px;color:#fff;">';
     html += '<div style="font-size:12px;opacity:.8;margin-bottom:4px;">ATS</div>';
     html += '<div style="font-size:24px;font-weight:700;">' + fmtATS(ats) + '</div></div>';
