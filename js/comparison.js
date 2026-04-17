@@ -468,7 +468,7 @@
 
   /* ========== MAIN RENDER ========== */
   function render() {
-    var container = document.getElementById('comparisonContent');
+    var container = document.getElementById('compCollectionBody') || document.getElementById('comparisonContent');
     if (!_compData || !_compData.length || !_months) {
       container.innerHTML = '<div style="text-align:center;padding:80px 20px;color:#64748B;">No daily data available.</div>';
       return;
@@ -510,6 +510,7 @@
   }
 
   window._compNav = function (dir) {
+    if (!document.getElementById('compCollectionBody')) return;
     var n = _compDayIdx + dir;
     if (n >= 0 && n < _curDays.length) { _compDayIdx = n; render(); }
   };
@@ -520,9 +521,48 @@
     render();
   };
 
-  window._loadComparisonTab = function () {
+  function renderSubTabBar(active) {
+    function btn(key, label, disabled) {
+      var isActive = active === key;
+      var bg = isActive ? '#0F172A' : (disabled ? '#F1F5F9' : '#fff');
+      var color = isActive ? '#fff' : (disabled ? '#CBD5E1' : '#1E293B');
+      var cursor = disabled ? 'not-allowed' : 'pointer';
+      var onclick = disabled ? '' : ' onclick="window._setCompSub(\'' + key + '\')"';
+      return '<button' + onclick + ' style="padding:8px 18px;font-size:13px;font-weight:600;background:' + bg + ';color:' + color + ';border:none;cursor:' + cursor + ';font-family:inherit;">' + label + '</button>';
+    }
+    var html = '<div id="compSubTabBar" style="display:flex;justify-content:center;padding:14px 16px 0;">';
+    html += '<div style="display:inline-flex;border:1px solid #E2E8F0;border-radius:10px;overflow:hidden;background:#fff;box-shadow:0 1px 2px rgba(15,23,42,0.04);">';
+    html += btn('collection', 'Collection', false);
+    html += '<div style="width:1px;background:#E2E8F0;"></div>';
+    html += btn('disbursement', 'Disbursement', false);
+    html += '<div style="width:1px;background:#E2E8F0;"></div>';
+    html += btn('placeholder', '\u2026', true);
+    html += '</div></div>';
+    return html;
+  }
+
+  function dispatchSub(sub) {
     var c = document.getElementById('comparisonContent');
-    c.innerHTML = '<div style="text-align:center;padding:80px 20px;"><div style="width:32px;height:32px;border:3px solid #E2E8F0;border-top-color:#059669;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 12px;"></div><div style="color:#64748B;font-size:14px;">Loading...</div></div>';
+    if (!c) return;
+    c.innerHTML = renderSubTabBar(sub);
+    var body = document.createElement('div');
+    body.id = sub === 'disbursement' ? 'compDisbBody' : 'compCollectionBody';
+    c.appendChild(body);
+    if (sub === 'disbursement') {
+      if (typeof window.renderDisbComparison === 'function') window.renderDisbComparison();
+      else body.innerHTML = '<div style="text-align:center;padding:80px;color:#64748B;">Disbursement comparison module not loaded.</div>';
+    } else {
+      loadCollectionSub(body);
+    }
+  }
+
+  window._setCompSub = function (sub) {
+    try { localStorage.setItem('compSubTab', sub); } catch (e) {}
+    dispatchSub(sub);
+  };
+
+  function loadCollectionSub(body) {
+    body.innerHTML = '<div style="text-align:center;padding:80px 20px;"><div style="width:32px;height:32px;border:3px solid #E2E8F0;border-top-color:#059669;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 12px;"></div><div style="color:#64748B;font-size:14px;">Loading...</div></div>';
     // Build role-based filter params (same as daily API)
     var session = typeof getEmployeeSession === 'function' ? getEmployeeSession() : {};
     var params = [];
@@ -535,6 +575,13 @@
 
     fetch(url).then(function(r){return r.json();}).then(function(data){
       _compData = data; _compDayIdx = -1; initState(); render();
-    }).catch(function(){ c.innerHTML = '<div style="text-align:center;padding:80px;color:#64748B;">Failed to load data.</div>'; });
+    }).catch(function(){ body.innerHTML = '<div style="text-align:center;padding:80px;color:#64748B;">Failed to load data.</div>'; });
+  }
+
+  window._loadComparisonTab = function () {
+    var sub = 'collection';
+    try { sub = localStorage.getItem('compSubTab') || 'collection'; } catch (e) {}
+    if (sub !== 'collection' && sub !== 'disbursement') sub = 'collection';
+    dispatchSub(sub);
   };
 })();

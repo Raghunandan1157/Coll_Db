@@ -2455,6 +2455,34 @@ app.get("/api/disbursement/daily/by-employee", async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+app.get("/api/disbursement/daily/by-date-range", async (req, res) => {
+  try {
+    const from = req.query.from, to = req.query.to;
+    if (!from || !to) return res.status(400).json({ error: "from and to are required (YYYY-MM-DD)" });
+
+    // Reuse scope filters — strip date so it doesn't collide with range
+    var q = Object.assign({}, req.query); delete q.date; delete q.from; delete q.to;
+    const { clause, params } = buildDisbDailyWhere(q);
+
+    // Prepend the range predicates; shift existing $N by 2
+    var shifted = clause.replace(/\$(\d+)/g, function(_, n) { return "$" + (parseInt(n,10) + 2); });
+    var rangeClause = " WHERE d.disb_date >= $1 AND d.disb_date <= $2"
+      + (shifted ? shifted.replace(/^ WHERE /, " AND ") : "");
+    var allParams = [from, to].concat(params);
+
+    const result = await pool.query(
+      "SELECT d.disb_date, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount)::numeric AS total_amount FROM disbursement_daily d"
+      + rangeClause + " GROUP BY d.disb_date ORDER BY d.disb_date ASC",
+      allParams
+    );
+    res.json(result.rows.map(function(r) {
+      var dt = r.disb_date;
+      if (dt instanceof Date) dt = dt.toISOString().substring(0,10);
+      return { disb_date: dt, total_count: r.total_count, total_amount: r.total_amount };
+    }));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 
 const PORT = 3000;
 
