@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#F8FAFC">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔐</text></svg>">
+  <title>NLPL — OTP Test Login</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:#F8FAFC; --surface:#FFFFFF; --border:#E2E8F0;
+      --text:#1E293B; --muted:#64748B; --accent:#059669;
+    }
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+
+    .wrap{max-width:760px;margin:0 auto;padding:48px 20px;}
+    .brand{text-align:center;margin-bottom:36px;}
+    .brand h1{font-family:'Playfair Display',serif;font-size:34px;letter-spacing:-0.5px;}
+    .brand p{font-size:14px;color:var(--muted);margin-top:6px;}
+    .brand .tag{display:inline-block;margin-top:12px;font-size:11px;font-weight:700;color:#D97706;background:#FEF3C7;border:1px solid #FCD34D;padding:4px 10px;border-radius:999px;letter-spacing:0.5px;text-transform:uppercase;}
+
+    .tile-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;}
+    @media(min-width:600px){.tile-grid{grid-template-columns:repeat(4,1fr);}}
+
+    .tile{
+      background:var(--surface);border:1px solid var(--border);border-radius:16px;
+      padding:24px 18px;text-align:center;cursor:pointer;
+      transition:all 0.15s;user-select:none;
+      box-shadow:0 1px 2px rgba(0,0,0,0.03);
+    }
+    .tile:hover{border-color:var(--accent);box-shadow:0 6px 16px rgba(5,150,105,0.12);transform:translateY(-2px);}
+    .tile:active{transform:translateY(0);}
+    .tile .avatar{
+      width:56px;height:56px;border-radius:16px;margin:0 auto 12px;
+      display:flex;align-items:center;justify-content:center;
+      font-weight:800;font-size:20px;letter-spacing:0.5px;
+    }
+    .avatar-ceo{background:#FEF3C7;color:#D97706;}
+    .avatar-rm{background:#F3E8FF;color:#7C3AED;}
+    .avatar-dm{background:#DBEAFE;color:#2563EB;}
+    .avatar-bm{background:#ECFDF5;color:#059669;}
+    .tile .role{font-weight:700;font-size:16px;}
+    .tile .loc{font-size:12px;color:var(--muted);margin-top:2px;}
+    .tile .gate{display:inline-block;margin-top:12px;font-size:10px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;padding:3px 9px;border-radius:999px;}
+    .gate-otp{background:#FEE2E2;color:#B91C1C;}
+    .gate-open{background:#D1FAE5;color:#065F46;}
+
+    .footer{text-align:center;margin-top:40px;font-size:13px;}
+    .footer a{color:var(--muted);text-decoration:none;}
+    .footer a:hover{color:var(--accent);}
+
+    /* Modal */
+    .overlay{
+      position:fixed;inset:0;background:rgba(15,23,42,0.5);
+      display:none;align-items:center;justify-content:center;
+      z-index:100;padding:20px;backdrop-filter:blur(4px);
+    }
+    .overlay.show{display:flex;}
+    .modal{
+      background:var(--surface);border-radius:20px;padding:28px;
+      width:100%;max-width:420px;box-shadow:0 20px 40px rgba(0,0,0,0.2);
+      position:relative;
+    }
+    .modal h2{font-size:20px;margin-bottom:6px;}
+    .modal .sub{color:var(--muted);font-size:13px;margin-bottom:18px;line-height:1.5;}
+    .role-pill{
+      display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;
+      padding:4px 10px;border-radius:999px;margin-bottom:14px;letter-spacing:0.5px;text-transform:uppercase;
+    }
+
+    .input-group{margin-bottom:12px;}
+    .input-group label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px;}
+    .input-group input{
+      width:100%;padding:14px 16px;border:1px solid var(--border);
+      border-radius:12px;background:#F1F5F9;font-size:16px;font-family:inherit;outline:none;
+      transition:all 0.15s;
+    }
+    .input-group input:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(5,150,105,0.1);background:#fff;}
+    .otp-input{letter-spacing:8px;text-align:center;font-weight:700;font-size:22px!important;}
+
+    .btn{
+      width:100%;padding:14px;border:none;border-radius:12px;
+      background:var(--accent);color:#fff;font-weight:600;font-size:15px;
+      font-family:inherit;cursor:pointer;transition:all 0.15s;
+    }
+    .btn:hover:not(:disabled){background:#047857;}
+    .btn:disabled{background:#94A3B8;cursor:not-allowed;}
+    .btn-secondary{background:transparent;color:var(--muted);border:1px solid var(--border);}
+    .btn-secondary:hover:not(:disabled){background:#F1F5F9;color:var(--text);}
+
+    .btn-row{display:flex;gap:10px;margin-top:10px;}
+    .btn-row .btn{flex:1;}
+
+    .resend{text-align:center;margin-top:12px;font-size:13px;color:var(--muted);}
+    .resend a{color:var(--accent);font-weight:600;text-decoration:none;cursor:pointer;}
+    .resend a.disabled{color:#94A3B8;cursor:not-allowed;pointer-events:none;}
+
+    .msg{margin-top:8px;font-size:13px;min-height:18px;line-height:1.4;}
+    .msg-err{color:#DC2626;}
+    .msg-ok{color:var(--accent);}
+
+    .view{display:none;}
+    .view.active{display:block;}
+
+    .success-ic{
+      width:64px;height:64px;margin:8px auto 16px;border-radius:50%;
+      background:#D1FAE5;color:var(--accent);
+      display:flex;align-items:center;justify-content:center;font-size:36px;font-weight:700;
+    }
+    .success-text{text-align:center;}
+    .success-text h2{margin-bottom:8px;}
+    .success-text p{color:var(--muted);margin-bottom:0;}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="brand">
+      <h1>Select Role</h1>
+      <p>OTP verification for sensitive roles (CEO, RM, DM)</p>
+      <span class="tag">Test Page</span>
+    </div>
+
+    <div class="tile-grid">
+      <div class="tile" data-role="CEO" data-location="Overall">
+        <div class="avatar avatar-ceo">CEO</div>
+        <div class="role">CEO</div>
+        <div class="loc">Overall</div>
+        <div class="gate gate-otp">OTP</div>
+      </div>
+      <div class="tile" data-role="RM" data-location="DHARWAD">
+        <div class="avatar avatar-rm">RM</div>
+        <div class="role">RM</div>
+        <div class="loc">DHARWAD</div>
+        <div class="gate gate-otp">OTP</div>
+      </div>
+      <div class="tile" data-role="DM" data-location="BELAGAVI">
+        <div class="avatar avatar-dm">DM</div>
+        <div class="role">DM</div>
+        <div class="loc">BELAGAVI</div>
+        <div class="gate gate-otp">OTP</div>
+      </div>
+      <div class="tile" data-role="BM" data-location="Jayanagar">
+        <div class="avatar avatar-bm">BM</div>
+        <div class="role">BM</div>
+        <div class="loc">Jayanagar</div>
+        <div class="gate gate-open">Direct</div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <a href="/api/otp/audit" target="_blank">View OTP audit log →</a>
+    </div>
+  </div>
+
+  <div class="overlay" id="overlay">
+    <div class="modal">
+      <div class="view active" id="view-mobile">
+        <div class="role-pill" id="role-pill-1"></div>
+        <h2>Enter mobile number</h2>
+        <p class="sub">We'll send a 4-digit OTP to this number. Any valid Indian mobile works for this test.</p>
+        <div class="input-group">
+          <label>Mobile number</label>
+          <input type="tel" id="mobile-input" placeholder="10-digit number" maxlength="10" inputmode="numeric" autocomplete="off">
+        </div>
+        <div class="msg msg-err" id="mobile-msg"></div>
+        <button class="btn" id="send-btn">Send OTP</button>
+        <div class="btn-row">
+          <button class="btn btn-secondary" id="cancel-1">Cancel</button>
+        </div>
+      </div>
+
+      <div class="view" id="view-otp">
+        <div class="role-pill" id="role-pill-2"></div>
+        <h2>Enter the 4-digit OTP</h2>
+        <p class="sub" id="otp-sub">Sent to +91 •••• •• ••••</p>
+        <div class="input-group">
+          <input type="tel" id="otp-input" class="otp-input" placeholder="• • • •" maxlength="4" inputmode="numeric" autocomplete="one-time-code">
+        </div>
+        <div class="msg msg-err" id="otp-msg"></div>
+        <button class="btn" id="verify-btn">Verify</button>
+        <div class="resend">
+          Didn't get it? <a id="resend-link" class="disabled">Resend in 30s</a>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-secondary" id="back-btn">← Back</button>
+        </div>
+      </div>
+
+      <div class="view" id="view-success">
+        <div class="success-ic">✓</div>
+        <div class="success-text">
+          <h2>Verified</h2>
+          <p id="success-text">Logging you in…</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/storage.js?v=49"></script>
+  <script src="js/auth.js?v=49"></script>
+  <script>
+    (function(){
+      var state = { role: null, location: null, mobile: null };
+      var $ = function(id) { return document.getElementById(id); };
+
+      function maskMobile(m) {
+        if (!m || m.length < 10) return m;
+        return '+91 ' + m.slice(0,2) + ' ••• •' + m.slice(-3);
+      }
+
+      function setRolePill(el, role) {
+        var colors = {
+          CEO: { bg:'#FEF3C7', fg:'#D97706' },
+          RM:  { bg:'#F3E8FF', fg:'#7C3AED' },
+          DM:  { bg:'#DBEAFE', fg:'#2563EB' }
+        };
+        var c = colors[role] || { bg:'#E2E8F0', fg:'#475569' };
+        el.style.background = c.bg; el.style.color = c.fg;
+        el.textContent = role + ' — ' + state.location;
+      }
+
+      function showView(id) {
+        var views = document.querySelectorAll('.view');
+        for (var i = 0; i < views.length; i++) views[i].classList.remove('active');
+        $(id).classList.add('active');
+      }
+
+      function openModal(role, location) {
+        state.role = role; state.location = location; state.mobile = null;
+        setRolePill($('role-pill-1'), role);
+        setRolePill($('role-pill-2'), role);
+        $('mobile-input').value = '';
+        $('otp-input').value = '';
+        $('mobile-msg').textContent = '';
+        $('otp-msg').textContent = '';
+        showView('view-mobile');
+        $('overlay').classList.add('show');
+        setTimeout(function(){ $('mobile-input').focus(); }, 50);
+      }
+
+      function closeModal() { $('overlay').classList.remove('show'); }
+
+      var tiles = document.querySelectorAll('.tile');
+      for (var i = 0; i < tiles.length; i++) {
+        tiles[i].addEventListener('click', function() {
+          var role = this.dataset.role;
+          var location = this.dataset.location;
+          if (role === 'BM') {
+            if (typeof setRoleSession === 'function') setRoleSession(role, location);
+            window.location.href = 'employee.html';
+            return;
+          }
+          openModal(role, location);
+        });
+      }
+
+      $('mobile-input').addEventListener('input', function(e) {
+        e.target.value = e.target.value.replace(/\D/g, '').slice(0, 10);
+      });
+      $('otp-input').addEventListener('input', function(e) {
+        e.target.value = e.target.value.replace(/\D/g, '').slice(0, 4);
+      });
+
+      $('cancel-1').addEventListener('click', closeModal);
+      $('back-btn').addEventListener('click', function() { showView('view-mobile'); });
+
+      var sendBtn = $('send-btn');
+      sendBtn.addEventListener('click', async function() {
+        var mob = $('mobile-input').value.trim();
+        var msg = $('mobile-msg');
+        msg.textContent = '';
+        if (mob.length !== 10) { msg.textContent = 'Enter a 10-digit mobile number.'; return; }
+        sendBtn.disabled = true; sendBtn.textContent = 'Sending…';
+        try {
+          var r = await fetch('/api/otp/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mobile: mob, role: state.role })
+          });
+          var data = await r.json().catch(function(){ return {}; });
+          if (!r.ok) throw new Error(data.error || 'Send failed (' + r.status + ')');
+          state.mobile = mob;
+          $('otp-sub').textContent = 'Sent to ' + maskMobile(mob);
+          showView('view-otp');
+          setTimeout(function(){ $('otp-input').focus(); }, 50);
+          startResendCountdown();
+        } catch (err) {
+          msg.textContent = err.message || 'Could not send OTP.';
+        } finally {
+          sendBtn.disabled = false; sendBtn.textContent = 'Send OTP';
+        }
+      });
+
+      var verifyBtn = $('verify-btn');
+      verifyBtn.addEventListener('click', async function() {
+        var code = $('otp-input').value.trim();
+        var msg = $('otp-msg');
+        msg.textContent = '';
+        if (code.length !== 4) { msg.textContent = 'Enter the 4-digit OTP.'; return; }
+        verifyBtn.disabled = true; verifyBtn.textContent = 'Verifying…';
+        try {
+          var r = await fetch('/api/otp/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mobile: state.mobile, role: state.role, code: code })
+          });
+          var data = await r.json().catch(function(){ return {}; });
+          if (!r.ok) throw new Error(data.error || 'Verification failed');
+          $('success-text').textContent = 'Logging you in as ' + state.role + ' — ' + state.location;
+          showView('view-success');
+          setTimeout(function() {
+            if (typeof setRoleSession === 'function') setRoleSession(state.role, state.location);
+            window.location.href = 'employee.html';
+          }, 1200);
+        } catch (err) {
+          msg.textContent = err.message || 'Invalid OTP.';
+          $('otp-input').value = '';
+          $('otp-input').focus();
+        } finally {
+          verifyBtn.disabled = false; verifyBtn.textContent = 'Verify';
+        }
+      });
+
+      var cooldownTimer = null;
+      function startResendCountdown() {
+        var link = $('resend-link');
+        var remaining = 30;
+        link.classList.add('disabled');
+        link.textContent = 'Resend in ' + remaining + 's';
+        clearInterval(cooldownTimer);
+        cooldownTimer = setInterval(function() {
+          remaining--;
+          if (remaining <= 0) {
+            clearInterval(cooldownTimer);
+            link.classList.remove('disabled');
+            link.textContent = 'Resend';
+          } else {
+            link.textContent = 'Resend in ' + remaining + 's';
+          }
+        }, 1000);
+      }
+      $('resend-link').addEventListener('click', function(e) {
+        e.preventDefault();
+        if (this.classList.contains('disabled')) return;
+        showView('view-mobile');
+        setTimeout(function(){ sendBtn.click(); }, 30);
+      });
+
+      $('mobile-input').addEventListener('keydown', function(e){ if (e.key === 'Enter') sendBtn.click(); });
+      $('otp-input').addEventListener('keydown', function(e){ if (e.key === 'Enter') verifyBtn.click(); });
+
+      $('overlay').addEventListener('click', function(e){ if (e.target === this) closeModal(); });
+      document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeModal(); });
+    })();
+  </script>
+</body>
+</html>

@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require("express");
 const { Pool, Client } = require("pg");
 const cors = require("cors");
@@ -4420,5 +4421,153 @@ app.post("/api/ai-chat", aiLimiter, async (req, res) => {
   }
   // Queue soft guard: all slots full AND all Gemini models failed
   res.status(429).json({ error: 'AI is briefly busy. Please retry in a moment.' });
+});
+
+
+// ========== OTP Gate (sensitive roles: CEO / RM / DM) ==========
+// Demo at /test.employee.html — sends 4-digit OTP via Vasudev SMS.
+// Mobile numbers are user-entered (not looked up from DB).
+const otpStore = new Map(); // key: `${mobile}|${role}` -> { code, expiresAt, used }
+const SENSITIVE_ROLES = ['CEO', 'RM', 'DM'];
+const OTP_TTL_MS = 5 * 60 * 1000;
+const OTP_MAX_PER_HOUR = 5;
+
+function normalizeMobile(raw) {
+  const digits = String(raw || '').replace(/\D/g, '');
+  if (digits.length === 10) return digits;
+  if (digits.length === 12 && digits.startsWith('91')) return digits.slice(2);
+  if (digits.length === 11 && digits.startsWith('0')) return digits.slice(1);
+  return null;
+}
+
+function gen4DigitOtp() {
+  return crypto.randomInt(0, 10000).toString().padStart(4, '0');
+}
+
+function sendVasudevSms(mobileTen, otp) {
+  const senderId = process.env.SMS_SENDER_ID || 'NVCHTN';
+  const payload = JSON.stringify({
+    Account: {
+      User: process.env.SMS_USER,
+      Password: process.env.SMS_PASSWORD,
+      SenderId: senderId,
+      Channel: '2',
+      DCS: '8'
+    },
+    Messages: [{
+      Number: '91' + mobileTen,
+      Text: 'Your OTP for Navachetana Microfin Service Private Limited is ' + otp + '. Please DO NOT share this OTP with anyone to keep your data safe.'
+    }]
+  });
+  return new Promise((resolve, reject) => {
+    const req = https.request({
+      hostname: 'portal.vasudevsms.in',
+      path: '/api/mt/SendSMS',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(payload),
+        'APIKey': process.env.SMS_API_KEY
+      }
+    }, (resp) => {
+      let body = '';
+      resp.on('data', c => body += c);
+      resp.on('end', () => {
+        if (resp.statusCode >= 200 && resp.statusCode < 300) resolve(body);
+        else reject(new Error('SMS gateway HTTP ' + resp.statusCode + ': ' + body.slice(0, 200)));
+      });
+    });
+    req.on('error', reject);
+    req.setTimeout(8000, () => { req.destroy(new Error('SMS gateway timeout')); });
+    req.write(payload);
+    req.end();
+  });
+}
+
+async function logOtpAudit(mobile, role, outcome, req) {
+  try {
+    await pool.query(
+      "INSERT INTO otp_audit (mobile, role, outcome, ip, user_agent) VALUES ($1, $2, $3, $4, $5)",
+      [mobile, role, outcome, String(req.ip || '').slice(0, 45), String(req.get('user-agent') || '').slice(0, 500)]
+    );
+  } catch (e) {
+    console.error('otp_audit insert failed:', e.message);
+  }
+}
+
+const otpLimiter = rateLimit({ windowMs: 60 * 1000, max: 20, message: { error: 'Too many OTP requests. Please slow down.' } });
+
+app.post('/api/otp/send', otpLimiter, async (req, res) => {
+  try {
+    const { mobile, role } = req.body || {};
+    if (!SENSITIVE_ROLES.includes(role)) {
+      return res.status(400).json({ error: 'OTP only required for CEO, RM, or DM.' });
+    }
+    const mob = normalizeMobile(mobile);
+    if (!mob) {
+      return res.status(400).json({ error: 'Enter a valid 10-digit Indian mobile number.' });
+    }
+    const rate = await pool.query(
+      "SELECT COUNT(*)::int AS n FROM otp_audit WHERE mobile = $1 AND outcome = 'sent' AND created_at > NOW() - INTERVAL '1 hour'",
+      [mob]
+    );
+    if (rate.rows[0].n >= OTP_MAX_PER_HOUR) {
+      return res.status(429).json({ error: 'OTP limit reached (5 per hour). Try again later.' });
+    }
+    if (!process.env.SMS_API_KEY || !process.env.SMS_USER || !process.env.SMS_PASSWORD) {
+      return res.status(503).json({ error: 'SMS service not configured.' });
+    }
+    const code = gen4DigitOtp();
+    otpStore.set(mob + '|' + role, { code, expiresAt: Date.now() + OTP_TTL_MS, used: false });
+    try {
+      await sendVasudevSms(mob, code);
+      await logOtpAudit(mob, role, 'sent', req);
+      return res.json({ ok: true });
+    } catch (smsErr) {
+      console.error('Vasudev SMS send failed:', smsErr.message);
+      await logOtpAudit(mob, role, 'send_failed', req);
+      return res.status(502).json({ error: 'Could not send SMS. Please try again.' });
+    }
+  } catch (err) {
+    console.error('otp send error:', err);
+    res.status(500).json({ error: err.message || 'Server error' });
+  }
+});
+
+app.post('/api/otp/verify', otpLimiter, async (req, res) => {
+  try {
+    const { mobile, role, code } = req.body || {};
+    if (!SENSITIVE_ROLES.includes(role)) {
+      return res.status(400).json({ error: 'Invalid role.' });
+    }
+    const mob = normalizeMobile(mobile);
+    if (!mob || !code) {
+      return res.status(400).json({ error: 'Missing fields.' });
+    }
+    const key = mob + '|' + role;
+    const entry = otpStore.get(key);
+    const valid = entry && !entry.used && entry.expiresAt > Date.now() && String(entry.code) === String(code).trim();
+    if (!valid) {
+      await logOtpAudit(mob, role, 'verify_failed', req);
+      return res.status(401).json({ error: 'Invalid or expired OTP.' });
+    }
+    entry.used = true;
+    await logOtpAudit(mob, role, 'verified', req);
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('otp verify error:', err);
+    res.status(500).json({ error: err.message || 'Server error' });
+  }
+});
+
+app.get('/api/otp/audit', async (req, res) => {
+  try {
+    const r = await pool.query(
+      'SELECT id, mobile, role, outcome, ip, created_at FROM otp_audit ORDER BY created_at DESC LIMIT 200'
+    );
+    res.json(r.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
