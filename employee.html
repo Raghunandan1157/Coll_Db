@@ -2870,7 +2870,27 @@ function selectCalDate(date) {
 
 
 <script>
+function navigateDbDate(dir) {
+  var list = (window._db && window._db.availableDates) || [];
+  if (!list.length) return;
+  var cur = localStorage.getItem('dbSelectedDate') || (window._db && window._db.date) || '';
+  if (!cur) return;
+  var idx = list.indexOf(cur);
+  if (idx < 0) return;
+  // availableDates is DESC-sorted: idx 0 = newest. dir=1 (next/right) → newer → idx-1; dir=-1 → older → idx+1.
+  var newIdx = idx - dir;
+  if (newIdx < 0 || newIdx >= list.length) return;
+  var target = list[newIdx];
+  localStorage.setItem('dbSelectedDate', target);
+  localStorage.setItem('dbMonth', '');
+  if (window._db) { window._db.date = target; window._db.month = ''; }
+  if (typeof window.loadDisbursement === 'function') window.loadDisbursement();
+  updateArrowVisibility('disbursement');
+}
+
 function navigateDate(dir) {
+  var activeTab = localStorage.getItem('activeTab') || 'collection';
+  if (activeTab === 'disbursement') { navigateDbDate(dir); return; }
   if (!_calDates || !_calDates.length) return;
   var sorted = _calDates.slice().sort();
   var current = window._collState ? window._collState.date : null;
@@ -2930,7 +2950,7 @@ function updateArrowVisibility(tab) {
   var badgeText = document.getElementById('dateBadgeText');
   
   if (prev && next) {
-    var showArrows = (tab === 'collection');
+    var showArrows = (tab === 'collection') || (tab === 'disbursement' && !!localStorage.getItem('dbSelectedDate'));
     prev.style.display = showArrows ? '' : 'none';
     next.style.display = showArrows ? '' : 'none';
   }
