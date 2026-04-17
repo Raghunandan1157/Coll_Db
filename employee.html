@@ -3131,24 +3131,83 @@ function renderDisbPicker(overlay, grid, title) {
     attachDisbHandlers();
   }
 
+  var _calDbState = { year: null, month: null };
+  function pad2(n) { return (n < 10 ? '0' : '') + n; }
+
   function renderDate(dates) {
     var currentDate = localStorage.getItem('dbSelectedDate') || '';
-    var html = toggleHtml();
-    if (!dates || !dates.length) {
-      html += '<div style="grid-column:1/-1;text-align:center;padding:24px;color:#94A3B8;font-size:14px;">No dates available.</div>';
-    } else {
-      for (var i = 0; i < dates.length; i++) {
-        var d = dates[i];
-        var iso = String(d).slice(0, 10);
-        var isActive = iso === currentDate;
-        html += '<button data-mp-date="' + iso + '" style="' +
-          'padding:10px 8px;border-radius:10px;font-size:12px;font-weight:600;cursor:pointer;border:none;transition:all .15s;text-align:center;' +
-          (isActive ? 'background:' + color + ';color:#fff;box-shadow:0 2px 8px ' + color + '40;' : 'background:#F8FAFC;color:#1E293B;') +
-        '">' + escHtml(formatDbDate(iso)) + '</button>';
+    var hasDataSet = {};
+    var latest = null;
+    var list = dates || [];
+    for (var i = 0; i < list.length; i++) {
+      var s = String(list[i]).slice(0, 10);
+      hasDataSet[s] = true;
+      if (!latest || s > latest) latest = s;
+    }
+
+    if (_calDbState.year === null) {
+      var seed = currentDate || latest;
+      if (seed) {
+        var sp = seed.split('-');
+        _calDbState.year = parseInt(sp[0], 10);
+        _calDbState.month = parseInt(sp[1], 10) - 1;
+      } else {
+        var now = new Date();
+        _calDbState.year = now.getFullYear();
+        _calDbState.month = now.getMonth();
       }
     }
+
+    var year = _calDbState.year;
+    var month = _calDbState.month;
+    var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    var firstDay = new Date(year, month, 1).getDay();
+    var daysInMonth = new Date(year, month + 1, 0).getDate();
+    var todayD = new Date();
+    var todayIso = todayD.getFullYear() + '-' + pad2(todayD.getMonth() + 1) + '-' + pad2(todayD.getDate());
+
+    var html = toggleHtml();
+    html += '<div style="grid-column:1/-1;">';
+    html += '<div class="calendar-nav">' +
+      '<button class="calendar-nav-btn" data-cal-nav="-1">&larr;</button>' +
+      '<span class="calendar-month">' + monthNames[month] + ' ' + year + '</span>' +
+      '<button class="calendar-nav-btn" data-cal-nav="1">&rarr;</button>' +
+    '</div>';
+    html += '<div class="calendar-grid">';
+    var dows = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+    for (var j = 0; j < 7; j++) html += '<div class="calendar-dow">' + dows[j] + '</div>';
+    for (var k = 0; k < firstDay; k++) html += '<div></div>';
+    for (var d = 1; d <= daysInMonth; d++) {
+      var iso = year + '-' + pad2(month + 1) + '-' + pad2(d);
+      var classes = 'calendar-day';
+      if (hasDataSet[iso]) classes += ' has-data';
+      if (iso === currentDate) classes += ' selected';
+      if (iso === todayIso) classes += ' today';
+      var attr = hasDataSet[iso] ? ' data-mp-date="' + iso + '"' : '';
+      html += '<button class="' + classes + '"' + attr + '>' + d + '</button>';
+    }
+    html += '</div>';
+    html += '<div class="calendar-actions">';
+    if (latest) {
+      html += '<button class="calendar-latest-btn" data-mp-date="' + latest + '">Latest (' + escHtml(formatDbDate(latest)) + ')</button>';
+    }
+    html += '</div>';
+    if (!list.length) {
+      html += '<div style="text-align:center;padding:12px;color:#94A3B8;font-size:13px;">No dates available.</div>';
+    }
+    html += '</div>';
+
     grid.innerHTML = html;
     attachDisbHandlers();
+    grid.querySelectorAll('[data-cal-nav]').forEach(function(btn) {
+      btn.onclick = function() {
+        var delta = parseInt(btn.dataset.calNav, 10);
+        _calDbState.month += delta;
+        if (_calDbState.month < 0) { _calDbState.month = 11; _calDbState.year--; }
+        else if (_calDbState.month > 11) { _calDbState.month = 0; _calDbState.year++; }
+        renderDate(list);
+      };
+    });
   }
 
   function attachDisbHandlers() {
