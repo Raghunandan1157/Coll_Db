@@ -38,6 +38,18 @@
   function esc(s) { return String(s).replace(/[&<>"']/g, function(c) { return '&#' + c.charCodeAt(0) + ';'; }); }
   function apiFetch(url) { return fetch(url).then(function(r) { if (!r.ok) throw new Error('API ' + r.status); return r.json(); }); }
 
+  function scopeOnlyParams() {
+    var p = [];
+    if ((session.role === 'RM' || session.role === 'SM') && session.location) p.push('region=' + encodeURIComponent(session.location));
+    else if ((session.role === 'DM' || session.role === 'DvM') && session.location) p.push('division=' + encodeURIComponent(session.location));
+    else if (session.role === 'AM' && session.location) p.push('area=' + encodeURIComponent(session.location));
+    else if (session.role === 'BM' && session.location) p.push('branch=' + encodeURIComponent(session.location));
+    else if ((!session.role || session.role === 'FO') && session.id) p.push('emp_id=' + encodeURIComponent(session.id));
+    if (_db && _db.product && _db.product !== 'all') p.push('product_name=' + encodeURIComponent(_db.product.toUpperCase()));
+    return p.length ? '?' + p.join('&') : '';
+  }
+  window._dbScopeOnlyParams = scopeOnlyParams;
+
   var _db = window._db = {
     months: [],
     month: localStorage.getItem('dbMonth') || '',
@@ -101,11 +113,14 @@
     // Fetch availableDates once (needed for keyboard nav + first-load default).
     var initPromise;
     if (!_db.availableDates || !_db.availableDates.length) {
-      initPromise = apiFetch('/api/disbursement/daily/dates').then(function(data) {
+      initPromise = apiFetch('/api/disbursement/daily/dates' + scopeOnlyParams()).then(function(data) {
         var list = Array.isArray(data) ? data.map(function(x) { return String(x.disb_date || x.date || x).slice(0, 10); }) : [];
         _db.availableDates = list;
-        // First-load default: pick newest if neither date nor month selected yet.
-        if (!_db.date && !_db.month && list.length) {
+        if (!list.length) {
+          // Scope returned no dates — drop any stale selected date so month mode kicks in.
+          if (_db.date) { _db.date = null; localStorage.removeItem('dbSelectedDate'); }
+        } else if (!_db.date && !_db.month) {
+          // First-load default: pick newest if neither date nor month selected yet.
           _db.date = list[0];
           localStorage.setItem('dbSelectedDate', list[0]);
         }
@@ -114,7 +129,26 @@
       initPromise = Promise.resolve();
     }
 
-    initPromise.then(function() { runLoad(); });
+    initPromise.then(function() {
+      if (_db.availableDates && _db.availableDates.length === 0 && !_db.month && isScopedUser()) {
+        container.innerHTML = '<div style="text-align:center;padding:80px 20px;color:#64748B;font-size:14px;">No disbursements recorded for your ' + scopedLabel() + ' yet.</div>';
+        return;
+      }
+      runLoad();
+    });
+  }
+
+  function isScopedUser() {
+    var r = session.role;
+    return ((r === 'RM' || r === 'SM' || r === 'DM' || r === 'DvM' || r === 'AM' || r === 'BM') && session.location) || ((!r || r === 'FO') && session.id);
+  }
+  function scopedLabel() {
+    var r = session.role;
+    if (r === 'BM') return 'branch';
+    if (r === 'AM') return 'area';
+    if (r === 'DM' || r === 'DvM') return 'division';
+    if (r === 'RM' || r === 'SM') return 'region';
+    return 'account';
   }
 
   function runLoad() {

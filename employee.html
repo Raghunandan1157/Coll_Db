@@ -2678,7 +2678,7 @@ body.emp-dark .ai-bar-icon { background: rgba(99,102,241,0.15); color: #A5B4FC; 
   <script src="js/portfolio.js?v=49"></script>
   <script src="js/collection.js?v=50"></script>
   <script src="js/hourly.js?v=49"></script>
-  <script src="js/disbursement.js?v=55"></script>
+  <script src="js/disbursement.js?v=56"></script>
   <script src="js/comparison.js?v=50"></script>
   <script src="js/comparison-disbursement.js?v=4"></script>
   <script src="js/analytical.js?v=49"></script>
@@ -3447,9 +3447,15 @@ function renderDisbPicker(overlay, grid, title) {
     if (cached && cached.length) { renderDate(cached); return; }
     grid.innerHTML = toggleHtml() + '<div style="grid-column:1/-1;text-align:center;padding:24px;color:#94A3B8;font-size:13px;">Loading dates…</div>';
     attachDisbHandlers();
-    fetch('/api/disbursement/daily/dates').then(function(r) { return r.json(); }).then(function(data) {
+    var scope = (typeof window._dbScopeOnlyParams === 'function') ? window._dbScopeOnlyParams() : '';
+    fetch('/api/disbursement/daily/dates' + scope).then(function(r) { return r.json(); }).then(function(data) {
       var list = Array.isArray(data) ? data.map(function(x) { return x.disb_date || x.date || x; }) : [];
       if (window._db) window._db.availableDates = list;
+      if (!list.length) {
+        grid.innerHTML = toggleHtml() + '<div style="grid-column:1/-1;text-align:center;padding:24px;color:#94A3B8;font-size:13px;">No disbursement dates recorded for your scope yet.</div>';
+        attachDisbHandlers();
+        return;
+      }
       renderDate(list);
     }).catch(function() {
       grid.innerHTML = toggleHtml() + '<div style="grid-column:1/-1;text-align:center;padding:24px;color:#EF4444;font-size:13px;">Failed to load dates.</div>';
