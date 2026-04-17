@@ -222,6 +222,53 @@
     return '<div class="db-donut" style="background:conic-gradient(' + stops.join(',') + ');"></div>';
   }
 
+  function top5LineSvg(entries, nameFn) {
+    if (!entries || !entries.length) return '';
+    var n = entries.length;
+    var W = 500, H = 180;
+    var padL = 30, padR = 20, padT = 24, padB = 40;
+    var plotW = W - padL - padR;
+    var plotH = H - padT - padB;
+    var maxV = 0;
+    for (var i = 0; i < n; i++) { var v = numVal(entries[i].total_amount); if (v > maxV) maxV = v; }
+    if (maxV <= 0) maxV = 1;
+    var xs = [], ys = [];
+    for (var i2 = 0; i2 < n; i2++) {
+      var x = (n === 1) ? (padL + plotW / 2) : (padL + (i2 * plotW) / (n - 1));
+      var amt = numVal(entries[i2].total_amount);
+      var y = padT + (1 - amt / maxV) * plotH;
+      xs.push(x); ys.push(y);
+    }
+    var lineD = '';
+    for (var i3 = 0; i3 < n; i3++) lineD += (i3 === 0 ? 'M' : ' L') + xs[i3].toFixed(1) + ' ' + ys[i3].toFixed(1);
+    var baseY = padT + plotH;
+    var areaD = 'M' + xs[0].toFixed(1) + ' ' + baseY.toFixed(1) + ' ';
+    for (var i4 = 0; i4 < n; i4++) areaD += 'L' + xs[i4].toFixed(1) + ' ' + ys[i4].toFixed(1) + ' ';
+    areaD += 'L' + xs[n - 1].toFixed(1) + ' ' + baseY.toFixed(1) + ' Z';
+
+    var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" style="width:100%;height:200px;display:block;">';
+    svg += '<defs><linearGradient id="dbTop5Grad" x1="0" y1="0" x2="0" y2="1">' +
+      '<stop offset="0%" stop-color="#F59E0B" stop-opacity="0.35"/>' +
+      '<stop offset="100%" stop-color="#F59E0B" stop-opacity="0"/>' +
+    '</linearGradient></defs>';
+    svg += '<path d="' + areaD + '" fill="url(#dbTop5Grad)"/>';
+    svg += '<path d="' + lineD + '" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
+    for (var i5 = 0; i5 < n; i5++) {
+      var e = entries[i5];
+      var nm = nameFn(e) || '';
+      var amt2 = numVal(e.total_amount);
+      var shortNm = nm.length > 14 ? nm.slice(0, 13) + '…' : nm;
+      var labY = Math.max(ys[i5] - 8, 12);
+      svg += '<circle cx="' + xs[i5].toFixed(1) + '" cy="' + ys[i5].toFixed(1) + '" r="4" fill="#F59E0B" stroke="#fff" stroke-width="2">' +
+        '<title>' + esc(nm) + ' — ' + fmtAmt(amt2) + '</title>' +
+      '</circle>';
+      svg += '<text x="' + xs[i5].toFixed(1) + '" y="' + labY.toFixed(1) + '" text-anchor="middle" font-size="10" font-weight="700" fill="#1E293B">' + esc(fmtAmt(amt2)) + '</text>';
+      svg += '<text x="' + xs[i5].toFixed(1) + '" y="' + (H - 18) + '" text-anchor="middle" font-size="10" fill="#64748B">' + esc(shortNm) + '</text>';
+    }
+    svg += '</svg>';
+    return svg;
+  }
+
   function productLegendHtml(byProduct, totalAmt) {
     var colors = { IGL: '#10B981', FIG: '#6366F1', IL: '#F59E0B' };
     var html = '<div class="db-legend">';
@@ -274,15 +321,13 @@
 
     var html = '';
 
-    // Top-5 strip (children already sorted desc by amount)
+    // Top-5 line graph (children already sorted desc by amount)
     var top5 = children.slice(0, Math.min(5, children.length));
     if (top5.length > 0) {
       html += '<div class="emp-fade db-section-wrap">';
       html += '<div class="db-section-head">Top ' + top5.length + ' ' + label + ' <span class="db-top-badge">by Amount</span></div>';
       html += '<div class="db-section-body">';
-      for (var t = 0; t < top5.length; t++) {
-        html += hbarRowHtml(nameOf(top5[t]), numVal(top5[t].total_amount), maxAmt);
-      }
+      html += top5LineSvg(top5, nameOf);
       html += '</div></div>';
     }
 
