@@ -4457,7 +4457,7 @@ function sendVasudevSms(mobileTen, otp) {
     },
     Messages: [{
       Number: '91' + mobileTen,
-      Text: 'Your OTP for Navachetana Livelihoods Private Limited is ' + otp + '. Please DO NOT share this OTP with anyone to keep your data safe.'
+      Text: 'Your OTP for Navachetana Microfin Service Private Limited is ' + otp + '. Please DO NOT share this OTP with anyone to keep your data safe.'
     }]
   });
   return new Promise((resolve, reject) => {
