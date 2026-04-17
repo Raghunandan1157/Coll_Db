@@ -172,6 +172,70 @@
     });
   }
 
+  function injectDbGraphStyles() {
+    if (document.getElementById('db-graph-styles')) return;
+    var st = document.createElement('style');
+    st.id = 'db-graph-styles';
+    st.textContent = [
+      '.db-hbar-row{display:flex;align-items:center;gap:10px;padding:5px 0;font-size:12px;}',
+      '.db-hbar-name{flex:0 0 120px;color:#1E293B;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}',
+      '.db-hbar-track{flex:1;background:#F1F5F9;border-radius:6px;height:14px;overflow:hidden;min-width:60px;}',
+      '.db-hbar-fill{height:100%;border-radius:6px;transition:width .4s ease;}',
+      '.db-hbar-val{flex:0 0 auto;color:#F59E0B;font-weight:700;font-size:12px;min-width:72px;text-align:right;}',
+      '.db-donut{width:104px;height:104px;border-radius:50%;flex-shrink:0;position:relative;}',
+      '.db-donut::after{content:"";position:absolute;inset:22%;background:#fff;border-radius:50%;}',
+      '.db-legend{display:flex;flex-direction:column;gap:4px;font-size:12px;}',
+      '.db-legend-row{display:flex;align-items:center;gap:6px;color:#1E293B;}',
+      '.db-legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}',
+      '.db-section-wrap{background:#fff;border-radius:14px;box-shadow:0 1px 4px rgba(0,0,0,.06);overflow:hidden;margin-bottom:12px;}',
+      '.db-section-head{padding:12px 16px;border-bottom:1px solid #F1F5F9;font-weight:700;font-size:14px;color:#1E293B;display:flex;align-items:center;gap:6px;}',
+      '.db-section-body{padding:12px 16px;overflow-x:auto;}',
+      '.db-top-badge{background:#FEF3C7;color:#92400E;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;letter-spacing:.04em;text-transform:uppercase;}',
+      '@media (max-width:640px){.db-hbar-name{flex-basis:88px;font-size:11px;}.db-hbar-val{min-width:60px;font-size:11px;}.db-donut{width:84px;height:84px;}}'
+    ].join('\n');
+    document.head.appendChild(st);
+  }
+
+  function hbarRowHtml(name, amount, maxAmt, fillCss) {
+    var pct = maxAmt > 0 ? (amount / maxAmt * 100) : 0;
+    var fill = fillCss || 'linear-gradient(90deg,#F59E0B,#FBBF24)';
+    return '<div class="db-hbar-row">' +
+      '<div class="db-hbar-name" title="' + esc(name) + '">' + esc(name) + '</div>' +
+      '<div class="db-hbar-track"><div class="db-hbar-fill" style="width:' + pct.toFixed(2) + '%;background:' + fill + ';"></div></div>' +
+      '<div class="db-hbar-val">' + fmtAmt(amount) + '</div>' +
+    '</div>';
+  }
+
+  function productDonutHtml(byProduct, totalAmt) {
+    if (!totalAmt || !byProduct || !byProduct.length) return '';
+    var colors = { IGL: '#10B981', FIG: '#6366F1', IL: '#F59E0B' };
+    var stops = [];
+    var acc = 0;
+    for (var i = 0; i < byProduct.length; i++) {
+      var amt = numVal(byProduct[i].total_amount);
+      var pct = totalAmt > 0 ? (amt / totalAmt * 100) : 0;
+      var color = colors[byProduct[i].product_name] || '#64748B';
+      var start = acc, end = (i === byProduct.length - 1) ? 100 : acc + pct;
+      stops.push(color + ' ' + start.toFixed(2) + '% ' + end.toFixed(2) + '%');
+      acc = end;
+    }
+    return '<div class="db-donut" style="background:conic-gradient(' + stops.join(',') + ');"></div>';
+  }
+
+  function productLegendHtml(byProduct, totalAmt) {
+    var colors = { IGL: '#10B981', FIG: '#6366F1', IL: '#F59E0B' };
+    var html = '<div class="db-legend">';
+    for (var i = 0; i < byProduct.length; i++) {
+      var p = byProduct[i];
+      var amt = numVal(p.total_amount);
+      var pct = totalAmt > 0 ? (amt / totalAmt * 100) : 0;
+      var color = colors[p.product_name] || '#64748B';
+      html += '<div class="db-legend-row"><span class="db-legend-dot" style="background:' + color + ';"></span>' + esc(p.product_name) + ' · <strong>' + pct.toFixed(1) + '%</strong></div>';
+    }
+    html += '</div>';
+    return html;
+  }
+
   function getDbSubunitView() {
     return localStorage.getItem('subunitView') || 'card';
   }
@@ -195,7 +259,49 @@
     var isTable = getDbSubunitView() === 'table';
     var avStyle = 'background:#FFFBEB;color:#F59E0B;';
 
-    var html = '<div class="emp-team-section">' +
+    function nameOf(ch) {
+      if (childRole === 'RM') return ch.region_name || '';
+      if (childRole === 'DM') return ch.district_name || '';
+      if (childRole === 'BM') return ch.branch_name || '';
+      if (childRole === 'FO') return getFullName(ch.emp_id, ch.name || ch.officer_name || '');
+      return '';
+    }
+    var maxAmt = 0;
+    for (var mi = 0; mi < children.length; mi++) {
+      var ma = numVal(children[mi].total_amount);
+      if (ma > maxAmt) maxAmt = ma;
+    }
+
+    var html = '';
+
+    // Top-5 strip (children already sorted desc by amount)
+    var top5 = children.slice(0, Math.min(5, children.length));
+    if (top5.length > 0) {
+      html += '<div class="emp-fade db-section-wrap">';
+      html += '<div class="db-section-head">Top ' + top5.length + ' ' + label + ' <span class="db-top-badge">by Amount</span></div>';
+      html += '<div class="db-section-body">';
+      for (var t = 0; t < top5.length; t++) {
+        html += hbarRowHtml(nameOf(top5[t]), numVal(top5[t].total_amount), maxAmt);
+      }
+      html += '</div></div>';
+    }
+
+    // Full amount-distribution chart (cap 15 rows)
+    var CAP = 15;
+    var shown = children.slice(0, CAP);
+    var remaining = Math.max(0, children.length - CAP);
+    html += '<div class="emp-fade db-section-wrap">';
+    html += '<div class="db-section-head">' + label + ' — Amount Distribution <span style="color:#94A3B8;font-weight:600;font-size:12px;">(' + children.length + ')</span></div>';
+    html += '<div class="db-section-body">';
+    for (var s = 0; s < shown.length; s++) {
+      html += hbarRowHtml(nameOf(shown[s]), numVal(shown[s].total_amount), maxAmt);
+    }
+    if (remaining > 0) {
+      html += '<div style="padding:8px 0 0;font-size:12px;color:#64748B;text-align:center;">… and ' + remaining + ' more below</div>';
+    }
+    html += '</div></div>';
+
+    html += '<div class="emp-team-section">' +
       '<div class="emp-team-title">' + label + '<span class="emp-team-count">' + children.length + '</span>' + dbSubunitToggleHtml() + '</div>';
 
     if (isTable) {
@@ -256,6 +362,7 @@
   }
 
   function render(byProduct) {
+    injectDbGraphStyles();
     var container = document.getElementById('disbursementContent');
     var d = _db.summary;
     if (!d || (numVal(d.total_count) === 0 && numVal(d.total_amount) === 0)) {
@@ -285,10 +392,26 @@
     html += '<div style="font-size:24px;font-weight:700;">' + fmtATS(ats) + '</div></div>';
     html += '</div>';
 
-    // Product breakdown table
+    // Product breakdown: donut + horizontal bars + detail table
     if (byProduct && byProduct.length > 0) {
-      html += '<div class="emp-fade" style="background:#fff;border-radius:14px;box-shadow:0 1px 4px rgba(0,0,0,.06);overflow:hidden;margin-bottom:16px;">';
-      html += '<div style="padding:14px 16px;border-bottom:1px solid #F1F5F9;font-weight:700;font-size:14px;color:#1E293B;">Product-wise Disbursement</div>';
+      var maxProductAmt = 0;
+      for (var pi = 0; pi < byProduct.length; pi++) {
+        var pa = numVal(byProduct[pi].total_amount);
+        if (pa > maxProductAmt) maxProductAmt = pa;
+      }
+      var pColors = { IGL: '#10B981', FIG: '#6366F1', IL: '#F59E0B' };
+      html += '<div class="emp-fade db-section-wrap">';
+      html += '<div class="db-section-head">Product-wise Disbursement</div>';
+      html += '<div class="db-section-body" style="display:flex;gap:20px;align-items:center;flex-wrap:wrap;">';
+      html += productDonutHtml(byProduct, totalAmount);
+      html += productLegendHtml(byProduct, totalAmount);
+      html += '<div style="flex:1;min-width:220px;">';
+      for (var pj = 0; pj < byProduct.length; pj++) {
+        var pp = byProduct[pj];
+        var pc = pColors[pp.product_name] || '#64748B';
+        html += hbarRowHtml(pp.product_name, numVal(pp.total_amount), maxProductAmt, pc);
+      }
+      html += '</div></div>';
       html += '<table style="width:100%;border-collapse:collapse;font-size:13px;">';
       html += '<thead><tr style="background:#F8FAFC;"><th style="padding:10px 14px;text-align:left;color:#64748B;font-weight:600;">Product</th><th style="padding:10px 14px;text-align:right;color:#64748B;font-weight:600;">Accounts</th><th style="padding:10px 14px;text-align:right;color:#64748B;font-weight:600;">Amount</th><th style="padding:10px 14px;text-align:right;color:#64748B;font-weight:600;">ATS</th></tr></thead><tbody>';
       var colors = { IGL: '#10B981', FIG: '#6366F1', IL: '#F59E0B' };
@@ -305,8 +428,8 @@
       html += '</tbody></table></div>';
     }
 
-    // Month-wise trend with bar chart
-    if (_db.byMonth && _db.byMonth.length > 1) {
+    // Month-wise trend with bar chart (hidden in date mode via empty byMonth)
+    if (_db.byMonth && _db.byMonth.length >= 1) {
       var maxAmt = 0;
       for (var i = 0; i < _db.byMonth.length; i++) {
         var a = numVal(_db.byMonth[i].total_amount);
