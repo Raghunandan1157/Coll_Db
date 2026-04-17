@@ -153,6 +153,11 @@
   /* ========== TABLE VIEW ========== */
   function renderTable() {
     var tot = { pAcc: 0, pAmt: 0, cAcc: 0, cAmt: 0 };
+    var prevLastDay = 0, curLastDay = 0;
+    for (var pd in _prevMap) if (+pd > prevLastDay) prevLastDay = +pd;
+    for (var cd in _curMap) if (+cd > curLastDay) curLastDay = +cd;
+    var prevCum = 0, curCum = 0;
+    var beyondCell = '<td style="padding:8px;text-align:right;border-bottom:1px solid #F1F5F9;border-left:2px solid #CBD5E1;font-weight:700;color:#CBD5E1;">&mdash;</td>';
 
     var html = '<div style="overflow-x:auto;border-radius:12px;border:1px solid #E2E8F0;">';
     html += '<table style="width:100%;border-collapse:collapse;font-size:13px;">';
@@ -181,22 +186,24 @@
       var p = _prevMap[day] || null;
       var c = _curMap[day] || null;
       var rowBg = r % 2 === 0 ? '' : 'background:#FAFAFA;';
-      if (p) { tot.pAcc += p.accounts; tot.pAmt += p.amount; }
-      if (c) { tot.cAcc += c.accounts; tot.cAmt += c.amount; }
+      if (p) { tot.pAcc += p.accounts; tot.pAmt += p.amount; prevCum += p.amount; }
+      if (c) { tot.cAcc += c.accounts; tot.cAmt += c.amount; curCum += c.amount; }
 
-      var prevDimEmpty = p ? '' : 'color:#CBD5E1;';
-      var curDimEmpty = c ? '' : 'color:#CBD5E1;';
+      var showPrevAmt = day <= prevLastDay;
+      var showCurAmt = day <= curLastDay;
+      var beyondCur = day > curLastDay;
 
       html += '<tr style="' + rowBg + '">';
       // Prev block
       html += '<td style="padding:8px 6px;text-align:center;font-weight:500;color:#7C3AED;border-bottom:1px solid #F1F5F9;border-left:1px solid #E2E8F0;font-size:12px;white-space:nowrap;background:rgba(139,92,246,0.02);' + (p ? '' : 'opacity:0.4;') + '">' + ordinal(day) + ' ' + MONTH_NAMES[_months.prev.month] + '</td>';
       html += '<td style="padding:8px;text-align:right;font-weight:500;border-bottom:1px solid #F1F5F9;background:rgba(139,92,246,0.02);font-variant-numeric:tabular-nums;' + (p ? 'color:#1E293B;' : 'color:#CBD5E1;') + '">' + (p ? fmtNum(p.accounts) : '-') + '</td>';
-      html += '<td style="padding:8px;text-align:right;font-weight:600;border-bottom:1px solid #F1F5F9;background:rgba(139,92,246,0.02);font-variant-numeric:tabular-nums;' + (p ? 'color:#7C3AED;' : 'color:#CBD5E1;') + '">' + (p ? fmtCr(p.amount) : '-') + '</td>';
+      html += '<td style="padding:8px;text-align:right;font-weight:600;border-bottom:1px solid #F1F5F9;background:rgba(139,92,246,0.02);font-variant-numeric:tabular-nums;' + (showPrevAmt ? 'color:#7C3AED;' : 'color:#CBD5E1;') + '">' + (showPrevAmt ? fmtCr(prevCum) : '-') + '</td>';
       // Cur block
       html += '<td style="padding:8px 6px;text-align:center;font-weight:500;color:#059669;border-bottom:1px solid #F1F5F9;border-left:2px solid #CBD5E1;font-size:12px;white-space:nowrap;background:rgba(16,185,129,0.02);' + (c ? '' : 'opacity:0.4;') + '">' + ordinal(day) + ' ' + MONTH_NAMES[_months.cur.month] + '</td>';
       html += '<td style="padding:8px;text-align:right;font-weight:500;border-bottom:1px solid #F1F5F9;background:rgba(16,185,129,0.02);font-variant-numeric:tabular-nums;' + (c ? 'color:#1E293B;' : 'color:#CBD5E1;') + '">' + (c ? fmtNum(c.accounts) : '-') + '</td>';
-      html += '<td style="padding:8px;text-align:right;font-weight:600;border-bottom:1px solid #F1F5F9;background:rgba(16,185,129,0.02);font-variant-numeric:tabular-nums;' + (c ? 'color:#059669;' : 'color:#CBD5E1;') + '">' + (c ? fmtCr(c.amount) : '-') + '</td>';
-      html += diffCell(p ? p.amount : null, c ? c.amount : null);
+      html += '<td style="padding:8px;text-align:right;font-weight:600;border-bottom:1px solid #F1F5F9;background:rgba(16,185,129,0.02);font-variant-numeric:tabular-nums;' + (showCurAmt ? 'color:#059669;' : 'color:#CBD5E1;') + '">' + (showCurAmt ? fmtCr(curCum) : '-') + '</td>';
+      if (beyondCur) html += beyondCell;
+      else html += diffCell(showPrevAmt ? prevCum : null, showCurAmt ? curCum : null);
       html += '</tr>';
     }
 
