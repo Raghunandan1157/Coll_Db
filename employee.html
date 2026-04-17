@@ -441,6 +441,10 @@
 
             <!-- Action Buttons -->
             <div class="dr-builder-actions" style="padding:16px 20px;display:flex;justify-content:center;gap:12px;flex-wrap:wrap;">
+              <button id="drPendingBtn" onclick="window._drOpenPendingModal()" style="display:none;padding:12px 22px;border-radius:10px;border:2px solid #F59E0B;background:#fff;color:#F59E0B;font-size:15px;font-weight:600;cursor:pointer;align-items:center;gap:8px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                Branches Pending
+              </button>
               <button onclick="window._drGeneratePlan()" style="padding:12px 28px;border-radius:10px;border:2px solid #6366F1;background:var(--bg-card,#fff);color:#6366F1;font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
                 Generate Plan Report
@@ -455,6 +459,26 @@
           <!-- Status -->
           <div id="drStatus" style="margin-top:12px;padding:12px 16px;border-radius:10px;background:#F8FAFC;border:1px solid #E2E8F0;font-size:13px;color:#64748B;display:none;"></div>
 
+          <!-- Branches Pending Modal -->
+          <div id="drPendingModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.55);z-index:9999;align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto;">
+            <div style="background:#fff;border-radius:14px;width:100%;max-width:560px;box-shadow:0 20px 50px rgba(0,0,0,0.25);overflow:hidden;display:flex;flex-direction:column;max-height:85vh;">
+              <div style="padding:16px 20px;border-bottom:1px solid #E2E8F0;display:flex;justify-content:space-between;align-items:center;gap:12px;">
+                <div>
+                  <div style="font-size:16px;font-weight:700;color:#1E293B;">Branches Pending</div>
+                  <div id="drPendingDate" style="font-size:12px;color:#64748B;margin-top:2px;">—</div>
+                </div>
+                <button onclick="document.getElementById('drPendingModal').style.display='none'" aria-label="Close" style="background:none;border:none;font-size:22px;color:#64748B;cursor:pointer;line-height:1;padding:4px 8px;">×</button>
+              </div>
+              <div style="padding:12px 20px;border-bottom:1px solid #F1F5F9;display:flex;gap:8px;">
+                <button id="drPendingPillPlan" onclick="window._drSetPendingMode('plan')" style="padding:8px 18px;border-radius:999px;border:none;background:#6366F1;color:#fff;font-weight:600;font-size:13px;cursor:pointer;">Plan</button>
+                <button id="drPendingPillAch" onclick="window._drSetPendingMode('achievement')" style="padding:8px 18px;border-radius:999px;border:1px solid #E2E8F0;background:#fff;color:#334155;font-weight:500;font-size:13px;cursor:pointer;">Achievement</button>
+              </div>
+              <div id="drPendingList" style="padding:8px 12px;overflow-y:auto;flex:1;min-height:120px;">
+                <div style="padding:24px;text-align:center;color:#94A3B8;font-size:13px;">Loading…</div>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
 
@@ -465,6 +489,13 @@
           var session = window.getEmployeeSession ? getEmployeeSession() : {};
           var role = session.role || localStorage.getItem('roleName') || 'CEO';
           var location = session.location || localStorage.getItem('roleLocation') || '';
+
+          // Branches Pending button — only CEO/RM/DM/AM
+          var _pendingBtn = document.getElementById('drPendingBtn');
+          if (_pendingBtn) {
+            var _showPending = (role === 'CEO' || role === 'RM' || role === 'DM' || role === 'AM');
+            _pendingBtn.style.display = _showPending ? 'inline-flex' : 'none';
+          }
 
           // BM: show branch card, hide report builder
           if (role === 'BM' || role === 'FO') {
@@ -667,6 +698,135 @@
 
         window._drGenerateBoth = function() {
           _drBuildReportTable(window._drDate || drDate, drLevel, 'both');
+        };
+
+        // --- Branches Pending modal ---
+        window._drPendingRowClick = function(rowEl) {
+          if (!rowEl) return;
+          var phone = rowEl.getAttribute('data-phone');
+          var branch = rowEl.getAttribute('data-branch') || '';
+          var bm = rowEl.getAttribute('data-bm') || '';
+          function _drShowToast(msg) {
+            var t = document.createElement('div');
+            t.textContent = msg;
+            t.style.cssText = 'position:fixed;left:50%;bottom:32px;transform:translateX(-50%);background:rgba(15,23,42,0.92);color:#fff;padding:10px 18px;border-radius:10px;font-size:14px;font-weight:500;z-index:100000;box-shadow:0 6px 20px rgba(0,0,0,0.25);';
+            document.body.appendChild(t);
+            setTimeout(function(){ if (t.parentNode) t.parentNode.removeChild(t); }, 2500);
+          }
+          if (!phone) { _drShowToast('No phone on file for ' + branch); return; }
+          var cleanPhone = String(phone).replace(/[^0-9+]/g,'');
+          var isMobile = (window.matchMedia && window.matchMedia('(hover:none) and (pointer:coarse)').matches) || /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+          if (isMobile) { window.location.href = 'tel:' + cleanPhone; return; }
+          var existing = document.getElementById('drCallPopup');
+          if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+          var overlay = document.createElement('div');
+          overlay.id = 'drCallPopup';
+          overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:100001;display:flex;align-items:center;justify-content:center;';
+          var card = document.createElement('div');
+          card.style.cssText = 'width:320px;background:#fff;border-radius:14px;padding:24px;box-shadow:0 20px 50px rgba(0,0,0,0.3);font-family:inherit;';
+          function esc(s){ return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+          card.innerHTML = ''
+            + '<div style="font-size:20px;font-weight:700;color:#0F172A;margin-bottom:4px;">' + esc(branch) + '</div>'
+            + '<div style="font-size:13px;color:#64748B;margin-bottom:16px;">Branch Manager: ' + esc(bm) + '</div>'
+            + '<a href="tel:' + esc(cleanPhone) + '" style="display:block;color:#6366F1;font-size:22px;font-weight:600;text-decoration:none;margin-bottom:20px;word-break:break-all;">' + esc(phone) + '</a>'
+            + '<div style="display:flex;gap:8px;">'
+            + '<button id="drCallCopyBtn" style="flex:1;padding:10px;border-radius:8px;border:1px solid #E2E8F0;background:#F8FAFC;color:#334155;font-weight:600;font-size:14px;cursor:pointer;">Copy</button>'
+            + '<button id="drCallCloseBtn" style="flex:1;padding:10px;border-radius:8px;border:none;background:#6366F1;color:#fff;font-weight:600;font-size:14px;cursor:pointer;">Close</button>'
+            + '</div>';
+          overlay.appendChild(card);
+          document.body.appendChild(overlay);
+          function closePopup() {
+            if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+            document.removeEventListener('keydown', onKey);
+          }
+          function onKey(e) { if (e.key === 'Escape') closePopup(); }
+          overlay.addEventListener('click', function(e){ if (e.target === overlay) closePopup(); });
+          document.addEventListener('keydown', onKey);
+          card.querySelector('#drCallCloseBtn').addEventListener('click', closePopup);
+          var copyBtn = card.querySelector('#drCallCopyBtn');
+          copyBtn.addEventListener('click', function() {
+            var done = function() {
+              var orig = copyBtn.textContent;
+              copyBtn.textContent = 'Copied \u2713';
+              setTimeout(function(){ copyBtn.textContent = orig; }, 1500);
+            };
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(cleanPhone).then(done, function(){
+                try { var ta = document.createElement('textarea'); ta.value = cleanPhone; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); done(); } catch(e) {}
+              });
+            } else {
+              try { var ta = document.createElement('textarea'); ta.value = cleanPhone; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); done(); } catch(e) {}
+            }
+          });
+        };
+        var _drPendingMode = 'plan';
+
+        function _drPendingFetch() {
+          var listEl = document.getElementById('drPendingList');
+          if (!listEl) return;
+          var dateEl = document.getElementById('drPendingDate');
+          var d = window._drDate || drDate;
+          if (dateEl) {
+            var dp = new Date(d + 'T00:00:00');
+            dateEl.textContent = dp.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) + ' · ' + (_drPendingMode === 'plan' ? 'Plan' : 'Achievement');
+          }
+          listEl.innerHTML = '<div style="padding:24px;text-align:center;color:#94A3B8;font-size:13px;">Loading…</div>';
+          var url = '/api/daily-plan/pending-branches?table=' + encodeURIComponent(_drPendingMode)
+            + '&date=' + encodeURIComponent(d)
+            + '&role=' + encodeURIComponent(role)
+            + '&location=' + encodeURIComponent(location || '');
+          fetch(url).then(function(r){ return r.json(); }).then(function(data){
+            var rows = (data && (data.branches || data.rows || data.data)) || (Array.isArray(data) ? data : []);
+            if (!rows || !rows.length) {
+              listEl.innerHTML = '<div style="padding:36px 16px;text-align:center;color:#059669;font-size:14px;font-weight:600;">🎉 All branches have uploaded.</div>';
+              return;
+            }
+            var html = '';
+            rows.forEach(function(row){
+              var branch = row.branch || row.branch_name || '';
+              var bm = row.bm || row.bm_name || row.manager || '';
+              var phone = row.phone || row.bm_phone || row.mobile || '';
+              var area = row.area || row.area_name || '';
+              var division = row.division || row.division_name || '';
+              var region = row.region || row.region_name || '';
+              var breadcrumb = [area, division, region].filter(Boolean).join(' · ');
+              html += '<div class="dr-pending-row" onclick="window._drPendingRowClick(this)"'
+                + ' data-branch="' + String(branch).replace(/"/g,'&quot;') + '"'
+                + ' data-bm="' + String(bm).replace(/"/g,'&quot;') + '"'
+                + ' data-phone="' + String(phone).replace(/"/g,'&quot;') + '"'
+                + ' style="padding:12px 14px;border:1px solid #E2E8F0;border-radius:10px;margin:8px 0;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;background:#fff;">'
+                + '<div style="min-width:0;flex:1;">'
+                +   '<div style="font-weight:700;color:#1E293B;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + branch + '</div>'
+                +   (breadcrumb ? '<div style="font-size:12px;color:#94A3B8;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + breadcrumb + '</div>' : '')
+                + '</div>'
+                + '<div style="font-size:12px;color:#475569;font-weight:600;text-align:right;white-space:nowrap;">' + (bm || '—') + '</div>'
+                + '</div>';
+            });
+            listEl.innerHTML = html;
+          }).catch(function(){
+            listEl.innerHTML = '<div style="padding:24px;text-align:center;color:#DC2626;font-size:13px;">Couldn\'t load pending branches. Please try again.</div>';
+          });
+        }
+
+        window._drSetPendingMode = function(mode) {
+          _drPendingMode = (mode === 'achievement') ? 'achievement' : 'plan';
+          var planBtn = document.getElementById('drPendingPillPlan');
+          var achBtn = document.getElementById('drPendingPillAch');
+          if (planBtn && achBtn) {
+            var active = 'padding:8px 18px;border-radius:999px;border:none;background:#6366F1;color:#fff;font-weight:600;font-size:13px;cursor:pointer;';
+            var inactive = 'padding:8px 18px;border-radius:999px;border:1px solid #E2E8F0;background:#fff;color:#334155;font-weight:500;font-size:13px;cursor:pointer;';
+            planBtn.setAttribute('style', _drPendingMode === 'plan' ? active : inactive);
+            achBtn.setAttribute('style', _drPendingMode === 'achievement' ? active : inactive);
+          }
+          _drPendingFetch();
+        };
+
+        window._drOpenPendingModal = function() {
+          var m = document.getElementById('drPendingModal');
+          if (!m) return;
+          m.style.display = 'flex';
+          _drPendingMode = 'plan';
+          window._drSetPendingMode('plan');
         };
         } // end _drInit
 
@@ -2505,7 +2665,7 @@ body.emp-dark .ai-bar-icon { background: rgba(99,102,241,0.15); color: #A5B4FC; 
   <script src="js/hourly.js?v=49"></script>
   <script src="js/disbursement.js?v=55"></script>
   <script src="js/comparison.js?v=50"></script>
-  <script src="js/comparison-disbursement.js?v=2"></script>
+  <script src="js/comparison-disbursement.js?v=3"></script>
   <script src="js/analytical.js?v=49"></script>
   <script src="js/employee.js?v=49"></script>
   <script>

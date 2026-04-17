@@ -1,12 +1,9 @@
 /**
  * comparison-disbursement.js — Disbursement month-over-month comparison.
- * Day-of-month matching (1-1, 2-2 ...). No weekday column.
- * Layout: Summary strip → Dual-line chart → Day-by-day card list.
+ * Mirrors Collection comparison visual language. Day-of-month matching (no weekday).
  */
 (function () {
   var MONTH_NAMES = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  var AMBER = '#F59E0B', AMBER_DARK = '#D97706';
-  var PREV_COLOR = '#94A3B8';
 
   function pad2(n) { n = String(n); return n.length < 2 ? '0' + n : n; }
   function numVal(v) { var n = Number(v); return isFinite(n) ? n : 0; }
@@ -16,7 +13,14 @@
   }
   function fmtCr(v) { var n = Number(v) || 0; return (n / 10000000).toFixed(2) + ' Cr'; }
   function lastDay(y, m) { return new Date(y, m, 0).getDate(); }
+  function ordinal(n) {
+    var s = ['th','st','nd','rd'], v = n % 100;
+    return n + (s[(v - 20) % 10] || s[v] || s[0]);
+  }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+
+  var _view = 'cards', _dayIdx = -1;
+  var _months = null, _prevMap = {}, _curMap = {}, _days = [];
 
   function scopeParams() {
     var s = typeof getEmployeeSession === 'function' ? getEmployeeSession() : {};
@@ -29,12 +33,10 @@
     else if ((!r || r === 'FO') && s.id) p.push('emp_id=' + encodeURIComponent(s.id));
     return p;
   }
-
   function buildRangeUrl(fromISO, toISO) {
     var p = ['from=' + encodeURIComponent(fromISO), 'to=' + encodeURIComponent(toISO)].concat(scopeParams());
     return '/api/disbursement/daily/by-date-range?' + p.join('&');
   }
-
   function toDayMap(rows, year, month) {
     var map = {};
     if (!rows) return map;
@@ -48,265 +50,227 @@
     return map;
   }
 
-  function injectStyles() {
-    if (document.getElementById('compDisbStyles')) return;
-    var s = document.createElement('style');
-    s.id = 'compDisbStyles';
-    s.textContent = [
-      '.cdc-wrap{max-width:1200px;margin:0 auto;padding:20px 16px;}',
-      '.cdc-head{margin-bottom:18px;}',
-      '.cdc-title{font-size:20px;font-weight:700;color:#1E293B;margin:0;}',
-      '.cdc-sub{font-size:13px;color:#64748B;margin:4px 0 0;}',
-      '.cdc-strip{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:20px;}',
-      '.cdc-card{background:#fff;border-radius:14px;padding:18px 20px;box-shadow:0 1px 4px rgba(15,23,42,0.06);border:1px solid #F1F5F9;}',
-      '.cdc-card-label{font-size:11px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;}',
-      '.cdc-card-val{font-size:26px;font-weight:700;color:#1E293B;line-height:1.15;}',
-      '.cdc-card-sub{font-size:12px;color:#64748B;margin-top:6px;}',
-      '.cdc-card.prev .cdc-card-val{color:#64748B;}',
-      '.cdc-card.cur .cdc-card-val{color:' + AMBER_DARK + ';}',
-      '.cdc-card.chg{display:flex;flex-direction:column;justify-content:center;}',
-      '.cdc-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;font-size:12px;font-weight:700;}',
-      '.cdc-chip.up{background:#F0FDF4;color:#059669;}',
-      '.cdc-chip.down{background:#FEF2F2;color:#DC2626;}',
-      '.cdc-chip.flat{background:#F1F5F9;color:#64748B;}',
-      '.cdc-chart-wrap{background:#fff;border-radius:14px;padding:18px;box-shadow:0 1px 4px rgba(15,23,42,0.06);border:1px solid #F1F5F9;margin-bottom:20px;}',
-      '.cdc-chart-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;}',
-      '.cdc-chart-title{font-size:14px;font-weight:700;color:#1E293B;}',
-      '.cdc-legend{display:flex;gap:14px;font-size:12px;color:#64748B;}',
-      '.cdc-dot{display:inline-block;width:10px;height:10px;border-radius:50%;vertical-align:middle;margin-right:6px;}',
-      '.cdc-list{display:flex;flex-direction:column;gap:8px;}',
-      '.cdc-list-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}',
-      '.cdc-list-title{font-size:14px;font-weight:700;color:#1E293B;}',
-      '.cdc-row{display:flex;align-items:center;gap:16px;background:#fff;border-radius:12px;padding:12px 16px;box-shadow:0 1px 3px rgba(15,23,42,0.05);border:1px solid #F1F5F9;}',
-      '.cdc-row.alt{background:#FAFAFA;}',
-      '.cdc-day{flex-shrink:0;width:40px;height:40px;border-radius:50%;background:#F1F5F9;color:#1E293B;font-size:18px;font-weight:700;display:flex;align-items:center;justify-content:center;}',
-      '.cdc-row-body{flex:1;display:flex;gap:16px;align-items:center;flex-wrap:wrap;}',
-      '.cdc-side{display:flex;flex-direction:column;min-width:120px;}',
-      '.cdc-side-label{font-size:10px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:.06em;}',
-      '.cdc-side-val{font-size:14px;font-weight:700;color:#1E293B;margin-top:2px;}',
-      '.cdc-side-sub{font-size:11px;color:#64748B;margin-top:1px;}',
-      '.cdc-side.cur .cdc-side-val{color:' + AMBER_DARK + ';}',
-      '.cdc-side.prev .cdc-side-val{color:#475569;}',
-      '.cdc-badge{font-size:10px;padding:2px 8px;border-radius:999px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;}',
-      '.cdc-badge.new{background:#EEF2FF;color:#4F46E5;}',
-      '.cdc-badge.miss{background:#FEF3C7;color:#92400E;}',
-      '.cdc-row .cdc-chip{margin-left:auto;}',
-      '.cdc-btn{padding:6px 12px;font-size:12px;font-weight:600;background:#fff;border:1px solid #E2E8F0;border-radius:8px;color:#1E293B;cursor:pointer;font-family:inherit;}',
-      '.cdc-btn:hover{background:#F8FAFC;}',
-      '.cdc-empty{text-align:center;padding:40px;color:#64748B;}',
-      '@media (max-width:640px){',
-      '.cdc-strip{grid-template-columns:1fr;}',
-      '.cdc-card-val{font-size:22px;}',
-      '.cdc-row{flex-wrap:wrap;}',
-      '.cdc-row-body{width:100%;}',
-      '.cdc-side{min-width:100px;}',
-      '.cdc-row .cdc-chip{margin-left:0;}',
-      '}'
-    ].join('');
-    document.head.appendChild(s);
-  }
-
-  function pct(prev, cur) {
+  function diffPct(prev, cur) {
     if (!prev) return null;
     return ((cur - prev) / prev) * 100;
   }
 
-  function chipHtml(prev, cur, unit) {
-    if (prev == null && cur == null) return '<span class="cdc-chip flat">—</span>';
-    if (!prev && cur) return '<span class="cdc-chip up">&#9650; new</span>';
-    if (prev && !cur) return '<span class="cdc-chip down">&#9660; missing</span>';
-    var d = pct(prev, cur);
-    if (d == null) return '<span class="cdc-chip flat">—</span>';
-    var cls = d > 0.1 ? 'up' : d < -0.1 ? 'down' : 'flat';
-    var arrow = d > 0.1 ? '&#9650;' : d < -0.1 ? '&#9660;' : '';
-    return '<span class="cdc-chip ' + cls + '">' + arrow + ' ' + Math.abs(d).toFixed(1) + '%' + (unit ? ' ' + unit : '') + '</span>';
+  function diffCell(prev, cur, tdStyle) {
+    var base = 'padding:8px;text-align:right;border-bottom:1px solid #F1F5F9;border-left:2px solid #CBD5E1;font-weight:700;' + (tdStyle || '');
+    if (prev == null && cur == null) return '<td style="' + base + 'color:#CBD5E1;">-</td>';
+    if (!prev && cur) return '<td style="' + base + 'color:#6366F1;">new</td>';
+    if (prev && !cur) return '<td style="' + base + 'color:#DC2626;">missing</td>';
+    var d = diffPct(prev, cur);
+    var color = d >= 0 ? '#059669' : '#EF4444';
+    var arrow = d > 0 ? '&#9650; ' : d < 0 ? '&#9660; ' : '';
+    return '<td style="' + base + 'color:' + color + ';">' + arrow + Math.abs(d).toFixed(1) + '%</td>';
   }
 
-  function summaryHtml(tot, months) {
-    var amtChip = chipHtml(tot.prevAmt, tot.curAmt, '');
-    var accChip = chipHtml(tot.prevAcc, tot.curAcc, '');
-    var html = '<div class="cdc-strip">';
-    html += '<div class="cdc-card prev"><div class="cdc-card-label">' + esc(months.prev.name) + '</div>';
-    html += '<div class="cdc-card-val">' + fmtCr(tot.prevAmt) + '</div>';
-    html += '<div class="cdc-card-sub">' + fmtNum(tot.prevAcc) + ' accounts</div></div>';
+  /* ========== CARDS VIEW ========== */
+  function renderCards() {
+    var day = _days[_dayIdx];
+    if (!day) return '<div style="text-align:center;padding:60px;color:#64748B;">No data for this day.</div>';
+    var p = _prevMap[day] || null;
+    var c = _curMap[day] || null;
+    if (!p && !c) return '<div style="text-align:center;padding:60px;color:#64748B;">No data for this day.</div>';
 
-    html += '<div class="cdc-card cur"><div class="cdc-card-label">' + esc(months.cur.name) + '</div>';
-    html += '<div class="cdc-card-val">' + fmtCr(tot.curAmt) + '</div>';
-    html += '<div class="cdc-card-sub">' + fmtNum(tot.curAcc) + ' accounts</div></div>';
+    var buckets = [
+      { name: 'Accounts', color: '#6366F1', pVal: p ? p.accounts : 0, cVal: c ? c.accounts : 0, fmt: fmtNum, unit: 'accounts' },
+      { name: 'Amount',   color: '#F59E0B', pVal: p ? p.amount : 0,   cVal: c ? c.amount : 0,   fmt: fmtCr,  unit: '' }
+    ];
 
-    html += '<div class="cdc-card chg"><div class="cdc-card-label">Change</div>';
-    html += '<div style="margin-top:2px;">' + amtChip + '</div>';
-    html += '<div class="cdc-card-sub" style="margin-top:8px;">Accounts ' + accChip + '</div>';
+    var html = '<style>';
+    html += '.cdc-card{transition:box-shadow .2s;}.cdc-card:hover{box-shadow:0 4px 16px rgba(0,0,0,0.08);}';
+    html += '</style>';
+
+    html += '<div style="position:relative;border:1px solid #E2E8F0;border-radius:16px;overflow:hidden;background:#fff;">';
+
+    // Vertical band backgrounds
+    html += '<div style="position:absolute;top:0;bottom:0;left:180px;right:0;display:flex;pointer-events:none;z-index:0;">';
+    html += '<div style="flex:1;background:rgba(139,92,246,0.04);border-left:1px solid #F1F5F9;border-right:1px solid #F1F5F9;"></div>';
+    html += '<div style="flex:1;background:rgba(16,185,129,0.04);border-right:1px solid #F1F5F9;"></div>';
+    html += '<div style="width:140px;"></div>';
     html += '</div>';
+
+    // Header row
+    html += '<div style="display:flex;align-items:stretch;border-bottom:2px solid #E2E8F0;position:relative;z-index:1;">';
+    html += '<div style="min-width:180px;padding:12px 20px;"></div>';
+    html += '<div style="flex:1;text-align:center;padding:10px 0;font-size:12px;font-weight:700;color:#7C3AED;text-transform:uppercase;letter-spacing:1.5px;background:rgba(139,92,246,0.06);">';
+    html += _months.prev.name;
+    html += '<div style="font-size:10px;font-weight:500;color:#A78BFA;margin-top:1px;">' + (p ? ordinal(day) + ' ' + MONTH_NAMES[_months.prev.month] : 'No data') + '</div>';
     html += '</div>';
-    return html;
-  }
+    html += '<div style="flex:1;text-align:center;padding:10px 0;font-size:12px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:1.5px;background:rgba(16,185,129,0.06);">';
+    html += _months.cur.name + '<div style="font-size:10px;font-weight:500;color:#34D399;margin-top:1px;">' + (c ? ordinal(day) + ' ' + MONTH_NAMES[_months.cur.month] : 'No data') + '</div>';
+    html += '</div>';
+    html += '<div style="width:140px;text-align:center;padding:12px 0;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:1px;">Diff</div>';
+    html += '</div>';
 
-  function dualLineSvg(prevMap, curMap, months) {
-    var daysPrev = lastDay(months.prev.year, months.prev.month);
-    var daysCur = lastDay(months.cur.year, months.cur.month);
-    var maxDays = Math.max(daysPrev, daysCur);
+    for (var i = 0; i < buckets.length; i++) {
+      var b = buckets[i];
+      var diff = b.cVal - b.pVal;
+      var dPct = diffPct(b.pVal, b.cVal);
+      var dColor = diff >= 0 ? '#059669' : '#EF4444';
+      var dBg = diff >= 0 ? '#F0FDF4' : '#FEF2F2';
+      var dArrow = diff > 0 ? '&#9650; ' : diff < 0 ? '&#9660; ' : '';
+      var borderTop = i > 0 ? 'border-top:1px solid #F1F5F9;' : '';
 
-    var W = 700, H = 260;
-    var padL = 40, padR = 20, padT = 20, padB = 34;
-    var plotW = W - padL - padR;
-    var plotH = H - padT - padB;
-
-    var maxV = 0;
-    for (var d = 1; d <= maxDays; d++) {
-      if (prevMap[d] && prevMap[d].amount > maxV) maxV = prevMap[d].amount;
-      if (curMap[d] && curMap[d].amount > maxV) maxV = curMap[d].amount;
-    }
-    if (maxV <= 0) maxV = 1;
-
-    function xFor(day) { return padL + ((day - 1) * plotW) / (maxDays - 1); }
-    function yFor(amt) { return padT + (1 - amt / maxV) * plotH; }
-
-    function buildPath(map) {
-      var parts = [];
-      var started = false;
-      for (var d = 1; d <= maxDays; d++) {
-        if (!map[d]) { started = false; continue; }
-        var x = xFor(d), y = yFor(map[d].amount);
-        parts.push((started ? 'L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1));
-        started = true;
-      }
-      return parts.join(' ');
-    }
-
-    function buildArea(map) {
-      var base = padT + plotH;
-      var seg = '';
-      var openX = null;
-      for (var d = 1; d <= maxDays; d++) {
-        if (map[d]) {
-          var x = xFor(d), y = yFor(map[d].amount);
-          if (openX === null) { seg += 'M' + x.toFixed(1) + ' ' + base.toFixed(1) + ' L' + x.toFixed(1) + ' ' + y.toFixed(1); openX = x; }
-          else seg += ' L' + x.toFixed(1) + ' ' + y.toFixed(1);
-        } else if (openX !== null) {
-          var prevX = xFor(d - 1);
-          seg += ' L' + prevX.toFixed(1) + ' ' + base.toFixed(1) + ' Z ';
-          openX = null;
-        }
-      }
-      if (openX !== null) {
-        var lastX = xFor(maxDays);
-        seg += ' L' + lastX.toFixed(1) + ' ' + base.toFixed(1) + ' Z';
-      }
-      return seg;
-    }
-
-    function circles(map, color, isCur) {
-      var out = '';
-      var label = isCur ? months.cur.name : months.prev.name;
-      for (var d = 1; d <= maxDays; d++) {
-        if (!map[d]) continue;
-        var x = xFor(d), y = yFor(map[d].amount);
-        out += '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="3" fill="' + color + '" stroke="#fff" stroke-width="1.5">' +
-               '<title>' + esc(label) + ' · Day ' + d + ' · ' + fmtCr(map[d].amount) + ' · ' + fmtNum(map[d].accounts) + ' acc</title></circle>';
-      }
-      return out;
-    }
-
-    var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:clamp(200px,26vw,280px);display:block;overflow:visible;">';
-    svg += '<defs><linearGradient id="cdcCurGrad" x1="0" y1="0" x2="0" y2="1">' +
-      '<stop offset="0%" stop-color="' + AMBER + '" stop-opacity="0.30"/>' +
-      '<stop offset="100%" stop-color="' + AMBER + '" stop-opacity="0"/>' +
-    '</linearGradient></defs>';
-
-    // X-axis labels (every 5 days + 1 + last)
-    var ticks = [1];
-    for (var t = 5; t <= maxDays; t += 5) ticks.push(t);
-    if (ticks[ticks.length - 1] !== maxDays) ticks.push(maxDays);
-    for (var ti = 0; ti < ticks.length; ti++) {
-      var tx = xFor(ticks[ti]);
-      svg += '<text x="' + tx.toFixed(1) + '" y="' + (H - 14) + '" text-anchor="middle" style="font-size:11px;fill:#94A3B8;">' + ticks[ti] + '</text>';
-    }
-    // Y-axis mid + top gridline
-    var gridY1 = padT + plotH / 2;
-    svg += '<line x1="' + padL + '" y1="' + gridY1 + '" x2="' + (W - padR) + '" y2="' + gridY1 + '" stroke="#F1F5F9" stroke-width="1"/>';
-    svg += '<line x1="' + padL + '" y1="' + padT + '" x2="' + (W - padR) + '" y2="' + padT + '" stroke="#F1F5F9" stroke-width="1"/>';
-    svg += '<text x="' + (padL - 6) + '" y="' + (padT + 4) + '" text-anchor="end" style="font-size:10px;fill:#94A3B8;">' + fmtCr(maxV) + '</text>';
-    svg += '<text x="' + (padL - 6) + '" y="' + (gridY1 + 4) + '" text-anchor="end" style="font-size:10px;fill:#94A3B8;">' + fmtCr(maxV / 2) + '</text>';
-
-    // Cur area + cur line (amber) behind, prev line on top
-    svg += '<path d="' + buildArea(curMap) + '" fill="url(#cdcCurGrad)"/>';
-    svg += '<path d="' + buildPath(prevMap) + '" fill="none" stroke="' + PREV_COLOR + '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="4 3"/>';
-    svg += '<path d="' + buildPath(curMap) + '" fill="none" stroke="' + AMBER + '" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>';
-    svg += circles(prevMap, PREV_COLOR, false);
-    svg += circles(curMap, AMBER, true);
-    svg += '</svg>';
-    return svg;
-  }
-
-  function listHtml(prevMap, curMap, months) {
-    var days = [];
-    for (var d = 1; d <= 31; d++) if (prevMap[d] || curMap[d]) days.push(d);
-    if (!days.length) return '<div class="cdc-empty">No disbursement data for these months.</div>';
-
-    var html = '';
-    for (var i = 0; i < days.length; i++) {
-      var day = days[i];
-      var p = prevMap[day] || null;
-      var c = curMap[day] || null;
-      var alt = i % 2 === 1 ? ' alt' : '';
-      html += '<div class="cdc-row' + alt + '">';
-      html += '<div class="cdc-day">' + day + '</div>';
-      html += '<div class="cdc-row-body">';
-
-      // Prev side
-      html += '<div class="cdc-side prev">';
-      html += '<span class="cdc-side-label">' + esc(months.prev.name) + '</span>';
-      if (p) {
-        html += '<span class="cdc-side-val">' + fmtCr(p.amount) + '</span>';
-        html += '<span class="cdc-side-sub">' + fmtNum(p.accounts) + ' acc</span>';
-      } else {
-        html += '<span class="cdc-side-val" style="color:#CBD5E1;">—</span>';
-        html += '<span class="cdc-side-sub"><span class="cdc-badge new">new on ' + esc(months.cur.name.split(' ')[0]) + '</span></span>';
-      }
+      html += '<div class="cdc-card" style="display:flex;align-items:stretch;position:relative;z-index:1;' + borderTop + '">';
+      html += '<div style="min-width:180px;padding:20px 20px;display:flex;align-items:center;gap:10px;">';
+      html += '<div style="width:4px;height:32px;border-radius:4px;background:' + b.color + ';flex-shrink:0;"></div>';
+      html += '<div style="font-size:15px;font-weight:700;color:#1E293B;">' + b.name + '</div>';
       html += '</div>';
 
-      // Cur side
-      html += '<div class="cdc-side cur">';
-      html += '<span class="cdc-side-label">' + esc(months.cur.name) + '</span>';
-      if (c) {
-        html += '<span class="cdc-side-val">' + fmtCr(c.amount) + '</span>';
-        html += '<span class="cdc-side-sub">' + fmtNum(c.accounts) + ' acc</span>';
-      } else {
-        html += '<span class="cdc-side-val" style="color:#CBD5E1;">—</span>';
-        html += '<span class="cdc-side-sub"><span class="cdc-badge miss">no data</span></span>';
-      }
+      html += '<div style="flex:1;padding:16px 12px;text-align:center;display:flex;flex-direction:column;justify-content:center;">';
+      html += '<div style="font-family:\'Playfair Display\',serif;font-size:24px;font-weight:700;color:#FB923C;">' + (p ? b.fmt(b.pVal) : '-') + '</div>';
+      if (p && b.unit) html += '<div style="font-size:11px;color:#A78BFA;margin-top:2px;">' + b.unit + '</div>';
       html += '</div>';
 
-      html += chipHtml(p ? p.amount : null, c ? c.amount : null, '');
+      html += '<div style="flex:1;padding:16px 12px;text-align:center;display:flex;flex-direction:column;justify-content:center;">';
+      html += '<div style="font-family:\'Playfair Display\',serif;font-size:24px;font-weight:700;color:#FB923C;">' + (c ? b.fmt(b.cVal) : '-') + '</div>';
+      if (c && b.unit) html += '<div style="font-size:11px;color:#34D399;margin-top:2px;">' + b.unit + '</div>';
+      html += '</div>';
+
+      html += '<div style="width:140px;padding:16px 12px;text-align:center;display:flex;align-items:center;justify-content:center;">';
+      if (p && c) {
+        html += '<div style="background:' + dBg + ';border-radius:10px;padding:8px 14px;">';
+        html += '<div style="font-size:17px;font-weight:800;color:' + dColor + ';">' + dArrow + (dPct != null ? Math.abs(dPct).toFixed(1) + '%' : '-') + '</div>';
+        html += '<div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:' + dColor + ';margin-top:1px;">' + (diff >= 0 ? 'Higher' : 'Lower') + '</div>';
+        html += '</div>';
+      } else if (!p && c) {
+        html += '<div style="background:#EEF2FF;border-radius:10px;padding:8px 14px;color:#4F46E5;font-size:13px;font-weight:700;">new</div>';
+      } else if (p && !c) {
+        html += '<div style="background:#FEF2F2;border-radius:10px;padding:8px 14px;color:#DC2626;font-size:13px;font-weight:700;">missing</div>';
+      } else {
+        html += '<div style="color:#CBD5E1;font-size:13px;">-</div>';
+      }
       html += '</div></div>';
     }
+
+    html += '</div>';
     return html;
   }
 
-  function computeCsv(prevMap, curMap, months) {
-    var lines = ['Day,' + months.prev.name + ' Accounts,' + months.prev.name + ' Amount,' + months.cur.name + ' Accounts,' + months.cur.name + ' Amount,Diff %'];
-    for (var d = 1; d <= 31; d++) {
-      if (!prevMap[d] && !curMap[d]) continue;
-      var p = prevMap[d] || { accounts: '', amount: '' };
-      var c = curMap[d] || { accounts: '', amount: '' };
-      var diff = (p.amount && c.amount) ? (((c.amount - p.amount) / p.amount) * 100).toFixed(1) : '';
-      lines.push([d, p.accounts, p.amount, c.accounts, c.amount, diff].join(','));
+  /* ========== TABLE VIEW ========== */
+  function renderTable() {
+    var tot = { pAcc: 0, pAmt: 0, cAcc: 0, cAmt: 0 };
+
+    var html = '<div style="overflow-x:auto;border-radius:12px;border:1px solid #E2E8F0;">';
+    html += '<table style="width:100%;border-collapse:collapse;font-size:13px;">';
+    html += '<thead><tr style="background:#F8FAFC;">';
+    html += '<th style="padding:10px;text-align:center;border-bottom:1px solid #E2E8F0;color:#7C3AED;font-weight:700;border-left:1px solid #E2E8F0;background:rgba(139,92,246,0.04);" colspan="3">' + esc(_months.prev.name) + '</th>';
+    html += '<th style="padding:10px;text-align:center;border-bottom:1px solid #E2E8F0;color:#059669;font-weight:700;border-left:2px solid #CBD5E1;background:rgba(16,185,129,0.04);" colspan="3">' + esc(_months.cur.name) + '</th>';
+    html += '<th rowspan="2" style="padding:10px 12px;text-align:right;border-bottom:2px solid #E2E8F0;color:#64748B;font-size:11px;font-weight:700;border-left:2px solid #CBD5E1;background:#F8FAFC;">Diff %</th>';
+    html += '</tr><tr style="background:#F8FAFC;">';
+    var heads = ['Date', 'Accounts', 'Amount'];
+    for (var h = 0; h < 2; h++) {
+      for (var s = 0; s < heads.length; s++) {
+        var bl = s === 0 ? (h === 0 ? 'border-left:1px solid #E2E8F0;' : 'border-left:2px solid #CBD5E1;') : '';
+        var bg = h === 0 ? 'background:rgba(139,92,246,0.04);' : 'background:rgba(16,185,129,0.04);';
+        var align = s === 0 ? 'text-align:center;' : 'text-align:right;';
+        html += '<th style="padding:6px 8px;' + align + 'border-bottom:2px solid #E2E8F0;color:#64748B;font-size:10px;' + bl + bg + '">' + heads[s] + '</th>';
+      }
     }
-    return lines.join('\n');
+    html += '</tr></thead><tbody>';
+
+    if (!_days.length) {
+      html += '<tr><td colspan="7" style="padding:40px;text-align:center;color:#64748B;">No disbursement data for these months.</td></tr>';
+    }
+
+    for (var r = 0; r < _days.length; r++) {
+      var day = _days[r];
+      var p = _prevMap[day] || null;
+      var c = _curMap[day] || null;
+      var rowBg = r % 2 === 0 ? '' : 'background:#FAFAFA;';
+      if (p) { tot.pAcc += p.accounts; tot.pAmt += p.amount; }
+      if (c) { tot.cAcc += c.accounts; tot.cAmt += c.amount; }
+
+      var prevDimEmpty = p ? '' : 'color:#CBD5E1;';
+      var curDimEmpty = c ? '' : 'color:#CBD5E1;';
+
+      html += '<tr style="' + rowBg + '">';
+      // Prev block
+      html += '<td style="padding:8px 6px;text-align:center;font-weight:500;color:#7C3AED;border-bottom:1px solid #F1F5F9;border-left:1px solid #E2E8F0;font-size:12px;white-space:nowrap;background:rgba(139,92,246,0.02);' + (p ? '' : 'opacity:0.4;') + '">' + ordinal(day) + ' ' + MONTH_NAMES[_months.prev.month] + '</td>';
+      html += '<td style="padding:8px;text-align:right;font-weight:500;border-bottom:1px solid #F1F5F9;background:rgba(139,92,246,0.02);font-variant-numeric:tabular-nums;' + (p ? 'color:#1E293B;' : 'color:#CBD5E1;') + '">' + (p ? fmtNum(p.accounts) : '-') + '</td>';
+      html += '<td style="padding:8px;text-align:right;font-weight:600;border-bottom:1px solid #F1F5F9;background:rgba(139,92,246,0.02);font-variant-numeric:tabular-nums;' + (p ? 'color:#7C3AED;' : 'color:#CBD5E1;') + '">' + (p ? fmtCr(p.amount) : '-') + '</td>';
+      // Cur block
+      html += '<td style="padding:8px 6px;text-align:center;font-weight:500;color:#059669;border-bottom:1px solid #F1F5F9;border-left:2px solid #CBD5E1;font-size:12px;white-space:nowrap;background:rgba(16,185,129,0.02);' + (c ? '' : 'opacity:0.4;') + '">' + ordinal(day) + ' ' + MONTH_NAMES[_months.cur.month] + '</td>';
+      html += '<td style="padding:8px;text-align:right;font-weight:500;border-bottom:1px solid #F1F5F9;background:rgba(16,185,129,0.02);font-variant-numeric:tabular-nums;' + (c ? 'color:#1E293B;' : 'color:#CBD5E1;') + '">' + (c ? fmtNum(c.accounts) : '-') + '</td>';
+      html += '<td style="padding:8px;text-align:right;font-weight:600;border-bottom:1px solid #F1F5F9;background:rgba(16,185,129,0.02);font-variant-numeric:tabular-nums;' + (c ? 'color:#059669;' : 'color:#CBD5E1;') + '">' + (c ? fmtCr(c.amount) : '-') + '</td>';
+      html += diffCell(p ? p.amount : null, c ? c.amount : null);
+      html += '</tr>';
+    }
+
+    if (_days.length) {
+      html += '<tr style="background:#F1F5F9;border-top:2px solid #CBD5E1;">';
+      html += '<td style="padding:10px 8px;text-align:center;font-weight:800;color:#1E293B;border-left:1px solid #E2E8F0;background:rgba(139,92,246,0.08);">Total</td>';
+      html += '<td style="padding:10px 8px;text-align:right;font-weight:700;color:#1E293B;background:rgba(139,92,246,0.08);font-variant-numeric:tabular-nums;">' + fmtNum(tot.pAcc) + '</td>';
+      html += '<td style="padding:10px 8px;text-align:right;font-weight:800;color:#7C3AED;background:rgba(139,92,246,0.08);font-variant-numeric:tabular-nums;">' + fmtCr(tot.pAmt) + '</td>';
+      html += '<td style="padding:10px 8px;text-align:center;font-weight:800;color:#1E293B;border-left:2px solid #CBD5E1;background:rgba(16,185,129,0.08);">Total</td>';
+      html += '<td style="padding:10px 8px;text-align:right;font-weight:700;color:#1E293B;background:rgba(16,185,129,0.08);font-variant-numeric:tabular-nums;">' + fmtNum(tot.cAcc) + '</td>';
+      html += '<td style="padding:10px 8px;text-align:right;font-weight:800;color:#059669;background:rgba(16,185,129,0.08);font-variant-numeric:tabular-nums;">' + fmtCr(tot.cAmt) + '</td>';
+      html += diffCell(tot.pAmt || null, tot.cAmt || null, 'font-weight:800;');
+      html += '</tr>';
+    }
+
+    html += '</tbody></table></div>';
+    return html;
   }
 
-  window._cdcDownloadCsv = function (csv, filename) {
-    var blob = new Blob([csv], { type: 'text/csv' });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url; a.download = filename;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    setTimeout(function () { URL.revokeObjectURL(url); }, 100);
+  /* ========== MAIN RENDER ========== */
+  function render() {
+    var body = document.getElementById('compDisbBody');
+    if (!body) return;
+    if (!_months) {
+      body.innerHTML = '<div style="text-align:center;padding:80px 20px;color:#64748B;">No disbursement data available.</div>';
+      return;
+    }
+    var isCards = _view === 'cards';
+    var day = _days[_dayIdx];
+    var p = day ? (_prevMap[day] || null) : null;
+    var c = day ? (_curMap[day] || null) : null;
+
+    var html = '<div style="max-width:1400px;margin:0 auto;padding:16px;">';
+
+    // Header
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">';
+    html += '<div><h2 style="font-size:20px;font-weight:700;color:#1E293B;margin:0;">Disbursement Comparison</h2>';
+    html += '<p style="font-size:13px;color:#64748B;margin:4px 0 0;">' + esc(_months.prev.name) + ' vs ' + esc(_months.cur.name) + ' &mdash; Day wise</p></div>';
+
+    // Day nav
+    html += '<div style="display:flex;align-items:center;gap:6px;">';
+    html += '<button onclick="window._cdcNav(-1)" style="width:34px;height:34px;border:1px solid #E2E8F0;border-radius:8px;background:#fff;cursor:pointer;font-size:16px;color:#F59E0B;font-weight:700;">&larr;</button>';
+    html += '<div style="background:#F1F5F9;border:1px solid #E2E8F0;padding:8px 18px;border-radius:10px;text-align:center;min-width:200px;">';
+    if (day) {
+      html += '<div style="font-size:15px;font-weight:700;color:#1E293B;">Day ' + day + '</div>';
+      html += '<div style="font-size:11px;color:#94A3B8;margin-top:2px;">';
+      html += (p ? ordinal(day) + ' ' + MONTH_NAMES[_months.prev.month] : 'No data') + '  vs  ' + (c ? ordinal(day) + ' ' + MONTH_NAMES[_months.cur.month] : 'No data');
+      html += '</div>';
+    } else {
+      html += '<div style="font-size:13px;color:#94A3B8;">No day selected</div>';
+    }
+    html += '</div>';
+    html += '<button onclick="window._cdcNav(1)" style="width:34px;height:34px;border:1px solid #E2E8F0;border-radius:8px;background:#fff;cursor:pointer;font-size:16px;color:#F59E0B;font-weight:700;">&rarr;</button>';
+    html += '</div>';
+
+    // Toggle
+    html += '<div style="display:inline-flex;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;">';
+    html += '<button onclick="window._cdcSetView(\'cards\')" style="padding:6px 14px;font-size:12px;font-weight:' + (isCards ? '600' : '500') + ';color:' + (isCards ? '#D97706' : '#64748B') + ';background:' + (isCards ? '#FFFBEB' : '#fff') + ';border:none;cursor:pointer;font-family:inherit;">Cards</button>';
+    html += '<button onclick="window._cdcSetView(\'table\')" style="padding:6px 14px;font-size:12px;font-weight:' + (!isCards ? '600' : '500') + ';color:' + (!isCards ? '#D97706' : '#64748B') + ';background:' + (!isCards ? '#FFFBEB' : '#fff') + ';border:none;border-left:1px solid #E2E8F0;cursor:pointer;font-family:inherit;">Table</button>';
+    html += '</div></div>';
+
+    html += isCards ? renderCards() : renderTable();
+    html += '</div>';
+    body.innerHTML = html;
+  }
+
+  window._cdcNav = function (dir) {
+    if (!_days.length) return;
+    var n = _dayIdx + dir;
+    if (n >= 0 && n < _days.length) { _dayIdx = n; render(); }
   };
+  window._cdcSetView = function (v) { _view = v; render(); };
 
   window.renderDisbComparison = function () {
-    injectStyles();
     var container = document.getElementById('comparisonContent');
     if (!container) return;
     var body = document.getElementById('compDisbBody');
@@ -317,7 +281,7 @@
       if (bar && bar.parentNode === container) container.appendChild(body);
       else { container.innerHTML = ''; container.appendChild(body); }
     }
-    body.innerHTML = '<div style="text-align:center;padding:80px 20px;"><div style="width:32px;height:32px;border:3px solid #E2E8F0;border-top-color:' + AMBER + ';border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 12px;"></div><div style="color:#64748B;font-size:14px;">Loading...</div></div>';
+    body.innerHTML = '<div style="text-align:center;padding:80px 20px;"><div style="width:32px;height:32px;border:3px solid #E2E8F0;border-top-color:#F59E0B;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 12px;"></div><div style="color:#64748B;font-size:14px;">Loading...</div></div>';
 
     var datesUrl = '/api/disbursement/daily/dates';
     var sp = scopeParams();
@@ -325,7 +289,7 @@
 
     fetch(datesUrl).then(function (r) { return r.json(); }).then(function (dates) {
       if (!dates || !dates.length) {
-        body.innerHTML = '<div class="cdc-wrap"><div class="cdc-empty">No disbursement data available.</div></div>';
+        body.innerHTML = '<div style="text-align:center;padding:80px 20px;color:#64748B;">No disbursement data available.</div>';
         return;
       }
       var sorted = dates.slice().sort();
@@ -333,7 +297,7 @@
       var lp = latest.split('-');
       var cy = parseInt(lp[0], 10), cm = parseInt(lp[1], 10);
       var py = cm === 1 ? cy - 1 : cy, pm = cm === 1 ? 12 : cm - 1;
-      var months = {
+      _months = {
         cur: { year: cy, month: cm, name: MONTH_NAMES[cm] + ' ' + cy },
         prev: { year: py, month: pm, name: MONTH_NAMES[pm] + ' ' + py }
       };
@@ -346,52 +310,22 @@
         fetch(buildRangeUrl(prevFrom, prevTo)).then(function (r) { return r.json(); }),
         fetch(buildRangeUrl(curFrom, curTo)).then(function (r) { return r.json(); })
       ]).then(function (arr) {
-        var prevMap = toDayMap(arr[0], py, pm);
-        var curMap = toDayMap(arr[1], cy, cm);
-
-        var tot = { prevAcc: 0, prevAmt: 0, curAcc: 0, curAmt: 0 };
-        for (var d = 1; d <= 31; d++) {
-          if (prevMap[d]) { tot.prevAcc += prevMap[d].accounts; tot.prevAmt += prevMap[d].amount; }
-          if (curMap[d]) { tot.curAcc += curMap[d].accounts; tot.curAmt += curMap[d].amount; }
+        _prevMap = toDayMap(arr[0], py, pm);
+        _curMap = toDayMap(arr[1], cy, cm);
+        _days = [];
+        for (var d = 1; d <= 31; d++) if (_prevMap[d] || _curMap[d]) _days.push(d);
+        // Default to latest cur-month day with data; else last day in _days
+        var defaultIdx = _days.length - 1;
+        for (var i = _days.length - 1; i >= 0; i--) {
+          if (_curMap[_days[i]]) { defaultIdx = i; break; }
         }
-
-        var csv = computeCsv(prevMap, curMap, months);
-        window.__cdcCsv = csv;
-        var filename = 'disbursement-comparison-' + months.prev.name.replace(' ', '') + '-vs-' + months.cur.name.replace(' ', '') + '.csv';
-
-        var html = '<div class="cdc-wrap">';
-        html += '<div class="cdc-head">';
-        html += '<h2 class="cdc-title">Disbursement Comparison</h2>';
-        html += '<p class="cdc-sub">' + esc(months.prev.name) + ' vs ' + esc(months.cur.name) + ' · Day-of-month matched</p>';
-        html += '</div>';
-
-        html += summaryHtml(tot, months);
-
-        html += '<div class="cdc-chart-wrap">';
-        html += '<div class="cdc-chart-head">';
-        html += '<div class="cdc-chart-title">Daily Disbursement Trend</div>';
-        html += '<div class="cdc-legend">';
-        html += '<span><span class="cdc-dot" style="background:' + PREV_COLOR + ';"></span>' + esc(months.prev.name) + '</span>';
-        html += '<span><span class="cdc-dot" style="background:' + AMBER + ';"></span>' + esc(months.cur.name) + '</span>';
-        html += '</div></div>';
-        html += dualLineSvg(prevMap, curMap, months);
-        html += '</div>';
-
-        html += '<div class="cdc-list">';
-        html += '<div class="cdc-list-head">';
-        html += '<div class="cdc-list-title">Day-by-Day</div>';
-        html += '<button class="cdc-btn" onclick="window._cdcDownloadCsv(window.__cdcCsv, \'' + esc(filename) + '\')">Download CSV</button>';
-        html += '</div>';
-        html += listHtml(prevMap, curMap, months);
-        html += '</div>';
-
-        html += '</div>';
-        body.innerHTML = html;
+        _dayIdx = defaultIdx;
+        render();
       }).catch(function () {
-        body.innerHTML = '<div class="cdc-wrap"><div class="cdc-empty">Failed to load disbursement data.</div></div>';
+        body.innerHTML = '<div style="text-align:center;padding:80px;color:#64748B;">Failed to load disbursement data.</div>';
       });
     }).catch(function () {
-      body.innerHTML = '<div class="cdc-wrap"><div class="cdc-empty">Failed to load disbursement dates.</div></div>';
+      body.innerHTML = '<div style="text-align:center;padding:80px;color:#64748B;">Failed to load disbursement dates.</div>';
     });
   };
 })();
