@@ -770,6 +770,20 @@
             var dp = new Date(d + 'T00:00:00');
             dateEl.textContent = dp.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) + ' · ' + (_drPendingMode === 'plan' ? 'Plan' : 'Achievement');
           }
+          // Achievement mode: before 6 PM, show a pre-cutoff notice instead of fetching.
+          // BMs submit achievements end-of-day; the list only means anything after 18:00.
+          if (_drPendingMode === 'achievement') {
+            var now = new Date();
+            var todayIso = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
+            if (d === todayIso && now.getHours() < 18) {
+              listEl.innerHTML = '<div style="padding:36px 20px;text-align:center;">'
+                + '<div style="font-size:32px;margin-bottom:8px;">⏰</div>'
+                + '<div style="font-weight:700;color:#1E293B;font-size:15px;margin-bottom:6px;">Achievements open at 6:00 PM</div>'
+                + '<div style="color:#64748B;font-size:13px;line-height:1.5;">Branch Managers upload achievements at end of day.<br>Please check back after 6 PM to see pending branches.</div>'
+                + '</div>';
+              return;
+            }
+          }
           listEl.innerHTML = '<div style="padding:24px;text-align:center;color:#94A3B8;font-size:13px;">Loading…</div>';
           var url = '/api/daily-plan/pending-branches?table=' + encodeURIComponent(_drPendingMode)
             + '&date=' + encodeURIComponent(d)
