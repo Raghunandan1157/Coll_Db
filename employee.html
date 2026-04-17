@@ -824,6 +824,7 @@
         window._drOpenPendingModal = function() {
           var m = document.getElementById('drPendingModal');
           if (!m) return;
+          if (m.parentNode !== document.body) document.body.appendChild(m);
           m.style.display = 'flex';
           _drPendingMode = 'plan';
           window._drSetPendingMode('plan');
