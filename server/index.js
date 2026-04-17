@@ -4275,6 +4275,55 @@ app.get("/api/daily-plan/exists", async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// GET /api/daily-plan/pending-branches?table=reports|achievements&date=ISO&role=CEO|RM|DM|AM&location=NAME
+// Returns branches (scoped by role/location) that have NO row in the chosen table for that date.
+// Each row includes BM contact from employee_master (role='BM'); null if no BM exists.
+app.get("/api/daily-plan/pending-branches", async (req, res) => {
+  try {
+    const { table, date, role, location } = req.query;
+    if (!table || !date || !role) return res.status(400).json({ error: "Missing table, date, or role" });
+    if (role !== 'CEO' && !location) return res.status(400).json({ error: "location required for non-CEO roles" });
+    const targetTable = table === 'achievements' ? 'daily_reports_achievements' : 'daily_reports';
+    const sql = `
+      WITH branch_list AS (
+        SELECT DISTINCT branch_name, area_name, division_name, region_name
+        FROM employee_master
+        WHERE status = 'Working'
+          AND branch_name IS NOT NULL AND branch_name <> ''
+          AND (
+            $2 = 'CEO'
+            OR ($2 = 'RM' AND UPPER(region_name)   = UPPER($3))
+            OR ($2 = 'DM' AND UPPER(division_name) = UPPER($3))
+            OR ($2 = 'AM' AND UPPER(area_name)     = UPPER($3))
+          )
+      ),
+      bm AS (
+        SELECT DISTINCT ON (UPPER(branch_name)) UPPER(branch_name) AS branch_key,
+               full_name, mobile, emp_id
+        FROM employee_master
+        WHERE role = 'BM' AND status = 'Working'
+          AND branch_name IS NOT NULL AND branch_name <> ''
+        ORDER BY UPPER(branch_name), emp_id
+      )
+      SELECT bl.branch_name AS branch,
+             bl.area_name   AS area,
+             bl.division_name AS division,
+             bl.region_name AS region,
+             bm.full_name   AS bm_name,
+             bm.mobile      AS bm_phone
+      FROM branch_list bl
+      LEFT JOIN bm ON bm.branch_key = UPPER(bl.branch_name)
+      WHERE NOT EXISTS (
+        SELECT 1 FROM ${targetTable} dr
+        WHERE UPPER(dr.branch_name) = UPPER(bl.branch_name)
+          AND dr.date = $1::date
+      )
+      ORDER BY bl.branch_name ASC`;
+    const result = await pool.query(sql, [date, role, location || '']);
+    res.json(result.rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // POST /api/daily-plan/save — Save daily report (plan or achievement)
 app.post("/api/daily-plan/save", async (req, res) => {
   try {
