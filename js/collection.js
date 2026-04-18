@@ -399,11 +399,14 @@
 
   function productPillsHtml() {
     var p = _collState.product;
+    var callBtn = (window._contactsCache && window._contactsCache.renderCurrentViewCallBtn)
+      ? window._contactsCache.renderCurrentViewCallBtn() : '';
     return '<div class="emp-product-filter desktop-pills-row">' +
       '<button class="emp-product-pill' + (p === 'all' ? ' active' : '') + '" data-coll-product="all">All</button>' +
       '<button class="emp-product-pill' + (p === 'igl' ? ' active' : '') + '" data-coll-product="igl">IGL</button>' +
       '<button class="emp-product-pill' + (p === 'fig' ? ' active' : '') + '" data-coll-product="fig">FIG</button>' +
       '<button class="emp-product-pill' + (p === 'il' ? ' active' : '') + '" data-coll-product="il">IL</button>' +
+      callBtn +
     '</div>';
   }
 

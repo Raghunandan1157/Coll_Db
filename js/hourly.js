@@ -309,11 +309,14 @@
 
   function productPillsHtml() {
     var p = _hourlyState.product;
+    var callBtn = (window._contactsCache && window._contactsCache.renderCurrentViewCallBtn)
+      ? window._contactsCache.renderCurrentViewCallBtn() : '';
     return '<div class="emp-product-filter desktop-pills-row">' +
       '<button class="emp-product-pill' + (p === 'all' ? ' active' : '') + '" data-hourly-product="all">All</button>' +
       '<button class="emp-product-pill' + (p === 'igl' ? ' active' : '') + '" data-hourly-product="igl">IGL</button>' +
       '<button class="emp-product-pill' + (p === 'fig' ? ' active' : '') + '" data-hourly-product="fig">FIG</button>' +
       '<button class="emp-product-pill' + (p === 'il' ? ' active' : '') + '" data-hourly-product="il">IL</button>' +
+      callBtn +
     '</div>';
   }
 

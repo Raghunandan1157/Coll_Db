@@ -106,6 +106,32 @@
       '</a>';
   }
 
+  // Pill-style Call button for the person whose dashboard is currently being
+  // viewed — placed next to the product filter pills at the top of each tab.
+  // Returns '' for CEO (no single contact) or when no phone is on file.
+  function renderCurrentViewCallBtn() {
+    if (typeof getEmployeeSession !== 'function') return '';
+    var sess = getEmployeeSession();
+    if (!sess || !sess.role || sess.role === 'CEO') return '';
+    var phone = null;
+    var name = '';
+    if (sess.role === 'FO' && sess.id) {
+      phone = getPhone(sess.id);
+      name = sess.name || '';
+    } else if (sess.location) {
+      var mgr = getManager(sess.role, sess.location);
+      if (mgr) {
+        phone = mgr.mobile;
+        name = mgr.name || mgr.full_name || '';
+      }
+    }
+    if (!phone) return '';
+    return '<a href="tel:' + esc(phone) + '" class="contact-topbar-btn" title="Call ' + esc(name || phone) + '">' +
+      PHONE_SVG +
+      '<span class="contact-topbar-num">' + esc(phone) + '</span>' +
+      '</a>';
+  }
+
   // Inject styles once
   if (!document.getElementById('contacts-styles')) {
     var style = document.createElement('style');
@@ -116,7 +142,10 @@
       '.contact-call-btn .contact-call-num { font-family:"DM Sans", sans-serif; letter-spacing:0.2px; }' +
       '.contact-mgr-badge { display:inline-flex; align-items:center; gap:4px; padding:2px 7px; border-radius:7px; background:#F1F5F9; color:#475569; font-size:10.5px; font-weight:500; text-decoration:none; line-height:1.4; margin-top:3px; }' +
       '.contact-mgr-badge:hover { background:#E2E8F0; }' +
-      '.contact-cell { white-space:nowrap; }';
+      '.contact-cell { white-space:nowrap; }' +
+      '.contact-topbar-btn { margin-left:auto; display:inline-flex; align-items:center; gap:6px; padding:6px 14px; border-radius:20px; background:#ECFDF5; color:#059669; font-size:13px; font-weight:600; text-decoration:none; border:1px solid #A7F3D0; transition:background .15s; line-height:1; white-space:nowrap; }' +
+      '.contact-topbar-btn:hover { background:#D1FAE5; }' +
+      '.contact-topbar-num { font-family:"DM Sans", sans-serif; letter-spacing:0.2px; }';
     document.head.appendChild(style);
   }
 
@@ -127,6 +156,7 @@
     getManager: getManager,
     renderCallBtn: renderCallBtn,
     renderManagerBadge: renderManagerBadge,
+    renderCurrentViewCallBtn: renderCurrentViewCallBtn,
     isLoaded: function () { return _loaded; }
   };
 })();

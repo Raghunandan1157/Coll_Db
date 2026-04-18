@@ -578,11 +578,14 @@
 
   function productPillsHtml() {
     var pills = [{key:'all',label:'All'},{key:'igl',label:'IGL'},{key:'fig',label:'FIG'},{key:'il',label:'IL'}];
-    var html = '<div class="emp-fade" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;">';
+    var html = '<div class="emp-fade" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:16px;">';
     for (var i = 0; i < pills.length; i++) {
       var p = pills[i];
       var active = _db.product === p.key;
       html += '<button data-db-product="' + p.key + '" style="padding:6px 16px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:none;transition:all .2s;' + (active ? 'background:#F59E0B;color:#fff;' : 'background:#F1F5F9;color:#64748B;') + '">' + p.label + '</button>';
+    }
+    if (window._contactsCache && window._contactsCache.renderCurrentViewCallBtn) {
+      html += window._contactsCache.renderCurrentViewCallBtn();
     }
     html += '</div>';
     return html;
