@@ -459,9 +459,13 @@
                 </div>
                 <button onclick="document.getElementById('drPendingModal').style.display='none'" aria-label="Close" style="background:none;border:none;font-size:22px;color:#64748B;cursor:pointer;line-height:1;padding:4px 8px;">×</button>
               </div>
-              <div style="padding:12px 20px;border-bottom:1px solid #F1F5F9;display:flex;gap:8px;">
+              <div style="padding:12px 20px;border-bottom:1px solid #F1F5F9;display:flex;gap:8px;align-items:center;">
                 <button id="drPendingPillPlan" onclick="window._drSetPendingMode('plan')" style="padding:8px 18px;border-radius:999px;border:none;background:#6366F1;color:#fff;font-weight:600;font-size:13px;cursor:pointer;">Plan</button>
                 <button id="drPendingPillAch" onclick="window._drSetPendingMode('achievement')" style="padding:8px 18px;border-radius:999px;border:1px solid #E2E8F0;background:#fff;color:#334155;font-weight:500;font-size:13px;cursor:pointer;">Achievement</button>
+                <button id="drPendingShareBtn" onclick="window._drSharePending()" disabled title="Copy &amp; share list" style="margin-left:auto;padding:8px 14px;border-radius:8px;border:1px solid #E2E8F0;background:#fff;color:#334155;font-weight:600;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;opacity:0.5;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+                  <span id="drPendingShareLbl">Share</span>
+                </button>
               </div>
               <div id="drPendingList" style="padding:8px 12px;overflow-y:auto;flex:1;min-height:120px;">
                 <div style="padding:24px;text-align:center;color:#94A3B8;font-size:13px;">Loading…</div>
@@ -750,6 +754,15 @@
           });
         };
         var _drPendingMode = 'plan';
+        var _drPendingLast = { rows: [], date: '', mode: 'plan' };
+
+        function _drSetShareBtn(enabled) {
+          var b = document.getElementById('drPendingShareBtn');
+          if (!b) return;
+          b.disabled = !enabled;
+          b.style.opacity = enabled ? '1' : '0.5';
+          b.style.cursor = enabled ? 'pointer' : 'not-allowed';
+        }
 
         function _drPendingFetch() {
           var listEl = document.getElementById('drPendingList');
@@ -760,6 +773,8 @@
             var dp = new Date(d + 'T00:00:00');
             dateEl.textContent = dp.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) + ' · ' + (_drPendingMode === 'plan' ? 'Plan' : 'Achievement');
           }
+          _drPendingLast = { rows: [], date: d, mode: _drPendingMode };
+          _drSetShareBtn(false);
           // Achievement mode: before 6 PM, show a pre-cutoff notice instead of fetching.
           // BMs submit achievements end-of-day; the list only means anything after 18:00.
           if (_drPendingMode === 'achievement') {
@@ -785,6 +800,8 @@
               listEl.innerHTML = '<div style="padding:36px 16px;text-align:center;color:#059669;font-size:14px;font-weight:600;">🎉 All branches have uploaded.</div>';
               return;
             }
+            _drPendingLast = { rows: rows, date: d, mode: _drPendingMode };
+            _drSetShareBtn(true);
             var html = '';
             rows.forEach(function(row){
               var branch = row.branch || row.branch_name || '';
@@ -823,6 +840,57 @@
             achBtn.setAttribute('style', _drPendingMode === 'achievement' ? active : inactive);
           }
           _drPendingFetch();
+        };
+
+        window._drSharePending = function() {
+          var data = _drPendingLast;
+          if (!data || !data.rows || !data.rows.length) return;
+          var dp = new Date(data.date + 'T00:00:00');
+          var dateStr = dp.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+          var modeLabel = data.mode === 'plan' ? 'Plan' : 'Achievement';
+          var lines = [];
+          lines.push('Branches Pending — ' + modeLabel);
+          lines.push('Date: ' + dateStr);
+          lines.push('Total: ' + data.rows.length);
+          lines.push('');
+          data.rows.forEach(function(row, i){
+            var branch = row.branch || row.branch_name || '—';
+            var bm = row.bm || row.bm_name || row.manager || '';
+            var phone = row.phone || row.bm_phone || row.mobile || '';
+            var area = row.area || row.area_name || '';
+            var line = (i+1) + '. ' + branch;
+            if (area) line += ' (' + area + ')';
+            if (bm) line += ' — ' + bm;
+            if (phone) line += ' · ' + phone;
+            lines.push(line);
+          });
+          var text = lines.join('\n');
+          var lbl = document.getElementById('drPendingShareLbl');
+          var flash = function(msg) {
+            if (!lbl) return;
+            var orig = lbl.textContent;
+            lbl.textContent = msg;
+            setTimeout(function(){ lbl.textContent = orig; }, 1500);
+          };
+          if (navigator.share) {
+            navigator.share({ title: 'Branches Pending — ' + modeLabel, text: text })
+              .then(function(){ flash('Shared ✓'); })
+              .catch(function(){ /* user cancelled — no-op */ });
+            return;
+          }
+          var fallback = function() {
+            try {
+              var ta = document.createElement('textarea');
+              ta.value = text; document.body.appendChild(ta); ta.select();
+              document.execCommand('copy'); document.body.removeChild(ta);
+              flash('Copied ✓');
+            } catch(e) { flash('Copy failed'); }
+          };
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(function(){ flash('Copied ✓'); }, fallback);
+          } else {
+            fallback();
+          }
         };
 
         window._drOpenPendingModal = function() {
