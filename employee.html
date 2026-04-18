@@ -842,6 +842,106 @@
           _drPendingFetch();
         };
 
+        function _drRenderPendingImage(rows, dateStr, modeLabel) {
+          var dpr = Math.min(window.devicePixelRatio || 1, 2);
+          var W = 720;
+          var pad = 28;
+          var rowH = 56;
+          var headerH = 120;
+          var footerH = 48;
+          var H = headerH + rows.length * rowH + footerH;
+          var canvas = document.createElement('canvas');
+          canvas.width = W * dpr;
+          canvas.height = H * dpr;
+          var ctx = canvas.getContext('2d');
+          ctx.scale(dpr, dpr);
+          ctx.textBaseline = 'alphabetic';
+          // Background
+          ctx.fillStyle = '#fff';
+          ctx.fillRect(0, 0, W, H);
+          // Header gradient
+          var grad = ctx.createLinearGradient(0, 0, W, 0);
+          grad.addColorStop(0, '#6366F1');
+          grad.addColorStop(1, '#8B5CF6');
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, 0, W, headerH);
+          // Title
+          ctx.fillStyle = '#fff';
+          ctx.font = '700 22px -apple-system, Segoe UI, Roboto, sans-serif';
+          ctx.fillText('Branches Pending — ' + modeLabel, pad, 48);
+          // Date + total
+          ctx.font = '13px -apple-system, Segoe UI, Roboto, sans-serif';
+          ctx.fillStyle = 'rgba(255,255,255,0.92)';
+          ctx.fillText(dateStr, pad, 76);
+          var totalLbl = 'Total: ' + rows.length;
+          ctx.textAlign = 'right';
+          ctx.fillText(totalLbl, W - pad, 76);
+          ctx.textAlign = 'left';
+          // Truncate helper
+          function fit(text, maxWidth) {
+            var t = String(text == null ? '' : text);
+            if (ctx.measureText(t).width <= maxWidth) return t;
+            while (t.length > 0 && ctx.measureText(t + '…').width > maxWidth) t = t.slice(0, -1);
+            return t + '…';
+          }
+          // Rows
+          rows.forEach(function(row, i){
+            var y = headerH + i * rowH;
+            if (i % 2 === 1) {
+              ctx.fillStyle = '#F8FAFC';
+              ctx.fillRect(0, y, W, rowH);
+            }
+            var branch = row.branch || row.branch_name || '—';
+            var area = row.area || row.area_name || '';
+            var bm = row.bm || row.bm_name || row.manager || '';
+            var phone = row.phone || row.bm_phone || row.mobile || '';
+            // Right side: BM + phone
+            ctx.font = '13px -apple-system, Segoe UI, Roboto, sans-serif';
+            var rightLines = [];
+            if (bm) rightLines.push(bm);
+            if (phone) rightLines.push(phone);
+            var rightMaxW = 220;
+            var rightW = 0;
+            rightLines.forEach(function(t){ rightW = Math.max(rightW, ctx.measureText(t).width); });
+            rightW = Math.min(rightW, rightMaxW);
+            // Left side (index + branch + area)
+            var leftMaxW = W - pad - pad - rightW - 20;
+            ctx.font = '600 15px -apple-system, Segoe UI, Roboto, sans-serif';
+            ctx.fillStyle = '#0F172A';
+            ctx.fillText(fit((i+1) + '. ' + branch, leftMaxW), pad, y + 22);
+            if (area) {
+              ctx.font = '12px -apple-system, Segoe UI, Roboto, sans-serif';
+              ctx.fillStyle = '#64748B';
+              ctx.fillText(fit(area, leftMaxW), pad, y + 42);
+            }
+            // Right text
+            ctx.textAlign = 'right';
+            if (rightLines[0]) {
+              ctx.font = '600 13px -apple-system, Segoe UI, Roboto, sans-serif';
+              ctx.fillStyle = '#334155';
+              ctx.fillText(fit(rightLines[0], rightMaxW), W - pad, y + 22);
+            }
+            if (rightLines[1]) {
+              ctx.font = '13px -apple-system, Segoe UI, Roboto, sans-serif';
+              ctx.fillStyle = '#6366F1';
+              ctx.fillText(fit(rightLines[1], rightMaxW), W - pad, y + 42);
+            }
+            ctx.textAlign = 'left';
+            // Divider
+            ctx.fillStyle = '#E2E8F0';
+            ctx.fillRect(pad, y + rowH - 1, W - pad * 2, 1);
+          });
+          // Footer
+          ctx.fillStyle = '#F8FAFC';
+          ctx.fillRect(0, H - footerH, W, footerH);
+          ctx.fillStyle = '#94A3B8';
+          ctx.font = '12px -apple-system, Segoe UI, Roboto, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('NLPL Employee Dashboard · growwithme.navachetanalivelihoods.com', W / 2, H - 18);
+          ctx.textAlign = 'left';
+          return canvas;
+        }
+
         window._drSharePending = function() {
           var data = _drPendingLast;
           if (!data || !data.rows || !data.rows.length) return;
@@ -875,27 +975,45 @@
             if (!lbl) return;
             var orig = lbl.textContent;
             lbl.textContent = msg;
-            setTimeout(function(){ lbl.textContent = orig; }, 1500);
+            setTimeout(function(){ lbl.textContent = orig; }, 1600);
           };
-          if (navigator.share) {
-            navigator.share({ title: 'Branches Pending — ' + modeLabel, text: text })
-              .then(function(){ flash('Shared ✓'); })
-              .catch(function(){ /* user cancelled — no-op */ });
-            return;
-          }
-          var fallback = function() {
-            try {
-              var ta = document.createElement('textarea');
-              ta.value = text; document.body.appendChild(ta); ta.select();
-              document.execCommand('copy'); document.body.removeChild(ta);
-              flash('Copied ✓');
-            } catch(e) { flash('Copy failed'); }
+          flash('Preparing…');
+          var canvas;
+          try {
+            canvas = _drRenderPendingImage(filtered, dateStr, modeLabel);
+          } catch(e) { canvas = null; }
+          var fileName = 'branches-pending-' + data.mode + '-' + data.date + '.png';
+          var textFallback = function() {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(text).then(function(){ flash('Copied ✓'); }, function(){
+                try { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); flash('Copied ✓'); } catch(_){ flash('Copy failed'); }
+              });
+            } else {
+              try { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); flash('Copied ✓'); } catch(_){ flash('Copy failed'); }
+            }
           };
-          if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(text).then(function(){ flash('Copied ✓'); }, fallback);
-          } else {
-            fallback();
-          }
+          if (!canvas || !canvas.toBlob) { textFallback(); return; }
+          canvas.toBlob(function(blob){
+            if (!blob) { textFallback(); return; }
+            var file;
+            try { file = new File([blob], fileName, { type: 'image/png' }); } catch(_){ file = null; }
+            if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+              navigator.share({ title: 'Branches Pending — ' + modeLabel, text: text, files: [file] })
+                .then(function(){ flash('Shared ✓'); })
+                .catch(function(){ /* user cancelled */ });
+              return;
+            }
+            // Desktop fallback: download image + copy text to clipboard
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url; a.download = fileName;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            setTimeout(function(){ URL.revokeObjectURL(url); }, 1500);
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(text).catch(function(){});
+            }
+            flash('Saved + Copied ✓');
+          }, 'image/png');
         };
 
         window._drOpenPendingModal = function() {
