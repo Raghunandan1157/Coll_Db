@@ -399,6 +399,7 @@
         '<th>Unit <span class="sort-icon">&#8597;</span></th>' +
         '<th class="num-col">Accounts <span class="sort-icon">&#8597;</span></th>' +
         '<th class="num-col">Amount <span class="sort-icon">&#8597;</span></th>' +
+        '<th class="contact-cell">Contact</th>' +
         '<th style="width:24px;"></th>' +
       '</tr></thead><tbody>';
 
@@ -413,11 +414,18 @@
         var dataAttr = childRole === 'FO'
           ? 'data-emp-id="' + esc(ch.emp_id || '') + '" data-emp-name="' + esc(childName) + '"'
           : 'data-child-role="' + esc(childRole) + '" data-child-location="' + esc(childName) + '"';
+        var contactHtml = '';
+        if (window._contactsCache) {
+          contactHtml = childRole === 'FO'
+            ? window._contactsCache.renderCallBtn(ch.emp_id)
+            : window._contactsCache.renderManagerBadge(childRole, childName);
+        }
 
         html += '<tr class="emp-sub-card" ' + dataAttr + '>' +
           '<td class="name-col"><span class="tbl-avatar" style="' + avStyle + '">' + initial + '</span>' + esc(childName) + '</td>' +
           '<td class="num-col">' + fmtNum(numVal(ch.total_count)) + '</td>' +
           '<td class="num-col" style="color:#F59E0B;font-weight:600;">' + fmtAmt(numVal(ch.total_amount)) + '</td>' +
+          '<td class="contact-cell">' + contactHtml + '</td>' +
           '<td class="tbl-arrow">&#8250;</td>' +
         '</tr>';
       }
@@ -435,11 +443,18 @@
         var dataAttr = childRole === 'FO'
           ? 'data-emp-id="' + esc(ch.emp_id || '') + '" data-emp-name="' + esc(childName) + '"'
           : 'data-child-role="' + esc(childRole) + '" data-child-location="' + esc(childName) + '"';
+        var contactHtml = '';
+        if (window._contactsCache) {
+          contactHtml = childRole === 'FO'
+            ? window._contactsCache.renderCallBtn(ch.emp_id)
+            : window._contactsCache.renderManagerBadge(childRole, childName);
+        }
 
         html += '<div class="emp-sub-card desktop-sub-card" ' + dataAttr + '>';
         html += '<div class="emp-sub-avatar" style="background:#FFFBEB;color:#F59E0B;">' + initial + '</div>';
         html += '<div class="emp-sub-info"><div class="emp-sub-name">' + esc(childName) + '</div>';
-        html += '<div class="emp-sub-meta"><span>A/c: ' + fmtNum(numVal(ch.total_count)) + '</span><span>Amt: ' + fmtAmt(numVal(ch.total_amount)) + '</span></div></div>';
+        html += '<div class="emp-sub-meta"><span>A/c: ' + fmtNum(numVal(ch.total_count)) + '</span><span>Amt: ' + fmtAmt(numVal(ch.total_amount)) + '</span></div>';
+        html += (contactHtml ? '<div class="emp-sub-contact">' + contactHtml + '</div>' : '') + '</div>';
         html += '<div class="emp-sub-pct" style="color:#F59E0B">' + fmtAmt(numVal(ch.total_amount)) + '</div>';
         html += '<div class="emp-sub-arrow">&#8250;</div></div>';
       }

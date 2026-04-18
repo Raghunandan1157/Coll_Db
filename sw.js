@@ -15,7 +15,7 @@ var ASSETS = [
   './js/hourly.js',
   './js/portfolio.js',
   './js/disbursement.js',
-  './js/analytical.js',
+  './js/contacts.js',
   './js/admin.js',
   './js/parser.js',
   './js/renderer.js',

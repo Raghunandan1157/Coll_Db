@@ -537,6 +537,7 @@
         '<th class="num-col">Collection <span class="sort-icon">&#8597;</span></th>' +
         '<th class="num-col">Balance <span class="sort-icon">&#8597;</span></th>' +
         '<th class="num-col">Coll% <span class="sort-icon">&#8597;</span></th>' +
+        '<th class="contact-cell">Contact</th>' +
         '<th style="width:24px;"></th>' +
       '</tr></thead><tbody>';
 
@@ -551,6 +552,12 @@
         var childName = getHrChildName(ch, childRole);
         var dataAttr = getHrDataAttr(ch, childRole, childName);
         var initial = childName.charAt(0).toUpperCase();
+        var contactHtml = '';
+        if (window._contactsCache) {
+          contactHtml = childRole === 'FO'
+            ? window._contactsCache.renderCallBtn(ch.emp_id)
+            : window._contactsCache.renderManagerBadge(childRole, childName);
+        }
 
         html += '<tr class="emp-sub-card" ' + dataAttr + '>' +
           '<td class="name-col"><span class="tbl-avatar" style="' + avStyle + '">' + initial + '</span>' + esc(childName) + '</td>' +
@@ -558,6 +565,7 @@
           '<td class="num-col" style="color:#059669;font-weight:600;">' + fmtNum(col) + '</td>' +
           '<td class="num-col" style="color:#FB923C;">' + fmtNum(bal) + '</td>' +
           '<td class="num-col"><span class="tbl-pct" style="color:' + pctColor + '">' + pct + '%</span></td>' +
+          '<td class="contact-cell">' + contactHtml + '</td>' +
           '<td class="tbl-arrow">&#8250;</td>' +
         '</tr>';
       }
@@ -574,6 +582,12 @@
         var childName = getHrChildName(ch, childRole);
         var dataAttr = getHrDataAttr(ch, childRole, childName);
         var initial = childName.charAt(0).toUpperCase();
+        var contactHtml = '';
+        if (window._contactsCache) {
+          contactHtml = childRole === 'FO'
+            ? window._contactsCache.renderCallBtn(ch.emp_id)
+            : window._contactsCache.renderManagerBadge(childRole, childName);
+        }
 
         html += '<div class="emp-sub-card desktop-sub-card" ' + dataAttr + '>' +
           '<div class="emp-sub-avatar ' + av + '">' + initial + '</div>' +
@@ -583,6 +597,7 @@
               '<span>D: ' + fmtNum(dem) + '</span>' +
               '<span>C: ' + fmtNum(col) + '</span>' +
             '</div>' +
+            (contactHtml ? '<div class="emp-sub-contact">' + contactHtml + '</div>' : '') +
           '</div>' +
           '<div class="emp-sub-pct" style="color:' + pctColor + '">' + pct + '%</div>' +
           '<div class="emp-sub-arrow">&#8250;</div>' +

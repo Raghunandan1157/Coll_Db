@@ -475,6 +475,7 @@
         '<th class="num-col">Accounts <span class="sort-icon">&#8597;</span></th>' +
         '<th class="num-col">POS <span class="sort-icon">&#8597;</span></th>' +
         '<th class="num-col">NPA <span class="sort-icon">&#8597;</span></th>' +
+        '<th class="contact-cell">Contact</th>' +
         '<th style="width:24px;"></th>' +
       '</tr></thead><tbody>';
 
@@ -484,12 +485,19 @@
         var childName = getPfChildName(ch, childRole);
         var dataAttr = getPfDataAttr(ch, childRole, childName);
         var initial = childName.charAt(0).toUpperCase();
+        var contactHtml = '';
+        if (window._contactsCache) {
+          contactHtml = childRole === 'FO'
+            ? window._contactsCache.renderCallBtn(ch.emp_id)
+            : window._contactsCache.renderManagerBadge(childRole, childName);
+        }
 
         html += '<tr class="emp-sub-card" ' + dataAttr + '>' +
           '<td class="name-col"><span class="tbl-avatar" style="' + avStyle + '">' + initial + '</span>' + esc(childName) + '</td>' +
           '<td class="num-col">' + fmtNum(d.totalAcc) + '</td>' +
           '<td class="num-col">' + fmtAmt(d.totalAmt) + '</td>' +
           '<td class="num-col"><span class="tbl-pct" style="color:' + d.pctColor + '">' + fmtNum(d.npa) + '</span></td>' +
+          '<td class="contact-cell">' + contactHtml + '</td>' +
           '<td class="tbl-arrow">&#8250;</td>' +
         '</tr>';
       }
@@ -502,6 +510,12 @@
         var childName = getPfChildName(ch, childRole);
         var dataAttr = getPfDataAttr(ch, childRole, childName);
         var initial = childName.charAt(0).toUpperCase();
+        var contactHtml = '';
+        if (window._contactsCache) {
+          contactHtml = childRole === 'FO'
+            ? window._contactsCache.renderCallBtn(ch.emp_id)
+            : window._contactsCache.renderManagerBadge(childRole, childName);
+        }
 
         html += '<div class="emp-sub-card desktop-sub-card" ' + dataAttr + '>' +
           '<div class="emp-sub-avatar ' + av + '">' + initial + '</div>' +
@@ -511,6 +525,7 @@
               '<span>A/c: ' + fmtNum(d.totalAcc) + '</span>' +
               '<span>POS: ' + fmtAmt(d.totalAmt) + '</span>' +
             '</div>' +
+            (contactHtml ? '<div class="emp-sub-contact">' + contactHtml + '</div>' : '') +
           '</div>' +
           '<div class="emp-sub-pct" style="color:' + d.pctColor + '">' + fmtNum(d.npa) + ' NPA</div>' +
           '<div class="emp-sub-arrow">&#8250;</div>' +

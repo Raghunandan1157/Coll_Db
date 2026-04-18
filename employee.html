@@ -160,12 +160,6 @@
         </span>
         <span class="desktop-sidebar-label">Comparison</span>
       </a>
-      <a href="javascript:void(0)" class="desktop-sidebar-item" data-dtab="analytical" onclick="switchEmpTab('analytical')">
-        <span class="desktop-sidebar-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-        </span>
-        <span class="desktop-sidebar-label">Analytical Tool</span>
-      </a>
       <a href="javascript:void(0)" class="desktop-sidebar-item" onclick="window._aiOpen()">
         <span class="desktop-sidebar-icon">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
@@ -312,10 +306,6 @@
 
       <div class="emp-tab-content" id="comparisonTab">
         <div id="comparisonContent"></div>
-      </div>
-
-      <div class="emp-tab-content" id="analyticalTab">
-        <div id="analyticalContent"></div>
       </div>
 
       <div class="emp-tab-content" id="settingsTab">
@@ -2168,10 +2158,6 @@ body.emp-dark .ai-bar-icon { background: rgba(99,102,241,0.15); color: #A5B4FC; 
         <span class="sidebar-nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="3" y1="20" x2="21" y2="20"/><polyline points="6 8 12 3 18 8"/></svg></span>
         <span class="sidebar-nav-label">Comparison</span>
       </a>
-      <a href="javascript:void(0)" id="analyticalNavItem" class="sidebar-nav-item" data-sidebar-tab="analytical" onclick="closeSidebar(); switchEmpTab('analytical');">
-        <span class="sidebar-nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>
-        <span class="sidebar-nav-label">Analytical Tool</span>
-      </a>
       <a href="contacts.html" class="sidebar-nav-item">
         <span class="sidebar-nav-icon">&#128199;</span>
         <span class="sidebar-nav-label">Contacts</span>
@@ -2675,14 +2661,14 @@ body.emp-dark .ai-bar-icon { background: rgba(99,102,241,0.15); color: #A5B4FC; 
   <script src="js/storage.js?v=49"></script>
   <script src="js/auth.js?v=49"></script>
   <script src="js/settings.js?v=49"></script>
-  <script src="js/portfolio.js?v=49"></script>
-  <script src="js/collection.js?v=50"></script>
-  <script src="js/hourly.js?v=49"></script>
-  <script src="js/disbursement.js?v=56"></script>
+  <script src="js/portfolio.js?v=50"></script>
+  <script src="js/collection.js?v=51"></script>
+  <script src="js/hourly.js?v=50"></script>
+  <script src="js/disbursement.js?v=57"></script>
   <script src="js/comparison.js?v=50"></script>
   <script src="js/comparison-disbursement.js?v=4"></script>
-  <script src="js/analytical.js?v=49"></script>
-  <script src="js/employee.js?v=49"></script>
+  <script src="js/contacts.js?v=1"></script>
+  <script src="js/employee.js?v=50"></script>
   <script>
   // AI Chat — browser calls server /api/ai-chat (Gemini backend)
   (function(){
@@ -3158,7 +3144,7 @@ function updateArrowVisibility(tab) {
       badge.style.cursor = 'pointer';
       badge.style.opacity = '1';
     } else {
-      // Hourly, analytical — dim the badge
+      // Hourly — dim the badge
       badge.style.opacity = '0.4';
       badge.style.cursor = 'default';
     }
@@ -4970,7 +4956,7 @@ document.addEventListener('keydown', function(e) {
 (function() {
   // Hash-based tab routing — e.g. employee.html#dailyreports opens the embedded DR tab
   var hash = (window.location.hash || '').replace('#', '').toLowerCase();
-  var validTabs = ['collection','portfolio','disbursement','hourly','comparison','analytical','dailyreports','settings'];
+  var validTabs = ['collection','portfolio','disbursement','hourly','comparison','dailyreports','settings'];
   var openHash = function() {
     if (hash === 'ai') {
       if (typeof window._aiOpen === 'function') window._aiOpen();
