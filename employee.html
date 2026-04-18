@@ -848,12 +848,17 @@
           var dp = new Date(data.date + 'T00:00:00');
           var dateStr = dp.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
           var modeLabel = data.mode === 'plan' ? 'Plan' : 'Achievement';
+          var filtered = data.rows.filter(function(row){
+            var name = String(row.branch || row.branch_name || '').toLowerCase();
+            return name.indexOf('corporate office') === -1 && name.indexOf('head office') === -1;
+          });
+          if (!filtered.length) return;
           var lines = [];
           lines.push('Branches Pending — ' + modeLabel);
           lines.push('Date: ' + dateStr);
-          lines.push('Total: ' + data.rows.length);
+          lines.push('Total: ' + filtered.length);
           lines.push('');
-          data.rows.forEach(function(row, i){
+          filtered.forEach(function(row, i){
             var branch = row.branch || row.branch_name || '—';
             var bm = row.bm || row.bm_name || row.manager || '';
             var phone = row.phone || row.bm_phone || row.mobile || '';
