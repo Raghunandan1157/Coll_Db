@@ -158,13 +158,17 @@
   }
 
   // Tab switching (global for onclick)
-  var tabTitles = { portfolio: 'Portfolio', disbursement: 'Disbursement', collection: 'Collection', hourly: 'Hourly', comparison: 'Comparison', ai: 'AI', dailyreports: 'Daily Reports', editbranch: 'EDIT_BRANCH_DAILY_REPORT', settings: 'Settings' };
+  var tabTitles = { portfolio: 'Portfolio', disbursement: 'Disbursement', collection: 'Collection', hourly: 'Hourly', comparison: 'Comparison', analytical: 'Analytical Tool', ai: 'AI', dailyreports: 'Daily Reports', editbranch: 'EDIT_BRANCH_DAILY_REPORT', settings: 'Settings' };
   window.switchEmpTab = function (tab) {
     // Switch tab content
     document.querySelectorAll('.emp-tab-content').forEach(function (tc) {
       tc.classList.remove('active');
     });
     document.getElementById(tab + 'Tab').classList.add('active');
+
+    if (tab === 'analytical' && typeof window._loadAnalyticalTab === 'function') {
+      window._loadAnalyticalTab();
+    }
 
     // Bottom tab bar — show for main tabs
     var isMainTab = (tab === 'portfolio' || tab === 'disbursement' || tab === 'collection' || tab === 'hourly');

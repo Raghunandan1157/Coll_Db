@@ -277,11 +277,6 @@
     // View toggle
     html += viewToggleHtml();
 
-    // Priority Panel (CEO + RM/SM only, single-day mode)
-    if (isPriorityRole(session.role) && _collState.date) {
-      html += priorityPanelShellHtml();
-    }
-
     // Date selector (daily data)
     html += dateSelectorHtml();
 
@@ -340,9 +335,6 @@
 
     container.innerHTML = '<div class="desktop-content-area">' + html + '</div>';
     attachHandlers();
-    if (isPriorityRole(session.role) && _collState.date) {
-      setTimeout(loadPriorityData, 0);
-    }
   }
 
   /* ---------- Priority Panel ---------- */
