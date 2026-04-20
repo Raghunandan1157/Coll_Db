@@ -28,7 +28,8 @@
     { key: 'regular', label: 'Regular', d: 'regular_demand', c: 'regular_collection' },
     { key: '1-30',    label: '1-30',    d: 'demand_1_30',    c: 'collection_1_30'    },
     { key: '31-60',   label: '31-60',   d: 'demand_31_60',   c: 'collection_31_60'   },
-    { key: 'pnpa',    label: 'PNPA',    d: 'pnpa_demand',    c: 'pnpa_collection'    }
+    { key: 'pnpa',    label: 'PNPA',    d: 'pnpa_demand',    c: 'pnpa_collection'    },
+    { key: 'npa',     label: 'NPA',     d: 'npa_cases',      c: 'npa_clo_acc'        }
   ];
 
   /* ===== Helpers ===== */
@@ -147,7 +148,9 @@
       var col = numVal(item[bucket.c]);
       var pct = dem > 0 ? (col / dem * 100) : 0;
       var pctColor = pct >= 90 ? '#059669' : pct >= 75 ? '#F59E0B' : '#EF4444';
-      leftMetric = '<span style="font-size:11px;color:#64748B;">D ' + Math.round(dem).toLocaleString('en-IN') + ' / C ' + Math.round(col).toLocaleString('en-IN') + '</span>';
+      var lblD = bucket.key === 'npa' ? 'Cases' : 'D';
+      var lblC = bucket.key === 'npa' ? 'Closed' : 'C';
+      leftMetric = '<span style="font-size:11px;color:#64748B;">' + lblD + ' ' + Math.round(dem).toLocaleString('en-IN') + ' / ' + lblC + ' ' + Math.round(col).toLocaleString('en-IN') + '</span>';
       rightMetric = '<span style="font-size:14px;font-weight:700;color:' + pctColor + ';">' + pct.toFixed(1) + '%</span>';
     } else {
       var amt = numVal(item.total_amount);
