@@ -1,4 +1,4 @@
-var CACHE_NAME = 'coll-report-v43';
+var CACHE_NAME = 'coll-report-v44';
 var ASSETS = [
   './',
   './index.html',
@@ -12,6 +12,7 @@ var ASSETS = [
   './js/auth.js',
   './js/employee.js',
   './js/collection.js',
+  './js/analytical.js',
   './js/hourly.js',
   './js/portfolio.js',
   './js/disbursement.js',

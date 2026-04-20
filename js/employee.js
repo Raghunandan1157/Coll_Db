@@ -164,7 +164,8 @@
     document.querySelectorAll('.emp-tab-content').forEach(function (tc) {
       tc.classList.remove('active');
     });
-    document.getElementById(tab + 'Tab').classList.add('active');
+    var tabEl = document.getElementById(tab + 'Tab');
+    if (tabEl) tabEl.classList.add('active');
 
     if (tab === 'analytical' && typeof window._loadAnalyticalTab === 'function') {
       window._loadAnalyticalTab();
