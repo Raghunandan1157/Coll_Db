@@ -901,6 +901,38 @@ app.get("/api/employees/count", async (req, res) => {
   }
 });
 
+// Working count per role (FO/BM/AM/DM/RM), optionally scoped to a region/division/area/branch.
+app.get("/api/employees/working-counts", async (req, res) => {
+  try {
+    const where = ["status='Working'"];
+    const params = [];
+    let idx = 1;
+    if (req.query.region || req.query.state) {
+      where.push("TRIM(region_name) ILIKE TRIM($" + (idx++) + ")");
+      params.push(req.query.region || req.query.state);
+    }
+    if (req.query.division) {
+      where.push("TRIM(division_name) ILIKE TRIM($" + (idx++) + ")");
+      params.push(req.query.division);
+    }
+    if (req.query.area || req.query.district) {
+      where.push("TRIM(area_name) ILIKE TRIM($" + (idx++) + ")");
+      params.push(req.query.area || req.query.district);
+    }
+    if (req.query.branch) {
+      where.push("UPPER(branch_name)=UPPER($" + (idx++) + ")");
+      params.push(req.query.branch);
+    }
+    const sql = "SELECT UPPER(role) AS role, COUNT(*)::int AS cnt FROM employee_master WHERE " + where.join(" AND ") + " GROUP BY UPPER(role)";
+    const r = await pool.query(sql, params);
+    const out = { FO: 0, BM: 0, AM: 0, DM: 0, RM: 0 };
+    for (const row of r.rows) if (out.hasOwnProperty(row.role)) out[row.role] = row.cnt;
+    res.json(out);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ========== COLLECTION DATA API ==========
 function buildCollectionQuery(groupBy, groupCol) {
   return `
@@ -2487,6 +2519,34 @@ app.get("/api/disbursement/daily/by-employee", async (req, res) => {
     const result = await pool.query(
       "SELECT d.emp_id, d.officer_name AS name, d.branch_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount FROM disbursement_daily d" + clause + " GROUP BY d.emp_id, d.officer_name, d.branch_name ORDER BY total_amount DESC", params
     );
+    res.json(result.rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Daily disbursement aggregated by area / division (joined via employee_master since
+// disbursement_daily only carries region/district/branch labels).
+app.get("/api/disbursement/daily/by-area", async (req, res) => {
+  try {
+    const { clause, params } = buildDisbDailyWhere(req.query);
+    const sql =
+      "SELECT em.area_name, em.division_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount " +
+      "FROM disbursement_daily d LEFT JOIN employee_master em ON UPPER(d.branch_name)=UPPER(em.branch_name)" +
+      clause + (clause ? " AND " : " WHERE ") + "em.area_name IS NOT NULL " +
+      "GROUP BY em.area_name, em.division_name ORDER BY total_amount DESC";
+    const result = await pool.query(sql, params);
+    res.json(result.rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/api/disbursement/daily/by-division", async (req, res) => {
+  try {
+    const { clause, params } = buildDisbDailyWhere(req.query);
+    const sql =
+      "SELECT em.division_name, em.region_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount " +
+      "FROM disbursement_daily d LEFT JOIN employee_master em ON UPPER(d.branch_name)=UPPER(em.branch_name)" +
+      clause + (clause ? " AND " : " WHERE ") + "em.division_name IS NOT NULL " +
+      "GROUP BY em.division_name, em.region_name ORDER BY total_amount DESC";
+    const result = await pool.query(sql, params);
     res.json(result.rows);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
