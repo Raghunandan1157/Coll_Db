@@ -140,6 +140,10 @@
           // First-load default: pick newest if neither date nor month selected yet.
           _db.date = list[0];
           localStorage.setItem('dbSelectedDate', list[0]);
+        } else if (_db.date && list.indexOf(_db.date) === -1) {
+          // Saved date has no data (e.g. today, future, or stale) — fall back to latest with data.
+          _db.date = list[0];
+          localStorage.setItem('dbSelectedDate', list[0]);
         }
       }).catch(function() { _db.availableDates = _db.availableDates || []; });
     } else {
