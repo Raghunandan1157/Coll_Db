@@ -54,6 +54,7 @@
     months: [],
     month: localStorage.getItem('dbMonth') || '',
     date: localStorage.getItem('dbSelectedDate') || null,
+    dateMode: localStorage.getItem('dbDateMode') || 'mtd',  // 'mtd' (default, cumulative) or 'ftd' (single day)
     availableDates: [],
     product: localStorage.getItem('dbProduct') || 'all',
     summary: null,
@@ -61,11 +62,20 @@
     byMonth: []
   };
 
+  function monthStartIso(iso) { return iso ? iso.slice(0, 8) + '01' : iso; }
+
   function dbBase() { return _db.date ? '/api/disbursement/daily' : '/api/disbursement'; }
 
   function queryParams() {
     var p = [];
-    if (_db.date) p.push('date=' + encodeURIComponent(_db.date));
+    if (_db.date) {
+      if (_db.dateMode === 'mtd') {
+        p.push('from=' + encodeURIComponent(monthStartIso(_db.date)));
+        p.push('to=' + encodeURIComponent(_db.date));
+      } else {
+        p.push('date=' + encodeURIComponent(_db.date));
+      }
+    }
     else if (_db.month) p.push('month=' + encodeURIComponent(_db.month));
     if (_db.product && _db.product !== 'all') p.push('product_name=' + encodeURIComponent(_db.product.toUpperCase()));
     // Role-based filtering — server resolves via employee_master
@@ -79,7 +89,14 @@
 
   function childrenUrl() {
     var base = [];
-    if (_db.date) base.push('date=' + encodeURIComponent(_db.date));
+    if (_db.date) {
+      if (_db.dateMode === 'mtd') {
+        base.push('from=' + encodeURIComponent(monthStartIso(_db.date)));
+        base.push('to=' + encodeURIComponent(_db.date));
+      } else {
+        base.push('date=' + encodeURIComponent(_db.date));
+      }
+    }
     else if (_db.month) base.push('month=' + encodeURIComponent(_db.month));
     if (_db.product && _db.product !== 'all') base.push('product_name=' + encodeURIComponent(_db.product.toUpperCase()));
 
@@ -584,6 +601,17 @@
       var active = _db.product === p.key;
       html += '<button data-db-product="' + p.key + '" style="padding:6px 16px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:none;transition:all .2s;' + (active ? 'background:#F59E0B;color:#fff;' : 'background:#F1F5F9;color:#64748B;') + '">' + p.label + '</button>';
     }
+    // MTD / FTD toggle — only when a single date is selected
+    if (_db.date) {
+      var modes = [{key:'mtd',label:'MTD'},{key:'ftd',label:'FTD'}];
+      html += '<div style="display:inline-flex;gap:0;margin-left:8px;background:#F1F5F9;border-radius:20px;padding:2px;">';
+      for (var mi = 0; mi < modes.length; mi++) {
+        var mm = modes[mi];
+        var ma = _db.dateMode === mm.key;
+        html += '<button data-db-datemode="' + mm.key + '" style="padding:5px 14px;border-radius:18px;font-size:11px;font-weight:700;cursor:pointer;border:none;transition:all .2s;letter-spacing:.04em;' + (ma ? 'background:#F59E0B;color:#fff;' : 'background:transparent;color:#64748B;') + '">' + mm.label + '</button>';
+      }
+      html += '</div>';
+    }
     if (window._contactsCache && window._contactsCache.renderCurrentViewCallBtn) {
       html += window._contactsCache.renderCurrentViewCallBtn();
     }
@@ -608,6 +636,14 @@
       pill.onclick = function() {
         _db.product = pill.dataset.dbProduct;
         localStorage.setItem('dbProduct', _db.product);
+        loadAndRender();
+      };
+    });
+
+    container.querySelectorAll('[data-db-datemode]').forEach(function(pill) {
+      pill.onclick = function() {
+        _db.dateMode = pill.dataset.dbDatemode;
+        localStorage.setItem('dbDateMode', _db.dateMode);
         loadAndRender();
       };
     });

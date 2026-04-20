@@ -2352,7 +2352,10 @@ function buildDisbDailyWhere(filters) {
   var where = [];
   var params = [];
   var idx = 1;
-  if (filters.date) { where.push("d.disb_date=$" + idx++); params.push(filters.date); }
+  if (filters.from && filters.to) {
+    where.push("d.disb_date BETWEEN $" + idx++ + " AND $" + idx++);
+    params.push(filters.from, filters.to);
+  } else if (filters.date) { where.push("d.disb_date=$" + idx++); params.push(filters.date); }
   if (filters.product_name && filters.product_name !== 'All') {
     where.push("d.product_name=$" + idx++); params.push(filters.product_name);
   }
@@ -2378,8 +2381,8 @@ function buildDisbDailyWhere(filters) {
 
 app.get("/api/disbursement/daily/dates", async (req, res) => {
   try {
-    // Allow scope filtering but ignore `date` itself for the list
-    var q = Object.assign({}, req.query); delete q.date;
+    // Allow scope filtering but ignore `date`/`from`/`to` themselves for the list
+    var q = Object.assign({}, req.query); delete q.date; delete q.from; delete q.to;
     const { clause, params } = buildDisbDailyWhere(q);
     const result = await pool.query(
       "SELECT DISTINCT d.disb_date FROM disbursement_daily d" + clause + " ORDER BY d.disb_date DESC", params
