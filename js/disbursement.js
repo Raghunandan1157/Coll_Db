@@ -54,12 +54,42 @@
     dateMode: localStorage.getItem('dbDateMode') || 'mtd',  // 'mtd' (default, cumulative) or 'ftd' (single day)
     availableDates: [],
     product: localStorage.getItem('dbProduct') || 'all',
+    metric: localStorage.getItem('dbMetric') || 'amount',
     summary: null,
     children: [],
-    byMonth: []
+    byMonth: [],
+    byDateRange: []
   };
 
   function monthStartIso(iso) { return iso ? iso.slice(0, 8) + '01' : iso; }
+
+  var _MONTH_MAP = { Jan:'01',Feb:'02',Mar:'03',Apr:'04',May:'05',Jun:'06',Jul:'07',Aug:'08',Sep:'09',Oct:'10',Nov:'11',Dec:'12' };
+  function activeMonthRange() {
+    var start = null;
+    if (_db.date) start = _db.date.slice(0, 8) + '01';
+    else if (_db.month) {
+      var parts = _db.month.split('-');
+      if (parts.length === 2 && _MONTH_MAP[parts[0]]) start = '20' + parts[1] + '-' + _MONTH_MAP[parts[0]] + '-01';
+    }
+    if (!start) return null;
+    var y = parseInt(start.slice(0, 4), 10), m = parseInt(start.slice(5, 7), 10);
+    var lastDay = new Date(y, m, 0).getDate();
+    var end = start.slice(0, 8) + (lastDay < 10 ? '0' : '') + lastDay;
+    return { from: start, to: end, year: y, month: m, lastDay: lastDay };
+  }
+
+  function rangeFetchUrl() {
+    var r = activeMonthRange();
+    if (!r) return null;
+    var p = ['from=' + encodeURIComponent(r.from), 'to=' + encodeURIComponent(r.to)];
+    if (_db.product && _db.product !== 'all') p.push('product_name=' + encodeURIComponent(_db.product.toUpperCase()));
+    if ((session.role === 'RM' || session.role === 'SM') && session.location) p.push('region=' + encodeURIComponent(session.location));
+    else if ((session.role === 'DM' || session.role === 'DvM') && session.location) p.push('division=' + encodeURIComponent(session.location));
+    else if (session.role === 'AM' && session.location) p.push('area=' + encodeURIComponent(session.location));
+    else if (session.role === 'BM' && session.location) p.push('branch=' + encodeURIComponent(session.location));
+    else if ((!session.role || session.role === 'FO') && session.id) p.push('emp_id=' + encodeURIComponent(session.id));
+    return '/api/disbursement/daily/by-date-range?' + p.join('&');
+  }
 
   function dbBase() { return _db.date ? '/api/disbursement/daily' : '/api/disbursement'; }
 
@@ -210,6 +240,10 @@
       // Product breakdown
       promises.push(apiFetch(base + '/by-product' + queryParams()));
 
+      // Daily range for month bar chart
+      var rangeUrl = rangeFetchUrl();
+      promises.push(rangeUrl ? apiFetch(rangeUrl).catch(function() { return []; }) : Promise.resolve([]));
+
       return Promise.all(promises);
     }).then(function(res) {
       _db.summary = res[0];
@@ -217,6 +251,7 @@
       _db.children = res[2] || [];
       var byProduct = res[3] || [];
       _db.byProduct = byProduct;
+      _db.byDateRange = res[4] || [];
       render(byProduct);
     }).catch(function(err) {
       console.error('Disbursement load failed:', err);
@@ -278,6 +313,9 @@
 
   function trendLineSvg(entries, nameFn) {
     if (!entries || !entries.length) return '';
+    var isAmt = _db.metric !== 'account';
+    var valOf = function(e) { return numVal(isAmt ? e.total_amount : e.total_count); };
+    var fmtV = function(v) { return isAmt ? fmtAmt(v) : fmtNum(v); };
     var n = entries.length;
     var W = 540, H = 210;
     var rotate = n > 6;
@@ -285,12 +323,12 @@
     var plotW = W - padL - padR;
     var plotH = H - padT - padB;
     var maxV = 0;
-    for (var i = 0; i < n; i++) { var v = numVal(entries[i].total_amount); if (v > maxV) maxV = v; }
+    for (var i = 0; i < n; i++) { var v = valOf(entries[i]); if (v > maxV) maxV = v; }
     if (maxV <= 0) maxV = 1;
     var xs = [], ys = [];
     for (var i2 = 0; i2 < n; i2++) {
       var x = (n === 1) ? (padL + plotW / 2) : (padL + (i2 * plotW) / (n - 1));
-      var amt = numVal(entries[i2].total_amount);
+      var amt = valOf(entries[i2]);
       var y = padT + (1 - amt / maxV) * plotH;
       xs.push(x); ys.push(y);
     }
@@ -311,14 +349,14 @@
     for (var i5 = 0; i5 < n; i5++) {
       var e = entries[i5];
       var nm = nameFn(e) || '';
-      var amt2 = numVal(e.total_amount);
+      var amt2 = valOf(e);
       var maxLen = rotate ? 14 : 16;
       var shortNm = nm.length > maxLen ? nm.slice(0, maxLen - 1) + '…' : nm;
       var labY = Math.max(ys[i5] - 8, 12);
       svg += '<circle cx="' + xs[i5].toFixed(1) + '" cy="' + ys[i5].toFixed(1) + '" r="4" fill="#F59E0B" stroke="#fff" stroke-width="2">' +
-        '<title>' + esc(nm) + ' — ' + fmtAmt(amt2) + '</title>' +
+        '<title>' + esc(nm) + ' — ' + fmtV(amt2) + '</title>' +
       '</circle>';
-      svg += '<text class="db-line-amt" x="' + xs[i5].toFixed(1) + '" y="' + labY.toFixed(1) + '" text-anchor="middle">' + esc(fmtAmt(amt2)) + '</text>';
+      svg += '<text class="db-line-amt" x="' + xs[i5].toFixed(1) + '" y="' + labY.toFixed(1) + '" text-anchor="middle">' + esc(fmtV(amt2)) + '</text>';
       if (rotate) {
         var nx = xs[i5].toFixed(1);
         var ny = (H - 26).toFixed(1);
@@ -327,6 +365,65 @@
         svg += '<text class="db-line-name" x="' + xs[i5].toFixed(1) + '" y="' + (H - 20) + '" text-anchor="middle">' + esc(shortNm) + '</text>';
       }
     }
+    svg += '</svg>';
+    return svg;
+  }
+
+  function metricToggleHtml() {
+    var m = _db.metric === 'account' ? 'account' : 'amount';
+    var btn = function(val, lbl) {
+      var on = m === val;
+      return '<button data-db-metric="' + val + '" style="padding:5px 14px;border-radius:14px;font-size:11px;font-weight:700;cursor:pointer;border:none;letter-spacing:.04em;' +
+        (on ? 'background:#F59E0B;color:#fff;' : 'background:transparent;color:#64748B;') + '">' + lbl + '</button>';
+    };
+    return '<div style="display:inline-flex;background:#F1F5F9;border-radius:16px;padding:2px;margin-left:auto;">' + btn('amount', 'Amount') + btn('account', 'Account') + '</div>';
+  }
+
+  function dailyBarChartHtml(rows) {
+    var rg = activeMonthRange();
+    if (!rg) return '';
+    var isAmt = _db.metric !== 'account';
+    var map = {};
+    (rows || []).forEach(function(r) { map[String(r.disb_date).slice(0, 10)] = r; });
+    var days = [];
+    for (var d = 1; d <= rg.lastDay; d++) {
+      var dd = (d < 10 ? '0' : '') + d;
+      var iso = rg.from.slice(0, 8) + dd;
+      var row = map[iso];
+      days.push({ iso: iso, day: d, count: numVal(row && row.total_count), amount: numVal(row && row.total_amount) });
+    }
+    var valOf = function(x) { return isAmt ? x.amount : x.count; };
+    var maxV = 0;
+    for (var i = 0; i < days.length; i++) { if (valOf(days[i]) > maxV) maxV = valOf(days[i]); }
+    if (maxV <= 0) maxV = 1;
+
+    var n = days.length;
+    var W = 640, H = 220, padL = 44, padR = 16, padT = 24, padB = 36;
+    var plotW = W - padL - padR, plotH = H - padT - padB;
+    var bw = plotW / n;
+    var barW = Math.max(4, bw * 0.65);
+    var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:clamp(200px,26vw,260px);display:block;">';
+    svg += '<defs><linearGradient id="dbBarGrad" x1="0" y1="0" x2="0" y2="1">' +
+      '<stop offset="0%" stop-color="#F59E0B"/>' +
+      '<stop offset="100%" stop-color="#FBBF24"/>' +
+    '</linearGradient></defs>';
+    svg += '<line x1="' + padL + '" y1="' + (padT + plotH) + '" x2="' + (W - padR) + '" y2="' + (padT + plotH) + '" stroke="#E2E8F0" stroke-width="1"/>';
+    for (var i2 = 0; i2 < n; i2++) {
+      var v = valOf(days[i2]);
+      var h = v > 0 ? (v / maxV) * plotH : 0;
+      var x = padL + bw * i2 + (bw - barW) / 2;
+      var y = padT + plotH - h;
+      var tip = days[i2].iso + ' · ' + (isAmt ? fmtAmt(days[i2].amount) : fmtNum(days[i2].count) + ' a/c');
+      if (h > 0) {
+        svg += '<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + barW.toFixed(1) + '" height="' + h.toFixed(1) + '" rx="2" fill="url(#dbBarGrad)"><title>' + esc(tip) + '</title></rect>';
+      } else {
+        svg += '<rect x="' + x.toFixed(1) + '" y="' + (padT + plotH - 1) + '" width="' + barW.toFixed(1) + '" height="1" fill="#E2E8F0"><title>' + esc(tip) + '</title></rect>';
+      }
+      if (days[i2].day === 1 || days[i2].day === rg.lastDay || days[i2].day % 5 === 0) {
+        svg += '<text class="db-line-name" x="' + (padL + bw * i2 + bw / 2).toFixed(1) + '" y="' + (padT + plotH + 16) + '" text-anchor="middle">' + days[i2].day + '</text>';
+      }
+    }
+    svg += '<text class="db-line-name" x="' + padL + '" y="' + (padT - 8) + '" text-anchor="start">' + (isAmt ? 'Amount' : 'Accounts') + '</text>';
     svg += '</svg>';
     return svg;
   }
@@ -383,30 +480,28 @@
 
     var html = '';
 
+    var metricLabel = _db.metric === 'account' ? 'Accounts' : 'Amount';
+
     // Trend line graph — all children up to cap of 15 (already sorted desc by amount)
     var trendList = children.slice(0, Math.min(15, children.length));
     if (trendList.length > 0) {
       html += '<div class="emp-fade db-section-wrap">';
-      html += '<div class="db-section-head">' + label + ' — Trend <span class="db-top-badge">' + trendList.length + ' by Amount</span></div>';
+      html += '<div class="db-section-head">' + label + ' — Trend <span class="db-top-badge">' + trendList.length + ' by ' + metricLabel + '</span>' + metricToggleHtml() + '</div>';
       html += '<div class="db-section-body">';
       html += trendLineSvg(trendList, nameOf);
       html += '</div></div>';
     }
 
-    // Full amount-distribution chart (cap 15 rows)
-    var CAP = 15;
-    var shown = children.slice(0, CAP);
-    var remaining = Math.max(0, children.length - CAP);
-    html += '<div class="emp-fade db-section-wrap">';
-    html += '<div class="db-section-head">' + label + ' — Amount Distribution <span style="color:#94A3B8;font-weight:600;font-size:12px;">(' + children.length + ')</span></div>';
-    html += '<div class="db-section-body">';
-    for (var s = 0; s < shown.length; s++) {
-      html += hbarRowHtml(nameOf(shown[s]), numVal(shown[s].total_amount), maxAmt);
+    // Current-month daily bar chart (replaces Amount Distribution)
+    var rg = activeMonthRange();
+    if (rg) {
+      var monthLbl = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][rg.month - 1] + ' ' + rg.year;
+      html += '<div class="emp-fade db-section-wrap">';
+      html += '<div class="db-section-head">' + monthLbl + ' — Daily ' + metricLabel + '</div>';
+      html += '<div class="db-section-body">';
+      html += dailyBarChartHtml(_db.byDateRange);
+      html += '</div></div>';
     }
-    if (remaining > 0) {
-      html += '<div style="padding:8px 0 0;font-size:12px;color:#64748B;text-align:center;">… and ' + remaining + ' more below</div>';
-    }
-    html += '</div></div>';
 
     html += '<div class="emp-team-section">' +
       '<div class="emp-team-title">' + label + '<span class="emp-team-count">' + children.length + '</span>' + dbSubunitToggleHtml() + '</div>';
@@ -646,6 +741,15 @@
         _db.dateMode = pill.dataset.dbDatemode;
         localStorage.setItem('dbDateMode', _db.dateMode);
         loadAndRender();
+      };
+    });
+
+    container.querySelectorAll('[data-db-metric]').forEach(function(btn) {
+      btn.onclick = function(ev) {
+        ev.stopPropagation();
+        _db.metric = btn.dataset.dbMetric;
+        localStorage.setItem('dbMetric', _db.metric);
+        render(_db.byProduct);
       };
     });
 
