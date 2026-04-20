@@ -184,8 +184,27 @@
   }
 
   /* ===================== STATE ===================== */
-  var _collState = { view: 'overall', product: 'all', date: null, availableDates: [], summaryData: null, childrenData: null };
+  var _collState = { view: 'overall', product: 'all', date: null, availableDates: [], summaryData: null, childrenData: null, priorityScope: 'ftd' };
   window._collState = _collState;
+
+  /* ===================== PRIORITY PANEL CONFIG ===================== */
+  var PRIORITY_CONFIG = {
+    CEO: [
+      { label: 'Branches',  role: 'BM', n: 5, url: '/api/daily/by-branch',   nameField: 'branch_name'   },
+      { label: 'Areas',     role: 'AM', n: 3, url: '/api/daily/by-area',     nameField: 'area_name'     },
+      { label: 'Divisions', role: 'DM', n: 2, url: '/api/daily/by-division', nameField: 'division_name' },
+      { label: 'Regions',   role: 'RM', n: 1, url: '/api/daily/by-state',    nameField: 'state_name'    }
+    ],
+    RM: [
+      { label: 'Officers',  role: 'FO', n: 5, url: '/api/daily/by-employee', nameField: 'name'          },
+      { label: 'Branches',  role: 'BM', n: 3, url: '/api/daily/by-branch',   nameField: 'branch_name'   },
+      { label: 'Areas',     role: 'AM', n: 2, url: '/api/daily/by-area',     nameField: 'area_name'     },
+      { label: 'Divisions', role: 'DM', n: 1, url: '/api/daily/by-division', nameField: 'division_name' }
+    ]
+  };
+  PRIORITY_CONFIG.SM = PRIORITY_CONFIG.RM;
+  function priorityConfigForRole(role) { return PRIORITY_CONFIG[role] || null; }
+  function isPriorityRole(role) { return !!priorityConfigForRole(role); }
 
   /* ===================== RENDERING ===================== */
 
@@ -258,6 +277,11 @@
     // View toggle
     html += viewToggleHtml();
 
+    // Priority Panel (CEO + RM/SM only, single-day mode)
+    if (isPriorityRole(session.role) && _collState.date) {
+      html += priorityPanelShellHtml();
+    }
+
     // Date selector (daily data)
     html += dateSelectorHtml();
 
@@ -316,6 +340,116 @@
 
     container.innerHTML = '<div class="desktop-content-area">' + html + '</div>';
     attachHandlers();
+    if (isPriorityRole(session.role) && _collState.date) {
+      setTimeout(loadPriorityData, 0);
+    }
+  }
+
+  /* ---------- Priority Panel ---------- */
+  function priorityPanelShellHtml() {
+    var cfg = priorityConfigForRole(session.role);
+    if (!cfg) return '';
+    var scope = _collState.priorityScope === 'mtd' ? 'mtd' : 'ftd';
+    var html = '<div class="emp-fade priority-panel" id="priorityPanel" style="background:#fff;border-radius:14px;box-shadow:0 1px 4px rgba(0,0,0,.06);padding:14px 16px;margin-bottom:16px;">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap;">';
+    html += '<div style="font-weight:700;font-size:14px;color:#1E293B;display:flex;align-items:center;gap:8px;">';
+    html += '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#F87171;"></span>Lowest Performers';
+    html += '</div>';
+    html += '<div style="display:inline-flex;background:#F1F5F9;border-radius:18px;padding:2px;">';
+    html += '<button data-priority-scope="ftd" style="padding:5px 14px;border-radius:16px;font-size:11px;font-weight:700;cursor:pointer;border:none;letter-spacing:.04em;' + (scope === 'ftd' ? 'background:#059669;color:#fff;' : 'background:transparent;color:#64748B;') + '">FTD</button>';
+    html += '<button data-priority-scope="mtd" style="padding:5px 14px;border-radius:16px;font-size:11px;font-weight:700;cursor:pointer;border:none;letter-spacing:.04em;' + (scope === 'mtd' ? 'background:#059669;color:#fff;' : 'background:transparent;color:#64748B;') + '">MTD</button>';
+    html += '</div></div>';
+    html += '<div id="priorityPanelBody" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;">';
+    for (var i = 0; i < cfg.length; i++) {
+      var c = cfg[i];
+      html += '<div class="priority-slot" data-priority-slot="' + c.role + '" style="background:#F8FAFC;border-radius:10px;padding:10px 12px;min-height:100px;">';
+      html += '<div style="font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">';
+      html += '<span>' + esc(c.label) + ' <span style="color:#94A3B8;">(lowest ' + c.n + ')</span></span>';
+      html += '</div>';
+      html += '<div class="priority-rows" style="display:flex;flex-direction:column;gap:4px;">';
+      html += '<div style="height:48px;background:#fff;border-radius:6px;animation:pulse 1.4s ease-in-out infinite;"></div>';
+      html += '</div></div>';
+    }
+    html += '</div></div>';
+    return html;
+  }
+
+  function priorityRangeParams() {
+    if (!_collState.date) return null;
+    if (_collState.priorityScope === 'mtd') {
+      var mStart = _collState.date.slice(0, 8) + '01';
+      return 'date_from=' + encodeURIComponent(mStart) + '&date_to=' + encodeURIComponent(_collState.date);
+    }
+    return 'date=' + encodeURIComponent(_collState.date);
+  }
+
+  function priorityScopeFilter() {
+    var p = ['scope=oa'];
+    if ((session.role === 'RM' || session.role === 'SM') && session.location) {
+      p.push('state=' + encodeURIComponent(session.location));
+    }
+    return p.join('&');
+  }
+
+  function priorityRowHtml(item, cfg) {
+    var dem = numVal(item.regular_demand);
+    var col = numVal(item.regular_collection);
+    var pct = dem > 0 ? (col / dem * 100) : 0;
+    var pctColor = pct >= 90 ? '#059669' : pct >= 75 ? '#F59E0B' : '#EF4444';
+    var name = item[cfg.nameField] || item.name || '—';
+    var sub = '';
+    if (cfg.role === 'BM') sub = item.district_name || '';
+    else if (cfg.role === 'AM') sub = item.division_name || '';
+    else if (cfg.role === 'DM') sub = item.region_name || '';
+    else if (cfg.role === 'FO') sub = item.branch_name || '';
+
+    var dataAttrs = '';
+    if (cfg.role === 'FO' && item.emp_id) {
+      dataAttrs = ' data-emp-id="' + esc(item.emp_id) + '" data-emp-name="' + esc(name) + '"';
+    } else {
+      dataAttrs = ' data-child-role="' + cfg.role + '" data-child-location="' + esc(name) + '"';
+    }
+
+    return '<div class="emp-sub-card priority-row"' + dataAttrs + ' style="background:#fff;border-radius:8px;padding:8px 10px;display:flex;justify-content:space-between;align-items:center;gap:8px;cursor:pointer;border:1px solid #F1F5F9;transition:all .15s;">' +
+      '<div style="min-width:0;flex:1;">' +
+        '<div style="font-size:12px;font-weight:700;color:#1E293B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + esc(name) + '">' + esc(name) + '</div>' +
+        (sub ? '<div style="font-size:10px;color:#94A3B8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(sub) + '</div>' : '') +
+      '</div>' +
+      '<div style="font-size:13px;font-weight:700;color:' + pctColor + ';flex-shrink:0;">' + pct.toFixed(1) + '%</div>' +
+    '</div>';
+  }
+
+  function loadPriorityData() {
+    var cfg = priorityConfigForRole(session.role);
+    if (!cfg || !_collState.date) return;
+    var panel = document.getElementById('priorityPanel');
+    if (!panel) return;
+    var rangeQ = priorityRangeParams();
+    var scopeQ = priorityScopeFilter();
+
+    cfg.forEach(function(c) {
+      var url = c.url + '?' + rangeQ + '&' + scopeQ;
+      apiFetch(url).then(function(rows) {
+        rows = (rows || []).filter(function(r) { return numVal(r.regular_demand) > 0; });
+        rows.sort(function(a, b) {
+          var pa = numVal(a.regular_collection) / numVal(a.regular_demand);
+          var pb = numVal(b.regular_collection) / numVal(b.regular_demand);
+          return pa - pb;
+        });
+        var worst = rows.slice(0, c.n);
+        var slot = panel.querySelector('[data-priority-slot="' + c.role + '"] .priority-rows');
+        if (!slot) return;
+        if (!worst.length) {
+          slot.innerHTML = '<div style="font-size:11px;color:#94A3B8;text-align:center;padding:14px 0;">No data</div>';
+          return;
+        }
+        slot.innerHTML = worst.map(function(it) { return priorityRowHtml(it, c); }).join('');
+      }).catch(function(err) {
+        var slot = panel.querySelector('[data-priority-slot="' + c.role + '"] .priority-rows');
+        if (slot) slot.innerHTML = '<div style="font-size:11px;color:#EF4444;text-align:center;padding:14px 0;">Load failed</div>';
+        console.warn('Priority fetch failed:', c.url, err);
+      });
+    });
   }
 
   /* ---------- HTML builders ---------- */
@@ -736,6 +870,24 @@
       };
     });
 
+    // Priority Panel FTD/MTD toggle
+    container.querySelectorAll('[data-priority-scope]').forEach(function (btn) {
+      btn.onclick = function () {
+        var next = btn.dataset.priorityScope;
+        if (next !== 'ftd' && next !== 'mtd') return;
+        _collState.priorityScope = next;
+        localStorage.setItem('collPriorityScope', next);
+        // Re-render shell so toggle visual state updates, then refetch
+        var panel = document.getElementById('priorityPanel');
+        if (panel) {
+          panel.outerHTML = priorityPanelShellHtml();
+          // Re-attach handlers for the new buttons
+          attachHandlers();
+          loadPriorityData();
+        }
+      };
+    });
+
     // Product pills
     container.querySelectorAll('[data-coll-product]').forEach(function (pill) {
       pill.onclick = function () {
@@ -821,6 +973,8 @@
       if (savedProduct && ['all', 'igl', 'fig', 'il'].indexOf(savedProduct) !== -1) {
         _collState.product = savedProduct;
       }
+      var savedPriorityScope = localStorage.getItem('collPriorityScope');
+      _collState.priorityScope = (savedPriorityScope === 'mtd') ? 'mtd' : 'ftd';
 
       // Restore saved date from localStorage (preserves date across drill-down navigation & Tab toggle)
       var savedDate = localStorage.getItem('collSelectedDate');

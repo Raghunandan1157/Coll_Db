@@ -2047,11 +2047,13 @@ function buildDailyWhere(filters) {
   var params = [];
   var idx = 1;
   if (filters.date) { where.push("dp.report_date=$" + idx++); params.push(filters.date); }
+  if (filters.date_from) { where.push("dp.report_date >= $" + idx++); params.push(filters.date_from); }
+  if (filters.date_to)   { where.push("dp.report_date <= $" + idx++); params.push(filters.date_to); }
   // Scope filter: 'fy' = FY products only, 'oa' or default = OverAll products only
   // OA product_type_ids: 1(IGL), 2(FIG), 3(IL)  |  FY: 4(IGL_FY), 5(FIG_FY), 6(VVY_FY)
   if (filters.scope === 'fy') {
     where.push("dp.product_type_id IN (4,5,6)");
-  } else if (filters.scope === 'oa' || filters.date) {
+  } else if (filters.scope === 'oa' || filters.date || filters.date_from || filters.date_to) {
     // Default to OA scope to avoid mixing OA+FY
     where.push("dp.product_type_id IN (1,2,3)");
   }
@@ -2125,6 +2127,37 @@ app.get("/api/daily/by-employee", async (req, res) => {
     const base = buildDailyQuery("e.emp_id, e.officer_name AS name, b.branch_name");
     const { clause, params } = buildDailyWhere(req.query);
     const result = await pool.query(base + clause + " GROUP BY e.emp_id, e.officer_name, b.branch_name ORDER BY e.officer_name", params);
+    res.json(result.rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// New employee_master-driven hierarchy endpoints (used by Priority Panel)
+app.get("/api/daily/by-area", async (req, res) => {
+  try {
+    const base = buildDailyQuery("em.area_name, em.division_name") + " LEFT JOIN employee_master em ON dp.emp_id = em.emp_id";
+    const { clause, params } = buildDailyWhere(req.query);
+    const extra = (clause ? " AND " : " WHERE ") + "em.area_name IS NOT NULL";
+    const result = await pool.query(base + clause + extra + " GROUP BY em.area_name, em.division_name ORDER BY em.area_name", params);
+    res.json(result.rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/api/daily/by-division", async (req, res) => {
+  try {
+    const base = buildDailyQuery("em.division_name, em.region_name") + " LEFT JOIN employee_master em ON dp.emp_id = em.emp_id";
+    const { clause, params } = buildDailyWhere(req.query);
+    const extra = (clause ? " AND " : " WHERE ") + "em.division_name IS NOT NULL";
+    const result = await pool.query(base + clause + extra + " GROUP BY em.division_name, em.region_name ORDER BY em.division_name", params);
+    res.json(result.rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/api/daily/by-state", async (req, res) => {
+  try {
+    const base = buildDailyQuery("em.region_name AS state_name") + " LEFT JOIN employee_master em ON dp.emp_id = em.emp_id";
+    const { clause, params } = buildDailyWhere(req.query);
+    const extra = (clause ? " AND " : " WHERE ") + "em.region_name IS NOT NULL";
+    const result = await pool.query(base + clause + extra + " GROUP BY em.region_name ORDER BY em.region_name", params);
     res.json(result.rows);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
