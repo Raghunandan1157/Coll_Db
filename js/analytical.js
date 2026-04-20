@@ -47,6 +47,8 @@
     if (n >= 1000)     return '₹' + (n / 1000).toFixed(1) + ' K';
     return '₹' + Math.round(n).toLocaleString('en-IN');
   }
+  // Always-Lakhs formatter for disbursement (e.g. 55000 → ₹0.55 L)
+  function fmtAmtL(n) { return '₹' + (numVal(n) / 100000).toFixed(2) + ' L'; }
 
   function lowestN(count) {
     if (!count || count <= 0) return 0;
@@ -155,8 +157,12 @@
     } else {
       var amt = numVal(item.total_amount);
       var cnt = numVal(item.total_count);
-      leftMetric = '<span style="font-size:11px;color:#64748B;">' + cnt + ' acc</span>';
-      rightMetric = '<span style="font-size:14px;font-weight:700;color:#F59E0B;">' + fmtAmt(amt) + '</span>';
+      leftMetric = '';
+      rightMetric =
+        '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;">' +
+          '<span style="font-size:14px;font-weight:700;color:#F59E0B;">' + fmtAmtL(amt) + '</span>' +
+          '<span style="font-size:11px;font-weight:600;color:#64748B;">' + cnt + ' acc</span>' +
+        '</div>';
     }
 
     var dataAttrs = '';
