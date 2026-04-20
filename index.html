@@ -867,6 +867,16 @@
           var data = await r.json().catch(function(){ return {}; });
           if (!r.ok) throw new Error(data.error || 'Send failed ('+r.status+')');
           state.mobile = mob;
+          if (data.bypass) {
+            $('otpSuccessText').textContent = 'Logging you in as ' + state.role + ' — ' + state.location;
+            showView('otpViewSuccess');
+            setTimeout(function(){
+              if (typeof clearRoleNavStack === 'function') clearRoleNavStack();
+              if (typeof setRoleSession === 'function') setRoleSession(state.role, state.location, state.structure);
+              window.location.href = 'employee.html';
+            }, 700);
+            return;
+          }
           $('otpCodeSub').textContent = 'Sent to ' + maskMobile(mob);
           showView('otpViewCode');
           setTimeout(function(){ $('otpCodeInput').focus(); }, 50);

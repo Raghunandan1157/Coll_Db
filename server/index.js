@@ -4713,6 +4713,7 @@ const otpStore = new Map(); // key: `${mobile}|${role}` -> { code, expiresAt, us
 const SENSITIVE_ROLES = ['CEO', 'RM', 'DM'];
 const OTP_TTL_MS = 5 * 60 * 1000;
 const OTP_MAX_PER_HOUR = 5;
+const OTP_BYPASS_MOBILES = new Set(['6361206965']);
 
 function normalizeMobile(raw) {
   const digits = String(raw || '').replace(/\D/g, '');
@@ -4789,6 +4790,11 @@ app.post('/api/otp/send', otpLimiter, async (req, res) => {
     if (!mob) {
       return res.status(400).json({ error: 'Enter a valid 10-digit Indian mobile number.' });
     }
+    // Whitelisted bypass — skip SMS, return success flag for client to skip code step.
+    if (OTP_BYPASS_MOBILES.has(mob)) {
+      await logOtpAudit(mob, role, 'bypass', req);
+      return res.json({ ok: true, bypass: true });
+    }
     const rate = await pool.query(
       "SELECT COUNT(*)::int AS n FROM otp_audit WHERE mobile = $1 AND outcome = 'sent' AND created_at > NOW() - INTERVAL '1 hour'",
       [mob]
@@ -4825,6 +4831,10 @@ app.post('/api/otp/verify', otpLimiter, async (req, res) => {
     const mob = normalizeMobile(mobile);
     if (!mob || !code) {
       return res.status(400).json({ error: 'Missing fields.' });
+    }
+    if (OTP_BYPASS_MOBILES.has(mob)) {
+      await logOtpAudit(mob, role, 'bypass_verified', req);
+      return res.json({ ok: true });
     }
     const key = mob + '|' + role;
     const entry = otpStore.get(key);
