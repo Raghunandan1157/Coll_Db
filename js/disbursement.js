@@ -20,10 +20,7 @@
   function fmtAmt(v) {
     var n = numVal(v);
     if (n === 0) return '-';
-    if (n >= 10000000) return '\u20B9' + (n / 10000000).toFixed(2) + ' Cr';
-    if (n >= 100000) return '\u20B9' + (n / 100000).toFixed(2) + ' L';
-    if (n >= 1000) return '\u20B9' + (n / 1000).toFixed(1) + ' K';
-    return '\u20B9' + n.toLocaleString('en-IN');
+    return '\u20B9' + (n / 10000000).toFixed(2) + ' Cr';
   }
   function numVal(v) {
     if (typeof v === 'number' && isFinite(v)) return v;
