@@ -813,13 +813,9 @@
 
   function subUnitsHtml(children, childRole) {
     if (!children.length) return '';
-    var roleLabel = isNewStructure()
-      ? { SM: 'Regions', DvM: 'Divisions', AM: 'Areas', BM: 'Branches', FO: 'Officers' }
-      : { RM: 'Regions', DM: 'Divisions', BM: 'Branches', FO: 'Officers' };
-    var avType = isNewStructure()
-      ? { SM: 'state', DvM: 'division', AM: 'area', BM: 'branch', FO: 'officer' }
-      : { RM: 'region', DM: 'district', BM: 'branch', FO: 'officer' };
-    var label = roleLabel[childRole] || 'Team';
+    var roleLabel = { SM: 'Regions', RM: 'Regions', DvM: 'Divisions', DM: 'Divisions', AM: 'Areas', BM: 'Branches', FO: 'Officers' };
+    var avType = { SM: 'state', RM: 'region', DvM: 'division', DM: 'division', AM: 'area', BM: 'branch', FO: 'officer' };
+    var label = roleLabel[childRole] || 'Units';
     var av = avType[childRole] || 'branch';
     var isTable = getSubunitView() === 'table';
 

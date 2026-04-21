@@ -460,8 +460,8 @@
 
   function dbSubUnitsHtml(children, childRole) {
     if (!children.length) return '';
-    var roleLabel = { RM: 'Regions', DM: 'Divisions', BM: 'Branches', FO: 'Officers' };
-    var label = roleLabel[childRole] || 'Team';
+    var roleLabel = { SM: 'Regions', RM: 'Regions', DvM: 'Divisions', DM: 'Divisions', AM: 'Areas', BM: 'Branches', FO: 'Officers' };
+    var label = roleLabel[childRole] || 'Units';
     var isTable = getDbSubunitView() === 'table';
     var avStyle = 'background:#FFFBEB;color:#F59E0B;';
 
