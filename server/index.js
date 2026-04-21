@@ -2396,6 +2396,46 @@ app.get("/api/disbursement/by-employee", async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// New-structure endpoints (join employee_master for state/division/area)
+app.get("/api/disbursement/by-state", async (req, res) => {
+  try {
+    const { clause, params } = buildDisbWhere(req.query);
+    const extra = (clause ? " AND " : " WHERE ") + "em.region_name IS NOT NULL";
+    const result = await pool.query(
+      "SELECT em.region_name AS state_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount " +
+      "FROM disbursement d LEFT JOIN employee_master em ON UPPER(d.branch_name)=UPPER(em.branch_name)" +
+      clause + extra + " GROUP BY em.region_name ORDER BY em.region_name", params
+    );
+    res.json(result.rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/api/disbursement/by-division", async (req, res) => {
+  try {
+    const { clause, params } = buildDisbWhere(req.query);
+    const extra = (clause ? " AND " : " WHERE ") + "em.division_name IS NOT NULL";
+    const result = await pool.query(
+      "SELECT em.division_name, em.region_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount " +
+      "FROM disbursement d LEFT JOIN employee_master em ON UPPER(d.branch_name)=UPPER(em.branch_name)" +
+      clause + extra + " GROUP BY em.division_name, em.region_name ORDER BY total_amount DESC", params
+    );
+    res.json(result.rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/api/disbursement/by-area", async (req, res) => {
+  try {
+    const { clause, params } = buildDisbWhere(req.query);
+    const extra = (clause ? " AND " : " WHERE ") + "em.area_name IS NOT NULL";
+    const result = await pool.query(
+      "SELECT em.area_name, em.division_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount " +
+      "FROM disbursement d LEFT JOIN employee_master em ON UPPER(d.branch_name)=UPPER(em.branch_name)" +
+      clause + extra + " GROUP BY em.area_name, em.division_name ORDER BY total_amount DESC", params
+    );
+    res.json(result.rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 app.get("/api/disbursement/by-month", async (req, res) => {
   try {
     const { clause, params } = buildDisbWhere(req.query);

@@ -113,11 +113,33 @@
     var structParam = isNewStructure() ? '' : 'structure=old&';
     var dateParam = _collState.date ? 'date=' + encodeURIComponent(_collState.date) + '&scope=' + (_collState.view === 'fy' ? 'fy' : 'oa') + '&' + structParam : '';
 
-    // When a date is selected, always use /api/daily (works for both structures)
-    // Daily API only supports old-structure filters: region, district, branch, emp_id
+    // When a date is selected, use /api/daily. Daily backend supports full hierarchy
+    // (by-state/by-division/by-area via employee_master join) for new structure.
     if (_collState.date) {
       var dailyBase = '/api/daily';
       var r = session.role;
+      if (isNewStructure()) {
+        if (r === 'CEO') {
+          return dailyBase + '/by-state?' + dateParam + (ptParam || '');
+        }
+        if ((r === 'SM' || r === 'RM') && session.location) {
+          var ns_p = [ptParam, 'state=' + encodeURIComponent(session.location)].filter(Boolean);
+          return dailyBase + '/by-division?' + dateParam + ns_p.join('&');
+        }
+        if ((r === 'DvM' || r === 'DM') && session.location) {
+          var ns_p2 = [ptParam, 'division=' + encodeURIComponent(session.location)].filter(Boolean);
+          return dailyBase + '/by-area?' + dateParam + ns_p2.join('&');
+        }
+        if (r === 'AM' && session.location) {
+          var ns_p3 = [ptParam, 'area=' + encodeURIComponent(session.location)].filter(Boolean);
+          return dailyBase + '/by-branch?' + dateParam + ns_p3.join('&');
+        }
+        if (r === 'BM' && session.location) {
+          var ns_p4 = [ptParam, 'branch=' + encodeURIComponent(session.location)].filter(Boolean);
+          return dailyBase + '/by-employee?' + dateParam + ns_p4.join('&');
+        }
+        return dailyBase + '/by-state?' + dateParam + (ptParam || '');
+      }
       if (r === 'CEO') {
         return dailyBase + '/by-region?' + dateParam + (ptParam || '');
       }
@@ -126,7 +148,6 @@
         return dailyBase + '/by-district?' + dateParam + rp.join('&');
       }
       if ((r === 'DvM' || r === 'DM' || r === 'AM') && session.location) {
-        // DvM/DM/AM all map to district level in daily API
         var dp = [ptParam, 'district=' + encodeURIComponent(session.location)].filter(Boolean);
         return dailyBase + '/by-branch?' + dateParam + dp.join('&');
       }
@@ -311,13 +332,10 @@
     var children = _collState.childrenData || [];
     if (session.role && session.role !== 'FO' && children.length > 0) {
       var childRoleMap;
-      if (_collState.date) {
-        // Daily API only has 4-level hierarchy (region/district/branch/employee)
-        childRoleMap = { CEO: 'RM', SM: 'DM', RM: 'DM', DvM: 'BM', DM: 'BM', AM: 'FO', BM: 'FO' };
-      } else if (isNewStructure()) {
+      if (isNewStructure()) {
         childRoleMap = { CEO: 'SM', SM: 'DvM', RM: 'DvM', DvM: 'AM', DM: 'AM', AM: 'BM', BM: 'FO' };
       } else {
-        childRoleMap = { CEO: 'RM', RM: 'DM', DM: 'BM', BM: 'FO' };
+        childRoleMap = { CEO: 'RM', SM: 'DM', RM: 'DM', DvM: 'BM', DM: 'BM', AM: 'FO', BM: 'FO' };
       }
       var childRole = childRoleMap[session.role];
       if (childRole) {

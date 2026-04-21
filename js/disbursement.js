@@ -128,6 +128,26 @@
     if (_db.product && _db.product !== 'all') base.push('product_name=' + encodeURIComponent(_db.product.toUpperCase()));
 
     var root = dbBase();
+    if (isNewStructure()) {
+      if (session.role === 'CEO') return root + '/by-state' + (base.length ? '?' + base.join('&') : '');
+      if ((session.role === 'RM' || session.role === 'SM') && session.location) {
+        base.push('state=' + encodeURIComponent(session.location));
+        return root + '/by-division?' + base.join('&');
+      }
+      if ((session.role === 'DM' || session.role === 'DvM') && session.location) {
+        base.push('division=' + encodeURIComponent(session.location));
+        return root + '/by-area?' + base.join('&');
+      }
+      if (session.role === 'AM' && session.location) {
+        base.push('area=' + encodeURIComponent(session.location));
+        return root + '/by-branch?' + base.join('&');
+      }
+      if (session.role === 'BM' && session.location) {
+        base.push('branch=' + encodeURIComponent(session.location));
+        return root + '/by-employee?' + base.join('&');
+      }
+      return null;
+    }
     if (session.role === 'CEO') return root + '/by-region' + (base.length ? '?' + base.join('&') : '');
     if ((session.role === 'RM' || session.role === 'SM') && session.location) {
       base.push('region=' + encodeURIComponent(session.location));
@@ -466,8 +486,11 @@
     var avStyle = 'background:#FFFBEB;color:#F59E0B;';
 
     function nameOf(ch) {
-      if (childRole === 'RM') return ch.region_name || '';
-      if (childRole === 'DM') return ch.district_name || '';
+      if (childRole === 'SM') return ch.state_name || ch.region_name || '';
+      if (childRole === 'RM') return ch.region_name || ch.state_name || '';
+      if (childRole === 'DvM') return ch.division_name || ch.district_name || '';
+      if (childRole === 'DM') return ch.district_name || ch.division_name || '';
+      if (childRole === 'AM') return ch.area_name || '';
       if (childRole === 'BM') return ch.branch_name || '';
       if (childRole === 'FO') return getFullName(ch.emp_id, ch.name || ch.officer_name || '');
       return '';
@@ -519,8 +542,11 @@
       for (var i = 0; i < children.length; i++) {
         var ch = children[i];
         var childName = '';
-        if (childRole === 'RM') childName = ch.region_name || '';
-        else if (childRole === 'DM') childName = ch.district_name || '';
+        if (childRole === 'SM') childName = ch.state_name || ch.region_name || '';
+        else if (childRole === 'RM') childName = ch.region_name || ch.state_name || '';
+        else if (childRole === 'DvM') childName = ch.division_name || ch.district_name || '';
+        else if (childRole === 'DM') childName = ch.district_name || ch.division_name || '';
+        else if (childRole === 'AM') childName = ch.area_name || '';
         else if (childRole === 'BM') childName = ch.branch_name || '';
         else if (childRole === 'FO') childName = getFullName(ch.emp_id, ch.name || ch.officer_name || '');
         var initial = childName.charAt(0).toUpperCase();
@@ -548,8 +574,11 @@
       for (var i = 0; i < children.length; i++) {
         var ch = children[i];
         var childName = '';
-        if (childRole === 'RM') childName = ch.region_name || '';
-        else if (childRole === 'DM') childName = ch.district_name || '';
+        if (childRole === 'SM') childName = ch.state_name || ch.region_name || '';
+        else if (childRole === 'RM') childName = ch.region_name || ch.state_name || '';
+        else if (childRole === 'DvM') childName = ch.division_name || ch.district_name || '';
+        else if (childRole === 'DM') childName = ch.district_name || ch.division_name || '';
+        else if (childRole === 'AM') childName = ch.area_name || '';
         else if (childRole === 'BM') childName = ch.branch_name || '';
         else if (childRole === 'FO') childName = getFullName(ch.emp_id, ch.name || ch.officer_name || '');
         var initial = childName.charAt(0).toUpperCase();
@@ -675,7 +704,9 @@
     // Sub-units (drill-down)
     var children = _db.children || [];
     if (session.role && session.role !== 'FO' && children.length > 0) {
-      var childRoleMap = { CEO: 'RM', RM: 'DM', SM: 'DM', DM: 'BM', DvM: 'BM', AM: 'FO', BM: 'FO' };
+      var childRoleMap = isNewStructure()
+        ? { CEO: 'SM', SM: 'DvM', RM: 'DvM', DvM: 'AM', DM: 'AM', AM: 'BM', BM: 'FO' }
+        : { CEO: 'RM', RM: 'DM', SM: 'DM', DM: 'BM', DvM: 'BM', AM: 'FO', BM: 'FO' };
       var childRole = childRoleMap[session.role];
       if (childRole) {
         children.sort(function(a, b) { return numVal(b.total_amount) - numVal(a.total_amount); });
