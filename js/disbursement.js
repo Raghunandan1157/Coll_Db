@@ -183,11 +183,12 @@
         if (!list.length) {
           // Scope returned no dates — drop any stale selected date so month mode kicks in.
           if (_db.date) { _db.date = null; localStorage.removeItem('dbSelectedDate'); }
-        } else if (!_db.date && !_db.month) {
-          // First-load default: pick newest if neither date nor month selected yet.
+        } else if (!_db.date) {
+          // No selected date: default to latest available date so newest month (e.g. April) renders date-wise.
+          // Overrides any stale _db.month left over from a previous session.
           _db.date = list[0];
           localStorage.setItem('dbSelectedDate', list[0]);
-        } else if (_db.date && list.indexOf(_db.date) === -1) {
+        } else if (list.indexOf(_db.date) === -1) {
           // Saved date has no data (e.g. today, future, or stale) — fall back to latest with data.
           _db.date = list[0];
           localStorage.setItem('dbSelectedDate', list[0]);

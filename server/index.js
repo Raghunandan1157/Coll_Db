@@ -34,11 +34,11 @@ const upload = multer({
 });
 
 const dbConfig = {
-  host: "127.0.0.1",
-  user: "Raghunandan1157",
-  password: "raghu",
-  database: "postgres",
-  port: 5432,
+  host: process.env.PGHOST || "127.0.0.1",
+  user: process.env.PGUSER || "Raghunandan1157",
+  password: process.env.PGPASSWORD || "raghu",
+  database: process.env.PGDATABASE || "postgres",
+  port: Number(process.env.PGPORT) || 5432,
 };
 
 const pool = new Pool({ ...dbConfig, max: 10 });
@@ -49,10 +49,10 @@ function getPool(dbName) {
   if (!dbName || dbName === 'postgres') return pool;
   if (!poolCache[dbName]) {
     poolCache[dbName] = new Pool({
-      host: '127.0.0.1',
-      port: 5432,
-      user: 'Raghunandan1157',
-      password: 'raghu',
+      host: process.env.PGHOST || '127.0.0.1',
+      port: Number(process.env.PGPORT) || 5432,
+      user: process.env.PGUSER || 'Raghunandan1157',
+      password: process.env.PGPASSWORD || 'raghu',
       database: dbName,
       max: 5
     });
@@ -821,6 +821,355 @@ app.post("/api/upload", uploadLimiter, upload.single("file"), async (req, res) =
     _uploadInProgress = false;
     client.release();
   }
+});
+
+// ========== NPA ACTIVATION API ==========
+let _npaUploadInProgress = false;
+let _npaAmountOverflowCount = 0;
+const NPA_NUMERIC_MAX = 999999999999.99; // limit for NUMERIC(14,2)
+
+function _npaHeaderKey(s) {
+  return String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+// Normalized source header → DB column. Unmapped columns are dropped.
+const NPA_HEADER_MAP = {
+  identifier: "identifier",
+  designation: "designation",
+  memberid: "member_id",
+  accountid: "account_id",
+  mobile: "mobile",
+  groupname: "group_name",
+  productid: "product_id",
+  loanamount: "loan_amount",
+  loanoustanding: "loan_outstanding",
+  odamount: "od_amount",
+  dpddays: "dpd_bucket",
+  type: "task_type",
+  employee: "employee",
+  title: "title",
+  started: "started_at",
+  completed: "completed_on",
+  timetaken: "time_taken",
+  priority: "priority",
+  status: "status",
+  presentstate: "present_state",
+  customer: "customer",
+  customeraddress: "customer_address",
+  taskaddress: "task_address",
+  checkin: "check_in_address",
+  checkout: "check_out_address",
+  taskcompletelatlng: "task_latlng",
+  followup: "follow_up",
+  nextfollowuptime: "next_follow_up_at",
+  followupcomment: "follow_up_comment",
+  customerloanid: "customer_loan_id",
+  memberalternativecontactnumber: "alt_contact",
+  memberattendence: "member_attendance",
+  memberphoto: "member_photo",
+  paymentstatus: "payment_status",
+  promisetopaydateandtime: "promise_to_pay_at",
+  paymentmode: "payment_mode",
+  amount: "amount",
+  receiptnumber: "receipt_number",
+  utrnumber: "utr_number",
+  reasonfornotcollected: "reason_not_collected",
+  ifmemberabsenthousephoto: "absent_house_photo",
+  transactionscreenshot: "transaction_screenshot",
+  loanstatus: "loan_status",
+  collectionreport: "collection_report",
+  worklocation: "branch_name",
+};
+
+const NPA_BOOL_COLS = new Set(["follow_up","member_photo","absent_house_photo","transaction_screenshot"]);
+const NPA_NUMERIC_COLS = new Set(["loan_amount","loan_outstanding","od_amount","amount","collection_report"]);
+const NPA_BIGINT_COLS = new Set(["account_id","customer_loan_id"]);
+const NPA_DATE_COLS = new Set(["completed_on"]);
+const NPA_TS_COLS = new Set(["started_at","next_follow_up_at","promise_to_pay_at"]);
+
+function _npaParseBool(v) {
+  if (v == null) return null;
+  const s = String(v).trim().toLowerCase();
+  if (!s) return null;
+  if (s === "yes" || s === "true" || s === "1" || s === "y") return true;
+  if (s === "no" || s === "false" || s === "0" || s === "n") return false;
+  return null;
+}
+function _npaParseNum(v) {
+  if (v == null) return null;
+  const s = String(v).trim();
+  if (!s || s.toUpperCase() === "NA" || s === "-") return null;
+  const n = Number(s.replace(/,/g, ""));
+  if (!Number.isFinite(n)) return null;
+  if (Math.abs(n) > NPA_NUMERIC_MAX) { _npaAmountOverflowCount++; return null; }
+  return n;
+}
+function _npaParseBigInt(v) {
+  if (v == null) return null;
+  if (typeof v === "number" && Number.isFinite(v)) return String(Math.trunc(v));
+  const s = String(v).trim();
+  if (!s || s.toUpperCase() === "NA") return null;
+  const cleaned = s.replace(/,/g, "").split(".")[0];
+  if (!/^-?\d+$/.test(cleaned)) return null;
+  return cleaned;
+}
+function _npaParseDate(v) {
+  if (v == null) return null;
+  if (typeof v === "number" && Number.isFinite(v)) {
+    const d = XLSX.SSF.parse_date_code(v);
+    if (d) return `${d.y}-${String(d.m).padStart(2,"0")}-${String(d.d).padStart(2,"0")}`;
+  }
+  const s = String(v).trim();
+  if (!s) return null;
+  // try ISO / common formats first
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) return d.toISOString().slice(0,10);
+  // try dd-mm-yyyy or dd/mm/yyyy
+  const m = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{2,4})/);
+  if (m) {
+    const yy = m[3].length === 2 ? "20" + m[3] : m[3];
+    return `${yy}-${String(m[2]).padStart(2,"0")}-${String(m[1]).padStart(2,"0")}`;
+  }
+  return null;
+}
+function _npaParseTs(v) {
+  if (v == null) return null;
+  if (typeof v === "number" && Number.isFinite(v)) {
+    const dc = XLSX.SSF.parse_date_code(v);
+    if (dc) return new Date(Date.UTC(dc.y, dc.m-1, dc.d, dc.H||0, dc.M||0, Math.floor(dc.S||0))).toISOString();
+  }
+  const s = String(v).trim();
+  if (!s) return null;
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : d.toISOString();
+}
+
+app.post("/api/npa/upload", uploadLimiter, upload.single("file"), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+  if (_npaUploadInProgress) return res.status(409).json({ error: "Another NPA upload in progress. Try again shortly." });
+  _npaUploadInProgress = true;
+
+  const client = await pool.connect();
+  try {
+    let wb;
+    try {
+      wb = XLSX.read(req.file.buffer, { type: "buffer", cellDates: false });
+    } catch (e) {
+      return res.status(400).json({ error: "Invalid Excel: " + e.message });
+    }
+    const sheetName = wb.SheetNames.find(n => /NPA Collection Task/i.test(n)) || wb.SheetNames[0];
+    const ws = wb.Sheets[sheetName];
+    if (!ws) return res.status(400).json({ error: "No sheet found" });
+
+    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: null });
+    if (!rows.length) return res.status(400).json({ error: "Empty sheet" });
+
+    const header = rows[0] || [];
+    const colMap = header.map(h => NPA_HEADER_MAP[_npaHeaderKey(h)] || null);
+
+    const dbCols = [
+      "run_id","branch_name","identifier","designation","member_id","account_id","mobile","group_name","product_id",
+      "loan_amount","loan_outstanding","od_amount","dpd_bucket","task_type","employee","title","started_at","completed_on",
+      "time_taken","priority","status","present_state","customer","customer_address","task_address","check_in_address",
+      "check_out_address","task_latlng","follow_up","next_follow_up_at","follow_up_comment","customer_loan_id","alt_contact",
+      "member_attendance","member_photo","payment_status","promise_to_pay_at","payment_mode","amount","receipt_number",
+      "utr_number","reason_not_collected","absent_house_photo","transaction_screenshot","loan_status","collection_report"
+    ];
+
+    // Parse + shape rows in memory first, then TX + bulk insert
+    const parsed = [];
+    let npaCount = 0;
+    let maxCompleted = null;
+    const branchesSeen = new Set();
+    _npaAmountOverflowCount = 0;
+
+    for (let r = 1; r < rows.length; r++) {
+      const row = rows[r];
+      if (!row || !row.length) continue;
+      const rec = {};
+      for (let c = 0; c < row.length; c++) {
+        const target = colMap[c];
+        if (!target) continue;
+        const raw = row[c];
+        let val;
+        if (target === "branch_name") {
+          val = String(raw || "").trim().toUpperCase() || null;
+        } else if (NPA_BOOL_COLS.has(target)) {
+          val = _npaParseBool(raw);
+        } else if (NPA_BIGINT_COLS.has(target)) {
+          val = _npaParseBigInt(raw);
+        } else if (NPA_NUMERIC_COLS.has(target)) {
+          val = _npaParseNum(raw);
+        } else if (NPA_DATE_COLS.has(target)) {
+          val = _npaParseDate(raw);
+        } else if (NPA_TS_COLS.has(target)) {
+          val = _npaParseTs(raw);
+        } else {
+          val = (raw == null || String(raw).trim() === "") ? null : String(raw);
+        }
+        rec[target] = val;
+      }
+      if (!rec.branch_name || !rec.account_id) continue;
+      branchesSeen.add(rec.branch_name);
+      if ((rec.loan_status || "").toUpperCase() === "NPA") npaCount++;
+      if (rec.completed_on && (!maxCompleted || rec.completed_on > maxCompleted)) maxCompleted = rec.completed_on;
+      parsed.push(rec);
+    }
+
+    const summary = {
+      final_rows: parsed.length,
+      branches_seen: branchesSeen.size,
+      npa_seen: npaCount,
+      sheet: sheetName,
+      amount_overflow_skipped: _npaAmountOverflowCount,
+    };
+
+    await client.query("BEGIN");
+    const runRes = await client.query(
+      `INSERT INTO npa_activation_runs (source_filename, report_date, row_count, npa_count, summary)
+       VALUES ($1, $2, $3, $4, $5::jsonb) RETURNING run_id`,
+      [req.file.originalname, maxCompleted, parsed.length, npaCount, JSON.stringify(summary)]
+    );
+    const runId = runRes.rows[0].run_id;
+
+    const colList = dbCols.join(", ");
+    const BATCH = 200;
+    for (let i = 0; i < parsed.length; i += BATCH) {
+      const chunk = parsed.slice(i, i + BATCH);
+      const values = [];
+      const params = [];
+      let p = 1;
+      for (const rec of chunk) {
+        const ph = dbCols.map(col => {
+          if (col === "run_id") { params.push(runId); return `$${p++}`; }
+          const v = rec[col] === undefined ? null : rec[col];
+          params.push(v);
+          return `$${p++}`;
+        });
+        values.push(`(${ph.join(",")})`);
+      }
+      await client.query(
+        `INSERT INTO npa_activation_rows (${colList}) VALUES ${values.join(",")}`,
+        params
+      );
+    }
+
+    await client.query("COMMIT");
+    res.json({ run_id: runId, row_count: parsed.length, npa_count: npaCount, report_date: maxCompleted, summary });
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    console.error("NPA upload error:", err);
+    res.status(500).json({ error: "NPA upload failed: " + err.message });
+  } finally {
+    _npaUploadInProgress = false;
+    client.release();
+  }
+});
+
+app.get("/api/npa/runs", async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT run_id, uploaded_at, uploaded_by, source_filename, report_date,
+              row_count, npa_count, summary, notes
+         FROM npa_activation_runs
+         ORDER BY uploaded_at DESC LIMIT 50`
+    );
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+const _NPA_HIER_JOIN = `
+  FROM npa_activation_rows nar
+  LEFT JOIN v2_branches  b  ON UPPER(b.branch_name) = UPPER(nar.branch_name)
+  LEFT JOIN v2_areas     a  ON b.area_id = a.area_id
+  LEFT JOIN v2_divisions dv ON a.division_id = dv.division_id
+  LEFT JOIN v2_states    s  ON dv.state_id = s.state_id`;
+
+const _NPA_METRICS = `
+    COUNT(*) FILTER (WHERE nar.loan_status = 'NPA')::int AS npa_count,
+    COALESCE(SUM(nar.collection_report), 0)::numeric AS collection_sum,
+    COUNT(DISTINCT nar.branch_name)::int AS branch_count,
+    COUNT(DISTINCT nar.account_id)::int AS account_count,
+    COUNT(*)::int AS total_rows`;
+
+function _npaBuildWhere(q) {
+  const where = [];
+  const params = [];
+  let i = 1;
+  if (q.run_id) { where.push(`nar.run_id = $${i++}`); params.push(Number(q.run_id)); }
+  if (q.region) { where.push(`UPPER(TRIM(s.state_name)) = UPPER(TRIM($${i++}))`); params.push(q.region); }
+  if (q.division) { where.push(`UPPER(TRIM(dv.division_name)) = UPPER(TRIM($${i++}))`); params.push(q.division); }
+  if (q.area) { where.push(`UPPER(TRIM(a.area_name)) = UPPER(TRIM($${i++}))`); params.push(q.area); }
+  if (q.branch) { where.push(`UPPER(TRIM(nar.branch_name)) = UPPER(TRIM($${i++}))`); params.push(q.branch); }
+  if (q.loan_status) { where.push(`nar.loan_status = $${i++}`); params.push(q.loan_status); }
+  if (q.from) { where.push(`nar.completed_on >= $${i++}`); params.push(q.from); }
+  if (q.to) { where.push(`nar.completed_on <= $${i++}`); params.push(q.to); }
+  return { clause: where.length ? " WHERE " + where.join(" AND ") : "", params };
+}
+
+app.get("/api/npa/by-region", async (req, res) => {
+  try {
+    const { clause, params } = _npaBuildWhere(req.query);
+    const sql = `SELECT COALESCE(s.state_name,'(unmapped)') AS region, ${_NPA_METRICS}
+                 ${_NPA_HIER_JOIN} ${clause}
+                 GROUP BY COALESCE(s.state_name,'(unmapped)')
+                 ORDER BY region`;
+    const result = await pool.query(sql, params);
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get("/api/npa/by-division", async (req, res) => {
+  try {
+    const { clause, params } = _npaBuildWhere(req.query);
+    const sql = `SELECT COALESCE(s.state_name,'(unmapped)') AS region,
+                        COALESCE(dv.division_name,'(unmapped)') AS division, ${_NPA_METRICS}
+                 ${_NPA_HIER_JOIN} ${clause}
+                 GROUP BY COALESCE(s.state_name,'(unmapped)'), COALESCE(dv.division_name,'(unmapped)')
+                 ORDER BY region, division`;
+    const result = await pool.query(sql, params);
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get("/api/npa/by-area", async (req, res) => {
+  try {
+    const { clause, params } = _npaBuildWhere(req.query);
+    const sql = `SELECT COALESCE(s.state_name,'(unmapped)') AS region,
+                        COALESCE(dv.division_name,'(unmapped)') AS division,
+                        COALESCE(a.area_name,'(unmapped)') AS area, ${_NPA_METRICS}
+                 ${_NPA_HIER_JOIN} ${clause}
+                 GROUP BY COALESCE(s.state_name,'(unmapped)'), COALESCE(dv.division_name,'(unmapped)'), COALESCE(a.area_name,'(unmapped)')
+                 ORDER BY region, division, area`;
+    const result = await pool.query(sql, params);
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get("/api/npa/by-branch", async (req, res) => {
+  try {
+    const { clause, params } = _npaBuildWhere(req.query);
+    const sql = `SELECT COALESCE(s.state_name,'(unmapped)') AS region,
+                        COALESCE(dv.division_name,'(unmapped)') AS division,
+                        COALESCE(a.area_name,'(unmapped)') AS area,
+                        nar.branch_name AS branch, ${_NPA_METRICS}
+                 ${_NPA_HIER_JOIN} ${clause}
+                 GROUP BY COALESCE(s.state_name,'(unmapped)'), COALESCE(dv.division_name,'(unmapped)'), COALESCE(a.area_name,'(unmapped)'), nar.branch_name
+                 ORDER BY region, division, area, branch`;
+    const result = await pool.query(sql, params);
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get("/api/npa/rows", async (req, res) => {
+  try {
+    const { clause, params } = _npaBuildWhere(req.query);
+    const limit = Math.min(Number(req.query.limit) || 200, 2000);
+    const sql = `SELECT nar.* ${_NPA_HIER_JOIN} ${clause}
+                 ORDER BY nar.row_id ASC LIMIT ${limit}`;
+    const result = await pool.query(sql, params);
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // ========== SERVE REPORT FILE ==========
@@ -2291,16 +2640,47 @@ app.post("/api/upload-daily", uploadLimiter, upload.single("file"), async (req, 
 
 
 // ========== DISBURSEMENT API ==========
+// CTE that exposes monthly disbursement rows. Months present in `disbursement` come
+// from there; months only available in `disbursement_daily` (e.g. the current
+// month before the monthly rollup upload) are aggregated on the fly so month-mode
+// queries don't return empty for the freshest month.
+const DISB_CTE = `WITH d AS (
+  SELECT db_month, region_name, district_name, branch_name, emp_id,
+         COALESCE(officer_name,'') AS officer_name, product_name,
+         disb_count, disb_amount
+  FROM disbursement
+  UNION ALL
+  SELECT to_char(disb_date,'Mon-YY') AS db_month,
+         COALESCE(region_name,'') AS region_name,
+         COALESCE(district_name,'') AS district_name,
+         COALESCE(branch_name,'') AS branch_name,
+         COALESCE(emp_id,'') AS emp_id,
+         COALESCE(officer_name,'') AS officer_name,
+         product_name,
+         SUM(disb_count)::int AS disb_count,
+         SUM(disb_amount)::numeric AS disb_amount
+  FROM disbursement_daily
+  WHERE to_char(disb_date,'Mon-YY') NOT IN (SELECT DISTINCT db_month FROM disbursement)
+  GROUP BY to_char(disb_date,'Mon-YY'), region_name, district_name, branch_name, emp_id, officer_name, product_name
+) `;
+
 app.get("/api/disbursement/months", async (req, res) => {
   try {
-    const result = await pool.query("SELECT DISTINCT db_month FROM disbursement ORDER BY db_month");
-    // Sort by actual date order
+    const result = await pool.query("SELECT DISTINCT db_month FROM disbursement");
     var months = result.rows.map(r => r.db_month);
-    var monthOrder = {'Apr':1,'May':2,'Jun':3,'Jul':4,'Aug':5,'Sep':6,'Oct':7,'Nov':8,'Dec':9,'Jan':10,'Feb':11,'Mar':12};
-    months.sort(function(a,b) {
-      var ma = a.split('-')[0], mb = b.split('-')[0];
-      return (monthOrder[ma]||0) - (monthOrder[mb]||0);
-    });
+    var monthIdx = {Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
+    function rank(label) {
+      var parts = String(label||'').split('-');
+      var mi = monthIdx[parts[0]] || 0;
+      var yr = parseInt(parts[1], 10) || 0;
+      return yr * 100 + mi;
+    }
+    // Union with any disbursement_daily months not yet rolled up (so Apr-26 shows even before monthly load).
+    const daily = await pool.query(
+      "SELECT DISTINCT to_char(disb_date, 'Mon-YY') AS db_month FROM disbursement_daily"
+    );
+    daily.rows.forEach(function(r) { if (r.db_month && months.indexOf(r.db_month) === -1) months.push(r.db_month); });
+    months.sort(function(a,b) { return rank(a) - rank(b); });
     res.json(months);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -2340,7 +2720,7 @@ app.get("/api/disbursement/summary", async (req, res) => {
   try {
     const { clause, params } = buildDisbWhere(req.query);
     const result = await pool.query(
-      "SELECT SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount FROM disbursement d" + clause, params
+      DISB_CTE + "SELECT SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount FROM d" + clause, params
     );
     res.json(result.rows[0] || {});
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -2350,7 +2730,7 @@ app.get("/api/disbursement/by-product", async (req, res) => {
   try {
     const { clause, params } = buildDisbWhere(req.query);
     const result = await pool.query(
-      "SELECT d.product_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount FROM disbursement d" + clause + " GROUP BY d.product_name ORDER BY total_amount DESC", params
+      DISB_CTE + "SELECT d.product_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount FROM d" + clause + " GROUP BY d.product_name ORDER BY total_amount DESC", params
     );
     res.json(result.rows);
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -2360,7 +2740,7 @@ app.get("/api/disbursement/by-region", async (req, res) => {
   try {
     const { clause, params } = buildDisbWhere(req.query);
     const result = await pool.query(
-      "SELECT d.region_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount FROM disbursement d" + clause + " GROUP BY d.region_name ORDER BY total_amount DESC", params
+      DISB_CTE + "SELECT d.region_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount FROM d" + clause + " GROUP BY d.region_name ORDER BY total_amount DESC", params
     );
     res.json(result.rows);
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -2370,7 +2750,7 @@ app.get("/api/disbursement/by-district", async (req, res) => {
   try {
     const { clause, params } = buildDisbWhere(req.query);
     const result = await pool.query(
-      "SELECT d.district_name, d.region_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount FROM disbursement d" + clause + " GROUP BY d.district_name, d.region_name ORDER BY total_amount DESC", params
+      DISB_CTE + "SELECT d.district_name, d.region_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount FROM d" + clause + " GROUP BY d.district_name, d.region_name ORDER BY total_amount DESC", params
     );
     res.json(result.rows);
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -2380,7 +2760,7 @@ app.get("/api/disbursement/by-branch", async (req, res) => {
   try {
     const { clause, params } = buildDisbWhere(req.query);
     const result = await pool.query(
-      "SELECT d.branch_name, d.district_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount FROM disbursement d" + clause + " GROUP BY d.branch_name, d.district_name ORDER BY total_amount DESC", params
+      DISB_CTE + "SELECT d.branch_name, d.district_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount FROM d" + clause + " GROUP BY d.branch_name, d.district_name ORDER BY total_amount DESC", params
     );
     res.json(result.rows);
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -2390,7 +2770,7 @@ app.get("/api/disbursement/by-employee", async (req, res) => {
   try {
     const { clause, params } = buildDisbWhere(req.query);
     const result = await pool.query(
-      "SELECT d.emp_id, d.officer_name AS name, d.branch_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount FROM disbursement d" + clause + " GROUP BY d.emp_id, d.officer_name, d.branch_name ORDER BY total_amount DESC", params
+      DISB_CTE + "SELECT d.emp_id, d.officer_name AS name, d.branch_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount FROM d" + clause + " GROUP BY d.emp_id, d.officer_name, d.branch_name ORDER BY total_amount DESC", params
     );
     res.json(result.rows);
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -2402,8 +2782,8 @@ app.get("/api/disbursement/by-state", async (req, res) => {
     const { clause, params } = buildDisbWhere(req.query);
     const extra = (clause ? " AND " : " WHERE ") + "em.region_name IS NOT NULL";
     const result = await pool.query(
-      "SELECT em.region_name AS state_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount " +
-      "FROM disbursement d LEFT JOIN employee_master em ON UPPER(d.branch_name)=UPPER(em.branch_name)" +
+      DISB_CTE + "SELECT em.region_name AS state_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount " +
+      "FROM d LEFT JOIN employee_master em ON UPPER(d.branch_name)=UPPER(em.branch_name)" +
       clause + extra + " GROUP BY em.region_name ORDER BY em.region_name", params
     );
     res.json(result.rows);
@@ -2415,8 +2795,8 @@ app.get("/api/disbursement/by-division", async (req, res) => {
     const { clause, params } = buildDisbWhere(req.query);
     const extra = (clause ? " AND " : " WHERE ") + "em.division_name IS NOT NULL";
     const result = await pool.query(
-      "SELECT em.division_name, em.region_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount " +
-      "FROM disbursement d LEFT JOIN employee_master em ON UPPER(d.branch_name)=UPPER(em.branch_name)" +
+      DISB_CTE + "SELECT em.division_name, em.region_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount " +
+      "FROM d LEFT JOIN employee_master em ON UPPER(d.branch_name)=UPPER(em.branch_name)" +
       clause + extra + " GROUP BY em.division_name, em.region_name ORDER BY total_amount DESC", params
     );
     res.json(result.rows);
@@ -2428,8 +2808,8 @@ app.get("/api/disbursement/by-area", async (req, res) => {
     const { clause, params } = buildDisbWhere(req.query);
     const extra = (clause ? " AND " : " WHERE ") + "em.area_name IS NOT NULL";
     const result = await pool.query(
-      "SELECT em.area_name, em.division_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount " +
-      "FROM disbursement d LEFT JOIN employee_master em ON UPPER(d.branch_name)=UPPER(em.branch_name)" +
+      DISB_CTE + "SELECT em.area_name, em.division_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount " +
+      "FROM d LEFT JOIN employee_master em ON UPPER(d.branch_name)=UPPER(em.branch_name)" +
       clause + extra + " GROUP BY em.area_name, em.division_name ORDER BY total_amount DESC", params
     );
     res.json(result.rows);
@@ -2440,7 +2820,7 @@ app.get("/api/disbursement/by-month", async (req, res) => {
   try {
     const { clause, params } = buildDisbWhere(req.query);
     const result = await pool.query(
-      "SELECT d.db_month, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount FROM disbursement d" + clause + " GROUP BY d.db_month", params
+      DISB_CTE + "SELECT d.db_month, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount FROM d" + clause + " GROUP BY d.db_month", params
     );
     // Sort by FY order
     var monthOrder = {'Apr':1,'May':2,'Jun':3,'Jul':4,'Aug':5,'Sep':6,'Oct':7,'Nov':8,'Dec':9,'Jan':10,'Feb':11,'Mar':12};
@@ -4600,9 +4980,9 @@ async function buildDataContext(session) {
       SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(${emCol_for_disb(role)}) ILIKE TRIM($1)
     )`;
   }
-  ctx.disbursement = await safeQuery(`
+  ctx.disbursement = await safeQuery(`${DISB_CTE}
     SELECT d.db_month, SUM(d.disb_count) as total_count, SUM(d.disb_amount) as total_amount
-    FROM disbursement d ${disbFilter}
+    FROM d ${disbFilter}
     GROUP BY d.db_month ORDER BY d.db_month DESC LIMIT 2`, disbFilter ? [loc] : [], 2);
 
   return ctx;
