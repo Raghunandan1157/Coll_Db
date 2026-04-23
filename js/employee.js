@@ -158,7 +158,7 @@
   }
 
   // Tab switching (global for onclick)
-  var tabTitles = { portfolio: 'Portfolio', disbursement: 'Disbursement', collection: 'Collection', hourly: 'Hourly', comparison: 'Comparison', analytical: 'Analytical Tool', ai: 'AI', dailyreports: 'Daily Reports', editbranch: 'EDIT_BRANCH_DAILY_REPORT', settings: 'Settings' };
+  var tabTitles = { portfolio: 'Portfolio', disbursement: 'Disbursement', collection: 'Collection', hourly: 'Hourly', comparison: 'Comparison', analytical: 'Analytical Tool', npaactivation: 'NPA Activation', ai: 'AI', dailyreports: 'Daily Reports', editbranch: 'EDIT_BRANCH_DAILY_REPORT', settings: 'Settings' };
   window.switchEmpTab = function (tab) {
     // Switch tab content
     document.querySelectorAll('.emp-tab-content').forEach(function (tc) {
@@ -169,6 +169,10 @@
 
     if (tab === 'analytical' && typeof window._loadAnalyticalTab === 'function') {
       window._loadAnalyticalTab();
+    }
+
+    if (tab === 'npaactivation' && typeof window._loadNPAActivationTab === 'function') {
+      window._loadNPAActivationTab();
     }
 
     // Bottom tab bar — show for main tabs
@@ -195,6 +199,13 @@
 
     localStorage.setItem('activeTab', tab);
   };
+
+  // Flush any tab click that fired against the inline stub while scripts were still loading.
+  if (window.__pendingSwitchTab) {
+    var _pt = window.__pendingSwitchTab;
+    window.__pendingSwitchTab = null;
+    try { window.switchEmpTab(_pt); } catch (_) {}
+  }
 
   loadData();
 })();
