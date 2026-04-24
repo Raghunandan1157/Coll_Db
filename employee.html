@@ -174,6 +174,12 @@
         </span>
         <span class="desktop-sidebar-label">Analytical Tool</span>
       </a>
+      <a href="javascript:void(0)" class="desktop-sidebar-item npa-nav-item" data-dtab="npaactivation" onclick="switchEmpTab('npaactivation')" style="display:none">
+        <span class="desktop-sidebar-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+        </span>
+        <span class="desktop-sidebar-label">NPA Activation</span>
+      </a>
       <a href="javascript:void(0)" class="desktop-sidebar-item" onclick="window._aiOpen()">
         <span class="desktop-sidebar-icon">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
@@ -324,6 +330,10 @@
 
       <div class="emp-tab-content" id="analyticalTab">
         <div id="analyticalContent"></div>
+      </div>
+
+      <div class="emp-tab-content" id="npaactivationTab">
+        <div id="npaactivationContent"></div>
       </div>
 
       <div class="emp-tab-content" id="settingsTab">
@@ -502,10 +512,11 @@
           var role = session.role || localStorage.getItem('roleName') || 'CEO';
           var location = session.location || localStorage.getItem('roleLocation') || '';
 
-          // Branches Pending button — only CEO/RM/DM/AM
+          // Branches Pending button — CEO/RM/SM/DM/DvM/AM (anyone above branch level)
           var _pendingBtn = document.getElementById('drPendingBtn');
           if (_pendingBtn) {
-            var _showPending = (role === 'CEO' || role === 'RM' || role === 'DM' || role === 'AM');
+            var _showPending = (role === 'CEO' || role === 'RM' || role === 'SM'
+                              || role === 'DM' || role === 'DvM' || role === 'AM');
             _pendingBtn.style.display = _showPending ? 'inline-flex' : 'none';
           }
 
@@ -555,10 +566,11 @@
             }).catch(function(e){ console.error('[DR] Promise.all error:', e); });
           }
 
-          // DM: update subtitle
-          if (role === 'DM') {
-            var subEl = document.getElementById('drSubtitle');
-            if (subEl) subEl.textContent = 'View reports for ' + (location || 'your area');
+          // Scoped manager subtitle — RM/SM/DM/DvM/AM
+          if (role === 'RM' || role === 'SM' || role === 'DM' || role === 'DvM' || role === 'AM') {
+            var _subEl2 = document.getElementById('drSubtitle');
+            var _scopeWord = ({ RM:'region', SM:'state', DM:'division', DvM:'division', AM:'area' })[role] || 'area';
+            if (_subEl2) _subEl2.textContent = 'View reports for ' + (location || 'your ' + _scopeWord);
           }
         
         // Open plan entry in full app
@@ -622,7 +634,8 @@
         var allowedLevels = (function(r){
           if (r === 'BM' || r === 'FO') return ['BRANCH'];
           if (r === 'AM') return ['AREA','BRANCH'];
-          if (r === 'DM') return ['DIVISION','AREA','BRANCH'];
+          if (r === 'DM' || r === 'DvM') return ['DIVISION','AREA','BRANCH'];
+          // CEO, RM, SM see the full ladder (scoped hierarchy narrows the data itself)
           return ['REGION','DIVISION','AREA','BRANCH'];
         })(role);
         var defaultLevel = allowedLevels[0];
@@ -1428,6 +1441,20 @@
         // Retry after session loads (may not be ready on first paint)
         setTimeout(_ebShowNav, 500);
         setTimeout(_ebShowNav, 1500);
+      })();
+
+      // NPA Activation — show sidebar items for CEO/RM/DM/AM
+      (function(){
+        function _npaShowNav() {
+          var s = window.getEmployeeSession ? getEmployeeSession() : {};
+          var r = s.role || localStorage.getItem('roleName') || '';
+          if (r === 'CEO' || r === 'RM' || r === 'DM' || r === 'AM') {
+            document.querySelectorAll('.npa-nav-item, .npa-mob-nav').forEach(function(el){ el.style.display = ''; });
+          }
+        }
+        _npaShowNav();
+        setTimeout(_npaShowNav, 500);
+        setTimeout(_npaShowNav, 1500);
       })();
 
       function ebUnlock() {
@@ -2371,6 +2398,10 @@ body.emp-dark .ai-bar-icon { background: rgba(99,102,241,0.15); color: #A5B4FC; 
         <span class="sidebar-nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>
         <span class="sidebar-nav-label">Analytical Tool</span>
       </a>
+      <a href="javascript:void(0)" class="sidebar-nav-item npa-mob-nav" data-sidebar-tab="npaactivation" onclick="closeSidebar(); switchEmpTab('npaactivation');" style="display:none">
+        <span class="sidebar-nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span>
+        <span class="sidebar-nav-label">NPA Activation</span>
+      </a>
       <a href="contacts.html" class="sidebar-nav-item">
         <span class="sidebar-nav-icon">&#128199;</span>
         <span class="sidebar-nav-label">Contacts</span>
@@ -2878,6 +2909,7 @@ body.emp-dark .ai-bar-icon { background: rgba(99,102,241,0.15); color: #A5B4FC; 
   <script src="js/portfolio.js?v=52"></script>
   <script src="js/collection.js?v=56"></script>
   <script src="js/analytical.js?v=4"></script>
+  <script src="js/npa-activation.js?v=1"></script>
   <script src="js/hourly.js?v=52"></script>
   <script src="js/disbursement.js?v=67"></script>
   <script src="js/comparison.js?v=50"></script>
@@ -4378,24 +4410,29 @@ window._drHierarchyPromise = fetch('/api/daily-plan/branches')
     });
     _drHierarchy = tree;
     _drAllBranches = branches;
-    // Build role-scoped hierarchy for AM/DM/RM
+    // Build role-scoped hierarchy for AM/DM/RM/SM/DvM (and BM/FO)
+    // NOTE: employee_master.region_name stores state-name for new-structure
+    // (see server index.js: "em.region_name AS state_name"). So SM matches on region_name,
+    // DvM matches on division_name — same columns, different role labels.
     try {
       var _drSess = window.getEmployeeSession ? getEmployeeSession() : {};
       var _drRole = _drSess.role || localStorage.getItem('roleName') || 'CEO';
       var _drLoc = (_drSess.location || localStorage.getItem('roleLocation') || '').toString().trim().toUpperCase();
-      if (_drLoc && (_drRole === 'AM' || _drRole === 'DM' || _drRole === 'RM' || _drRole === 'BM' || _drRole === 'FO')) {
+      var _drScopedRoles = ['RM','SM','DM','DvM','AM','BM','FO'];
+      if (_drLoc && _drScopedRoles.indexOf(_drRole) !== -1) {
         var scoped = {};
         var scopedBr = [];
+        var _norm = function(s){ return (s||'').toString().trim().toUpperCase(); };
         data.forEach(function(r){
           var region = r.region_name || 'Unknown';
           var division = r.division_name || 'Unknown';
           var area = r.area_name || 'Unknown';
           var branch = r.branch_name;
           var ok = false;
-          if (_drRole === 'RM' && (r.region_name||'').toString().trim().toUpperCase() === _drLoc) ok = true;
-          else if (_drRole === 'DM' && (r.division_name||'').toString().trim().toUpperCase() === _drLoc) ok = true;
-          else if (_drRole === 'AM' && (r.area_name||'').toString().trim().toUpperCase() === _drLoc) ok = true;
-          else if ((_drRole === 'BM' || _drRole === 'FO') && (r.branch_name||'').toString().trim().toUpperCase() === _drLoc) ok = true;
+          if ((_drRole === 'RM' || _drRole === 'SM') && _norm(r.region_name) === _drLoc) ok = true;
+          else if ((_drRole === 'DM' || _drRole === 'DvM') && _norm(r.division_name) === _drLoc) ok = true;
+          else if (_drRole === 'AM' && _norm(r.area_name) === _drLoc) ok = true;
+          else if ((_drRole === 'BM' || _drRole === 'FO') && _norm(r.branch_name) === _drLoc) ok = true;
           if (!ok) return;
           if (!scoped[region]) scoped[region] = {};
           if (!scoped[region][division]) scoped[region][division] = {};
@@ -4405,6 +4442,14 @@ window._drHierarchyPromise = fetch('/api/daily-plan/branches')
         });
         _drScopedHierarchy = scoped;
         _drScopedBranches = scopedBr;
+        try {
+          console.debug('[DR] scoped hierarchy built',
+            { role: _drRole, loc: _drLoc, regions: Object.keys(scoped).length, branches: scopedBr.length });
+        } catch(_e) {}
+        if (!scopedBr.length) {
+          console.warn('[DR] scoped hierarchy EMPTY — role/location did not match any branch',
+            { role: _drRole, loc: _drLoc, totalRows: data.length });
+        }
       }
     } catch (e) { console.warn('dr scope failed', e); }
     _drHierarchyReady = true;
@@ -4423,12 +4468,14 @@ function _drBuildReportTable(date, level, type) {
   var role = sess.role || localStorage.getItem('roleName') || 'CEO';
   var loc = (sess.location || localStorage.getItem('roleLocation') || '').trim();
   var scopeLabel = '';
-  if (role === 'RM' && loc) {
-    if (level === 'REGION') scopeLabel = loc + ' Region';
-    else if (level === 'DIVISION') scopeLabel = 'Divisions in ' + loc + ' Region';
-    else if (level === 'AREA') scopeLabel = 'Areas in ' + loc + ' Region';
-    else if (level === 'BRANCH') scopeLabel = 'Branches in ' + loc + ' Region';
-  } else if (role === 'DM' && loc) {
+  if ((role === 'RM' || role === 'SM') && loc) {
+    // SM is state-level in new structure; DR report labels it as "Region" (top level in tree).
+    var _regLbl = (role === 'SM') ? 'State' : 'Region';
+    if (level === 'REGION') scopeLabel = loc + ' ' + _regLbl;
+    else if (level === 'DIVISION') scopeLabel = 'Divisions in ' + loc + ' ' + _regLbl;
+    else if (level === 'AREA') scopeLabel = 'Areas in ' + loc + ' ' + _regLbl;
+    else if (level === 'BRANCH') scopeLabel = 'Branches in ' + loc + ' ' + _regLbl;
+  } else if ((role === 'DM' || role === 'DvM') && loc) {
     if (level === 'DIVISION') scopeLabel = loc + ' Division';
     else if (level === 'AREA') scopeLabel = 'Areas in ' + loc + ' Division';
     else if (level === 'BRANCH') scopeLabel = 'Branches in ' + loc + ' Division';
@@ -5040,6 +5087,36 @@ document.addEventListener('keydown', function(e) {
     return (titles[tab]||tab)+' Report'+(loc?' - '+loc:'');
   }
 
+  // Detect if tab still loading: spinners, skeleton shimmer, aria-busy
+  function isTabLoading(root){
+    if(!root)return false;
+    try{
+      if(root.querySelector('[aria-busy="true"]'))return true;
+      if(root.querySelector('[class*="skeleton"],[class*="shimmer"]'))return true;
+      var cands=root.querySelectorAll('[class*="spin"],[class*="spinner"],[class*="loader"],[class*="loading"]');
+      for(var i=0;i<cands.length;i++){
+        var n=cands[i];
+        // skip non-loader semantic uses (e.g. heading) by requiring visibility
+        if(n.offsetParent===null)continue;
+        var r=n.getBoundingClientRect();
+        if(r.width>0&&r.height>0)return true;
+      }
+    }catch(e){/* ignore */}
+    return false;
+  }
+
+  // Poll until not loading or timeout
+  function waitForLoad(root,timeoutMs){
+    return new Promise(function(resolve){
+      var start=Date.now();
+      (function check(){
+        if(!isTabLoading(root))return resolve(true);
+        if(Date.now()-start>=timeoutMs)return resolve(false);
+        setTimeout(check,200);
+      })();
+    });
+  }
+
   async function captureTabImage(){
     // Find the currently visible tab content
     var activeTab=document.querySelector('.emp-tab-content.active');
@@ -5071,7 +5148,8 @@ document.addEventListener('keydown', function(e) {
     });
 
     var wrapper=document.createElement('div');
-    wrapper.style.cssText='position:fixed;left:-9999px;top:0;background:#ffffff;padding:24px;z-index:9999;width:900px;font-family:system-ui,-apple-system,sans-serif;';
+    // offscreen + opacity:0 until capture, no z-index (nothing to stack against offscreen)
+    wrapper.style.cssText='position:fixed;left:-9999px;top:0;background:#ffffff;padding:24px;width:900px;font-family:system-ui,-apple-system,sans-serif;opacity:0;pointer-events:none;';
     // Title
     var header=document.createElement('div');
     header.style.cssText='font-size:18px;font-weight:700;color:#1E293B;margin-bottom:4px;padding-bottom:10px;border-bottom:2px solid #6366F1;';
@@ -5091,28 +5169,42 @@ document.addEventListener('keydown', function(e) {
     wrapper.appendChild(wm);
 
     document.body.appendChild(wrapper);
-    await new Promise(function(r){setTimeout(r,300);});
-
     try{
+      // Let layout settle before capture
+      await new Promise(function(r){setTimeout(r,300);});
+      wrapper.style.opacity='1';
       var scale=isMobile()?1.5:2;
       var canvas=await html2canvas(wrapper,{backgroundColor:'#ffffff',scale:scale,logging:false,useCORS:true,allowTaint:true,width:900,windowWidth:900});
-      document.body.removeChild(wrapper);
-      return new Promise(function(res){canvas.toBlob(res,'image/png');});
+      // toBlob BEFORE removing wrapper, to avoid any rasterization race
+      var blob=await new Promise(function(res){canvas.toBlob(res,'image/png');});
+      return blob;
     }catch(e){
       console.error('html2canvas error:',e);
-      if(document.body.contains(wrapper))document.body.removeChild(wrapper);
       return null;
+    }finally{
+      // Guaranteed cleanup — success, error, cancel all hit here
+      if(wrapper.parentNode)wrapper.parentNode.removeChild(wrapper);
     }
   }
 
   window.shareCurrentTab=async function(){
     var btn=document.getElementById('shareBtn');
-    if(btn)btn.style.opacity='0.5';
-    showToast('Generating image...');
+    // Pre-check loading state on active tab before building capture
+    var activeTab=document.querySelector('.emp-tab-content.active');
+    var activeEl=activeTab&&activeTab.firstElementChild;
+    if(!activeEl){showToast('Nothing to capture');return;}
 
+    if(btn)btn.style.opacity='0.5';
     try{
+      if(isTabLoading(activeEl)){
+        showToast('Loading... please wait');
+        var settled=await waitForLoad(activeEl,5000);
+        if(!settled){showToast('Still loading, please wait');return;}
+      }
+      showToast('Generating image...');
+
       var blob=await captureTabImage();
-      if(!blob){showToast('No data to capture. Please wait for data to load.');if(btn)btn.style.opacity='1';return;}
+      if(!blob){showToast('No data to capture. Please wait for data to load.');return;}
 
       var fileName=getActiveTab()+'_report.png';
 

@@ -4823,9 +4823,9 @@ app.get("/api/daily-plan/pending-branches", async (req, res) => {
           AND branch_name IS NOT NULL AND branch_name <> ''
           AND (
             $2 = 'CEO'
-            OR ($2 = 'RM' AND UPPER(region_name)   = UPPER($3))
-            OR ($2 = 'DM' AND UPPER(division_name) = UPPER($3))
-            OR ($2 = 'AM' AND UPPER(area_name)     = UPPER($3))
+            OR ($2 IN ('RM','SM')  AND UPPER(TRIM(region_name))   = UPPER(TRIM($3)))
+            OR ($2 IN ('DM','DvM') AND UPPER(TRIM(division_name)) = UPPER(TRIM($3)))
+            OR ($2 = 'AM'          AND UPPER(TRIM(area_name))     = UPPER(TRIM($3)))
           )
       ),
       bm AS (
