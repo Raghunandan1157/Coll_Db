@@ -2943,6 +2943,21 @@ app.get("/api/disbursement/daily/by-employee", async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// Daily disbursement aggregated by state (new-structure CEO view).
+// disbursement_daily only carries branch_name; we derive state via employee_master.
+app.get("/api/disbursement/daily/by-state", async (req, res) => {
+  try {
+    const { clause, params } = buildDisbDailyWhere(req.query);
+    const sql =
+      "SELECT em.region_name AS state_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount " +
+      "FROM disbursement_daily d LEFT JOIN employee_master em ON UPPER(d.branch_name)=UPPER(em.branch_name)" +
+      clause + (clause ? " AND " : " WHERE ") + "em.region_name IS NOT NULL " +
+      "GROUP BY em.region_name ORDER BY em.region_name";
+    const result = await pool.query(sql, params);
+    res.json(result.rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // Daily disbursement aggregated by area / division (joined via employee_master since
 // disbursement_daily only carries region/district/branch labels).
 app.get("/api/disbursement/daily/by-area", async (req, res) => {

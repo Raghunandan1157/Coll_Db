@@ -250,20 +250,27 @@
 
     monthPromise.then(function() {
       var base = dbBase();
+      // Any individual breakdown that fails (e.g. a missing endpoint on an older
+      // server, or a transient network hiccup) must degrade gracefully — the tab
+      // should still render from whatever succeeded instead of showing a blanket
+      // "Failed to load" error.
+      function safe(p, fallback) {
+        return p.catch(function(err) { console.warn('Disbursement fetch failed:', err); return fallback; });
+      }
       var promises = [
-        apiFetch(base + '/summary' + queryParams()),
-        _db.date ? Promise.resolve([]) : apiFetch(base + '/by-month' + queryParams()),
+        safe(apiFetch(base + '/summary' + queryParams()), {}),
+        _db.date ? Promise.resolve([]) : safe(apiFetch(base + '/by-month' + queryParams()), []),
       ];
       var chUrl = childrenUrl();
-      if (chUrl && session.role && session.role !== 'FO') promises.push(apiFetch(chUrl));
+      if (chUrl && session.role && session.role !== 'FO') promises.push(safe(apiFetch(chUrl), []));
       else promises.push(Promise.resolve([]));
 
       // Product breakdown
-      promises.push(apiFetch(base + '/by-product' + queryParams()));
+      promises.push(safe(apiFetch(base + '/by-product' + queryParams()), []));
 
       // Daily range for month bar chart
       var rangeUrl = rangeFetchUrl();
-      promises.push(rangeUrl ? apiFetch(rangeUrl).catch(function() { return []; }) : Promise.resolve([]));
+      promises.push(rangeUrl ? safe(apiFetch(rangeUrl), []) : Promise.resolve([]));
 
       return Promise.all(promises);
     }).then(function(res) {
