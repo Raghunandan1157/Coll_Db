@@ -4855,14 +4855,57 @@ app.get("/api/daily-plan/pending-branches", async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// Helper: enforce AM tenancy on a daily-plan write.
+// Returns { ok: true } or { ok: false, status, error } so callers can short-circuit.
+// Opt-in: only runs when X-User-Role === 'AM'. Other roles (or missing header)
+// fall through unchecked — preserves backwards compatibility with BM/CEO/etc. callers.
+async function _checkDailyPlanTenancy(req, branchName) {
+  const role = (req.headers['x-user-role'] || '').trim();
+  if (role !== 'AM') return { ok: true };
+  const loc = (req.headers['x-user-location'] || '').trim();
+  if (!loc) {
+    return { ok: false, status: 400, error: "X-User-Location header required for AM role" };
+  }
+  try {
+    const areaLookup = await pool.query(
+      `SELECT area_name FROM employee_master
+       WHERE UPPER(TRIM(branch_name)) = UPPER(TRIM($1))
+         AND status = 'Working'
+         AND area_name IS NOT NULL AND area_name <> ''
+       LIMIT 1`,
+      [branchName]
+    );
+    if (!areaLookup.rows.length) {
+      return { ok: false, status: 403, error: "Branch not in your area" };
+    }
+    const branchArea = (areaLookup.rows[0].area_name || '').trim().toUpperCase();
+    const userLoc = loc.toUpperCase();
+    if (branchArea !== userLoc) {
+      return { ok: false, status: 403, error: "Branch not in your area" };
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, status: 500, error: "Tenancy check failed: " + e.message };
+  }
+}
+
 // POST /api/daily-plan/save — Save daily report (plan or achievement)
+// Body: { table: 'plans'|'achievements', data: {...} }
+//   Also accepts { table, row: {...} } as an alias for `data` (new AM-edit UI).
+// Optional headers: X-User-Role, X-User-Location — if role === 'AM', server
+//   verifies the branch belongs to the caller's area before writing.
 app.post("/api/daily-plan/save", async (req, res) => {
   try {
-    const { table, data } = req.body;
+    const { table } = req.body;
+    const data = req.body.data || req.body.row;
     if (!data || !data.date || !data.branch_name) {
       return res.status(400).json({ error: "Missing date or branch_name" });
     }
     const targetTable = table === 'achievements' ? 'daily_reports_achievements' : 'daily_reports';
+
+    // Tenancy guard: AM callers may only edit branches in their own area.
+    const gate = await _checkDailyPlanTenancy(req, data.branch_name);
+    if (!gate.ok) return res.status(gate.status).json({ error: gate.error });
 
     // Auto-populate region/district from branches hierarchy if not provided
     if (!data.region || !data.district) {
@@ -4893,6 +4936,9 @@ app.post("/api/daily-plan/save", async (req, res) => {
 });
 
 // POST /api/daily-plan/bulk-save — Save multiple branches at once
+// Optional headers: X-User-Role, X-User-Location — if role === 'AM', every
+//   branch in the batch is verified against the caller's area; any mismatch
+//   aborts the whole transaction.
 app.post("/api/daily-plan/bulk-save", async (req, res) => {
   const client = await pool.connect();
   try {
@@ -4900,7 +4946,18 @@ app.post("/api/daily-plan/bulk-save", async (req, res) => {
     if (!rows || !rows.length) return res.status(400).json({ error: "No rows" });
     const targetTable = table === 'achievements' ? 'daily_reports_achievements' : 'daily_reports';
     const cols = DAILY_PLAN_COLS.split(',');
-    
+
+    // Tenancy guard: AM callers may only edit branches in their own area.
+    // Check every branch up-front so we fail fast before starting the txn.
+    const role = (req.headers['x-user-role'] || '').trim();
+    if (role === 'AM') {
+      for (const data of rows) {
+        if (!data || !data.branch_name) continue;
+        const gate = await _checkDailyPlanTenancy(req, data.branch_name);
+        if (!gate.ok) return res.status(gate.status).json({ error: gate.error + " (" + data.branch_name + ")" });
+      }
+    }
+
     await client.query("BEGIN");
     let saved = 0;
     for (const data of rows) {

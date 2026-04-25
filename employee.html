@@ -1074,361 +1074,246 @@
     <!-- EDIT_BRANCH_DAILY_REPORT Tab (AM only) -->
     <div class="emp-tab-content" id="editbranchTab">
       <style>
-        .eb-lock{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;gap:16px}
-        .eb-lock h3{font-size:20px;font-weight:700;color:var(--text-primary,#1E293B)}
-        .eb-lock p{font-size:13px;color:#94A3B8;margin-top:-8px}
-        .eb-lock-row{display:flex;gap:8px;align-items:center}
-        .eb-lock-row input{width:220px;padding:10px 14px;border:1px solid #E2E8F0;border-radius:10px;font-size:14px;outline:none}
-        .eb-lock-row input:focus{border-color:#6366F1}
-        .eb-lock-row button{padding:10px 20px;background:#6366F1;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer}
-        .eb-lock-row button:hover{background:#4F46E5}
-        .eb-lock-err{color:#EF4444;font-size:12px;height:16px}
-        .eb-pw-wrap{position:relative;display:inline-block}
-        .eb-pw-toggle{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:#94A3B8;cursor:pointer;padding:4px}
-        .eb-toolbar{display:flex;align-items:center;gap:12px;padding:16px 0;flex-wrap:wrap}
-        .eb-area-sel{padding:8px 14px;border:1px solid #E2E8F0;border-radius:10px;font-size:13px;color:#334155;outline:none;background:#fff;min-width:160px}
-        .eb-search{flex:1;min-width:180px;max-width:360px;display:flex;align-items:center;gap:8px;border:1px solid #E2E8F0;border-radius:10px;padding:8px 14px;background:#fff}
-        .eb-search input{flex:1;border:none;outline:none;font-size:13px;color:#334155}
-        .eb-search input::placeholder{color:#94A3B8}
-        .eb-date-group{display:flex;align-items:center;gap:4px}
-        .eb-date-arrow{width:32px;height:32px;border-radius:8px;border:1px solid #E2E8F0;background:#fff;color:#334155;cursor:pointer;display:flex;align-items:center;justify-content:center}
-        .eb-date-arrow:hover{background:#F1F5F9}
-        .eb-date-input{padding:8px 12px;border:1px solid #E2E8F0;border-radius:10px;font-size:13px;color:#334155;outline:none}
-        .eb-tabs{display:flex;gap:2px;background:#F1F5F9;border-radius:10px;padding:3px}
-        .eb-tab{padding:8px 18px;border-radius:8px;font-size:13px;color:#64748B;cursor:pointer;border:none;background:transparent;font-weight:500;font-family:inherit}
-        .eb-tab:hover{color:#334155}
-        .eb-tab.active{background:#fff;color:#1E293B;font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.08)}
-        .eb-btn{padding:8px 16px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;color:#334155;cursor:pointer;font-size:13px;font-weight:500;font-family:inherit;display:flex;align-items:center;gap:6px}
-        .eb-btn:hover{background:#F1F5F9;border-color:#CBD5E1}
-        .eb-table-wrap{border:1px solid #E2E8F0;border-radius:12px;overflow:auto;max-height:65vh;background:#fff}
-        .eb-table{width:100%;border-collapse:collapse;font-size:13px}
-        .eb-table thead{background:#F8FAFC;position:sticky;top:0;z-index:2}
-        .eb-table th{padding:10px 14px;text-align:left;font-weight:600;color:#64748B;border-bottom:1px solid #E2E8F0;font-size:12px;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap}
-        .eb-table td{padding:8px 14px;border-bottom:1px solid #F1F5F9;color:#334155;white-space:nowrap;max-width:180px;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
-        .eb-table td[data-col]:hover{background:#EEF2FF}
-        .eb-table tr:nth-child(even) td{background:#FAFAFA}
-        .eb-table tr:hover td{background:#F1F5F9}
-        .eb-table td.eb-null{color:#CBD5E1;font-style:italic}
-        .eb-table td.eb-editing{padding:4px 6px;overflow:visible;cursor:text}
-        .eb-table td.eb-editing input,.eb-table td.eb-editing select{width:100%;padding:6px 10px;border:1px solid #6366F1;border-radius:6px;color:#1E293B;font-size:13px;outline:none}
-        .eb-table td.eb-saved{background:#F0FDF4!important;transition:background .3s}
-        .eb-table .eb-sticky{position:sticky;left:0;z-index:1;background:#fff}
-        .eb-table .eb-sticky-2{position:sticky;left:50px;z-index:1;background:#fff;border-right:2px solid #E2E8F0}
-        .eb-table thead .eb-sticky,.eb-table thead .eb-sticky-2{background:#F8FAFC;z-index:3}
-        .eb-table tr:nth-child(even) .eb-sticky{background:#FAFAFA}
-        .eb-table tr:hover .eb-sticky,.eb-table tr:hover .eb-sticky-2{background:#F1F5F9}
-        .eb-empty{padding:40px;text-align:center;color:#94A3B8;font-size:14px}
-        .eb-status{display:flex;align-items:center;gap:12px;padding:12px 0;font-size:12px;color:#94A3B8}
-        .eb-status .eb-count{font-weight:600;color:#475569}
-        .eb-toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);padding:10px 24px;border-radius:10px;font-size:13px;font-weight:600;pointer-events:none;opacity:0;transition:opacity .25s,transform .25s;z-index:99999;box-shadow:0 4px 16px rgba(0,0,0,.12)}
-        .eb-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-        .eb-toast.success{background:#059669;color:#fff}
-        .eb-toast.error{background:#EF4444;color:#fff}
-        .eb-toast.info{background:#6366F1;color:#fff}
-        /* Mobile card view */
-        .eb-mobile-view{display:none}
-        .eb-desktop-view{display:block}
-        .eb-mob-step{padding:16px}
-        .eb-mob-header{display:flex;align-items:center;gap:12px;padding:14px 16px;background:linear-gradient(135deg,#6366F1,#8B5CF6);border-bottom:none;position:sticky;top:0;z-index:10}
-        .eb-mob-back{min-width:44px;min-height:44px;border-radius:12px;border:none;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;gap:4px;font-size:13px;font-weight:600;padding:0 12px;font-family:inherit;-webkit-tap-highlight-color:transparent}
-        .eb-mob-back:active{background:rgba(255,255,255,.35)}
-        .eb-mob-back svg{flex-shrink:0}
-        .eb-mob-title{font-size:18px;font-weight:700;color:#fff}
-        .eb-mob-subtitle{font-size:12px;color:rgba(255,255,255,.75)}
-        .eb-mob-date-row{display:flex;align-items:center;gap:8px;justify-content:center;padding:16px}
-        .eb-mob-date-arrow{width:44px;height:44px;border-radius:12px;border:1px solid #E2E8F0;background:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:20px;color:#475569;-webkit-tap-highlight-color:transparent}
-        .eb-mob-date-arrow:active{background:#EEF2FF;border-color:#6366F1}
-        .eb-mob-date{font-size:15px;font-weight:600;color:#1E293B;padding:10px 16px;border:1px solid #E2E8F0;border-radius:10px;background:#fff;min-height:44px}
-        .eb-mob-tabs{display:flex;gap:2px;background:#F1F5F9;border-radius:12px;padding:3px;margin:0 16px 12px}
-        .eb-mob-tab{flex:1;padding:12px;border-radius:10px;font-size:14px;color:#64748B;cursor:pointer;border:none;background:transparent;font-weight:500;text-align:center;font-family:inherit;min-height:44px;-webkit-tap-highlight-color:transparent}
-        .eb-mob-tab.active{background:#fff;color:#6366F1;font-weight:700;box-shadow:0 1px 4px rgba(0,0,0,.1)}
-        .eb-mob-branch-list{padding:0 16px;display:flex;flex-direction:column;gap:8px;max-height:55vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
-        .eb-mob-branch-card{padding:16px;background:#fff;border:1px solid #E2E8F0;border-radius:14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;min-height:44px;-webkit-tap-highlight-color:transparent;transition:transform .12s,box-shadow .12s}
-        .eb-mob-branch-card:active{background:#EEF2FF;transform:scale(0.98);box-shadow:0 0 0 2px rgba(99,102,241,.2)}
-        .eb-mob-branch-name{font-size:15px;font-weight:600;color:#1E293B}
-        .eb-mob-branch-meta{font-size:11px;color:#94A3B8;margin-top:3px}
-        .eb-mob-branch-arrow{color:#6366F1;font-size:20px;display:flex;align-items:center}
-        .eb-mob-search{margin:0 16px 12px;display:flex;align-items:center;gap:8px;border:1px solid #E2E8F0;border-radius:12px;padding:12px 14px;background:#fff;min-height:44px}
-        .eb-mob-search input{flex:1;border:none;outline:none;font-size:14px;color:#334155;min-height:24px}
-        .eb-mob-search input::placeholder{color:#CBD5E1}
-        .eb-mob-buckets{padding:0 16px;display:flex;flex-direction:column;gap:10px;max-height:calc(100vh - 180px);overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:80px}
-        .eb-mob-bucket{background:#fff;border:1px solid #E2E8F0;border-radius:14px;overflow:hidden}
-        .eb-mob-bucket-head{padding:14px 16px;font-size:14px;font-weight:700;color:#1E293B;border-bottom:1px solid #F1F5F9;display:flex;align-items:center;gap:10px}
-        .eb-mob-bucket-head .eb-mob-bucket-icon{width:4px;height:28px;border-radius:4px;flex-shrink:0}
-        .eb-mob-field{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid #F1F5F9}
-        .eb-mob-field:last-child{border-bottom:none}
-        .eb-mob-field-label{font-size:14px;color:#64748B;font-weight:500}
-        .eb-mob-field-value{font-size:16px;font-weight:600;color:#1E293B;width:100px;text-align:center;padding:12px 14px;border:1.5px solid #E2E8F0;border-radius:12px;background:#F8FAFC;cursor:text;-webkit-appearance:none;appearance:none;font-family:inherit;min-height:44px;box-sizing:border-box}
-        .eb-mob-field-value:focus{border-color:#6366F1;background:#fff;outline:none;box-shadow:0 0 0 3px rgba(99,102,241,.15)}
-        .eb-mob-field-saved{background:#F0FDF4!important;border-color:#059669!important;box-shadow:0 0 0 3px rgba(5,150,105,.15)!important;transition:all .3s}
-        .eb-mob-actions{display:flex;gap:8px;padding:16px;position:sticky;bottom:0;background:#fff;border-top:1px solid #E2E8F0}
-        .eb-mob-actions button{flex:1;padding:12px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;border:none;font-family:inherit;min-height:44px}
-        /* Save status sticky bar */
-        .eb-mob-save-bar{position:fixed;bottom:0;left:0;right:0;padding:12px 20px;background:#fff;border-top:1px solid #E2E8F0;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:600;z-index:100;box-shadow:0 -2px 12px rgba(0,0,0,.06)}
-        .eb-mob-save-bar.saved{color:#059669}
-        .eb-mob-save-bar.saving{color:#F59E0B}
-        .eb-mob-save-bar .eb-save-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-        /* Slide transitions */
-        .eb-mob-slide-out{animation:ebSlideOut .2s ease forwards}
-        .eb-mob-slide-in{animation:ebSlideIn .2s ease forwards}
-        .eb-mob-slide-back-out{animation:ebSlideBackOut .2s ease forwards}
-        .eb-mob-slide-back-in{animation:ebSlideBackIn .2s ease forwards}
-        @keyframes ebSlideOut{from{transform:translateX(0);opacity:1}to{transform:translateX(-30%);opacity:0}}
-        @keyframes ebSlideIn{from{transform:translateX(30%);opacity:0}to{transform:translateX(0);opacity:1}}
-        @keyframes ebSlideBackOut{from{transform:translateX(0);opacity:1}to{transform:translateX(30%);opacity:0}}
-        @keyframes ebSlideBackIn{from{transform:translateX(-30%);opacity:0}to{transform:translateX(0);opacity:1}}
-        /* Loading skeleton */
-        .eb-mob-skeleton{padding:16px;display:flex;flex-direction:column;gap:10px}
-        .eb-mob-skeleton-card{height:64px;border-radius:14px;background:linear-gradient(90deg,#F1F5F9 25%,#E2E8F0 50%,#F1F5F9 75%);background-size:200% 100%;animation:ebShimmer 1.5s infinite}
-        @keyframes ebShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
-        /* Wizard buttons */
-        .eb-mob-primary-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:52px;width:100%;padding:14px 20px;border-radius:12px;border:none;background:linear-gradient(135deg,#6366F1,#8B5CF6);color:#fff;font-size:16px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 4px 12px rgba(99,102,241,.28);-webkit-tap-highlight-color:transparent;transition:transform .12s ease,box-shadow .12s ease,filter .12s ease}
-        .eb-mob-primary-btn:hover{filter:brightness(1.04)}
-        .eb-mob-primary-btn:active{transform:scale(0.985);box-shadow:0 2px 6px rgba(99,102,241,.22)}
-        .eb-mob-primary-btn:disabled{opacity:.5;cursor:not-allowed;box-shadow:none;filter:none}
-        .eb-mob-primary-btn svg{flex-shrink:0}
-        .eb-mob-secondary-btn{min-height:48px;padding:14px 20px;border-radius:12px;border:1px solid #E2E8F0;background:#fff;color:#475569;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent}
-        .eb-mob-secondary-btn:active{background:#F1F5F9}
-        .eb-mob-type-card{display:flex;align-items:center;gap:14px;min-height:88px;padding:18px;background:#fff;border:1px solid #E2E8F0;border-radius:12px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .12s ease,box-shadow .12s ease,border-color .12s ease,background .12s ease}
-        .eb-mob-type-card:hover{border-color:#C7D2FE;box-shadow:0 2px 8px rgba(99,102,241,.08)}
-        .eb-mob-type-card:active{transform:scale(0.98);background:#EEF2FF;border-color:#6366F1;box-shadow:0 0 0 3px rgba(99,102,241,.15)}
-        .eb-mob-type-icon{width:52px;height:52px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:linear-gradient(135deg,#EEF2FF,#E0E7FF);color:#6366F1}
-        .eb-mob-type-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
-        .eb-mob-type-title{font-size:16px;font-weight:700;color:#1E293B;line-height:1.2}
-        .eb-mob-type-sub{font-size:12px;color:#94A3B8;margin-top:3px;line-height:1.4}
-        .eb-mob-type-chevron{color:#CBD5E1;flex-shrink:0;margin-left:auto}
-        /* Fixed save bar on step 4 */
-        .eb-mob-save-fixed{position:fixed;bottom:0;left:0;right:0;padding:12px 16px;background:#fff;border-top:1px solid #E2E8F0;z-index:50;box-shadow:0 -2px 12px rgba(0,0,0,.06)}
-        .eb-mob-save-fixed .eb-mob-primary-btn{width:100%}
-        /* Dirty field highlight */
-        .eb-mob-field-dirty{border-color:#F59E0B!important;background:#FFFBEB!important}
-        /* Confirm modal */
-        .eb-mob-modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9999;display:flex;align-items:flex-end;justify-content:center;animation:ebFadeIn .18s ease;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
-        .eb-mob-modal{width:100%;max-width:540px;background:#fff;border-radius:20px 20px 0 0;max-height:85vh;display:flex;flex-direction:column;animation:ebSlideUp .22s cubic-bezier(.2,.8,.2,1);box-shadow:0 -8px 32px rgba(15,23,42,.18)}
-        @media(min-width:640px){
-          .eb-mob-modal-backdrop{align-items:center;padding:20px}
-          .eb-mob-modal{border-radius:16px;max-height:80vh}
-        }
-        .eb-mob-modal-head{padding:18px 20px 12px;border-bottom:1px solid #F1F5F9}
-        .eb-mob-modal-title{font-size:18px;font-weight:700;color:#1E293B}
-        .eb-mob-modal-sub{font-size:13px;color:#94A3B8;margin-top:3px}
-        .eb-mob-modal-body{flex:1;overflow-y:auto;padding:8px 20px 16px;-webkit-overflow-scrolling:touch}
-        .eb-mob-diff-row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #F1F5F9;gap:12px}
-        .eb-mob-diff-row:last-child{border-bottom:none}
-        .eb-mob-diff-label{font-size:14px;color:#475569;font-weight:500;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-        .eb-mob-diff-vals{font-size:13px;font-weight:600;color:#1E293B;display:flex;align-items:center;gap:8px;flex-shrink:0}
-        .eb-mob-diff-old{color:#EF4444;text-decoration:line-through;opacity:.7}
-        .eb-mob-diff-arrow{color:#CBD5E1;font-size:12px}
-        .eb-mob-diff-new{color:#059669}
-        .eb-mob-modal-actions{display:flex;gap:10px;padding:14px 16px;border-top:1px solid #F1F5F9;background:#fff}
-        .eb-mob-modal-actions button{flex:1}
-        @keyframes ebFadeIn{from{opacity:0}to{opacity:1}}
-        @keyframes ebSlideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
-        /* === Wizard polish === */
-        .eb-mob-step-pane{animation:ebStepIn .22s cubic-bezier(.2,.8,.2,1) both;will-change:transform,opacity}
-        .eb-mob-step-pane.is-leaving{animation:ebStepOut .18s cubic-bezier(.4,0,1,1) both}
-        .eb-mob-step-pane.is-back{animation:ebStepBackIn .22s cubic-bezier(.2,.8,.2,1) both}
-        .eb-mob-step-pane.is-back-leaving{animation:ebStepBackOut .18s cubic-bezier(.4,0,1,1) both}
-        @keyframes ebStepIn{from{transform:translateX(24px);opacity:0}to{transform:translateX(0);opacity:1}}
-        @keyframes ebStepOut{from{transform:translateX(0);opacity:1}to{transform:translateX(-24px);opacity:0}}
-        @keyframes ebStepBackIn{from{transform:translateX(-24px);opacity:0}to{transform:translateX(0);opacity:1}}
-        @keyframes ebStepBackOut{from{transform:translateX(0);opacity:1}to{transform:translateX(24px);opacity:0}}
+        /* ===== EDIT_BRANCH_DAILY_REPORT — rebuilt ===== */
+        #editbranchTab{padding:16px 20px;max-width:1100px;margin:0 auto}
+        .eb-card{background:#fff;border:1px solid #E2E8F0;border-radius:14px;box-shadow:0 2px 8px rgba(0,0,0,0.04);padding:20px;margin-bottom:16px;transition:opacity .2s ease, transform .2s ease}
+        .eb-card.is-hidden{display:none}
+        .eb-card-head{display:flex;flex-direction:column;gap:4px;margin-bottom:14px}
+        .eb-card-title{font-size:16px;font-weight:700;color:#1E293B;letter-spacing:-.01em}
+        .eb-card-sub{font-size:12px;color:#94A3B8}
+
+        /* Step 1: Branch selector */
+        .eb-branch-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+        .eb-branch-select{flex:1;min-width:240px;padding:12px 14px;border:1px solid #E2E8F0;border-radius:10px;font-size:14px;color:#1E293B;background:#fff;outline:none;font-family:inherit;cursor:pointer;transition:border-color .15s ease, box-shadow .15s ease}
+        .eb-branch-select:hover{border-color:#CBD5E1}
+        .eb-branch-select:focus{border-color:#059669;box-shadow:0 0 0 3px rgba(5,150,105,.12)}
+        .eb-branch-badge{font-size:11px;font-weight:600;color:#059669;background:#ECFDF5;padding:6px 10px;border-radius:999px;border:1px solid #A7F3D0}
+
+        /* Step 2: Date nav */
+        .eb-date-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+        .eb-chip-group{display:flex;gap:8px;flex-wrap:wrap}
+        .eb-chip{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;min-width:92px;padding:10px 14px;border-radius:12px;border:1px solid #E2E8F0;background:#fff;color:#334155;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;line-height:1.2;transition:transform .12s ease, box-shadow .15s ease, background .15s ease, color .15s ease, border-color .15s ease;-webkit-tap-highlight-color:transparent}
+        .eb-chip:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(15,23,42,.06);border-color:#CBD5E1}
+        .eb-chip:active{transform:translateY(0)}
+        .eb-chip-label{font-size:11px;font-weight:500;color:#94A3B8;margin-bottom:2px}
+        .eb-chip.active{background:linear-gradient(135deg,#059669,#10B981);color:#fff;border-color:transparent;box-shadow:0 4px 14px rgba(5,150,105,.28)}
+        .eb-chip.active .eb-chip-label{color:rgba(255,255,255,.85)}
+        .eb-date-picker-wrap{display:flex;align-items:center;gap:8px;margin-left:auto}
+        .eb-date-picker{padding:10px 12px;border:1px solid #E2E8F0;border-radius:10px;font-size:13px;color:#334155;background:#fff;outline:none;font-family:inherit;cursor:pointer}
+        .eb-date-picker:focus{border-color:#059669;box-shadow:0 0 0 3px rgba(5,150,105,.12)}
+        .eb-selected-date{font-size:13px;color:#64748B;margin-top:10px}
+        .eb-selected-date strong{color:#1E293B;font-weight:700}
+
+        /* Step 3: Plan/Ach toggle */
+        .eb-toggle-row{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+        .eb-toggle{display:inline-flex;padding:4px;background:#F1F5F9;border-radius:12px;gap:2px}
+        .eb-toggle-btn{padding:10px 20px;border:none;background:transparent;border-radius:9px;font-family:inherit;font-size:13px;font-weight:600;color:#64748B;cursor:pointer;transition:background .18s ease, color .18s ease, box-shadow .18s ease}
+        .eb-toggle-btn:hover{color:#334155}
+        .eb-toggle-btn.active{background:#fff;color:#059669;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+        .eb-mode-hint{font-size:12px;color:#64748B}
+        .eb-mode-hint strong{color:#059669}
+
+        /* Step 4: Field grid */
+        .eb-empty-banner{display:flex;align-items:center;gap:10px;padding:12px 14px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px;color:#92400E;font-size:13px;margin-bottom:14px}
+        .eb-empty-banner svg{flex-shrink:0;color:#F59E0B}
+        .eb-section{background:#fff;border:1px solid #E2E8F0;border-radius:14px;padding:18px;margin-bottom:14px;box-shadow:0 2px 8px rgba(0,0,0,.04)}
+        .eb-section-head{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #F1F5F9}
+        .eb-section-dot{width:8px;height:28px;border-radius:4px;flex-shrink:0}
+        .eb-section-name{font-size:14px;font-weight:700;color:#1E293B;letter-spacing:-.01em}
+        .eb-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+        .eb-field{display:flex;flex-direction:column;gap:6px}
+        .eb-field-label{font-size:12px;font-weight:500;color:#475569;display:flex;align-items:center;justify-content:space-between;gap:8px}
+        .eb-field-unit{font-size:10px;font-weight:600;color:#94A3B8;background:#F1F5F9;padding:2px 7px;border-radius:999px;letter-spacing:.02em}
+        .eb-input{padding:11px 14px;border:1px solid #E2E8F0;border-radius:10px;font-size:15px;font-weight:600;color:#1E293B;background:#F8FAFC;outline:none;font-family:inherit;transition:border-color .15s ease, background .15s ease, box-shadow .15s ease;min-height:44px;box-sizing:border-box;width:100%}
+        .eb-input::placeholder{color:#CBD5E1;font-weight:500}
+        .eb-input:hover{border-color:#CBD5E1}
+        .eb-input:focus{border-color:#059669;background:#fff;box-shadow:0 0 0 3px rgba(5,150,105,.12)}
+        .eb-input.is-dirty{border-color:#F59E0B;background:#FFFBEB;box-shadow:0 0 0 3px rgba(245,158,11,.12)}
+        .eb-input.is-saved{border-color:#059669;background:#ECFDF5;box-shadow:0 0 0 3px rgba(5,150,105,.18);transition:all .3s ease}
+
+        /* Step 5: Save bar */
+        .eb-save-bar{position:sticky;bottom:0;left:0;right:0;display:flex;align-items:center;gap:12px;padding:14px 18px;margin:0 -20px -16px;background:#fff;border-top:1px solid #E2E8F0;box-shadow:0 -4px 16px rgba(15,23,42,.05);z-index:10}
+        .eb-dirty-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:#FFFBEB;color:#B45309;border:1px solid #FDE68A;border-radius:999px;font-size:12px;font-weight:700;transition:opacity .2s ease, transform .2s ease}
+        .eb-dirty-badge.has-dirty{animation:ebPulse 1.6s ease-in-out infinite}
+        .eb-dirty-badge.is-empty{opacity:.5}
+        @keyframes ebPulse{0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,.35)}50%{box-shadow:0 0 0 8px rgba(245,158,11,0)}}
+        .eb-save-btn{padding:12px 24px;border:none;border-radius:10px;background:linear-gradient(135deg,#059669,#10B981);color:#fff;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(5,150,105,.28);transition:transform .12s ease, box-shadow .15s ease, filter .15s ease, opacity .15s ease;margin-left:auto}
+        .eb-save-btn:hover{filter:brightness(1.05);transform:translateY(-1px);box-shadow:0 6px 18px rgba(5,150,105,.34)}
+        .eb-save-btn:active{transform:translateY(0)}
+        .eb-save-btn:disabled{opacity:.5;cursor:not-allowed;filter:grayscale(.3);box-shadow:none;transform:none}
+        .eb-save-btn.is-dirty{animation:ebSaveReady 1.8s ease-in-out infinite}
+        @keyframes ebSaveReady{0%,100%{box-shadow:0 4px 14px rgba(5,150,105,.28)}50%{box-shadow:0 4px 22px rgba(5,150,105,.5)}}
+        .eb-save-status{font-size:12px;color:#64748B;min-height:16px;display:inline-flex;align-items:center;gap:6px}
+        .eb-save-status.is-saved{color:#059669}
+        .eb-save-status.is-saving{color:#B45309}
+        .eb-save-status.is-error{color:#DC2626}
+        .eb-save-dot{width:8px;height:8px;border-radius:50%;background:currentColor;flex-shrink:0}
+
+        /* Fade-in reveal */
+        .eb-reveal{animation:ebReveal .22s ease both}
+        @keyframes ebReveal{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
         @media(prefers-reduced-motion:reduce){
-          .eb-mob-step-pane,.eb-mob-step-pane.is-leaving,.eb-mob-step-pane.is-back,.eb-mob-step-pane.is-back-leaving{animation:none}
+          .eb-reveal,.eb-dirty-badge.has-dirty,.eb-save-btn.is-dirty{animation:none}
+          .eb-chip{transition:none}
         }
-        /* Empty state */
-        .eb-mob-empty{padding:48px 24px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px}
-        .eb-mob-empty svg{color:#CBD5E1}
-        .eb-mob-empty-title{font-size:16px;font-weight:600;color:#475569}
-        .eb-mob-empty-sub{font-size:13px;color:#94A3B8;line-height:1.5}
+
+        /* Responsive */
         @media(max-width:640px){
-          .eb-mobile-view{display:block}
-          .eb-desktop-view{display:none}
-          .eb-lock-row{flex-direction:column;width:85%}
-          .eb-lock-row input{width:100%}
-          .eb-lock-row button{width:100%}
-          .eb-pw-wrap{width:100%}
-          #ebEditor{padding:0!important}
+          #editbranchTab{padding:12px}
+          .eb-card{padding:16px}
+          .eb-grid{grid-template-columns:1fr}
+          .eb-date-row{flex-direction:column;align-items:stretch}
+          .eb-chip-group{justify-content:space-between}
+          .eb-chip{flex:1;min-width:0}
+          .eb-date-picker-wrap{margin-left:0;width:100%}
+          .eb-date-picker{flex:1}
+          .eb-toggle-row{flex-direction:column;align-items:stretch}
+          .eb-toggle{justify-content:center}
+          .eb-save-bar{padding:12px;margin:0 -12px -12px;flex-wrap:wrap}
+          .eb-save-btn{width:100%;margin-left:0;order:3}
+          .eb-dirty-badge{order:1}
+          .eb-save-status{order:2}
         }
       </style>
 
-      <!-- Password Gate -->
-      <div class="eb-lock" id="ebLock">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
-        <h3>Edit Branch Daily Report</h3>
-        <p>Enter password to access the editor</p>
-        <div class="eb-lock-row">
-          <div class="eb-pw-wrap">
-            <input type="password" id="ebPassword" placeholder="Password" onkeydown="if(event.key==='Enter')ebUnlock()">
-            <button class="eb-pw-toggle" onclick="var i=document.getElementById('ebPassword');i.type=i.type==='password'?'text':'password'" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
-          </div>
-          <button onclick="ebUnlock()">Unlock</button>
+      <!-- Step 1: Branch selector -->
+      <section class="eb-card eb-reveal" data-step="branch">
+        <div class="eb-card-head">
+          <div class="eb-card-title">Edit Branch Daily Report</div>
+          <div class="eb-card-sub">Select a branch in your area</div>
         </div>
-        <div class="eb-lock-err" id="ebLockErr"></div>
+        <div class="eb-branch-row">
+          <select class="eb-branch-select" id="ebBranchSelect" aria-label="Branch">
+            <option value="">Loading branches…</option>
+          </select>
+          <span class="eb-branch-badge" id="ebBranchBadge" style="display:none">Selected</span>
+        </div>
+      </section>
+
+      <!-- Editor surface (hidden until branch chosen) -->
+      <div id="ebEditorSurface" style="display:none">
+
+        <!-- Step 2: Date nav -->
+        <section class="eb-card eb-reveal" data-step="date">
+          <div class="eb-card-head">
+            <div class="eb-card-title">Date</div>
+            <div class="eb-card-sub">Pick a day to edit — or use the calendar</div>
+          </div>
+          <div class="eb-date-row">
+            <div class="eb-chip-group">
+              <button type="button" class="eb-chip" id="ebChipYesterday">
+                <span class="eb-chip-label">Yesterday</span>
+                <span class="eb-chip-value">—</span>
+              </button>
+              <button type="button" class="eb-chip active" id="ebChipToday">
+                <span class="eb-chip-label">Today</span>
+                <span class="eb-chip-value">—</span>
+              </button>
+              <button type="button" class="eb-chip" id="ebChipTomorrow">
+                <span class="eb-chip-label">Tomorrow</span>
+                <span class="eb-chip-value">—</span>
+              </button>
+            </div>
+            <div class="eb-date-picker-wrap">
+              <input type="date" id="ebDatePicker" class="eb-date-picker" aria-label="Pick a date">
+            </div>
+          </div>
+          <div class="eb-selected-date">Editing for <strong id="ebSelectedDateLabel">—</strong></div>
+        </section>
+
+        <!-- Step 3: Plan/Ach toggle -->
+        <section class="eb-card eb-reveal" data-step="mode">
+          <div class="eb-toggle-row">
+            <div class="eb-toggle" role="tablist" aria-label="Report type">
+              <button type="button" class="eb-toggle-btn active" id="ebTogglePlans" role="tab" aria-selected="true">Daily Plan</button>
+              <button type="button" class="eb-toggle-btn" id="ebToggleAch" role="tab" aria-selected="false">Achievement</button>
+            </div>
+            <div class="eb-mode-hint" id="ebModeHint">Editing: <strong>Daily Plan</strong></div>
+          </div>
+        </section>
+
+        <!-- Step 4: Field grid -->
+        <div id="ebFieldGrid">
+
+          <div class="eb-empty-banner" id="ebEmptyBanner" style="display:none">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <span>No saved data for this date — enter values to create a new record.</span>
+          </div>
+
+          <!-- (a) Collection -->
+          <section class="eb-section eb-reveal">
+            <div class="eb-section-head">
+              <span class="eb-section-dot" style="background:linear-gradient(180deg,#059669,#10B981)"></span>
+              <span class="eb-section-name">Collection</span>
+            </div>
+            <div class="eb-grid">
+              <div class="eb-field"><label class="eb-field-label" for="eb_ftod_actual">FTOD Actual <span class="eb-field-unit">#</span></label><input class="eb-input" type="text" inputmode="numeric" id="eb_ftod_actual" data-col="ftod_actual" placeholder="0"></div>
+              <div class="eb-field"><label class="eb-field-label" for="eb_ftod_plan">FTOD Plan <span class="eb-field-unit">#</span></label><input class="eb-input" type="text" inputmode="numeric" id="eb_ftod_plan" data-col="ftod_plan" placeholder="0"></div>
+              <div class="eb-field"><label class="eb-field-label" for="eb_dpd_1_30_actual">DPD 1-30 Actual <span class="eb-field-unit">#</span></label><input class="eb-input" type="text" inputmode="numeric" id="eb_dpd_1_30_actual" data-col="dpd_1_30_actual" placeholder="0"></div>
+              <div class="eb-field"><label class="eb-field-label" for="eb_dpd_1_30_plan">DPD 1-30 Plan <span class="eb-field-unit">#</span></label><input class="eb-input" type="text" inputmode="numeric" id="eb_dpd_1_30_plan" data-col="dpd_1_30_plan" placeholder="0"></div>
+              <div class="eb-field"><label class="eb-field-label" for="eb_dpd_31_60_actual">DPD 31-60 Actual <span class="eb-field-unit">#</span></label><input class="eb-input" type="text" inputmode="numeric" id="eb_dpd_31_60_actual" data-col="dpd_31_60_actual" placeholder="0"></div>
+              <div class="eb-field"><label class="eb-field-label" for="eb_dpd_31_60_plan">DPD 31-60 Plan <span class="eb-field-unit">#</span></label><input class="eb-input" type="text" inputmode="numeric" id="eb_dpd_31_60_plan" data-col="dpd_31_60_plan" placeholder="0"></div>
+              <div class="eb-field"><label class="eb-field-label" for="eb_dpd_61_90_actual">DPD 61-90 Actual <span class="eb-field-unit">#</span></label><input class="eb-input" type="text" inputmode="numeric" id="eb_dpd_61_90_actual" data-col="dpd_61_90_actual" placeholder="0"></div>
+              <div class="eb-field"><label class="eb-field-label" for="eb_dpd_61_90_plan">DPD 61-90 Plan <span class="eb-field-unit">#</span></label><input class="eb-input" type="text" inputmode="numeric" id="eb_dpd_61_90_plan" data-col="dpd_61_90_plan" placeholder="0"></div>
+              <div class="eb-field"><label class="eb-field-label" for="eb_fy_non_start_acc">FY Non-Start Accounts <span class="eb-field-unit">#</span></label><input class="eb-input" type="text" inputmode="numeric" id="eb_fy_non_start_acc" data-col="fy_non_start_acc" placeholder="0"></div>
+              <div class="eb-field"><label class="eb-field-label" for="eb_fy_non_start_plan">FY Non-Start Plan <span class="eb-field-unit">#</span></label><input class="eb-input" type="text" inputmode="numeric" id="eb_fy_non_start_plan" data-col="fy_non_start_plan" placeholder="0"></div>
+            </div>
+          </section>
+
+          <!-- (b) Disbursement -->
+          <section class="eb-section eb-reveal">
+            <div class="eb-section-head">
+              <span class="eb-section-dot" style="background:linear-gradient(180deg,#6366F1,#8B5CF6)"></span>
+              <span class="eb-section-name">Disbursement</span>
+            </div>
+            <div class="eb-grid">
+              <div class="eb-field"><label class="eb-field-label" for="eb_disb_igl_acc">Disb IGL Accounts <span class="eb-field-unit">#</span></label><input class="eb-input" type="text" inputmode="numeric" id="eb_disb_igl_acc" data-col="disb_igl_acc" placeholder="0"></div>
+              <div class="eb-field"><label class="eb-field-label" for="eb_disb_igl_amt">Disb IGL Amount <span class="eb-field-unit">&#8377;</span></label><input class="eb-input" type="text" inputmode="numeric" id="eb_disb_igl_amt" data-col="disb_igl_amt" placeholder="0"></div>
+              <div class="eb-field"><label class="eb-field-label" for="eb_disb_fig_acc">Disb FIG Accounts <span class="eb-field-unit">#</span></label><input class="eb-input" type="text" inputmode="numeric" id="eb_disb_fig_acc" data-col="disb_fig_acc" placeholder="0"></div>
+              <div class="eb-field"><label class="eb-field-label" for="eb_disb_fig_amt">Disb FIG Amount <span class="eb-field-unit">&#8377;</span></label><input class="eb-input" type="text" inputmode="numeric" id="eb_disb_fig_amt" data-col="disb_fig_amt" placeholder="0"></div>
+              <div class="eb-field"><label class="eb-field-label" for="eb_disb_il_acc">Disb IL Accounts <span class="eb-field-unit">#</span></label><input class="eb-input" type="text" inputmode="numeric" id="eb_disb_il_acc" data-col="disb_il_acc" placeholder="0"></div>
+              <div class="eb-field"><label class="eb-field-label" for="eb_disb_il_amt">Disb IL Amount <span class="eb-field-unit">&#8377;</span></label><input class="eb-input" type="text" inputmode="numeric" id="eb_disb_il_amt" data-col="disb_il_amt" placeholder="0"></div>
+            </div>
+          </section>
+
+          <!-- (c) KYC -->
+          <section class="eb-section eb-reveal">
+            <div class="eb-section-head">
+              <span class="eb-section-dot" style="background:linear-gradient(180deg,#F59E0B,#F97316)"></span>
+              <span class="eb-section-name">KYC</span>
+            </div>
+            <div class="eb-grid">
+              <div class="eb-field"><label class="eb-field-label" for="eb_kyc_igl">KYC IGL <span class="eb-field-unit">#</span></label><input class="eb-input" type="text" inputmode="numeric" id="eb_kyc_igl" data-col="kyc_igl" placeholder="0"></div>
+              <div class="eb-field"><label class="eb-field-label" for="eb_kyc_fig">KYC FIG <span class="eb-field-unit">#</span></label><input class="eb-input" type="text" inputmode="numeric" id="eb_kyc_fig" data-col="kyc_fig" placeholder="0"></div>
+              <div class="eb-field"><label class="eb-field-label" for="eb_kyc_il">KYC IL <span class="eb-field-unit">#</span></label><input class="eb-input" type="text" inputmode="numeric" id="eb_kyc_il" data-col="kyc_il" placeholder="0"></div>
+            </div>
+          </section>
+
+          <!-- (d) NPA -->
+          <section class="eb-section eb-reveal">
+            <div class="eb-section-head">
+              <span class="eb-section-dot" style="background:linear-gradient(180deg,#DC2626,#EF4444)"></span>
+              <span class="eb-section-name">NPA</span>
+            </div>
+            <div class="eb-grid">
+              <div class="eb-field"><label class="eb-field-label" for="eb_npa_activation">NPA Activation <span class="eb-field-unit">#</span></label><input class="eb-input" type="text" inputmode="numeric" id="eb_npa_activation" data-col="npa_activation" placeholder="0"></div>
+              <div class="eb-field"><label class="eb-field-label" for="eb_npa_closure">NPA Closure <span class="eb-field-unit">#</span></label><input class="eb-input" type="text" inputmode="numeric" id="eb_npa_closure" data-col="npa_closure" placeholder="0"></div>
+            </div>
+          </section>
+
+        </div>
+
+        <!-- Step 5: Save bar -->
+        <div class="eb-save-bar" id="ebSaveBar">
+          <span class="eb-dirty-badge is-empty" id="ebDirtyCount">0 changes</span>
+          <span class="eb-save-status" id="ebSaveStatus"></span>
+          <button type="button" class="eb-save-btn" id="ebSaveBtn" disabled>Save</button>
+        </div>
+
       </div>
 
-      <!-- Editor -->
-      <div id="ebEditor" style="display:none;padding:16px 20px;">
-        <!-- Desktop: table view -->
-        <div class="eb-desktop-view">
-          <div class="eb-toolbar">
-            <select class="eb-area-sel" id="ebAreaFilter" onchange="ebLoadData()">
-              <option value="">All Areas</option>
-            </select>
-            <div class="eb-search">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              <input placeholder="Search branch, region..." id="ebSearchInput" oninput="ebFilterRows()">
-            </div>
-            <div class="eb-date-group">
-              <button class="eb-date-arrow" onclick="ebShiftDate(-1)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
-              <input type="date" class="eb-date-input" id="ebDateInput" onchange="ebLoadData()">
-              <button class="eb-date-arrow" onclick="ebShiftDate(1)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></button>
-            </div>
-            <div class="eb-tabs">
-              <button class="eb-tab active" id="ebTabPlans" onclick="ebSwitchTable('plans')">Daily Reports</button>
-              <button class="eb-tab" id="ebTabAch" onclick="ebSwitchTable('achievements')">Achievements</button>
-            </div>
-            <button class="eb-btn" onclick="ebShowAddRow()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add Row</button>
-            <button class="eb-btn" onclick="ebExportCsv()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>CSV</button>
-          </div>
-          <div class="eb-table-wrap">
-            <table class="eb-table" id="ebTable"><thead></thead><tbody></tbody></table>
-          </div>
-          <div class="eb-status">
-            <span class="eb-count" id="ebRowCount">0 rows</span>
-            <span id="ebTableName">daily_reports</span>
-            <button class="eb-btn" onclick="ebLoadData()" style="margin-left:auto;padding:4px 12px;font-size:12px">Refresh</button>
-          </div>
-        </div>
-
-        <!-- Mobile: wizard flow -->
-        <div class="eb-mobile-view" id="ebMobileView">
-          <!-- Step 1: Date picker -->
-          <div id="ebMobStep1" class="eb-mob-step-pane">
-            <div class="eb-mob-header">
-              <div style="flex:1;min-width:0">
-                <div class="eb-mob-title">Pick a date</div>
-                <div class="eb-mob-subtitle">Step 1 of 4</div>
-              </div>
-            </div>
-            <div style="padding:24px 16px;display:flex;flex-direction:column;gap:20px;align-items:center">
-              <div class="eb-mob-date-row" style="padding:0">
-                <button class="eb-mob-date-arrow" onclick="ebMobShiftDate(-1)">‹</button>
-                <input type="date" class="eb-mob-date" id="ebMobDateInput" style="font-size:17px;padding:14px 18px">
-                <button class="eb-mob-date-arrow" onclick="ebMobShiftDate(1)">›</button>
-              </div>
-              <button class="eb-mob-primary-btn" style="width:100%;max-width:320px" onclick="ebMobGoToStep(2)">Next <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-left:4px"><polyline points="9 18 15 12 9 6"/></svg></button>
-            </div>
-          </div>
-
-          <!-- Step 2: Report type chooser -->
-          <div id="ebMobStep2" class="eb-mob-step-pane" style="display:none">
-            <div class="eb-mob-header">
-              <button class="eb-mob-back" onclick="ebMobGoToStep(1)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg> Back</button>
-              <div style="flex:1;min-width:0">
-                <div class="eb-mob-title">Choose report type</div>
-                <div class="eb-mob-subtitle" id="ebMobStep2Sub">Step 2 of 4</div>
-              </div>
-            </div>
-            <div style="padding:20px 16px;display:flex;flex-direction:column;gap:14px">
-              <div class="eb-mob-type-card" onclick="ebMobPickType('plans')">
-                <div class="eb-mob-type-icon" style="background:#EEF2FF;color:#6366F1">
-                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11H7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2h-2"/><rect x="9" y="2" width="6" height="4" rx="1"/></svg>
-                </div>
-                <div style="flex:1">
-                  <div class="eb-mob-type-title">Daily Plan</div>
-                  <div class="eb-mob-type-sub">Enter today's branch targets</div>
-                </div>
-                <span class="eb-mob-branch-arrow"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
-              </div>
-              <div class="eb-mob-type-card" onclick="ebMobPickType('achievements')">
-                <div class="eb-mob-type-icon" style="background:#ECFDF5;color:#059669">
-                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-                </div>
-                <div style="flex:1">
-                  <div class="eb-mob-type-title">Achievement</div>
-                  <div class="eb-mob-type-sub">Record actuals against plan</div>
-                </div>
-                <span class="eb-mob-branch-arrow"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Step 3: Branch search + list -->
-          <div id="ebMobStep3" class="eb-mob-step-pane" style="display:none">
-            <div class="eb-mob-header">
-              <button class="eb-mob-back" onclick="ebMobGoToStep(2)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg> Back</button>
-              <div style="flex:1;min-width:0">
-                <div class="eb-mob-title">Pick a branch</div>
-                <div class="eb-mob-subtitle" id="ebMobStep3Sub">Step 3 of 4</div>
-              </div>
-            </div>
-            <div class="eb-mob-search" style="margin-top:12px">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#CBD5E1" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              <input placeholder="Search branch..." id="ebMobSearchInput" oninput="ebMobFilterBranches()">
-            </div>
-            <div class="eb-mob-branch-list" id="ebMobBranchList" style="max-height:calc(100vh - 240px)"></div>
-          </div>
-
-          <!-- Step 4: Edit branch buckets -->
-          <div id="ebMobStep4" class="eb-mob-step-pane" style="display:none">
-            <div class="eb-mob-header">
-              <button class="eb-mob-back" onclick="ebMobBackFromStep4()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg> Back</button>
-              <div style="flex:1;min-width:0">
-                <div class="eb-mob-title" id="ebMobBranchTitle">Branch</div>
-                <div class="eb-mob-subtitle" id="ebMobBranchSub">Date • Table</div>
-              </div>
-            </div>
-            <div class="eb-mob-buckets" id="ebMobBuckets"></div>
-            <div class="eb-mob-save-fixed">
-              <button class="eb-mob-primary-btn" id="ebMobSaveBtn" onclick="ebMobOpenConfirm()">Save Changes <span id="ebMobDirtyCount" style="opacity:.8;font-weight:500"></span></button>
-            </div>
-          </div>
-
-          <!-- Confirm modal -->
-          <div class="eb-mob-modal-backdrop" id="ebMobConfirmBackdrop" style="display:none" onclick="ebMobCloseConfirm(event)">
-            <div class="eb-mob-modal" onclick="event.stopPropagation()">
-              <div class="eb-mob-modal-head">
-                <div class="eb-mob-modal-title">Confirm changes</div>
-                <div class="eb-mob-modal-sub" id="ebMobConfirmSub">Review edits before saving</div>
-              </div>
-              <div class="eb-mob-modal-body" id="ebMobConfirmList"></div>
-              <div class="eb-mob-modal-actions">
-                <button class="eb-mob-secondary-btn" onclick="ebMobCloseConfirm()">Cancel</button>
-                <button class="eb-mob-primary-btn" id="ebMobConfirmBtn" onclick="ebMobConfirmSave()">Confirm</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="eb-toast" id="ebToast"></div>
-
+      <!-- Preserved role gates (editbranch AM, NPA CEO/RM/DM/AM). JS logic lives in ebLogicPlaceholder below. -->
       <script>
-      // ===== EDIT_BRANCH_DAILY_REPORT =====
-      var ebUnlockedState = false;
-      var ebCurrentTable = 'daily_reports';
-      var ebRows = [];
-      var ebCols = ['id','branch_name','date','region','district','dm_name','ftod_actual','ftod_plan','dpd_1_30_actual','dpd_1_30_plan','dpd_31_60_actual','dpd_31_60_plan','dpd_61_90_actual','dpd_61_90_plan','npa_activation','npa_closure','fy_non_start_acc','fy_non_start_plan','disb_igl_acc','disb_igl_amt','disb_fig_acc','disb_fig_amt','disb_il_acc','disb_il_amt','kyc_igl','kyc_fig','kyc_il'];
-      var ebBranchList = [];
-      var ebAreaList = [];
-      var ebAreaBranchMap = {};
-
-      var EB_NAMES = {
-        id:'ID',branch_name:'Branch',date:'Date',region:'Region',district:'District',dm_name:'DM Name',
-        ftod_actual:'FTOD Actual',ftod_plan:'FTOD Plan',dpd_1_30_actual:'DPD 1-30 Act',dpd_1_30_plan:'DPD 1-30 Plan',
-        dpd_31_60_actual:'DPD 31-60 Act',dpd_31_60_plan:'DPD 31-60 Plan',dpd_61_90_actual:'DPD 61-90 Act',dpd_61_90_plan:'DPD 61-90 Plan',
-        npa_activation:'NPA Act',npa_closure:'NPA Clo',fy_non_start_acc:'FY NS Acc',fy_non_start_plan:'FY NS Plan',
-        disb_igl_acc:'Disb IGL Acc',disb_igl_amt:'Disb IGL Amt',disb_fig_acc:'Disb FIG Acc',disb_fig_amt:'Disb FIG Amt',
-        disb_il_acc:'Disb IL Acc',disb_il_amt:'Disb IL Amt',kyc_igl:'KYC IGL',kyc_fig:'KYC FIG',kyc_il:'KYC IL'
-      };
-
-      function ebToast(msg, type) {
-        var el = document.getElementById('ebToast');
-        el.textContent = msg; el.className = 'eb-toast ' + (type||'info'); el.classList.add('show');
-        clearTimeout(el._t); el._t = setTimeout(function(){ el.classList.remove('show'); }, 2500);
-      }
-
-      // Show sidebar items for AM only
       (function(){
         function _ebShowNav() {
           var s = window.getEmployeeSession ? getEmployeeSession() : {};
@@ -1438,12 +1323,9 @@
           }
         }
         _ebShowNav();
-        // Retry after session loads (may not be ready on first paint)
         setTimeout(_ebShowNav, 500);
         setTimeout(_ebShowNav, 1500);
       })();
-
-      // NPA Activation — show sidebar items for CEO/RM/DM/AM
       (function(){
         function _npaShowNav() {
           var s = window.getEmployeeSession ? getEmployeeSession() : {};
@@ -1456,586 +1338,505 @@
         setTimeout(_npaShowNav, 500);
         setTimeout(_npaShowNav, 1500);
       })();
+      </script>
 
-      function ebUnlock() {
-        if (document.getElementById('ebPassword').value === 'Nava@123') {
-          ebUnlockedState = true;
-          document.getElementById('ebLock').style.display = 'none';
-          document.getElementById('ebEditor').style.display = 'block';
-          document.getElementById('ebDateInput').value = new Date().toISOString().slice(0,10);
-          ebLoadBranches().then(function(){ ebLoadData(); });
-        } else {
-          document.getElementById('ebLockErr').textContent = 'Incorrect password. Try again.';
-          document.getElementById('ebPassword').value = '';
-          document.getElementById('ebPassword').focus();
+      <!-- Edit Branch Daily Report — editor logic module (task #5) -->
+      <script id="ebLogicPlaceholder">
+      (function(){
+        'use strict';
+
+        // ----- Pure-arithmetic date helpers (local/IST — browser is in India) -----
+        function ymd(d) {
+          var y = d.getFullYear();
+          var m = String(d.getMonth() + 1).padStart(2, '0');
+          var dd = String(d.getDate()).padStart(2, '0');
+          return y + '-' + m + '-' + dd;
         }
-      }
-
-      function ebShiftDate(dir) {
-        var inp = document.getElementById('ebDateInput');
-        var d = inp.value ? new Date(inp.value + 'T00:00:00') : new Date();
-        d.setDate(d.getDate() + dir);
-        inp.value = d.toISOString().slice(0,10);
-        ebLoadData();
-      }
-
-      function ebSwitchTable(which) {
-        document.getElementById('ebTabPlans').classList.toggle('active', which === 'plans');
-        document.getElementById('ebTabAch').classList.toggle('active', which === 'achievements');
-        ebCurrentTable = which === 'plans' ? 'daily_reports' : 'daily_reports_achievements';
-        document.getElementById('ebTableName').textContent = ebCurrentTable;
-        document.getElementById('ebSearchInput').value = '';
-        ebLoadData();
-      }
-
-      async function ebLoadBranches() {
-        try {
-          var res = await fetch('/api/daily-plan/branches');
-          var data = await res.json();
-          ebBranchList = []; ebAreaBranchMap = {};
-          var areaSet = new Set();
-          (data || []).forEach(function(r) {
-            ebBranchList.push(r.branch_name);
-            var area = r.area_name || 'Unknown';
-            areaSet.add(area);
-            if (!ebAreaBranchMap[area]) ebAreaBranchMap[area] = [];
-            ebAreaBranchMap[area].push(r.branch_name);
-          });
-          ebAreaList = Array.from(areaSet).sort();
-          var sel = document.getElementById('ebAreaFilter');
-          sel.innerHTML = '<option value="">All Areas (' + ebBranchList.length + ')</option>';
-          ebAreaList.forEach(function(a) {
-            var cnt = ebAreaBranchMap[a] ? ebAreaBranchMap[a].length : 0;
-            sel.innerHTML += '<option value="' + a + '">' + a + ' (' + cnt + ')</option>';
-          });
-          // Auto-select AM's area
-          var sess = window.getEmployeeSession ? getEmployeeSession() : {};
-          var role = sess.role || localStorage.getItem('roleName') || '';
-          var loc = (sess.location || localStorage.getItem('roleLocation') || '').trim();
-          if (role === 'AM' && loc) {
-            // Match area by name (case-insensitive)
-            for (var i = 0; i < sel.options.length; i++) {
-              if (sel.options[i].value.toUpperCase() === loc.toUpperCase()) {
-                sel.selectedIndex = i; break;
-              }
-            }
-          }
-        } catch(e) { ebBranchList = []; }
-      }
-
-      async function ebLoadData() {
-        var date = document.getElementById('ebDateInput').value;
-        var area = document.getElementById('ebAreaFilter').value;
-        var tbody = document.querySelector('#ebTable tbody');
-        tbody.innerHTML = '<tr><td colspan="99" style="padding:24px;text-align:center;color:#94A3B8">Loading...</td></tr>';
-
-        // Auto-set area for AM if not already picked
-        var sess = window.getEmployeeSession ? getEmployeeSession() : {};
-        var amRole = sess.role || localStorage.getItem('roleName') || '';
-        var amLoc = (sess.location || localStorage.getItem('roleLocation') || '').trim();
-        if (amRole === 'AM' && amLoc && !area) {
-          // Auto-select AM's area in dropdown
-          var sel = document.getElementById('ebAreaFilter');
-          for (var i = 0; i < sel.options.length; i++) {
-            if (sel.options[i].value.toUpperCase() === amLoc.toUpperCase()) { sel.selectedIndex = i; area = sel.options[i].value; break; }
-          }
+        function shiftIso(iso, deltaDays) {
+          var parts = iso.split('-');
+          var d = new Date(+parts[0], +parts[1] - 1, +parts[2]);
+          d.setDate(d.getDate() + deltaDays);
+          return ymd(d);
+        }
+        var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        function prettyDate(iso) {
+          if (!iso) return '—';
+          var p = iso.split('-');
+          if (p.length !== 3) return iso;
+          return p[2] + ' ' + MONTHS[+p[1]-1] + ' ' + p[0];
+        }
+        function chipDate(iso) {
+          var p = iso.split('-');
+          if (p.length !== 3) return '—';
+          return p[2] + ' ' + MONTHS[+p[1]-1];
         }
 
-        var params = [];
-        if (date) params.push('from=' + date + '&to=' + date);
-        if (area) {
-          params.push('district=' + encodeURIComponent(area));
-        }
-        var endpoint = ebCurrentTable === 'daily_reports_achievements' ? 'achievements' : 'reports';
-        var url = '/api/daily-plan/' + endpoint + '?' + params.join('&');
-
-        try {
-          var res = await fetch(url);
-          var result = await res.json();
-          ebRows = result.data || [];
-          // Filter client-side by district too
-          if (area) {
-            var areaUp = area.toUpperCase();
-            ebRows = ebRows.filter(function(r){ return (r.district||'').toUpperCase() === areaUp; });
-          }
-          ebRenderTable();
-        } catch(e) {
-          tbody.innerHTML = '<tr><td colspan="99" style="padding:24px;text-align:center;color:#EF4444">Error: ' + e.message + '</td></tr>';
-        }
-      }
-
-      function ebGetFiltered() {
-        var term = (document.getElementById('ebSearchInput').value || '').toLowerCase().trim();
-        if (!term) return ebRows;
-        return ebRows.filter(function(r) {
-          return ['branch_name','region','district','dm_name'].some(function(c){ return r[c] && String(r[c]).toLowerCase().includes(term); });
-        });
-      }
-      function ebFilterRows() { ebRenderTable(); }
-
-      function ebRenderTable() {
-        var thead = document.querySelector('#ebTable thead');
-        var tbody = document.querySelector('#ebTable tbody');
-        var filtered = ebGetFiltered();
-        document.getElementById('ebRowCount').textContent = filtered.length + ' row' + (filtered.length !== 1 ? 's' : '');
-
-        thead.innerHTML = '<tr>' + ebCols.map(function(c) {
-          var sty = '';
-          if (c === 'id') sty = ' class="eb-sticky" style="min-width:50px;position:sticky;left:0;z-index:3;background:#F8FAFC"';
-          else if (c === 'branch_name') sty = ' class="eb-sticky-2" style="min-width:120px;position:sticky;left:50px;z-index:3;background:#F8FAFC;border-right:2px solid #E2E8F0"';
-          return '<th' + sty + '>' + (EB_NAMES[c]||c) + '</th>';
-        }).join('') + '<th style="width:50px"></th></tr>';
-
-        if (!filtered.length) {
-          tbody.innerHTML = '<tr><td colspan="' + (ebCols.length+1) + '"><div class="eb-empty">No data for this date. Click "Add Row" to create one.</div></td></tr>';
-          return;
-        }
-
-        tbody.innerHTML = filtered.map(function(row) {
-          return '<tr data-id="' + row.id + '">' + ebCols.map(function(c) {
-            var val = row[c];
-            var editable = c !== 'id' && c !== 'created_at';
-            var sty = '';
-            if (c === 'id') sty = ' style="position:sticky;left:0;z-index:1;background:inherit;min-width:50px"';
-            else if (c === 'branch_name') sty = ' style="position:sticky;left:50px;z-index:1;background:inherit;min-width:120px;border-right:2px solid #F1F5F9"';
-            if (val === null || val === undefined) {
-              return '<td class="eb-null"' + sty + (editable ? ' data-col="' + c + '" onclick="ebEditCell(this,\'' + c + '\',' + row.id + ')"' : '') + '>NULL</td>';
-            }
-            var display = c === 'date' && val ? String(val).slice(0,10) : String(val);
-            return '<td' + sty + (editable ? ' data-col="' + c + '" onclick="ebEditCell(this,\'' + c + '\',' + row.id + ')"' : '') + '>' + display + '</td>';
-          }).join('') + '<td style="text-align:center"><button onclick="ebDeleteRow(' + row.id + ')" style="background:none;border:none;color:#CBD5E1;cursor:pointer;padding:4px" title="Delete"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button></td></tr>';
-        }).join('');
-      }
-
-      function ebEditCell(td, col, rowId) {
-        if (td.querySelector('input') || td.querySelector('select')) return;
-        var oldVal = td.classList.contains('eb-null') ? '' : td.textContent.trim();
-        var input;
-        if (col === 'date') { input = document.createElement('input'); input.type = 'date'; input.value = oldVal; }
-        else if (col === 'branch_name' && ebBranchList.length) {
-          input = document.createElement('select');
-          input.innerHTML = '<option value="">-- Select --</option>' + ebBranchList.map(function(b){
-            return '<option value="' + b + '"' + (b.toUpperCase() === oldVal.toUpperCase() ? ' selected' : '') + '>' + b + '</option>';
-          }).join('');
-        } else { input = document.createElement('input'); input.type = 'text'; input.value = oldVal; }
-        td.textContent = ''; td.classList.add('eb-editing'); td.classList.remove('eb-null');
-        td.appendChild(input); input.focus(); if (input.select) input.select();
-
-        var saved = false;
-        function save() {
-          if (saved) return; saved = true;
-          var newVal = input.value.trim();
-          td.classList.remove('eb-editing');
-          if (newVal === oldVal) { td.textContent = oldVal || 'NULL'; if (!oldVal) td.classList.add('eb-null'); return; }
-          td.textContent = newVal || 'NULL'; if (!newVal) td.classList.add('eb-null');
-
-          var sqlVal = newVal === '' ? 'NULL' : "'" + newVal.replace(/'/g,"''") + "'";
-          var endpoint = ebCurrentTable === 'daily_reports_achievements' ? 'achievements' : 'reports';
-          fetch('/api/daily-plan/' + endpoint + '?from=2000-01-01&to=2099-12-31&branch=__NONE__').catch(function(){});
-          // Use the aws-panel SQL endpoint for direct update
-          fetch('/api/aws-panel/sql', {
-            method:'POST',
-            headers:{'Content-Type':'application/json','X-Dashboard-Token':'colldb-admin-2024'},
-            body:JSON.stringify({sql:'UPDATE "' + ebCurrentTable + '" SET "' + col + '" = ' + sqlVal + ' WHERE id = ' + rowId})
-          }).then(function(r){return r.json();}).then(function(res) {
-            if (res.error) throw new Error(res.error);
-            td.classList.add('eb-saved');
-            setTimeout(function(){ td.classList.remove('eb-saved'); }, 1500);
-            var row = ebRows.find(function(r){ return r.id === rowId; });
-            if (row) row[col] = newVal === '' ? null : newVal;
-            var friendly = EB_NAMES[col] || col;
-            ebToast((row ? row.branch_name + ' — ' : '') + friendly + ': ' + (oldVal||'NULL') + ' → ' + (newVal||'NULL'), 'success');
-          }).catch(function(e) {
-            ebToast('Update failed: ' + e.message, 'error');
-            td.textContent = oldVal || 'NULL'; if (!oldVal) td.classList.add('eb-null');
-          });
-        }
-        input.addEventListener('keydown', function(e) {
-          if (e.key === 'Enter') { e.preventDefault(); save(); }
-          if (e.key === 'Escape') { saved = true; td.classList.remove('eb-editing'); td.textContent = oldVal || 'NULL'; if (!oldVal) td.classList.add('eb-null'); }
-        });
-        input.addEventListener('blur', save);
-      }
-
-      async function ebDeleteRow(rowId) {
-        if (!confirm('Delete row #' + rowId + '?')) return;
-        try {
-          var res = await fetch('/api/aws-panel/sql', {
-            method:'POST', headers:{'Content-Type':'application/json','X-Dashboard-Token':'colldb-admin-2024'},
-            body:JSON.stringify({sql:'DELETE FROM "' + ebCurrentTable + '" WHERE id = ' + rowId})
-          });
-          var r = await res.json(); if (r.error) throw new Error(r.error);
-          var del = ebRows.find(function(r){ return r.id === rowId; });
-          ebRows = ebRows.filter(function(r){ return r.id !== rowId; });
-          ebRenderTable();
-          ebToast('Deleted ' + (del ? del.branch_name : '#' + rowId), 'info');
-        } catch(e) { ebToast('Delete failed: ' + e.message, 'error'); }
-      }
-
-      function ebShowAddRow() {
-        var date = document.getElementById('ebDateInput').value || new Date().toISOString().slice(0,10);
-        var overlay = document.createElement('div');
-        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:10000;display:flex;align-items:center;justify-content:center';
-        var card = document.createElement('div');
-        card.style.cssText = 'background:#fff;border-radius:14px;padding:24px;width:380px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,.15)';
-        card.innerHTML = '<div style="font-size:16px;font-weight:700;color:#1E293B;margin-bottom:16px">Add New Row</div>'
-          + '<div style="font-size:12px;color:#64748B;margin-bottom:6px">Date</div>'
-          + '<input type="date" value="' + date + '" style="width:100%;padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;margin-bottom:12px;outline:none" id="ebAddDate">'
-          + '<div style="font-size:12px;color:#64748B;margin-bottom:6px">Branch</div>'
-          + '<input list="ebAddBranchDL" placeholder="Type to search..." style="width:100%;padding:8px 12px;border:1px solid #E2E8F0;border-radius:8px;font-size:13px;margin-bottom:16px;outline:none" id="ebAddBranch" autocomplete="off">'
-          + '<datalist id="ebAddBranchDL">' + ebBranchList.map(function(b){ return '<option value="' + b + '">'; }).join('') + '</datalist>'
-          + '<div style="display:flex;gap:8px;justify-content:flex-end">'
-          + '<button onclick="this.closest(\'div[style*=fixed]\').remove()" style="padding:8px 16px;border:1px solid #E2E8F0;border-radius:8px;background:#fff;color:#64748B;cursor:pointer;font-size:13px">Cancel</button>'
-          + '<button id="ebAddConfirm" style="padding:8px 16px;background:#6366F1;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:13px;font-weight:600">Add</button>'
-          + '</div>';
-        overlay.appendChild(card); document.body.appendChild(overlay);
-        overlay.addEventListener('click', function(e){ if(e.target===overlay) overlay.remove(); });
-        card.querySelector('#ebAddBranch').focus();
-        card.querySelector('#ebAddConfirm').addEventListener('click', function(){
-          var br = card.querySelector('#ebAddBranch').value.trim();
-          var dt = card.querySelector('#ebAddDate').value;
-          if (!br) { card.querySelector('#ebAddBranch').style.borderColor = '#EF4444'; return; }
-          overlay.remove(); ebAddRow(br, dt);
-        });
-        card.querySelector('#ebAddBranch').addEventListener('keydown', function(e){ if(e.key==='Enter') card.querySelector('#ebAddConfirm').click(); });
-      }
-
-      async function ebAddRow(branch, date) {
-        date = date || document.getElementById('ebDateInput').value || new Date().toISOString().slice(0,10);
-        // Lookup region/district
-        var region = '', district = '';
-        try {
-          var lr = await fetch('/api/aws-panel/sql', {
-            method:'POST', headers:{'Content-Type':'application/json','X-Dashboard-Token':'colldb-admin-2024'},
-            body:JSON.stringify({sql:"SELECT r.region_name, d.district_name FROM branches b JOIN districts d ON b.district_id = d.district_id JOIN regions r ON d.region_id = r.region_id WHERE UPPER(b.branch_name) = '" + branch.toUpperCase().replace(/'/g,"''") + "'"})
-          });
-          var lrd = await lr.json();
-          if (lrd.rows && lrd.rows.length) { region = lrd.rows[0].region_name||''; district = lrd.rows[0].district_name||''; }
-        } catch(e){}
-        var sql = "INSERT INTO \"" + ebCurrentTable + "\" (branch_name, date, region, district) VALUES ('" + branch.replace(/'/g,"''") + "','" + date + "','" + region.replace(/'/g,"''") + "','" + district.replace(/'/g,"''") + "') RETURNING *";
-        try {
-          var res = await fetch('/api/aws-panel/sql', {
-            method:'POST', headers:{'Content-Type':'application/json','X-Dashboard-Token':'colldb-admin-2024'},
-            body:JSON.stringify({sql:sql})
-          });
-          var r = await res.json(); if (r.error) throw new Error(r.error);
-          if (r.rows && r.rows.length) { ebRows.push(r.rows[0]); ebRenderTable(); }
-          else { ebLoadData(); }
-          ebToast('Added: ' + branch + ' (' + date + ')', 'success');
-        } catch(e) { ebToast('Insert failed: ' + e.message, 'error'); }
-      }
-
-      function ebExportCsv() {
-        var filtered = ebGetFiltered();
-        if (!filtered.length) { ebToast('No data to export', 'error'); return; }
-        var headers = ebCols.map(function(c){ return EB_NAMES[c]||c; });
-        var rows = [headers.join(',')];
-        filtered.forEach(function(row) {
-          rows.push(ebCols.map(function(c) {
-            var v = row[c]; if (v == null) return '';
-            var s = c === 'date' && v ? String(v).slice(0,10) : String(v);
-            return '"' + s.replace(/"/g,'""') + '"';
-          }).join(','));
-        });
-        var blob = new Blob([rows.join('\n')], {type:'text/csv'});
-        var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-        a.download = ebCurrentTable + '_' + (document.getElementById('ebDateInput').value||'all') + '.csv';
-        a.click(); URL.revokeObjectURL(a.href);
-        ebToast('Exported ' + filtered.length + ' rows', 'success');
-      }
-
-      // ===== MOBILE WIZARD VIEW =====
-      var ebMobTable = 'daily_reports';
-      var ebMobRows = [];
-      var ebMobSelectedRow = null;
-      var ebMobStep = 1;
-      var ebMobDirty = {}; // { key: {old, new, label} }
-
-      var EB_BUCKETS = [
-        {name:'FTOD', color:'#059669', fields:[{key:'ftod_actual',label:'Actual'},{key:'ftod_plan',label:'Plan'}]},
-        {name:'DPD 1-30', color:'#F59E0B', fields:[{key:'dpd_1_30_actual',label:'Actual'},{key:'dpd_1_30_plan',label:'Plan'}]},
-        {name:'DPD 31-60', color:'#EF4444', fields:[{key:'dpd_31_60_actual',label:'Actual'},{key:'dpd_31_60_plan',label:'Plan'}]},
-        {name:'DPD 61-90', color:'#DC2626', fields:[{key:'dpd_61_90_actual',label:'Actual'},{key:'dpd_61_90_plan',label:'Plan'}]},
-        {name:'NPA', color:'#7C3AED', fields:[{key:'npa_activation',label:'Activation'},{key:'npa_closure',label:'Closure'}]},
-        {name:'FY Non-Starter', color:'#6366F1', fields:[{key:'fy_non_start_acc',label:'Accounts'},{key:'fy_non_start_plan',label:'Plan'}]},
-        {name:'Disbursement — IGL', color:'#0EA5E9', fields:[{key:'disb_igl_acc',label:'Accounts'},{key:'disb_igl_amt',label:'Amount'}]},
-        {name:'Disbursement — FIG', color:'#0EA5E9', fields:[{key:'disb_fig_acc',label:'Accounts'},{key:'disb_fig_amt',label:'Amount'}]},
-        {name:'Disbursement — IL', color:'#0EA5E9', fields:[{key:'disb_il_acc',label:'Accounts'},{key:'disb_il_amt',label:'Amount'}]},
-        {name:'KYC', color:'#8B5CF6', fields:[{key:'kyc_igl',label:'IGL'},{key:'kyc_fig',label:'FIG'},{key:'kyc_il',label:'IL'}]}
-      ];
-
-      function ebMobInit() {
-        var today = new Date().toISOString().slice(0,10);
-        document.getElementById('ebMobDateInput').value = today;
-        ebMobGoToStep(1);
-      }
-
-      function ebMobShiftDate(dir) {
-        var inp = document.getElementById('ebMobDateInput');
-        var d = inp.value ? new Date(inp.value + 'T00:00:00') : new Date();
-        d.setDate(d.getDate() + dir);
-        inp.value = d.toISOString().slice(0,10);
-      }
-
-      function ebMobGoToStep(step) {
-        for (var i = 1; i <= 4; i++) {
-          var el = document.getElementById('ebMobStep' + i);
-          if (el) el.style.display = (i === step) ? 'block' : 'none';
-        }
-        ebMobStep = step;
-        if (step === 3) {
-          // Update subtitle and (re)load branches
-          var d = document.getElementById('ebMobDateInput').value || '';
-          var tbl = ebMobTable === 'daily_reports_achievements' ? 'Achievement' : 'Daily Plan';
-          var sub = document.getElementById('ebMobStep3Sub');
-          if (sub) sub.textContent = ebMobFormatDate(d) + ' • ' + tbl;
-          ebMobLoadBranches();
-        }
-        if (step === 2) {
-          var sub2 = document.getElementById('ebMobStep2Sub');
-          var d2 = document.getElementById('ebMobDateInput').value || '';
-          if (sub2) sub2.textContent = ebMobFormatDate(d2);
-        }
-      }
-
-      function ebMobBackFromStep4() {
-        var count = Object.keys(ebMobDirty).length;
-        if (count > 0) {
-          var msg = 'You have ' + count + ' unsaved change' + (count === 1 ? '' : 's') + '. Discard and go back?';
-          if (!confirm(msg)) return;
-          ebMobDirty = {};
-        }
-        ebMobGoToStep(3);
-      }
-
-      function ebMobPickType(which) {
-        ebMobTable = which === 'plans' ? 'daily_reports' : 'daily_reports_achievements';
-        ebMobGoToStep(3);
-      }
-
-      function ebMobFormatDate(d) {
-        if (!d) return '';
-        var parts = d.split('-');
-        var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-        return parts.length === 3 ? parts[2] + ' ' + months[parseInt(parts[1],10)-1] + ' ' + parts[0] : d;
-      }
-
-      async function ebMobLoadBranches() {
-        var date = document.getElementById('ebMobDateInput').value;
-        var list = document.getElementById('ebMobBranchList');
-        // Skeleton loading state
-        list.innerHTML = '<div class="eb-mob-skeleton">'
-          + '<div class="eb-mob-skeleton-card"></div>'
-          + '<div class="eb-mob-skeleton-card"></div>'
-          + '<div class="eb-mob-skeleton-card"></div>'
-          + '<div class="eb-mob-skeleton-card"></div>'
-          + '<div class="eb-mob-skeleton-card"></div>'
-          + '</div>';
-
-        // Get AM's area branches
-        var sess = window.getEmployeeSession ? getEmployeeSession() : {};
-        var role = sess.role || localStorage.getItem('roleName') || '';
-        var loc = (sess.location || localStorage.getItem('roleLocation') || '').trim();
-
-        var endpoint = ebMobTable === 'daily_reports_achievements' ? 'achievements' : 'reports';
-        var url = '/api/daily-plan/' + endpoint + '?from=' + date + '&to=' + date;
-        try {
-          var res = await fetch(url);
-          var result = await res.json();
-          ebMobRows = result.data || [];
-          // Filter to AM's area only
-          if (role === 'AM' && loc) {
-            ebMobRows = ebMobRows.filter(function(r) {
-              return (r.district||'').toUpperCase() === loc.toUpperCase();
-            });
-          }
-          ebMobRenderBranches();
-        } catch(e) {
-          list.innerHTML = '<div style="padding:20px;text-align:center;color:#EF4444">Error: ' + e.message + '</div>';
-        }
-      }
-
-      function ebMobRenderBranches() {
-        var list = document.getElementById('ebMobBranchList');
-        var term = (document.getElementById('ebMobSearchInput').value || '').toLowerCase().trim();
-        var filtered = ebMobRows;
-        if (term) {
-          filtered = filtered.filter(function(r) {
-            return (r.branch_name||'').toLowerCase().includes(term) || (r.region||'').toLowerCase().includes(term);
-          });
-        }
-        if (!filtered.length) {
-          list.innerHTML = '<div class="eb-mob-empty">'
-            + '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
-            + '<div class="eb-mob-empty-title">No branches found</div>'
-            + '<div class="eb-mob-empty-sub">No data for this date yet.<br>Try changing the date or check if plans have been entered.</div>'
-            + '</div>';
-          return;
-        }
-        list.innerHTML = filtered.map(function(row, i) {
-          var ftod = Number(row.ftod_actual)||0;
-          var plan = Number(row.ftod_plan)||0;
-          return '<div class="eb-mob-branch-card" onclick="ebMobOpenBranch(' + row.id + ')">'
-            + '<div style="flex:1;min-width:0"><div class="eb-mob-branch-name">' + (row.branch_name||'—') + '</div>'
-            + '<div class="eb-mob-branch-meta">' + (row.district||'') + ' • ' + (row.region||'') + '</div></div>'
-            + '<div style="display:flex;align-items:center;gap:10px"><div style="text-align:right"><div style="font-size:16px;font-weight:700;color:#059669">' + ftod + '</div><div style="font-size:10px;color:#94A3B8">FTOD / ' + plan + '</div></div>'
-            + '<span class="eb-mob-branch-arrow"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span></div></div>';
-        }).join('');
-      }
-
-      function ebMobFilterBranches() { ebMobRenderBranches(); }
-
-      function ebMobOpenBranch(rowId) {
-        ebMobSelectedRow = ebMobRows.find(function(r){ return Number(r.id) === Number(rowId); });
-        if (!ebMobSelectedRow) return;
-        ebMobDirty = {};
-        document.getElementById('ebMobBranchTitle').textContent = ebMobSelectedRow.branch_name;
-        var d = document.getElementById('ebMobDateInput').value || '';
-        var tblLabel = ebMobTable === 'daily_reports_achievements' ? 'Achievement' : 'Daily Plan';
-        document.getElementById('ebMobBranchSub').textContent = ebMobFormatDate(d) + ' • ' + tblLabel;
-        ebMobRenderBuckets();
-        ebMobUpdateSaveBtn();
-        ebMobGoToStep(4);
-      }
-
-      function ebMobUpdateSaveBtn() {
-        var btn = document.getElementById('ebMobSaveBtn');
-        var badge = document.getElementById('ebMobDirtyCount');
-        if (!btn) return;
-        var count = Object.keys(ebMobDirty).length;
-        btn.disabled = count === 0;
-        if (badge) badge.textContent = count ? '(' + count + ')' : '';
-      }
-
-      function ebMobRenderBuckets() {
-        var row = ebMobSelectedRow;
-        if (!row) { document.getElementById('ebMobBuckets').innerHTML = '<div style="padding:20px;text-align:center;color:#94A3B8">No data</div>'; return; }
-        var parts = [];
-        EB_BUCKETS.forEach(function(bucket) {
-          var fieldHtml = '';
-          bucket.fields.forEach(function(f) {
-            var val = row[f.key];
-            var display = val != null ? String(val) : '';
-            fieldHtml += '<div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid #F1F5F9">'
-              + '<span style="font-size:14px;color:#64748B;font-weight:500">' + f.label + '</span>'
-              + '<input type="text" inputmode="numeric" pattern="[0-9]*" placeholder="0" value="' + display + '" '
-              + 'class="eb-mob-field-value" '
-              + 'data-key="' + f.key + '" data-bucket="' + bucket.name + '" data-flabel="' + f.label + '" data-orig="' + display + '" '
-              + 'oninput="ebMobMarkDirty(this)" '
-              + 'enterkeyhint="next">'
-              + '</div>';
-          });
-          parts.push(
-            '<div style="background:#fff;border:1px solid #E2E8F0;border-left:4px solid ' + bucket.color + ';border-radius:14px;overflow:hidden;margin-bottom:10px">'
-            + '<div style="padding:12px 16px;background:' + bucket.color + '15;font-size:13px;font-weight:700;color:#475569;border-bottom:1px solid #E2E8F0;display:flex;align-items:center;gap:8px">'
-            + '<span style="width:8px;height:8px;border-radius:50%;background:' + bucket.color + ';flex-shrink:0"></span>' + bucket.name + '</div>'
-            + fieldHtml
-            + '</div>'
-          );
-        });
-        document.getElementById('ebMobBuckets').innerHTML = parts.join('');
-      }
-
-      function ebMobMarkDirty(input) {
-        var key = input.dataset.key;
-        var newVal = input.value.trim();
-        var oldVal = (input.dataset.orig || '').trim();
-        if (newVal === oldVal) {
-          delete ebMobDirty[key];
-          input.classList.remove('eb-mob-field-dirty');
-        } else {
-          ebMobDirty[key] = {
-            old: oldVal,
-            "new": newVal,
-            label: (input.dataset.bucket || '') + ' — ' + (input.dataset.flabel || key)
+        // ----- Session helpers -----
+        function getSess() {
+          var s = window.getEmployeeSession ? getEmployeeSession() : {};
+          return {
+            role: (s.role || localStorage.getItem('roleName') || '').trim(),
+            location: (s.location || localStorage.getItem('roleLocation') || '').trim(),
+            name: s.name || ''
           };
-          input.classList.add('eb-mob-field-dirty');
         }
-        ebMobUpdateSaveBtn();
-      }
 
-      function ebMobOpenConfirm() {
-        var keys = Object.keys(ebMobDirty);
-        if (!keys.length) return;
-        var list = document.getElementById('ebMobConfirmList');
-        list.innerHTML = keys.map(function(k) {
-          var d = ebMobDirty[k];
-          var oldDisp = d.old === '' ? '—' : d.old;
-          var newDisp = d["new"] === '' ? '—' : d["new"];
-          return '<div class="eb-mob-diff-row">'
-            + '<div class="eb-mob-diff-label">' + d.label + '</div>'
-            + '<div class="eb-mob-diff-vals"><span class="eb-mob-diff-old">' + oldDisp + '</span>'
-            + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>'
-            + '<span class="eb-mob-diff-new">' + newDisp + '</span></div>'
-            + '</div>';
-        }).join('');
-        document.getElementById('ebMobConfirmSub').textContent = keys.length + ' field' + (keys.length === 1 ? '' : 's') + ' will be updated';
-        document.getElementById('ebMobConfirmBackdrop').style.display = 'flex';
-      }
+        function $id(id) { return document.getElementById(id); }
 
-      function ebMobCloseConfirm(evt) {
-        if (evt && evt.target && evt.target.id !== 'ebMobConfirmBackdrop') return;
-        document.getElementById('ebMobConfirmBackdrop').style.display = 'none';
-      }
+        // ----- Module state -----
+        var state = {
+          initialized: false,
+          role: '',
+          location: '',
+          branches: [],
+          branch: '',
+          date: ymd(new Date()),
+          mode: 'plans',
+          row: null,
+          rowId: null,
+          dirty: {},
+          branchesLoadedAt: 0,
+          branchesLoading: null,
+          loadSeq: 0
+        };
+        var BRANCH_CACHE_MS = 5 * 60 * 1000;
+        var METRIC_COLS = [];
 
-      async function ebMobConfirmSave() {
-        var row = ebMobSelectedRow;
-        if (!row) return;
-        var keys = Object.keys(ebMobDirty);
-        if (!keys.length) { ebMobCloseConfirm(); return; }
-        var btn = document.getElementById('ebMobConfirmBtn');
-        btn.disabled = true;
-        btn.textContent = 'Saving...';
-        var results = await Promise.all(keys.map(function(k) {
-          var v = ebMobDirty[k]["new"];
-          var sqlVal = v === '' ? 'NULL' : "'" + v.replace(/'/g,"''") + "'";
-          return fetch('/api/aws-panel/sql', {
-            method:'POST',
-            headers:{'Content-Type':'application/json','X-Dashboard-Token':'colldb-admin-2024'},
-            body:JSON.stringify({sql:'UPDATE "' + ebMobTable + '" SET "' + k + '" = ' + sqlVal + ' WHERE id = ' + row.id})
-          }).then(function(res){ return res.json(); }).then(function(r) {
-            if (r.error) throw new Error(r.error);
-            return {key:k, ok:true};
-          }).catch(function(e) { return {key:k, ok:false, err:e.message}; });
-        }));
-        var failed = results.filter(function(r){ return !r.ok; });
-        var okKeys = results.filter(function(r){ return r.ok; }).map(function(r){ return r.key; });
-        okKeys.forEach(function(k) {
-          var v = ebMobDirty[k]["new"];
-          row[k] = v === '' ? null : v;
-          delete ebMobDirty[k];
-        });
-        btn.disabled = false;
-        btn.textContent = 'Confirm';
-        if (failed.length) {
-          ebToast(failed.length + ' field(s) failed to save', 'error');
-          ebMobCloseConfirm();
-          ebMobUpdateSaveBtn();
+        // ----- Toast -----
+        function toast(msg, type) {
+          var el = document.getElementById('_ebFloatToast');
+          if (!el) {
+            el = document.createElement('div');
+            el.id = '_ebFloatToast';
+            el.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);padding:10px 22px;border-radius:10px;font-size:13px;font-weight:600;z-index:99999;box-shadow:0 4px 16px rgba(0,0,0,.15);opacity:0;transition:opacity .22s ease, transform .22s ease;pointer-events:none;color:#fff;max-width:90vw;text-align:center';
+            document.body.appendChild(el);
+          }
+          var bg = type === 'success' ? '#059669' : type === 'error' ? '#DC2626' : type === 'warn' ? '#B45309' : '#0EA5E9';
+          el.style.background = bg;
+          el.textContent = msg;
+          el.style.opacity = '1';
+          el.style.transform = 'translateX(-50%) translateY(0)';
+          clearTimeout(el._t);
+          el._t = setTimeout(function(){
+            el.style.opacity = '0';
+            el.style.transform = 'translateX(-50%) translateY(20px)';
+          }, 2800);
+        }
+
+        // ----- AM-only gate (belt-and-suspenders) -----
+        function renderNonAmMessage() {
+          var tab = $id('editbranchTab');
+          if (!tab) return;
+          if ($id('_ebRoleBlock')) return;
+          var branchCard = tab.querySelector('section[data-step="branch"]');
+          if (branchCard) branchCard.style.display = 'none';
+          var surface = $id('ebEditorSurface');
+          if (surface) surface.style.display = 'none';
+          var msg = document.createElement('div');
+          msg.id = '_ebRoleBlock';
+          msg.style.cssText = 'padding:32px 20px;text-align:center;color:#64748B;font-size:14px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:14px;margin:20px auto;max-width:520px';
+          msg.innerHTML = '<div style="font-size:15px;font-weight:700;color:#1E293B;margin-bottom:6px">Area Manager access only</div>'
+            + '<div>This view is available to Area Managers only.</div>';
+          tab.insertBefore(msg, tab.firstChild);
+        }
+
+        // ----- Field ID discovery -----
+        function discoverMetricCols() {
+          return Array.prototype.slice.call(document.querySelectorAll('#ebFieldGrid input[data-col]'))
+            .map(function(el){ return el.dataset.col; });
+        }
+
+        // ----- Branch loading (AM-area scoped) -----
+        function loadBranches(force) {
+          if (state.branchesLoading) return state.branchesLoading;
+          var now = Date.now();
+          if (!force && state.branches.length && (now - state.branchesLoadedAt) < BRANCH_CACHE_MS) {
+            renderBranchOptions();
+            return Promise.resolve(state.branches);
+          }
+          var sel = $id('ebBranchSelect');
+          if (sel && !state.branches.length) sel.innerHTML = '<option value="">Loading branches…</option>';
+          state.branchesLoading = fetch('/api/daily-plan/branches')
+            .then(function(r){ return r.json(); })
+            .then(function(data) {
+              var locUp = (state.location || '').toUpperCase();
+              var arr = (data || []).filter(function(r){
+                return (r.area_name || '').toUpperCase().trim() === locUp;
+              }).map(function(r){ return r.branch_name; })
+                .filter(function(v, i, a) { return v && a.indexOf(v) === i; })
+                .sort(function(a, b){ return String(a).localeCompare(String(b)); });
+              state.branches = arr;
+              state.branchesLoadedAt = Date.now();
+              renderBranchOptions();
+              return arr;
+            })
+            .catch(function(e){
+              var s = $id('ebBranchSelect');
+              if (s) s.innerHTML = '<option value="">Failed to load branches — pick again to retry</option>';
+              toast('Network error loading branches', 'error');
+              throw e;
+            });
+          state.branchesLoading.then(function(){ state.branchesLoading = null; }, function(){ state.branchesLoading = null; });
+          return state.branchesLoading;
+        }
+
+        function renderBranchOptions() {
+          var sel = $id('ebBranchSelect');
+          if (!sel) return;
+          var cur = state.branch || '';
+          var parts = ['<option value="">-- Select branch --</option>'];
+          state.branches.forEach(function(b){
+            var safe = String(b).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+            parts.push('<option value="' + safe + '"' + (b === cur ? ' selected' : '') + '>' + safe + '</option>');
+          });
+          sel.innerHTML = parts.join('');
+        }
+
+        // ----- Date UI -----
+        function updateChipLabels() {
+          var today = ymd(new Date());
+          var pairs = [
+            ['ebChipYesterday', shiftIso(today, -1)],
+            ['ebChipToday',     today],
+            ['ebChipTomorrow',  shiftIso(today,  1)]
+          ];
+          pairs.forEach(function(p){
+            var el = document.querySelector('#' + p[0] + ' .eb-chip-value');
+            if (el) el.textContent = chipDate(p[1]);
+          });
+        }
+        function updateChipActiveHighlight() {
+          var today = ymd(new Date());
+          var map = {
+            ebChipYesterday: shiftIso(today, -1),
+            ebChipToday:     today,
+            ebChipTomorrow:  shiftIso(today,  1)
+          };
+          ['ebChipYesterday','ebChipToday','ebChipTomorrow'].forEach(function(id){
+            var el = $id(id);
+            if (el) el.classList.toggle('active', map[id] === state.date);
+          });
+        }
+        function updateSelectedDateLabel() {
+          var el = $id('ebSelectedDateLabel');
+          if (el) el.textContent = prettyDate(state.date);
+        }
+        function updateDatePickerValue() {
+          var dp = $id('ebDatePicker');
+          if (dp) dp.value = state.date;
+        }
+
+        // ----- Mode hint -----
+        function updateModeUi() {
+          var hint = $id('ebModeHint');
+          if (hint) hint.innerHTML = 'Editing: <strong>' + (state.mode === 'achievements' ? 'Achievement' : 'Daily Plan') + '</strong>';
+          var tp = $id('ebTogglePlans'), ta = $id('ebToggleAch');
+          if (tp) { tp.classList.toggle('active', state.mode === 'plans'); tp.setAttribute('aria-selected', state.mode === 'plans' ? 'true' : 'false'); }
+          if (ta) { ta.classList.toggle('active', state.mode === 'achievements'); ta.setAttribute('aria-selected', state.mode === 'achievements' ? 'true' : 'false'); }
+        }
+
+        // ----- Save status -----
+        function setSaveStatus(text, kind) {
+          var el = $id('ebSaveStatus');
+          if (!el) return;
+          el.classList.remove('is-saved','is-saving','is-error');
+          if (kind === 'saved')  el.classList.add('is-saved');
+          if (kind === 'saving') el.classList.add('is-saving');
+          if (kind === 'error')  el.classList.add('is-error');
+          if (!text) { el.textContent = ''; return; }
+          el.innerHTML = '<span class="eb-save-dot"></span>' + text;
+        }
+
+        // ----- Data load -----
+        function loadData() {
+          if (!state.branch || !state.date) return Promise.resolve();
+          var mySeq = ++state.loadSeq;
+          setSaveStatus('Loading…', 'saving');
+          var endpoint = state.mode === 'achievements' ? 'achievements' : 'reports';
+          var url = '/api/daily-plan/' + endpoint + '?from=' + encodeURIComponent(state.date)
+                  + '&to=' + encodeURIComponent(state.date)
+                  + '&branch=' + encodeURIComponent(state.branch);
+          return fetch(url)
+            .then(function(r){ return r.json(); })
+            .then(function(result){
+              if (mySeq !== state.loadSeq) return; // stale response
+              var rows = (result && result.data) || [];
+              var row = rows[0] || null;
+              state.row = row;
+              state.rowId = row ? row.id : null;
+              state.dirty = {};
+              populateInputs(row);
+              showEmptyBanner(!row);
+              updateDirtyUi();
+              setSaveStatus('', '');
+            })
+            .catch(function(){
+              if (mySeq !== state.loadSeq) return;
+              setSaveStatus('Load failed', 'error');
+              toast('Network error, please retry.', 'error');
+            });
+        }
+
+        function populateInputs(row) {
+          METRIC_COLS.forEach(function(col){
+            var input = $id('eb_' + col);
+            if (!input) return;
+            var v = row && row[col] != null ? row[col] : '';
+            input.value = v === '' ? '' : String(v);
+            input.dataset.orig = input.value;
+            input.classList.remove('is-dirty','is-saved');
+          });
+        }
+
+        function showEmptyBanner(show) {
+          var b = $id('ebEmptyBanner');
+          if (b) b.style.display = show ? '' : 'none';
+        }
+
+        // ----- Dirty tracking -----
+        function onFieldInput(e) {
+          var input = e.target;
+          if (!input || !input.dataset || !input.dataset.col) return;
+          var col = input.dataset.col;
+          var newVal = (input.value || '').trim();
+          var oldVal = (input.dataset.orig || '').trim();
+          if (newVal === oldVal) {
+            delete state.dirty[col];
+            input.classList.remove('is-dirty');
+          } else {
+            state.dirty[col] = true;
+            input.classList.add('is-dirty');
+          }
+          updateDirtyUi();
+        }
+        function dirtyCount() { return Object.keys(state.dirty).length; }
+
+        function updateDirtyUi() {
+          var n = dirtyCount();
+          var badge = $id('ebDirtyCount');
+          var btn = $id('ebSaveBtn');
+          if (badge) {
+            badge.textContent = n === 0 ? '0 changes' : (n + ' change' + (n === 1 ? '' : 's'));
+            badge.classList.toggle('is-empty', n === 0);
+            badge.classList.toggle('has-dirty', n > 0);
+          }
+          if (btn) {
+            btn.disabled = n === 0;
+            btn.classList.toggle('is-dirty', n > 0);
+          }
+        }
+
+        // ----- Save -----
+        function readInput(col) {
+          var input = $id('eb_' + col);
+          return input ? (input.value || '').trim() : '';
+        }
+
+        function buildPayload() {
+          var row = {
+            branch_name: state.branch,
+            date: state.date
+          };
+          // Preserve dm_name if known; leave region/district out so server preserves or auto-fills
+          if (state.row && state.row.dm_name) row.dm_name = String(state.row.dm_name);
+          // Spread full metric set to avoid UPSERT clobber on non-dirty fields
+          METRIC_COLS.forEach(function(col){
+            var v = readInput(col);
+            var n;
+            if (v === '') {
+              n = 0;
+            } else {
+              var parsed = Number(v.replace(/,/g, ''));
+              n = isFinite(parsed) ? parsed : 0;
+            }
+            row[col] = n;
+          });
+          return { table: state.mode, row: row };
+        }
+
+        function save() {
+          if (dirtyCount() === 0) return;
+          var sess = getSess();
+          if (sess.role === 'AM' && !sess.location) {
+            toast('Missing area assignment. Please sign in again.', 'error');
+            return;
+          }
+          var payload = buildPayload();
+          var btn = $id('ebSaveBtn');
+          if (btn) btn.disabled = true;
+          setSaveStatus('Saving…', 'saving');
+
+          var headers = { 'Content-Type': 'application/json' };
+          if (sess.role)     headers['X-User-Role']     = sess.role;
+          if (sess.location) headers['X-User-Location'] = sess.location;
+
+          fetch('/api/daily-plan/save', {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify(payload)
+          }).then(function(res){
+            return res.json().then(function(body){
+              return { ok: res.ok, status: res.status, body: body };
+            }, function(){
+              return { ok: res.ok, status: res.status, body: {} };
+            });
+          }).then(function(r){
+            if (!r.ok || (r.body && r.body.error)) {
+              var msg = (r.body && r.body.error) || ('HTTP ' + r.status);
+              setSaveStatus('Failed: ' + msg, 'error');
+              toast(msg, 'error');
+              // Keep dirty state — user doesn't lose work
+              if (btn) btn.disabled = dirtyCount() === 0;
+              return;
+            }
+            // Success — re-fetch to pick up id / region / district from server
+            return loadData().then(function(){
+              setSaveStatus('Saved · just now', 'saved');
+              var btn2 = $id('ebSaveBtn');
+              if (btn2) {
+                btn2.classList.add('is-saved');
+                setTimeout(function(){ var b = $id('ebSaveBtn'); if (b) b.classList.remove('is-saved'); }, 1200);
+              }
+              document.querySelectorAll('#ebFieldGrid .eb-input').forEach(function(i){
+                i.classList.add('is-saved');
+                setTimeout(function(){ i.classList.remove('is-saved'); }, 900);
+              });
+            });
+          }).catch(function(){
+            setSaveStatus('Network error', 'error');
+            toast('Network error, please retry.', 'error');
+            if (btn) btn.disabled = dirtyCount() === 0;
+          });
+        }
+
+        // ----- Nav guard -----
+        function confirmDiscard() {
+          if (dirtyCount() === 0) return true;
+          return window.confirm('You have unsaved changes. Discard?');
+        }
+
+        // ----- Wiring -----
+        var wired = false;
+        function wire() {
+          if (wired) return;
+          wired = true;
+
+          var sel = $id('ebBranchSelect');
+          if (sel) sel.addEventListener('change', function(){
+            var next = sel.value || '';
+            if (next === state.branch) return;
+            if (!confirmDiscard()) { sel.value = state.branch; return; }
+            state.branch = next;
+            var surface = $id('ebEditorSurface');
+            var badge = $id('ebBranchBadge');
+            if (!next) {
+              if (surface) surface.style.display = 'none';
+              if (badge) badge.style.display = 'none';
+              state.row = null; state.rowId = null; state.dirty = {};
+              populateInputs(null);
+              showEmptyBanner(false);
+              updateDirtyUi();
+              setSaveStatus('', '');
+              return;
+            }
+            if (surface) surface.style.display = '';
+            if (badge) badge.style.display = '';
+            loadData();
+          });
+
+          ['ebChipYesterday','ebChipToday','ebChipTomorrow'].forEach(function(id){
+            var el = $id(id);
+            if (!el) return;
+            el.addEventListener('click', function(){
+              var today = ymd(new Date());
+              var target = id === 'ebChipYesterday' ? shiftIso(today, -1)
+                         : id === 'ebChipTomorrow'  ? shiftIso(today,  1)
+                         : today;
+              if (target === state.date) return;
+              if (!confirmDiscard()) return;
+              state.date = target;
+              updateDatePickerValue();
+              updateChipActiveHighlight();
+              updateSelectedDateLabel();
+              if (state.branch) loadData();
+            });
+          });
+
+          var dp = $id('ebDatePicker');
+          if (dp) dp.addEventListener('change', function(){
+            var next = dp.value;
+            if (!next || next === state.date) return;
+            if (!confirmDiscard()) { dp.value = state.date; return; }
+            state.date = next;
+            updateChipActiveHighlight();
+            updateSelectedDateLabel();
+            if (state.branch) loadData();
+          });
+
+          var tp = $id('ebTogglePlans'), ta = $id('ebToggleAch');
+          if (tp) tp.addEventListener('click', function(){
+            if (state.mode === 'plans') return;
+            if (!confirmDiscard()) return;
+            state.mode = 'plans';
+            updateModeUi();
+            if (state.branch) loadData();
+          });
+          if (ta) ta.addEventListener('click', function(){
+            if (state.mode === 'achievements') return;
+            if (!confirmDiscard()) return;
+            state.mode = 'achievements';
+            updateModeUi();
+            if (state.branch) loadData();
+          });
+
+          var grid = $id('ebFieldGrid');
+          if (grid) grid.addEventListener('input', onFieldInput);
+
+          var sv = $id('ebSaveBtn');
+          if (sv) sv.addEventListener('click', save);
+
+          window.addEventListener('beforeunload', function(e){
+            if (dirtyCount() > 0) { e.preventDefault(); e.returnValue = ''; return ''; }
+          });
+        }
+
+        // ----- Init -----
+        window._ebInit = function(){
+          var sess = getSess();
+          state.role = sess.role;
+          state.location = sess.location;
+
+          if (state.role !== 'AM') {
+            renderNonAmMessage();
+            return;
+          }
+
+          if (!state.initialized) {
+            METRIC_COLS = discoverMetricCols();
+            state.date = ymd(new Date());
+            updateChipLabels();
+            updateChipActiveHighlight();
+            updateDatePickerValue();
+            updateSelectedDateLabel();
+            updateModeUi();
+            updateDirtyUi();
+            wire();
+            state.initialized = true;
+          } else {
+            // Refresh chips in case day rolled over while tab was idle
+            updateChipLabels();
+            updateChipActiveHighlight();
+          }
+
+          loadBranches(false);
+        };
+
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', function(){ window._ebInit(); });
         } else {
-          document.getElementById('ebMobConfirmBackdrop').style.display = 'none';
-          ebToast('Saved ' + okKeys.length + ' change' + (okKeys.length === 1 ? '' : 's'), 'success');
-          ebMobDirty = {};
-          ebMobUpdateSaveBtn();
-          ebMobGoToStep(3);
+          window._ebInit();
         }
-      }
-
-      // Hook into unlock to init mobile view too
-      var _origEbUnlock = ebUnlock;
-      ebUnlock = function() {
-        if (document.getElementById('ebPassword').value === 'Nava@123') {
-          ebUnlockedState = true;
-          document.getElementById('ebLock').style.display = 'none';
-          document.getElementById('ebEditor').style.display = 'block';
-          document.getElementById('ebDateInput').value = new Date().toISOString().slice(0,10);
-          ebLoadBranches().then(function(){ ebLoadData(); });
-          ebMobInit();
-        } else {
-          document.getElementById('ebLockErr').textContent = 'Incorrect password. Try again.';
-          document.getElementById('ebPassword').value = '';
-          document.getElementById('ebPassword').focus();
-        }
-      };
+      })();
       </script>
     </div>
 

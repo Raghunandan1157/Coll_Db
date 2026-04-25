@@ -198,6 +198,9 @@
     if (titleEl) titleEl.textContent = tabTitles[tab] || tab;
 
     localStorage.setItem('activeTab', tab);
+
+    // Edit Branch editor — init on tab activation (idempotent; no-op for non-AM)
+    if (tab === 'editbranch' && typeof window._ebInit === 'function') window._ebInit();
   };
 
   // Flush any tab click that fired against the inline stub while scripts were still loading.
