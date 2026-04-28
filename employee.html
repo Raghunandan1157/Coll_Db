@@ -133,6 +133,8 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
 <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script defer src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<!-- socket.io client (Chat tab) — server is mounted at root, no path override -->
+<script defer src="https://cdn.socket.io/4.7.5/socket.io.min.js" integrity="sha384-2huaZvOR9iDzHqslqwpR87isEmrfxqyWOF7hr7BY6KG0+hVKLoEXMPUJw3ynWuhO" crossorigin="anonymous"></script>
 </head>
 <body class="emp-dark">
 
@@ -219,6 +221,10 @@
       <a href="javascript:void(0)" class="desktop-sidebar-item" data-dtab="livetracking" id="liveTrackingSidebarItem" onclick="if(typeof switchEmpTab==='function')switchEmpTab('livetracking')">
         <span class="desktop-sidebar-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
         <span class="desktop-sidebar-label">Live Tracking</span>
+      </a>
+      <a href="javascript:void(0)" class="desktop-sidebar-item" data-dtab="chat" id="chatSidebarItem" onclick="if(typeof switchEmpTab==='function')switchEmpTab('chat')">
+        <span class="desktop-sidebar-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+        <span class="desktop-sidebar-label">Chat <span id="chatSidebarBadge" class="chat-side-badge" style="display:none;">0</span></span>
       </a>
       <a href="javascript:void(0)" class="desktop-sidebar-item editbranch-nav-item" data-dtab="editbranch" onclick="if(typeof switchEmpTab==='function')switchEmpTab('editbranch')" style="display:none">
         <span class="desktop-sidebar-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span>
@@ -1670,6 +1676,650 @@
         window._ltSearch = _ltSearch;
         window._ltSetSort = _ltSetSort;
         window._ltRelative = _ltRelative;
+      })();
+      </script>
+    </div>
+
+    <!-- Chat Tab (all roles) -->
+    <div class="emp-tab-content" id="chatTab">
+      <style>
+        #chatTab { padding: 0 8px; }
+        #chatTab .ct-wrap { max-width: 1400px; margin: 0 auto; }
+        #chatTab .ct-grid { display:grid; grid-template-columns: 280px 1fr 240px; gap:12px; align-items:stretch; height: calc(100vh - 140px); min-height: 560px; }
+        @media (max-width: 1100px) { #chatTab .ct-grid { grid-template-columns: 280px 1fr; } #chatTab .ct-info { display:none; } }
+        @media (max-width: 760px) {
+          #chatTab .ct-grid { grid-template-columns: 1fr; height: auto; }
+          #chatTab .ct-rail { height: 50vh; }
+          #chatTab .ct-thread.ct-empty { display:none; }
+          #chatTab.ct-mobile-thread .ct-rail { display:none; }
+          #chatTab.ct-mobile-thread .ct-thread { display:flex; height: calc(100vh - 140px); }
+        }
+        #chatTab .ct-card { background: var(--surface,#fff); border:1px solid var(--border,#E2E8F0); border-radius:12px; box-shadow:0 1px 4px rgba(0,0,0,.03); overflow:hidden; display:flex; flex-direction:column; min-height: 0; }
+        #chatTab .ct-rail { display:flex; flex-direction:column; }
+        #chatTab .ct-tabs { display:flex; flex-wrap:wrap; gap:4px; padding:8px; border-bottom:1px solid var(--border,#E2E8F0); }
+        #chatTab .ct-tab { padding:6px 10px; border-radius:999px; font-size:11px; font-weight:600; color: var(--muted,#64748B); cursor:pointer; background:#F1F5F9; border:1px solid transparent; }
+        #chatTab .ct-tab:hover { background:#E2E8F0; }
+        #chatTab .ct-tab.active { background:#059669; color:#fff; }
+        #chatTab .ct-search { padding: 8px; border-bottom:1px solid var(--border,#E2E8F0); }
+        #chatTab .ct-search input { width:100%; padding:8px 10px; border:1px solid var(--border,#E2E8F0); border-radius:8px; font-size:13px; outline:none; font-family:inherit; }
+        #chatTab .ct-search input:focus { border-color:#059669; box-shadow:0 0 0 3px rgba(5,150,105,.12); }
+        #chatTab .ct-list { flex:1; overflow-y:auto; padding:6px 8px 8px; }
+        #chatTab .ct-list-item { padding:10px 10px; border-radius:10px; cursor:pointer; display:flex; gap:10px; align-items:center; transition:background .12s; border:1px solid transparent; margin-bottom:4px; }
+        #chatTab .ct-list-item:hover { background:#F0FDF4; }
+        #chatTab .ct-list-item.active { background:#ECFDF5; border-color:#A7F3D0; }
+        #chatTab .ct-avatar { width:34px; height:34px; border-radius:50%; background:#ECFDF5; color:#059669; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; flex-shrink:0; }
+        #chatTab .ct-li-body { flex:1; min-width:0; }
+        #chatTab .ct-li-title { font-size:13px; font-weight:700; color:var(--text,#1E293B); display:flex; align-items:center; justify-content:space-between; gap:6px; }
+        #chatTab .ct-li-title-text { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        #chatTab .ct-li-time { font-size:10px; color:var(--muted,#94A3B8); flex-shrink:0; font-weight:500; }
+        #chatTab .ct-li-sub { font-size:11px; color:var(--muted,#64748B); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        #chatTab .ct-badge { background:#059669; color:#fff; font-size:10px; font-weight:700; padding:2px 6px; border-radius:999px; min-width:18px; text-align:center; }
+        #chatTab .ct-section-title { font-size:10px; font-weight:700; color:var(--muted,#94A3B8); text-transform:uppercase; letter-spacing:.6px; padding: 8px 10px 4px; }
+        #chatTab .ct-thread { display:flex; flex-direction:column; }
+        #chatTab .ct-thread.ct-empty { display:flex; align-items:center; justify-content:center; }
+        #chatTab .ct-thread-head { padding:12px 16px; border-bottom:1px solid var(--border,#E2E8F0); display:flex; align-items:center; gap:10px; }
+        #chatTab .ct-thread-back { width:32px; height:32px; border:1px solid var(--border,#E2E8F0); border-radius:8px; background:#fff; cursor:pointer; display:none; align-items:center; justify-content:center; }
+        @media (max-width: 760px) { #chatTab .ct-thread-back { display:flex; } }
+        #chatTab .ct-thread-title { font-size:15px; font-weight:700; color:var(--text,#1E293B); }
+        #chatTab .ct-thread-sub { font-size:11px; color:var(--muted,#64748B); margin-top:2px; }
+        #chatTab .ct-msgs { flex:1; overflow-y:auto; padding:12px 14px; background:#F8FAFC; }
+        #chatTab .ct-msg-row { display:flex; margin-bottom:6px; }
+        #chatTab .ct-msg-row.mine { justify-content:flex-end; }
+        #chatTab .ct-bubble { max-width:78%; padding:8px 12px; border-radius:14px; font-size:13.5px; line-height:1.35; word-wrap:break-word; white-space:pre-wrap; border:1px solid #E2E8F0; background:#fff; color:var(--text,#1E293B); }
+        #chatTab .ct-msg-row.mine .ct-bubble { background:#059669; color:#fff; border-color:#059669; border-bottom-right-radius:4px; }
+        #chatTab .ct-msg-row.theirs .ct-bubble { border-bottom-left-radius:4px; }
+        #chatTab .ct-msg-meta { font-size:10px; color:var(--muted,#94A3B8); margin-top:2px; padding: 0 4px; display:flex; gap:4px; align-items:center; }
+        #chatTab .ct-tick { font-size:11px; }
+        #chatTab .ct-tick.read { color:#059669; }
+        #chatTab .ct-msg-sender { font-size:10px; font-weight:700; color:#059669; margin-bottom:2px; padding-left:4px; }
+        #chatTab .ct-composer { padding:10px; border-top:1px solid var(--border,#E2E8F0); display:flex; gap:8px; align-items:flex-end; background:#fff; }
+        #chatTab .ct-composer textarea { flex:1; min-height:40px; max-height:140px; padding:10px 12px; border:1px solid var(--border,#E2E8F0); border-radius:18px; font-size:13.5px; outline:none; font-family:inherit; resize:none; }
+        #chatTab .ct-composer textarea:focus { border-color:#059669; box-shadow:0 0 0 3px rgba(5,150,105,.12); }
+        #chatTab .ct-send-btn { width:40px; height:40px; border-radius:50%; background:#059669; color:#fff; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+        #chatTab .ct-send-btn:disabled { opacity:.55; cursor:not-allowed; }
+        #chatTab .ct-empty-state { padding:24px; text-align:center; color:var(--muted,#64748B); }
+        #chatTab .ct-empty-state h3 { font-size:14px; font-weight:700; color:var(--text,#1E293B); margin: 6px 0 2px; }
+        #chatTab .ct-empty-state p { font-size:12px; margin: 0; }
+        #chatTab .ct-info { display:flex; flex-direction:column; }
+        #chatTab .ct-info-head { padding:14px 16px; border-bottom:1px solid var(--border,#E2E8F0); }
+        #chatTab .ct-info-title { font-size:13px; font-weight:700; }
+        #chatTab .ct-info-sub { font-size:11px; color:var(--muted,#64748B); margin-top:2px; }
+        #chatTab .ct-info-body { flex:1; overflow-y:auto; padding:8px 12px; }
+        #chatTab .ct-info-row { font-size:12px; color: var(--text, #1E293B); padding: 6px 4px; display:flex; gap:8px; align-items:center; border-bottom:1px solid #F1F5F9; }
+        #chatTab .ct-info-row .ct-avatar { width:26px; height:26px; font-size:10px; }
+        #chatTab .ct-conn { font-size:10px; color:var(--muted,#94A3B8); padding: 6px 10px; border-top:1px solid var(--border,#E2E8F0); display:flex; align-items:center; gap:6px; }
+        #chatTab .ct-conn .ct-dot { width:7px; height:7px; border-radius:50%; background:#94A3B8; }
+        #chatTab .ct-conn.online .ct-dot { background:#10B981; }
+        #chatTab .ct-newgroup { padding:8px 10px; border-bottom:1px solid var(--border,#E2E8F0); }
+        #chatTab .ct-newgroup-btn { width:100%; padding:8px 10px; border-radius:8px; border:1px dashed #A7F3D0; background:#F0FDF4; color:#059669; font-size:12px; font-weight:700; cursor:pointer; }
+        #chatTab .ct-newgroup-btn:hover { background:#ECFDF5; }
+        /* Modal */
+        #chatTab .ct-modal { position:fixed; inset:0; background:rgba(15,23,42,.45); display:none; align-items:center; justify-content:center; z-index:9999; }
+        #chatTab .ct-modal.open { display:flex; }
+        #chatTab .ct-modal-card { background:#fff; border-radius:14px; padding:18px; width:min(520px, 92vw); max-height:80vh; display:flex; flex-direction:column; gap:10px; box-shadow:0 12px 40px rgba(0,0,0,.25); }
+        #chatTab .ct-modal-title { font-size:15px; font-weight:700; }
+        #chatTab .ct-modal input[type="text"] { width:100%; padding:9px 11px; border:1px solid var(--border,#E2E8F0); border-radius:8px; font-size:13.5px; outline:none; font-family:inherit; }
+        #chatTab .ct-modal input[type="text"]:focus { border-color:#059669; box-shadow:0 0 0 3px rgba(5,150,105,.12); }
+        #chatTab .ct-chips { display:flex; flex-wrap:wrap; gap:6px; }
+        #chatTab .ct-chip { background:#ECFDF5; color:#059669; padding:4px 8px; border-radius:999px; font-size:11px; font-weight:700; display:inline-flex; gap:4px; align-items:center; cursor:pointer; }
+        #chatTab .ct-chip:hover { background:#FEE2E2; color:#DC2626; }
+        #chatTab .ct-modal-list { flex:1; overflow-y:auto; border:1px solid var(--border,#E2E8F0); border-radius:8px; padding:4px; }
+        #chatTab .ct-modal-row { padding:8px 10px; cursor:pointer; border-radius:6px; display:flex; gap:10px; align-items:center; }
+        #chatTab .ct-modal-row:hover { background:#F0FDF4; }
+        #chatTab .ct-modal-row.selected { background:#ECFDF5; }
+        #chatTab .ct-modal-actions { display:flex; gap:8px; justify-content:flex-end; }
+        #chatTab .ct-btn { padding:8px 14px; border-radius:8px; border:1px solid var(--border,#E2E8F0); background:#fff; font-size:13px; font-weight:600; cursor:pointer; }
+        #chatTab .ct-btn.primary { background:#059669; color:#fff; border-color:#059669; }
+        #chatTab .ct-btn:disabled { opacity:.5; cursor:not-allowed; }
+        #chatTab .chat-side-badge { background:#DC2626; color:#fff; font-size:10px; font-weight:700; padding:1px 6px; border-radius:999px; margin-left:4px; }
+      </style>
+
+      <div class="ct-wrap">
+        <div class="ct-grid">
+
+          <!-- Left rail: tabs + list -->
+          <div class="ct-rail ct-card">
+            <div class="ct-tabs" id="ctTabs">
+              <span class="ct-tab active" data-ckind="recent">Recent</span>
+              <span class="ct-tab" data-ckind="region">Region</span>
+              <span class="ct-tab" data-ckind="division">Division</span>
+              <span class="ct-tab" data-ckind="area">Area</span>
+              <span class="ct-tab" data-ckind="branch">Branch</span>
+              <span class="ct-tab" data-ckind="individual">Individual</span>
+              <span class="ct-tab" data-ckind="custom">Custom</span>
+            </div>
+            <div class="ct-search"><input id="ctSearchBox" type="text" placeholder="Search…" autocomplete="off" /></div>
+            <div class="ct-newgroup" id="ctNewGroupWrap" style="display:none;">
+              <button class="ct-newgroup-btn" id="ctNewGroupBtn">+ New chat group</button>
+            </div>
+            <div class="ct-list" id="ctList"></div>
+            <div class="ct-conn" id="ctConn"><span class="ct-dot"></span><span id="ctConnText">Connecting…</span></div>
+          </div>
+
+          <!-- Center: open thread -->
+          <div class="ct-thread ct-card ct-empty" id="ctThread">
+            <div class="ct-empty-state">
+              <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              <h3>Pick a conversation</h3>
+              <p>Choose a region, branch, or person from the left rail to start chatting.</p>
+            </div>
+          </div>
+
+          <!-- Right rail: thread info -->
+          <div class="ct-info ct-card" id="ctInfo">
+            <div class="ct-info-head"><div class="ct-info-title" id="ctInfoTitle">Thread info</div><div class="ct-info-sub" id="ctInfoSub">No thread open</div></div>
+            <div class="ct-info-body" id="ctInfoBody"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- New group modal -->
+      <div class="ct-modal" id="ctGroupModal">
+        <div class="ct-modal-card">
+          <div class="ct-modal-title">New chat group</div>
+          <input type="text" id="ctGroupName" placeholder="Group name" />
+          <div class="ct-chips" id="ctGroupSelected"></div>
+          <input type="text" id="ctGroupSearch" placeholder="Search employees…" />
+          <div class="ct-modal-list" id="ctGroupResults"></div>
+          <div class="ct-modal-actions">
+            <button class="ct-btn" id="ctGroupCancel">Cancel</button>
+            <button class="ct-btn primary" id="ctGroupCreate">Create</button>
+          </div>
+        </div>
+      </div>
+
+      <script>
+      (function(){
+        // Avoid double-init if the user re-clicks the chat tab.
+        if (window._ctInited) return;
+        window._ctInited = true;
+
+        var $ = function(id){ return document.getElementById(id); };
+        var esc = function(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+          return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+        }); };
+
+        function getEmp(){
+          // Resolve emp_id from auth.js session, falling back to localStorage.
+          var s = (typeof getEmployeeSession === 'function') ? getEmployeeSession() : {};
+          var id = s.id || localStorage.getItem('employeeId') || '';
+          var name = s.name || localStorage.getItem('employeeName') || '';
+          return { id: id, name: name, role: s.role || localStorage.getItem('roleName') || '' };
+        }
+
+        var state = {
+          kind: 'recent',
+          search: '',
+          scopes: { regions:[], divisions:[], areas:[], branches:[] },
+          threads: [],
+          contacts: [],
+          activeThread: null,
+          messages: [],
+          self: getEmp(),
+          socket: null,
+          notifAsked: false,
+          notifGranted: false
+        };
+
+        function setConn(online){
+          var el = $('ctConn'); if (!el) return;
+          el.classList.toggle('online', !!online);
+          $('ctConnText').textContent = online ? 'Connected' : 'Reconnecting…';
+        }
+
+        function relTime(s){
+          if (!s) return '';
+          var t = new Date(s); if (isNaN(t.getTime())) return '';
+          var d = (Date.now() - t.getTime()) / 1000;
+          if (d < 60) return 'just now';
+          if (d < 3600) return Math.floor(d/60) + ' min';
+          if (d < 86400) return t.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+          return t.toLocaleDateString([], {day:'2-digit', month:'short'});
+        }
+
+        function initials(name){
+          if (!name) return '?';
+          var parts = String(name).trim().split(/\s+/).slice(0,2);
+          return parts.map(function(p){ return p ? p[0] : ''; }).join('').toUpperCase();
+        }
+
+        // ---- Notifications API ----
+        function ensureNotifPermission(){
+          if (state.notifAsked) return Promise.resolve(state.notifGranted);
+          state.notifAsked = true;
+          if (!('Notification' in window)) return Promise.resolve(false);
+          if (Notification.permission === 'granted') { state.notifGranted = true; return Promise.resolve(true); }
+          if (Notification.permission === 'denied') return Promise.resolve(false);
+          if (localStorage.getItem('chatNotifAsked') === '1') {
+            state.notifGranted = (Notification.permission === 'granted');
+            return Promise.resolve(state.notifGranted);
+          }
+          localStorage.setItem('chatNotifAsked', '1');
+          return Notification.requestPermission().then(function(p){
+            state.notifGranted = p === 'granted';
+            return state.notifGranted;
+          });
+        }
+
+        function showNotif(msg){
+          if (!state.notifGranted) return;
+          // Don't fire when this thread is open AND the page is visible.
+          if (state.activeThread && state.activeThread.thread_key === msg.thread_key && document.visibilityState === 'visible') return;
+          if (msg.sender_emp_id === state.self.id) return;
+          try {
+            var n = new Notification(msg.sender_name || 'New message', { body: msg.body, tag: msg.thread_key });
+            n.onclick = function(){
+              window.focus();
+              if (typeof switchEmpTab === 'function') switchEmpTab('chat');
+              openThread(msg.thread_key, msg.sender_name || msg.thread_key);
+              n.close();
+            };
+          } catch(e){}
+        }
+
+        // ---- Socket ----
+        function ensureSocket(){
+          if (state.socket || !state.self.id) return;
+          if (typeof io !== 'function') {
+            // socket.io client not loaded — degrade gracefully.
+            setConn(false);
+            return;
+          }
+          var s = io({ transports: ['websocket'], reconnection: true });
+          state.socket = s;
+          s.on('connect', function(){
+            setConn(true);
+            s.emit('chat:join', { emp_id: state.self.id });
+          });
+          s.on('disconnect', function(){ setConn(false); });
+          s.on('chat:new', function(msg){
+            if (!msg) return;
+            // Append to active thread.
+            if (state.activeThread && state.activeThread.thread_key === msg.thread_key) {
+              if (!state.messages.some(function(x){ return x.id === msg.id; })) {
+                state.messages.push(msg);
+                renderMessages();
+                if (msg.sender_emp_id !== state.self.id) markRead(msg.id);
+              }
+            } else {
+              showNotif(msg);
+            }
+            refreshThreadsSilent();
+          });
+          s.on('chat:read', function(ev){
+            if (!ev || !state.activeThread) return;
+            if (ev.thread_key !== state.activeThread.thread_key) return;
+            // Update local read_by_json on each message ≤ up_to_message_id.
+            state.messages.forEach(function(m){
+              if (m.id <= ev.up_to_message_id) {
+                m.read_by_json = m.read_by_json || {};
+                if ((m.read_by_json[ev.emp_id] || 0) < ev.up_to_message_id) {
+                  m.read_by_json[ev.emp_id] = ev.up_to_message_id;
+                }
+              }
+            });
+            renderMessages();
+          });
+        }
+
+        // ---- API ----
+        function fetchScopes(){
+          if (!state.self.id) return Promise.resolve({});
+          return fetch('/api/chat/scopes?emp_id=' + encodeURIComponent(state.self.id))
+            .then(function(r){ return r.json(); })
+            .then(function(j){ state.scopes = j || state.scopes; });
+        }
+        function fetchThreads(){
+          if (!state.self.id) return Promise.resolve();
+          return fetch('/api/chat/threads?emp_id=' + encodeURIComponent(state.self.id))
+            .then(function(r){ return r.json(); })
+            .then(function(j){ state.threads = (j && j.threads) || []; renderRail(); renderSidebarBadge(); });
+        }
+        function refreshThreadsSilent(){ fetchThreads(); }
+        function fetchMessages(threadKey){
+          if (!state.self.id) return Promise.resolve();
+          return fetch('/api/chat/messages?thread_key=' + encodeURIComponent(threadKey) + '&emp_id=' + encodeURIComponent(state.self.id) + '&limit=50')
+            .then(function(r){ return r.json(); })
+            .then(function(j){
+              var msgs = (j && j.messages) || [];
+              msgs.sort(function(a,b){ return Number(a.id) - Number(b.id); });
+              state.messages = msgs;
+              renderMessages();
+              var last = msgs.length ? msgs[msgs.length - 1] : null;
+              if (last) markRead(last.id);
+            });
+        }
+        function postSend(body){
+          var ak = state.activeThread; if (!ak) return Promise.reject('No active thread');
+          return fetch('/api/chat/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sender_emp_id: state.self.id, thread_key: ak.thread_key, body: body })
+          }).then(function(r){ return r.json(); });
+        }
+        function markRead(upToId){
+          if (!state.activeThread) return;
+          fetch('/api/chat/read', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ emp_id: state.self.id, thread_key: state.activeThread.thread_key, up_to_message_id: upToId })
+          }).catch(function(){});
+        }
+        function searchEmployees(q){
+          var url = '/api/chat/employees?limit=60' + (q ? '&q=' + encodeURIComponent(q) : '') + (state.self.id ? '&emp_id=' + encodeURIComponent(state.self.id) : '');
+          return fetch(url).then(function(r){ return r.json(); }).then(function(j){ return (j && j.employees) || []; });
+        }
+
+        // ---- Render: left rail ----
+        function dmKey(a, b){ return 'dm:' + (a < b ? a + ':' + b : b + ':' + a); }
+        function selectKind(kind){ state.kind = kind; document.querySelectorAll('#ctTabs .ct-tab').forEach(function(t){ t.classList.toggle('active', t.dataset.ckind === kind); }); $('ctNewGroupWrap').style.display = (kind === 'custom') ? 'block' : 'none'; renderRail(); }
+
+        function renderRail(){
+          var list = $('ctList'); if (!list) return;
+          var q = state.search.trim().toLowerCase();
+          var html = '';
+          var threadsByKey = {};
+          state.threads.forEach(function(t){ threadsByKey[t.thread_key] = t; });
+
+          if (state.kind === 'recent') {
+            var rows = state.threads.filter(function(t){
+              if (!q) return true;
+              return (t.title || '').toLowerCase().indexOf(q) !== -1;
+            });
+            html = rows.length ? rows.map(threadRowHtml).join('')
+                                : emptyHtml('No conversations yet', 'Pick a region, branch, or person from the left tabs.');
+          } else if (state.kind === 'individual') {
+            // Recent DMs first; then directory matches.
+            var dms = state.threads.filter(function(t){ return t.kind === 'dm' && (!q || (t.title||'').toLowerCase().indexOf(q) !== -1); });
+            html += '<div class="ct-section-title">Recent</div>';
+            html += dms.length ? dms.map(threadRowHtml).join('') : '<div class="ct-empty-state" style="padding:6px 4px;"><p>No recent DMs.</p></div>';
+            html += '<div class="ct-section-title">Directory</div>';
+            html += '<div id="ctIndivResults"><div class="ct-empty-state"><p>Type to search for an employee.</p></div></div>';
+            list.innerHTML = html;
+            // Lazy-search.
+            if (state._indivTimer) clearTimeout(state._indivTimer);
+            state._indivTimer = setTimeout(function(){
+              searchEmployees(q).then(function(rows){
+                var box = $('ctIndivResults'); if (!box) return;
+                rows = rows.filter(function(e){ return e.emp_id !== state.self.id; });
+                if (!rows.length) { box.innerHTML = '<div class="ct-empty-state"><p>No employees match.</p></div>'; return; }
+                box.innerHTML = rows.map(function(e){
+                  var key = dmKey(state.self.id, e.emp_id);
+                  var sub = [e.role, e.branch_name].filter(Boolean).join(' · ');
+                  return '<div class="ct-list-item" data-thread="' + esc(key) + '" data-title="' + esc(e.full_name) + '">' +
+                    '<div class="ct-avatar">' + esc(initials(e.full_name)) + '</div>' +
+                    '<div class="ct-li-body"><div class="ct-li-title"><span class="ct-li-title-text">' + esc(e.full_name) + '</span></div>' +
+                    '<div class="ct-li-sub">' + esc(sub) + '</div></div></div>';
+                }).join('');
+                bindRailRows();
+              });
+            }, 200);
+            return;
+          } else if (state.kind === 'custom') {
+            var groups = state.threads.filter(function(t){ return t.kind === 'custom' && (!q || (t.title||'').toLowerCase().indexOf(q) !== -1); });
+            html = groups.length ? groups.map(threadRowHtml).join('')
+                                 : emptyHtml('No custom groups yet', 'Tap "+ New chat group" above.');
+          } else {
+            // Auto group level: region/division/area/branch
+            var values = state.scopes[state.kind + 's'] || [];
+            if (q) values = values.filter(function(v){ return v.toLowerCase().indexOf(q) !== -1; });
+            html = values.length ? values.map(function(v){
+              var key = 'auto:' + state.kind + ':' + v;
+              var t = threadsByKey[key];
+              var unread = t ? (t.unread_count || 0) : 0;
+              var lastBody = t && t.last_message ? t.last_message.body : (state.kind[0].toUpperCase() + state.kind.slice(1) + ' group');
+              var time = t && t.last_message ? relTime(t.last_message.sent_at) : '';
+              return '<div class="ct-list-item" data-thread="' + esc(key) + '" data-title="' + esc(v) + '">' +
+                '<div class="ct-avatar">' + esc(initials(v)) + '</div>' +
+                '<div class="ct-li-body"><div class="ct-li-title"><span class="ct-li-title-text">' + esc(v) + '</span><span class="ct-li-time">' + esc(time) + '</span></div>' +
+                '<div class="ct-li-sub">' + esc(lastBody) + '</div></div>' +
+                (unread ? '<span class="ct-badge">' + (unread > 99 ? '99+' : unread) + '</span>' : '') +
+                '</div>';
+            }).join('') : emptyHtml('Nothing here yet', 'Your hierarchy doesn\'t place you in any ' + state.kind + ' group.');
+          }
+
+          list.innerHTML = html;
+          bindRailRows();
+        }
+
+        function threadRowHtml(t){
+          var unread = t.unread_count || 0;
+          var time = t.last_message ? relTime(t.last_message.sent_at) : '';
+          var sub = t.last_message ? (t.last_message.body || '') : 'Group · ' + (t.member_count || 0) + ' members';
+          return '<div class="ct-list-item" data-thread="' + esc(t.thread_key) + '" data-title="' + esc(t.title) + '">' +
+            '<div class="ct-avatar">' + esc(initials(t.title)) + '</div>' +
+            '<div class="ct-li-body"><div class="ct-li-title"><span class="ct-li-title-text">' + esc(t.title) + '</span><span class="ct-li-time">' + esc(time) + '</span></div>' +
+            '<div class="ct-li-sub">' + esc(sub) + '</div></div>' +
+            (unread ? '<span class="ct-badge">' + (unread > 99 ? '99+' : unread) + '</span>' : '') +
+            '</div>';
+        }
+
+        function emptyHtml(title, hint){
+          return '<div class="ct-empty-state"><h3>' + esc(title) + '</h3><p>' + esc(hint) + '</p></div>';
+        }
+
+        function bindRailRows(){
+          document.querySelectorAll('#ctList .ct-list-item').forEach(function(el){
+            el.addEventListener('click', function(){
+              var key = el.getAttribute('data-thread');
+              var title = el.getAttribute('data-title') || key;
+              openThread(key, title);
+              document.querySelectorAll('#ctList .ct-list-item').forEach(function(x){ x.classList.toggle('active', x === el); });
+            });
+          });
+        }
+
+        function renderSidebarBadge(){
+          var total = (state.threads || []).reduce(function(acc, t){ return acc + (t.unread_count || 0); }, 0);
+          var b = $('chatSidebarBadge'); if (!b) return;
+          if (total > 0) { b.style.display = 'inline-block'; b.textContent = total > 99 ? '99+' : String(total); }
+          else { b.style.display = 'none'; }
+        }
+
+        // ---- Render: thread ----
+        function openThread(threadKey, title){
+          var existing = state.threads.find(function(t){ return t.thread_key === threadKey; });
+          state.activeThread = existing || { thread_key: threadKey, title: title, kind: threadKey.split(':')[0], member_count: 0 };
+          var ct = $('chatTab'); if (ct) ct.classList.add('ct-mobile-thread');
+          renderThreadShell();
+          renderInfoPane();
+          fetchMessages(threadKey);
+        }
+
+        function renderThreadShell(){
+          var t = state.activeThread; if (!t) return;
+          var sub = '';
+          if (t.kind === 'auto') sub = (t.thread_key.split(':')[1] || '') + ' group';
+          else if (t.kind === 'custom') sub = (t.member_count || 0) + ' members';
+          else if (t.kind === 'dm') sub = 'Direct message';
+          var thread = $('ctThread'); if (!thread) return;
+          thread.classList.remove('ct-empty');
+          thread.innerHTML =
+            '<div class="ct-thread-head">' +
+              '<button class="ct-thread-back" id="ctBack" title="Back">‹</button>' +
+              '<div class="ct-avatar">' + esc(initials(t.title)) + '</div>' +
+              '<div><div class="ct-thread-title">' + esc(t.title) + '</div><div class="ct-thread-sub">' + esc(sub) + '</div></div>' +
+            '</div>' +
+            '<div class="ct-msgs" id="ctMsgs"></div>' +
+            '<div class="ct-composer">' +
+              '<textarea id="ctInput" placeholder="Type a message"></textarea>' +
+              '<button class="ct-send-btn" id="ctSend" title="Send">' +
+                '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>' +
+              '</button>' +
+            '</div>';
+          $('ctBack').addEventListener('click', function(){
+            state.activeThread = null;
+            var c = $('chatTab'); if (c) c.classList.remove('ct-mobile-thread');
+            $('ctThread').classList.add('ct-empty');
+            $('ctThread').innerHTML =
+              '<div class="ct-empty-state">' +
+                '<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>' +
+                '<h3>Pick a conversation</h3><p>Choose from the left rail to start chatting.</p>' +
+              '</div>';
+          });
+          var input = $('ctInput');
+          var send = function(){
+            var v = input.value.trim(); if (!v) return;
+            input.value = '';
+            postSend(v).then(function(row){
+              if (row && row.id && !state.messages.some(function(x){ return x.id === row.id; })) {
+                state.messages.push(row); renderMessages();
+              }
+            }).catch(function(e){ alert('Send failed: ' + e); });
+          };
+          $('ctSend').addEventListener('click', send);
+          input.addEventListener('keydown', function(e){
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+          });
+          input.focus();
+        }
+
+        function renderMessages(){
+          var box = $('ctMsgs'); if (!box) return;
+          var self = state.self.id;
+          var html = '';
+          var lastSender = null;
+          state.messages.forEach(function(m){
+            var mine = m.sender_emp_id === self;
+            var showHeader = !mine && lastSender !== m.sender_emp_id;
+            lastSender = m.sender_emp_id;
+            var readByOthers = false;
+            if (mine && m.read_by_json) {
+              var keys = Object.keys(m.read_by_json);
+              for (var i = 0; i < keys.length; i++) {
+                if (keys[i] !== m.sender_emp_id && Number(m.read_by_json[keys[i]]) >= Number(m.id)) { readByOthers = true; break; }
+              }
+            }
+            html += '<div class="ct-msg-row ' + (mine ? 'mine' : 'theirs') + '">';
+            html += '<div>';
+            if (showHeader && (m.sender_name || m.sender_emp_id)) {
+              html += '<div class="ct-msg-sender">' + esc(m.sender_name || m.sender_emp_id) + '</div>';
+            }
+            html += '<div class="ct-bubble">' + esc(m.body) + '</div>';
+            html += '<div class="ct-msg-meta">' + esc(relTime(m.sent_at));
+            if (mine) html += ' <span class="ct-tick ' + (readByOthers ? 'read' : '') + '">' + (readByOthers ? '✓✓' : '✓') + '</span>';
+            html += '</div></div></div>';
+          });
+          box.innerHTML = html || '<div class="ct-empty-state"><h3>No messages yet</h3><p>Say hi — pings clear after 7 days.</p></div>';
+          box.scrollTop = box.scrollHeight;
+        }
+
+        function renderInfoPane(){
+          var t = state.activeThread;
+          if (!t) { $('ctInfoTitle').textContent = 'Thread info'; $('ctInfoSub').textContent = 'No thread open'; $('ctInfoBody').innerHTML = ''; return; }
+          $('ctInfoTitle').textContent = t.title || t.thread_key;
+          if (t.kind === 'auto') $('ctInfoSub').textContent = 'Hierarchy group';
+          else if (t.kind === 'dm') $('ctInfoSub').textContent = 'Direct message';
+          else if (t.kind === 'custom') $('ctInfoSub').textContent = (t.member_count || 0) + ' members';
+          // For now, info pane renders thread metadata only; member list expansion is future work.
+          $('ctInfoBody').innerHTML =
+            '<div class="ct-info-row"><span style="color:#64748B;">Kind</span><span style="margin-left:auto;font-weight:700;">' + esc(t.kind) + '</span></div>' +
+            '<div class="ct-info-row"><span style="color:#64748B;">Members</span><span style="margin-left:auto;font-weight:700;">' + esc(String(t.member_count || '?')) + '</span></div>' +
+            '<div class="ct-info-row"><span style="color:#64748B;">Auto-purge</span><span style="margin-left:auto;font-weight:700;">7 days</span></div>';
+        }
+
+        // ---- New group modal ----
+        var modalSelected = {};
+        function openModal(){
+          $('ctGroupName').value = '';
+          $('ctGroupSearch').value = '';
+          modalSelected = {};
+          renderModalChips();
+          modalSearch('');
+          $('ctGroupModal').classList.add('open');
+        }
+        function closeModal(){ $('ctGroupModal').classList.remove('open'); }
+        function renderModalChips(){
+          var box = $('ctGroupSelected');
+          var ids = Object.keys(modalSelected);
+          if (!ids.length) { box.innerHTML = '<span style="font-size:11px;color:#94A3B8;">No members picked yet</span>'; return; }
+          box.innerHTML = ids.map(function(id){
+            return '<span class="ct-chip" data-emp="' + esc(id) + '" title="Remove">' + esc(modalSelected[id]) + ' ✕</span>';
+          }).join('');
+          box.querySelectorAll('.ct-chip').forEach(function(c){
+            c.addEventListener('click', function(){ delete modalSelected[c.getAttribute('data-emp')]; renderModalChips(); modalSearch($('ctGroupSearch').value); });
+          });
+        }
+        function modalSearch(q){
+          searchEmployees(q || '').then(function(rows){
+            var box = $('ctGroupResults'); if (!box) return;
+            rows = rows.filter(function(e){ return e.emp_id !== state.self.id; });
+            if (!rows.length) { box.innerHTML = '<div class="ct-empty-state"><p>No employees match.</p></div>'; return; }
+            box.innerHTML = rows.map(function(e){
+              var sel = !!modalSelected[e.emp_id];
+              return '<div class="ct-modal-row ' + (sel ? 'selected' : '') + '" data-emp="' + esc(e.emp_id) + '" data-name="' + esc(e.full_name) + '">' +
+                '<div class="ct-avatar">' + esc(initials(e.full_name)) + '</div>' +
+                '<div><div style="font-size:13px;font-weight:700;">' + esc(e.full_name) + '</div>' +
+                '<div style="font-size:11px;color:#64748B;">' + esc([e.role, e.branch_name].filter(Boolean).join(' · ')) + '</div></div>' +
+                '<span style="margin-left:auto;font-size:13px;color:' + (sel ? '#059669' : '#94A3B8') + ';">' + (sel ? '✓' : '+') + '</span>' +
+                '</div>';
+            }).join('');
+            box.querySelectorAll('.ct-modal-row').forEach(function(row){
+              row.addEventListener('click', function(){
+                var id = row.getAttribute('data-emp'); var nm = row.getAttribute('data-name');
+                if (modalSelected[id]) delete modalSelected[id]; else modalSelected[id] = nm;
+                renderModalChips(); modalSearch($('ctGroupSearch').value);
+              });
+            });
+          });
+        }
+
+        // ---- Bootstrap ----
+        function boot(){
+          state.self = getEmp();
+          if (!state.self.id) {
+            $('ctList').innerHTML = '<div class="ct-empty-state"><h3>Sign in required</h3><p>Sign in with your employee mobile to use chat.</p></div>';
+            return;
+          }
+          ensureSocket();
+          ensureNotifPermission();
+          fetchScopes().then(fetchThreads).then(function(){ selectKind('recent'); });
+          // Light polling fallback in case the socket is wedged.
+          if (!state._poll) state._poll = setInterval(refreshThreadsSilent, 30000);
+        }
+
+        // Wire tab clicks (idempotent — boot() may run multiple times if user toggles tabs).
+        document.querySelectorAll('#ctTabs .ct-tab').forEach(function(t){
+          t.addEventListener('click', function(){ selectKind(t.dataset.ckind); });
+        });
+        $('ctSearchBox').addEventListener('input', function(e){ state.search = e.target.value; renderRail(); });
+        $('ctNewGroupBtn').addEventListener('click', openModal);
+        $('ctGroupCancel').addEventListener('click', closeModal);
+        $('ctGroupSearch').addEventListener('input', function(e){
+          if (state._modalTimer) clearTimeout(state._modalTimer);
+          state._modalTimer = setTimeout(function(){ modalSearch(e.target.value); }, 200);
+        });
+        $('ctGroupCreate').addEventListener('click', function(){
+          var name = $('ctGroupName').value.trim(); if (!name) { alert('Enter a group name'); return; }
+          var ids = Object.keys(modalSelected); if (!ids.length) { alert('Pick at least one member'); return; }
+          fetch('/api/chat/groups', {
+            method: 'POST', headers: { 'Content-Type':'application/json' },
+            body: JSON.stringify({ created_by_emp_id: state.self.id, name: name, member_emp_ids: ids })
+          }).then(function(r){ return r.json(); }).then(function(grp){
+            if (!grp || !grp.id) { alert('Create failed'); return; }
+            closeModal();
+            fetchThreads().then(function(){ selectKind('custom'); openThread(grp.id, name); });
+          }).catch(function(e){ alert('Create failed: ' + e); });
+        });
+
+        // Boot on first paint, and re-boot if the user opens the chat tab later.
+        var boundBoot = false;
+        function maybeBoot(){
+          if (document.querySelector('#chatTab.active') || document.querySelector('#chatTab')?.classList.contains('active')) {
+            boot(); return;
+          }
+        }
+        maybeBoot();
+        if (!boundBoot) {
+          boundBoot = true;
+          // Hook into switchEmpTab so the chat tab boots on first activation.
+          var orig = window.switchEmpTab;
+          window.switchEmpTab = function(tab){
+            var ret = (typeof orig === 'function') ? orig.apply(this, arguments) : undefined;
+            if (tab === 'chat') boot();
+            return ret;
+          };
+        }
       })();
       </script>
     </div>
@@ -5671,7 +6321,7 @@ document.addEventListener('keydown', function(e) {
 (function() {
   // Hash-based tab routing — e.g. employee.html#dailyreports opens the embedded DR tab
   var hash = (window.location.hash || '').replace('#', '').toLowerCase();
-  var validTabs = ['collection','portfolio','disbursement','hourly','comparison','dailyreports','livetracking','settings'];
+  var validTabs = ['collection','portfolio','disbursement','hourly','comparison','dailyreports','livetracking','chat','settings'];
   var openHash = function() {
     if (hash === 'ai') {
       if (typeof window._aiOpen === 'function') window._aiOpen();

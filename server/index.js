@@ -5505,3 +5505,687 @@ setInterval(async () => {
   }
 }, 60 * 60 * 1000);
 
+// ====================================================================
+//  CHAT — tables, endpoints, sockets, 7-day purge
+// ====================================================================
+
+// Auto-create chat tables + indexes on init.
+(async function initChatTables() {
+  try {
+    await pool.query(`CREATE TABLE IF NOT EXISTS chat_groups (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      kind TEXT NOT NULL CHECK (kind IN ('auto','custom')),
+      scope_type TEXT,
+      scope_value TEXT,
+      created_by_emp_id TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )`);
+    await pool.query(`CREATE TABLE IF NOT EXISTS chat_group_members (
+      group_id TEXT REFERENCES chat_groups(id) ON DELETE CASCADE,
+      emp_id TEXT NOT NULL,
+      joined_at TIMESTAMPTZ DEFAULT NOW(),
+      PRIMARY KEY (group_id, emp_id)
+    )`);
+    await pool.query(`CREATE TABLE IF NOT EXISTS chat_messages (
+      id BIGSERIAL PRIMARY KEY,
+      sender_emp_id TEXT NOT NULL,
+      thread_key TEXT NOT NULL,
+      body TEXT,
+      sent_at TIMESTAMPTZ DEFAULT NOW(),
+      read_by_json JSONB DEFAULT '{}'::jsonb
+    )`);
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_chat_msg_thread_sent ON chat_messages(thread_key, sent_at DESC)");
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_chat_msg_sender ON chat_messages(sender_emp_id)");
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_chat_grp_member_emp ON chat_group_members(emp_id)");
+    console.log('chat_* tables ready');
+  } catch (err) {
+    console.log('chat init skipped:', err.message);
+  }
+})();
+
+// ----- Helpers: hierarchy + thread membership ------------------------
+
+async function chatGetEmployee(empId) {
+  if (!empId) return null;
+  const r = await pool.query(
+    "SELECT emp_id, full_name, role, branch_name, area_name, division_name, region_name, status FROM employee_master WHERE emp_id = $1 LIMIT 1",
+    [String(empId)]
+  );
+  return r.rows[0] || null;
+}
+
+// Look up the canonical chain for a given level/value.
+// Used to compute upstream membership (e.g., "what region does branch X live in?").
+async function chatCanonicalChain(level, value) {
+  if (!value) return null;
+  let col = null;
+  if (level === 'branch') col = 'branch_name';
+  else if (level === 'area') col = 'area_name';
+  else if (level === 'division') col = 'division_name';
+  else if (level === 'region') col = 'region_name';
+  else return null;
+  const r = await pool.query(
+    `SELECT region_name, division_name, area_name, branch_name FROM employee_master
+       WHERE TRIM(${col}) ILIKE TRIM($1) AND status = 'Working' LIMIT 1`,
+    [String(value)]
+  );
+  return r.rows[0] || null;
+}
+
+function chatParseThread(threadKey) {
+  // Returns {kind, ...details} or null.
+  if (typeof threadKey !== 'string') return null;
+  if (threadKey.startsWith('dm:')) {
+    const parts = threadKey.split(':');
+    if (parts.length !== 3) return null;
+    return { kind: 'dm', a: parts[1], b: parts[2] };
+  }
+  if (threadKey.startsWith('auto:')) {
+    const parts = threadKey.split(':');
+    if (parts.length < 3) return null;
+    return { kind: 'auto', level: parts[1], value: parts.slice(2).join(':') };
+  }
+  if (threadKey.startsWith('custom:')) {
+    return { kind: 'custom', groupId: threadKey };
+  }
+  return null;
+}
+
+// Returns true if emp_id may read/post into this thread.
+async function chatIsMember(empId, threadKey) {
+  const parsed = chatParseThread(threadKey);
+  if (!parsed) return false;
+  const emp = await chatGetEmployee(empId);
+  if (!emp) return false;
+  if (parsed.kind === 'dm') {
+    return String(empId) === parsed.a || String(empId) === parsed.b;
+  }
+  if (parsed.kind === 'auto') {
+    if (String(emp.role || '').toUpperCase() === 'CEO') return true;
+    const v = parsed.value;
+    const norm = (x) => (x == null ? '' : String(x).trim().toUpperCase());
+    if (parsed.level === 'region') {
+      return norm(emp.region_name) === norm(v);
+    }
+    if (parsed.level === 'division') {
+      if (norm(emp.division_name) === norm(v)) return true;
+      const chain = await chatCanonicalChain('division', v);
+      if (!chain) return false;
+      const role = norm(emp.role);
+      return role === 'RM' && norm(emp.region_name) === norm(chain.region_name);
+    }
+    if (parsed.level === 'area') {
+      if (norm(emp.area_name) === norm(v)) return true;
+      const chain = await chatCanonicalChain('area', v);
+      if (!chain) return false;
+      const role = norm(emp.role);
+      if (role === 'DM' || role === 'DVM') {
+        return norm(emp.division_name) === norm(chain.division_name);
+      }
+      if (role === 'RM') {
+        return norm(emp.region_name) === norm(chain.region_name);
+      }
+      return false;
+    }
+    if (parsed.level === 'branch') {
+      if (norm(emp.branch_name) === norm(v)) return true;
+      const chain = await chatCanonicalChain('branch', v);
+      if (!chain) return false;
+      const role = norm(emp.role);
+      if (role === 'AM') return norm(emp.area_name) === norm(chain.area_name);
+      if (role === 'DM' || role === 'DVM') {
+        return norm(emp.division_name) === norm(chain.division_name);
+      }
+      if (role === 'RM') {
+        return norm(emp.region_name) === norm(chain.region_name);
+      }
+      return false;
+    }
+    return false;
+  }
+  if (parsed.kind === 'custom') {
+    const r = await pool.query(
+      'SELECT 1 FROM chat_group_members WHERE group_id = $1 AND emp_id = $2 LIMIT 1',
+      [parsed.groupId, String(empId)]
+    );
+    return r.rows.length > 0;
+  }
+  return false;
+}
+
+// Recipients of a post into thread (including the sender, the caller filters).
+async function chatThreadRecipients(threadKey) {
+  const parsed = chatParseThread(threadKey);
+  if (!parsed) return [];
+  if (parsed.kind === 'dm') {
+    return [parsed.a, parsed.b];
+  }
+  if (parsed.kind === 'auto') {
+    const v = parsed.value;
+    if (parsed.level === 'region') {
+      const r = await pool.query(
+        "SELECT emp_id FROM employee_master WHERE (TRIM(region_name) ILIKE TRIM($1) AND status='Working') OR UPPER(role) = 'CEO'",
+        [v]
+      );
+      return r.rows.map((x) => x.emp_id);
+    }
+    if (parsed.level === 'division') {
+      const chain = await chatCanonicalChain('division', v);
+      const params = [v];
+      let extra = '';
+      if (chain) {
+        params.push(chain.region_name || '');
+        extra = " OR (UPPER(role)='RM' AND TRIM(region_name) ILIKE TRIM($2))";
+      }
+      const r = await pool.query(
+        `SELECT emp_id FROM employee_master WHERE
+           (TRIM(division_name) ILIKE TRIM($1) AND status='Working')${extra}
+           OR UPPER(role)='CEO'`,
+        params
+      );
+      return r.rows.map((x) => x.emp_id);
+    }
+    if (parsed.level === 'area') {
+      const chain = await chatCanonicalChain('area', v);
+      const params = [v];
+      let extra = '';
+      if (chain) {
+        params.push(chain.division_name || '', chain.region_name || '');
+        extra =
+          " OR (UPPER(role) IN ('DM','DVM') AND TRIM(division_name) ILIKE TRIM($2))" +
+          " OR (UPPER(role)='RM' AND TRIM(region_name) ILIKE TRIM($3))";
+      }
+      const r = await pool.query(
+        `SELECT emp_id FROM employee_master WHERE
+           (TRIM(area_name) ILIKE TRIM($1) AND status='Working')${extra}
+           OR UPPER(role)='CEO'`,
+        params
+      );
+      return r.rows.map((x) => x.emp_id);
+    }
+    if (parsed.level === 'branch') {
+      const chain = await chatCanonicalChain('branch', v);
+      const params = [v];
+      let extra = '';
+      if (chain) {
+        params.push(
+          chain.area_name || '',
+          chain.division_name || '',
+          chain.region_name || ''
+        );
+        extra =
+          " OR (UPPER(role)='AM' AND TRIM(area_name) ILIKE TRIM($2))" +
+          " OR (UPPER(role) IN ('DM','DVM') AND TRIM(division_name) ILIKE TRIM($3))" +
+          " OR (UPPER(role)='RM' AND TRIM(region_name) ILIKE TRIM($4))";
+      }
+      const r = await pool.query(
+        `SELECT emp_id FROM employee_master WHERE
+           (TRIM(branch_name) ILIKE TRIM($1) AND status='Working')${extra}
+           OR UPPER(role)='CEO'`,
+        params
+      );
+      return r.rows.map((x) => x.emp_id);
+    }
+    return [];
+  }
+  if (parsed.kind === 'custom') {
+    const r = await pool.query(
+      'SELECT emp_id FROM chat_group_members WHERE group_id = $1',
+      [parsed.groupId]
+    );
+    return r.rows.map((x) => x.emp_id);
+  }
+  return [];
+}
+
+function chatNanoid(n) {
+  return crypto.randomBytes(Math.ceil(n / 2)).toString('hex').slice(0, n);
+}
+
+// ----- Endpoints -----------------------------------------------------
+
+// GET /api/chat/scopes?emp_id=ID
+app.get('/api/chat/scopes', async (req, res) => {
+  try {
+    const empId = String(req.query.emp_id || '').trim();
+    if (!empId) return res.status(400).json({ error: 'emp_id required' });
+    const emp = await chatGetEmployee(empId);
+    if (!emp) return res.status(404).json({ error: 'Employee not found' });
+    const role = String(emp.role || '').toUpperCase();
+    const out = { regions: [], divisions: [], areas: [], branches: [] };
+    // Own chain.
+    if (emp.region_name) out.regions.push(emp.region_name);
+    if (emp.division_name) out.divisions.push(emp.division_name);
+    if (emp.area_name) out.areas.push(emp.area_name);
+    if (emp.branch_name) out.branches.push(emp.branch_name);
+    // Downstream scope.
+    let extra = null;
+    if (role === 'CEO') {
+      extra = await pool.query(
+        "SELECT DISTINCT region_name, division_name, area_name, branch_name FROM employee_master WHERE status='Working'"
+      );
+    } else if (role === 'RM') {
+      extra = await pool.query(
+        "SELECT DISTINCT region_name, division_name, area_name, branch_name FROM employee_master WHERE status='Working' AND TRIM(region_name) ILIKE TRIM($1)",
+        [emp.region_name || '']
+      );
+    } else if (role === 'DM' || role === 'DVM') {
+      extra = await pool.query(
+        "SELECT DISTINCT region_name, division_name, area_name, branch_name FROM employee_master WHERE status='Working' AND TRIM(division_name) ILIKE TRIM($1)",
+        [emp.division_name || '']
+      );
+    } else if (role === 'AM') {
+      extra = await pool.query(
+        "SELECT DISTINCT region_name, division_name, area_name, branch_name FROM employee_master WHERE status='Working' AND TRIM(area_name) ILIKE TRIM($1)",
+        [emp.area_name || '']
+      );
+    }
+    if (extra) {
+      for (const r of extra.rows) {
+        if (r.region_name && !out.regions.includes(r.region_name)) out.regions.push(r.region_name);
+        if (r.division_name && !out.divisions.includes(r.division_name)) out.divisions.push(r.division_name);
+        if (r.area_name && !out.areas.includes(r.area_name)) out.areas.push(r.area_name);
+        if (r.branch_name && !out.branches.includes(r.branch_name)) out.branches.push(r.branch_name);
+      }
+    }
+    out.regions.sort();
+    out.divisions.sort();
+    out.areas.sort();
+    out.branches.sort();
+    res.json(out);
+  } catch (err) {
+    console.error('chat scopes error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/chat/threads?emp_id=ID
+// Returns recent threads with last message + unread count + member count.
+app.get('/api/chat/threads', async (req, res) => {
+  try {
+    const empId = String(req.query.emp_id || '').trim();
+    if (!empId) return res.status(400).json({ error: 'emp_id required' });
+    // Pull every distinct thread that has a message and where emp is a member.
+    // To avoid scanning all messages, we scope by:
+    //   - DMs that include emp_id
+    //   - custom groups emp_id is a member of
+    //   - auto:* — we list those that have at least one message in emp's scope set
+    // Easier: pull all distinct threads that have messages + filter via chatIsMember.
+    const rows = await pool.query(
+      `SELECT thread_key, COUNT(*) AS msg_count,
+              MAX(sent_at) AS last_sent_at
+         FROM chat_messages
+         GROUP BY thread_key
+         ORDER BY MAX(sent_at) DESC
+         LIMIT 500`
+    );
+    const out = [];
+    for (const r of rows.rows) {
+      const tk = r.thread_key;
+      const ok = await chatIsMember(empId, tk);
+      if (!ok) continue;
+      // Last message details.
+      const last = await pool.query(
+        `SELECT m.id, m.body, m.sent_at, m.sender_emp_id, m.read_by_json,
+                em.full_name AS sender_name
+           FROM chat_messages m
+           LEFT JOIN employee_master em ON em.emp_id = m.sender_emp_id
+          WHERE m.thread_key = $1
+          ORDER BY m.sent_at DESC LIMIT 1`,
+        [tk]
+      );
+      const lastRow = last.rows[0] || null;
+      // Unread = messages newer than last read marker for this emp.
+      const unreadRes = await pool.query(
+        `SELECT COUNT(*)::int AS n FROM chat_messages
+          WHERE thread_key = $1
+            AND sender_emp_id <> $2
+            AND id > COALESCE((read_by_json->>$2)::bigint, 0)`,
+        [tk, String(empId)]
+      );
+      const unreadCount = unreadRes.rows[0]?.n || 0;
+      // Title + member count.
+      let title = tk;
+      let kind = 'auto';
+      const parsed = chatParseThread(tk);
+      let memberCount = 0;
+      if (parsed) {
+        kind = parsed.kind;
+        if (parsed.kind === 'dm') {
+          const otherId = parsed.a === String(empId) ? parsed.b : parsed.a;
+          const other = await chatGetEmployee(otherId);
+          title = other ? (other.full_name || otherId) : otherId;
+          memberCount = 2;
+        } else if (parsed.kind === 'auto') {
+          title = parsed.value;
+          const recip = await chatThreadRecipients(tk);
+          memberCount = recip.length;
+        } else if (parsed.kind === 'custom') {
+          const grp = await pool.query(
+            'SELECT name FROM chat_groups WHERE id=$1 LIMIT 1',
+            [parsed.groupId]
+          );
+          title = grp.rows[0]?.name || tk;
+          const cnt = await pool.query(
+            'SELECT COUNT(*)::int AS n FROM chat_group_members WHERE group_id=$1',
+            [parsed.groupId]
+          );
+          memberCount = cnt.rows[0]?.n || 0;
+        }
+      }
+      out.push({
+        thread_key: tk,
+        title,
+        kind,
+        last_message: lastRow
+          ? {
+              id: Number(lastRow.id),
+              body: lastRow.body,
+              sent_at: lastRow.sent_at,
+              sender_emp_id: lastRow.sender_emp_id,
+              sender_name: lastRow.sender_name,
+            }
+          : null,
+        unread_count: unreadCount,
+        member_count: memberCount,
+      });
+      if (out.length >= 100) break;
+    }
+    res.json({ threads: out, count: out.length });
+  } catch (err) {
+    console.error('chat threads error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/chat/messages?thread_key=K&emp_id=ID&limit=50&before_id=N
+app.get('/api/chat/messages', async (req, res) => {
+  try {
+    const threadKey = String(req.query.thread_key || '').trim();
+    const empId = String(req.query.emp_id || '').trim();
+    const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
+    const beforeId = req.query.before_id ? parseInt(req.query.before_id, 10) : null;
+    if (!threadKey || !empId) {
+      return res.status(400).json({ error: 'thread_key and emp_id required' });
+    }
+    const ok = await chatIsMember(empId, threadKey);
+    if (!ok) return res.status(403).json({ error: 'Not a member of this thread' });
+    const params = [threadKey];
+    let where = 'thread_key = $1';
+    if (beforeId) {
+      params.push(beforeId);
+      where += ' AND id < $2';
+    }
+    const sql = `SELECT m.id, m.sender_emp_id, m.thread_key, m.body, m.sent_at, m.read_by_json,
+                        em.full_name AS sender_name
+                   FROM chat_messages m
+                   LEFT JOIN employee_master em ON em.emp_id = m.sender_emp_id
+                  WHERE ${where}
+                  ORDER BY m.id DESC
+                  LIMIT ${limit}`;
+    const r = await pool.query(sql, params);
+    res.json({ messages: r.rows, count: r.rows.length });
+  } catch (err) {
+    console.error('chat messages error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Internal: insert a message + emit socket events. Returns the inserted row.
+async function chatPostInternal({ senderEmpId, threadKey, body }) {
+  if (!senderEmpId || !threadKey) {
+    const e = new Error('sender_emp_id and thread_key required');
+    e.status = 400;
+    throw e;
+  }
+  if (!body || !String(body).trim()) {
+    const e = new Error('body required');
+    e.status = 400;
+    throw e;
+  }
+  const ok = await chatIsMember(senderEmpId, threadKey);
+  if (!ok) {
+    const e = new Error('Not a member of this thread');
+    e.status = 403;
+    throw e;
+  }
+  const ins = await pool.query(
+    `INSERT INTO chat_messages (sender_emp_id, thread_key, body)
+       VALUES ($1, $2, $3)
+       RETURNING id, sender_emp_id, thread_key, body, sent_at, read_by_json`,
+    [String(senderEmpId), threadKey, String(body).trim()]
+  );
+  const row = ins.rows[0];
+  // Sender display name for the broadcast.
+  const senderRes = await pool.query(
+    'SELECT full_name FROM employee_master WHERE emp_id = $1 LIMIT 1',
+    [String(senderEmpId)]
+  );
+  row.sender_name = senderRes.rows[0]?.full_name || null;
+  // Broadcast to recipients (including sender for confirmation).
+  const recipients = await chatThreadRecipients(threadKey);
+  const seen = new Set();
+  for (const rid of recipients) {
+    if (!rid) continue;
+    if (seen.has(String(rid))) continue;
+    seen.add(String(rid));
+    io.to('emp:' + String(rid)).emit('chat:new', row);
+  }
+  return row;
+}
+
+// POST /api/chat/send
+app.post('/api/chat/send', async (req, res) => {
+  try {
+    const { sender_emp_id, thread_key, body } = req.body || {};
+    const row = await chatPostInternal({
+      senderEmpId: sender_emp_id,
+      threadKey: thread_key,
+      body,
+    });
+    res.json(row);
+  } catch (err) {
+    console.error('chat send error:', err);
+    res.status(err.status || 500).json({ error: err.message });
+  }
+});
+
+// POST /api/chat/read
+app.post('/api/chat/read', async (req, res) => {
+  try {
+    const { emp_id, thread_key, up_to_message_id } = req.body || {};
+    if (!emp_id || !thread_key || up_to_message_id === undefined) {
+      return res.status(400).json({ error: 'emp_id, thread_key, up_to_message_id required' });
+    }
+    const ok = await chatIsMember(emp_id, thread_key);
+    if (!ok) return res.status(403).json({ error: 'Not a member of this thread' });
+    // jsonb_set the emp_id key on the latest message — but we want each message
+    // up to up_to_message_id to have read_by_json[emp_id] = id.
+    await pool.query(
+      `UPDATE chat_messages
+          SET read_by_json = jsonb_set(read_by_json, ARRAY[$1::text], to_jsonb($2::bigint), true)
+        WHERE thread_key = $3
+          AND id <= $2
+          AND COALESCE((read_by_json->>$1)::bigint, 0) < $2`,
+      [String(emp_id), Number(up_to_message_id), String(thread_key)]
+    );
+    // Notify thread members so other clients can update tick state.
+    const recipients = await chatThreadRecipients(thread_key);
+    const seen = new Set();
+    for (const rid of recipients) {
+      if (!rid) continue;
+      if (seen.has(String(rid))) continue;
+      seen.add(String(rid));
+      io.to('emp:' + String(rid)).emit('chat:read', {
+        thread_key,
+        emp_id: String(emp_id),
+        up_to_message_id: Number(up_to_message_id),
+      });
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('chat read error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/chat/groups — create custom group.
+app.post('/api/chat/groups', async (req, res) => {
+  try {
+    const { created_by_emp_id, name, member_emp_ids } = req.body || {};
+    if (!created_by_emp_id || !name || !Array.isArray(member_emp_ids)) {
+      return res.status(400).json({ error: 'created_by_emp_id, name, member_emp_ids[] required' });
+    }
+    const id = 'custom:' + chatNanoid(10);
+    await pool.query(
+      `INSERT INTO chat_groups (id, name, kind, created_by_emp_id) VALUES ($1, $2, 'custom', $3)`,
+      [id, String(name).trim(), String(created_by_emp_id)]
+    );
+    // Always include the creator as a member.
+    const members = new Set(member_emp_ids.map((x) => String(x)));
+    members.add(String(created_by_emp_id));
+    for (const mid of members) {
+      if (!mid) continue;
+      await pool.query(
+        'INSERT INTO chat_group_members (group_id, emp_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+        [id, mid]
+      );
+    }
+    res.json({
+      id,
+      name: String(name).trim(),
+      kind: 'custom',
+      created_by_emp_id: String(created_by_emp_id),
+      member_emp_ids: Array.from(members),
+    });
+  } catch (err) {
+    console.error('chat groups create error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/chat/groups/:id/members — add members.
+app.post('/api/chat/groups/:id/members', async (req, res) => {
+  try {
+    const id = String(req.params.id || '').trim();
+    const { emp_ids } = req.body || {};
+    if (!id || !Array.isArray(emp_ids)) {
+      return res.status(400).json({ error: 'group id + emp_ids[] required' });
+    }
+    const grp = await pool.query('SELECT id FROM chat_groups WHERE id = $1 LIMIT 1', [id]);
+    if (grp.rows.length === 0) return res.status(404).json({ error: 'Group not found' });
+    let added = 0;
+    for (const mid of emp_ids) {
+      if (!mid) continue;
+      const r = await pool.query(
+        'INSERT INTO chat_group_members (group_id, emp_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+        [id, String(mid)]
+      );
+      if (r.rowCount > 0) added += 1;
+    }
+    res.json({ id, added });
+  } catch (err) {
+    console.error('chat group add members error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/chat/employees?q=&emp_id=&limit=50 — search employee_master.
+app.get('/api/chat/employees', async (req, res) => {
+  try {
+    const q = String(req.query.q || '').trim();
+    const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
+    const params = [];
+    let where = "status = 'Working'";
+    if (q) {
+      params.push('%' + q + '%');
+      where +=
+        " AND (full_name ILIKE $1 OR branch_name ILIKE $1 OR role ILIKE $1 OR emp_id ILIKE $1 OR mobile ILIKE $1)";
+    }
+    const sql = `SELECT emp_id, full_name, role, branch_name, area_name, division_name, region_name, mobile
+                   FROM employee_master
+                  WHERE ${where}
+                  ORDER BY full_name
+                  LIMIT ${limit}`;
+    const r = await pool.query(sql, params);
+    res.json({ employees: r.rows, count: r.rows.length });
+  } catch (err) {
+    console.error('chat employees search error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ----- socket.io: chat namespace on the main io server ---------------
+io.on('connection', (socket) => {
+  socket.on('chat:join', (data) => {
+    try {
+      const empId = data && data.emp_id ? String(data.emp_id) : '';
+      if (!empId) return;
+      socket.data.empId = empId;
+      socket.join('emp:' + empId);
+    } catch (e) {
+      console.error('chat:join error:', e.message);
+    }
+  });
+
+  socket.on('chat:send', async (data, ack) => {
+    try {
+      const row = await chatPostInternal({
+        senderEmpId: data && data.sender_emp_id,
+        threadKey: data && data.thread_key,
+        body: data && data.body,
+      });
+      if (typeof ack === 'function') ack({ ok: true, message: row });
+    } catch (e) {
+      if (typeof ack === 'function') ack({ ok: false, error: e.message });
+    }
+  });
+
+  socket.on('chat:read', async (data) => {
+    try {
+      const empId = data && data.emp_id;
+      const tk = data && data.thread_key;
+      const upTo = data && data.up_to_message_id;
+      if (!empId || !tk || upTo === undefined) return;
+      const ok = await chatIsMember(empId, tk);
+      if (!ok) return;
+      await pool.query(
+        `UPDATE chat_messages
+            SET read_by_json = jsonb_set(read_by_json, ARRAY[$1::text], to_jsonb($2::bigint), true)
+          WHERE thread_key = $3
+            AND id <= $2
+            AND COALESCE((read_by_json->>$1)::bigint, 0) < $2`,
+        [String(empId), Number(upTo), String(tk)]
+      );
+      const recipients = await chatThreadRecipients(tk);
+      const seen = new Set();
+      for (const rid of recipients) {
+        if (!rid || seen.has(String(rid))) continue;
+        seen.add(String(rid));
+        io.to('emp:' + String(rid)).emit('chat:read', {
+          thread_key: tk,
+          emp_id: String(empId),
+          up_to_message_id: Number(upTo),
+        });
+      }
+    } catch (e) {
+      console.error('chat:read socket error:', e.message);
+    }
+  });
+});
+
+// Hourly purge job: delete chat messages older than 7 days.
+setInterval(async () => {
+  try {
+    const r = await pool.query(
+      "DELETE FROM chat_messages WHERE sent_at < NOW() - INTERVAL '7 days'"
+    );
+    if (r.rowCount && r.rowCount > 0) {
+      console.log('chat_messages purge: removed ' + r.rowCount + ' rows');
+    }
+  } catch (err) {
+    console.error('chat_messages purge error:', err.message);
+  }
+}, 60 * 60 * 1000);
+
