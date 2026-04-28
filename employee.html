@@ -126,6 +126,13 @@
     letter-spacing: 0.3px;
   }
 </style>
+
+<!-- Leaflet (Live Tracking tab) -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
+<script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script defer src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 </head>
 <body class="emp-dark">
 
@@ -208,6 +215,10 @@
       <a href="javascript:void(0)" class="desktop-sidebar-item" data-dtab="dailyreports" onclick="if(typeof switchEmpTab==='function')switchEmpTab('dailyreports')">
         <span class="desktop-sidebar-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
         <span class="desktop-sidebar-label">Daily Reports</span>
+      </a>
+      <a href="javascript:void(0)" class="desktop-sidebar-item" data-dtab="livetracking" id="liveTrackingSidebarItem" onclick="if(typeof switchEmpTab==='function')switchEmpTab('livetracking')">
+        <span class="desktop-sidebar-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
+        <span class="desktop-sidebar-label">Live Tracking</span>
       </a>
       <a href="javascript:void(0)" class="desktop-sidebar-item editbranch-nav-item" data-dtab="editbranch" onclick="if(typeof switchEmpTab==='function')switchEmpTab('editbranch')" style="display:none">
         <span class="desktop-sidebar-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span>
@@ -1069,6 +1080,598 @@
       <div id="no-data" class="hidden" style="text-align:center;padding:80px 20px;">
         <p style="color:#64748B;font-size:14px;">No report data available.<br>Contact your administrator.</p>
       </div>
+    </div>
+
+    <!-- Live Tracking Tab (CEO/RM/SM/DM/DvM/AM/BM only) -->
+    <div class="emp-tab-content" id="liveTrackingTab">
+      <style>
+        #liveTrackingTab { padding: 0 8px; }
+        #liveTrackingTab .lt-wrap { max-width: 1400px; margin: 0 auto; }
+        #liveTrackingTab .lt-topbar { display:flex; flex-direction:column; gap:12px; margin-bottom:14px; }
+        #liveTrackingTab .lt-title { font-size:20px; font-weight:700; color:var(--text,#1E293B); margin:0; }
+        #liveTrackingTab .lt-subtitle { font-size:13px; color:var(--muted,#64748B); margin:4px 0 0; }
+        #liveTrackingTab .lt-controls { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+        #liveTrackingTab .lt-pills { display:flex; gap:6px; flex-wrap:wrap; }
+        #liveTrackingTab .lt-pill { padding:6px 12px; border-radius:999px; border:1px solid var(--border,#E2E8F0); background:var(--surface,#fff); font-size:12px; font-weight:600; color:var(--text,#334155); cursor:pointer; transition:background .15s, border-color .15s, color .15s; display:inline-flex; align-items:center; gap:5px; }
+        #liveTrackingTab .lt-pill:hover { border-color:#059669; }
+        #liveTrackingTab .lt-pill.active { background:#059669; color:#fff; border-color:#059669; }
+        #liveTrackingTab .lt-pill.active .lt-dot { box-shadow:0 0 0 1px #fff; }
+        #liveTrackingTab .lt-refresh { padding:7px 12px; border-radius:10px; border:1px solid var(--border,#E2E8F0); background:var(--surface,#fff); color:#059669; font-size:12px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:background .15s, border-color .15s; }
+        #liveTrackingTab .lt-refresh:hover { background:#F0FDF4; border-color:#059669; }
+        #liveTrackingTab .lt-refresh:disabled { opacity:.55; cursor:wait; }
+        #liveTrackingTab .lt-refresh svg { width:14px; height:14px; }
+        #liveTrackingTab .lt-refresh.spinning svg { animation: ltSpin 1s linear infinite; }
+        #liveTrackingTab .lt-fetched { font-size:11px; color:var(--muted,#94A3B8); white-space:nowrap; }
+        #liveTrackingTab .lt-search { flex:1; min-width:180px; padding:8px 12px; border:1px solid var(--border,#E2E8F0); border-radius:10px; font-size:13px; outline:none; font-family:inherit; background:var(--surface,#fff); color:var(--text,#1E293B); }
+        #liveTrackingTab .lt-search:focus { border-color:#059669; box-shadow:0 0 0 3px rgba(5,150,105,.12); }
+        #liveTrackingTab .lt-stats { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin-bottom:14px; }
+        #liveTrackingTab .lt-stat-card { background:var(--surface,#fff); border:1px solid var(--border,#E2E8F0); border-radius:12px; padding:14px 16px; box-shadow:0 1px 4px rgba(0,0,0,.03); }
+        #liveTrackingTab .lt-stat-label { font-size:11px; font-weight:600; color:var(--muted,#64748B); text-transform:uppercase; letter-spacing:.5px; display:flex; align-items:center; gap:6px; }
+        #liveTrackingTab .lt-stat-value { font-size:22px; font-weight:700; color:var(--text,#1E293B); margin-top:4px; }
+        #liveTrackingTab .lt-dot { display:inline-block; width:9px; height:9px; border-radius:50%; }
+        #liveTrackingTab .lt-dot.live { background:#10B981; }
+        #liveTrackingTab .lt-dot.last { background:#F59E0B; }
+        #liveTrackingTab .lt-dot.inactive { background:#94A3B8; }
+        /* Two-column desktop: 60% map (sticky) / 40% list */
+        #liveTrackingTab .lt-grid { display:grid; grid-template-columns: 60fr 40fr; gap:14px; align-items:start; }
+        #liveTrackingTab .lt-col-map { position:sticky; top:12px; }
+        #liveTrackingTab .lt-card { background:var(--surface,#fff); border:1px solid var(--border,#E2E8F0); border-radius:12px; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,.03); }
+        #liveTrackingTab #ltMap { width:100%; height:560px; background:#EEF2F6; }
+        #liveTrackingTab .lt-list-head { padding:12px 14px; border-bottom:1px solid var(--border,#F1F5F9); display:flex; justify-content:space-between; align-items:center; }
+        #liveTrackingTab .lt-list-title { font-size:14px; font-weight:700; color:var(--text,#1E293B); }
+        #liveTrackingTab .lt-list-meta { font-size:11px; color:var(--muted,#94A3B8); }
+        #liveTrackingTab .lt-list-scroll { max-height:512px; overflow:auto; }
+        #liveTrackingTab table.lt-tbl { width:100%; border-collapse:collapse; font-size:13px; }
+        #liveTrackingTab table.lt-tbl thead th { position:sticky; top:0; z-index:3; background:#F8FAFC; padding:10px 12px; text-align:left; font-size:11px; font-weight:700; color:var(--muted,#64748B); text-transform:uppercase; letter-spacing:.5px; border-bottom:1px solid var(--border,#E2E8F0); cursor:pointer; user-select:none; white-space:nowrap; }
+        #liveTrackingTab table.lt-tbl thead th:hover { color:#059669; background:#F1F5F9; }
+        #liveTrackingTab table.lt-tbl thead th .lt-arrow { display:inline-block; margin-left:4px; opacity:.35; font-size:10px; }
+        #liveTrackingTab table.lt-tbl thead th.sorted .lt-arrow { opacity:1; color:#059669; }
+        #liveTrackingTab table.lt-tbl tbody td { padding:10px 12px; border-bottom:1px solid #F1F5F9; color:var(--text,#1E293B); vertical-align:middle; }
+        #liveTrackingTab table.lt-tbl tbody tr { cursor:pointer; transition:background .12s; }
+        #liveTrackingTab table.lt-tbl tbody tr:hover { background:#F0FDF4; }
+        #liveTrackingTab table.lt-tbl tbody tr.lt-hl { background:#FEF3C7 !important; animation: ltFlash 1.6s ease-out 1; }
+        #liveTrackingTab .lt-name { font-weight:600; color:#0F172A; }
+        #liveTrackingTab .lt-sub { font-size:11px; color:var(--muted,#94A3B8); margin-top:1px; }
+        #liveTrackingTab .lt-badge { display:inline-flex; align-items:center; gap:5px; padding:3px 8px; border-radius:999px; font-size:11px; font-weight:600; }
+        #liveTrackingTab .lt-badge.live { background:#D1FAE5; color:#047857; }
+        #liveTrackingTab .lt-badge.last { background:#FEF3C7; color:#B45309; }
+        #liveTrackingTab .lt-badge.inactive { background:#E2E8F0; color:#475569; }
+        #liveTrackingTab .lt-empty { padding:36px 16px; text-align:center; color:var(--muted,#94A3B8); font-size:13px; }
+        #liveTrackingTab .lt-popup { font-size:13px; line-height:1.45; min-width:180px; }
+        #liveTrackingTab .lt-popup b { color:#0F172A; }
+        #liveTrackingTab .lt-popup .lt-call { display:inline-block; margin-top:6px; padding:5px 10px; background:#059669; color:#fff; border-radius:8px; text-decoration:none; font-weight:600; font-size:12px; }
+
+        /* Pulsing live marker (L.divIcon) */
+        #liveTrackingTab .lt-mk { position:relative; width:16px; height:16px; }
+        #liveTrackingTab .lt-mk-core { position:absolute; left:50%; top:50%; width:14px; height:14px; margin:-7px 0 0 -7px; border-radius:50%; border:2px solid #fff; box-shadow:0 0 0 1px rgba(0,0,0,.18); }
+        #liveTrackingTab .lt-mk.live .lt-mk-core { background:#10B981; }
+        #liveTrackingTab .lt-mk.last .lt-mk-core { background:#F59E0B; }
+        #liveTrackingTab .lt-mk.live::before, #liveTrackingTab .lt-mk.live::after {
+          content:''; position:absolute; left:50%; top:50%; width:14px; height:14px; margin:-7px 0 0 -7px;
+          border-radius:50%; background:rgba(16,185,129,.45); transform-origin:center;
+          animation: ltPulse 1.8s ease-out infinite;
+        }
+        #liveTrackingTab .lt-mk.live::after { animation-delay: .9s; }
+        @keyframes ltPulse {
+          0%   { transform:scale(.5); opacity:.7; }
+          70%  { transform:scale(2.4); opacity:0; }
+          100% { transform:scale(2.4); opacity:0; }
+        }
+        @keyframes ltSpin { from { transform:rotate(0); } to { transform:rotate(360deg); } }
+        @keyframes ltFlash {
+          0%   { background:#FDE68A !important; }
+          100% { background:#FEF3C7 !important; }
+        }
+
+        @media (max-width: 980px) {
+          #liveTrackingTab .lt-grid { grid-template-columns:1fr; }
+          #liveTrackingTab .lt-col-map { position:static; }
+          #liveTrackingTab #ltMap { height:340px; }
+          #liveTrackingTab .lt-list-scroll { max-height:420px; }
+          #liveTrackingTab .lt-stat-value { font-size:18px; }
+        }
+      </style>
+
+      <div class="lt-wrap">
+        <div class="lt-topbar">
+          <div>
+            <h2 class="lt-title">Live Tracking</h2>
+            <p class="lt-subtitle">Monitor employees in real time</p>
+          </div>
+          <div class="lt-controls">
+            <div class="lt-pills" id="ltPills">
+              <button type="button" class="lt-pill active" data-flt="all">All</button>
+              <button type="button" class="lt-pill" data-flt="live"><span class="lt-dot live"></span> Active</button>
+              <button type="button" class="lt-pill" data-flt="last_known"><span class="lt-dot last"></span> Last Known</button>
+              <button type="button" class="lt-pill" data-flt="inactive"><span class="lt-dot inactive"></span> Inactive</button>
+            </div>
+            <button type="button" id="ltRefresh" class="lt-refresh" title="Fetch latest locations">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/><path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"/></svg>
+              Refresh
+            </button>
+            <span class="lt-fetched" id="ltFetched">never updated</span>
+            <input id="ltSearch" class="lt-search" type="text" placeholder="Search by name or branch…" autocomplete="off"/>
+          </div>
+        </div>
+
+        <div class="lt-stats">
+          <div class="lt-stat-card">
+            <div class="lt-stat-label"><span class="lt-dot live"></span> Active</div>
+            <div class="lt-stat-value" id="ltStatLive">0</div>
+          </div>
+          <div class="lt-stat-card">
+            <div class="lt-stat-label"><span class="lt-dot last"></span> Last Known</div>
+            <div class="lt-stat-value" id="ltStatLast">0</div>
+          </div>
+          <div class="lt-stat-card">
+            <div class="lt-stat-label"><span class="lt-dot inactive"></span> Inactive</div>
+            <div class="lt-stat-value" id="ltStatInactive">0</div>
+          </div>
+        </div>
+
+        <div class="lt-grid">
+          <div class="lt-col-map">
+            <div class="lt-card">
+              <div id="ltMap"></div>
+            </div>
+          </div>
+          <div class="lt-col-list">
+            <div class="lt-card">
+              <div class="lt-list-head">
+                <div class="lt-list-title">Employees</div>
+                <div class="lt-list-meta" id="ltListMeta">—</div>
+              </div>
+              <div class="lt-list-scroll">
+                <table class="lt-tbl" id="ltList">
+                  <thead>
+                    <tr>
+                      <th data-sort="name">Name<span class="lt-arrow">▾</span></th>
+                      <th data-sort="role">Role<span class="lt-arrow">▾</span></th>
+                      <th data-sort="branch">Branch<span class="lt-arrow">▾</span></th>
+                      <th data-sort="recorded_at" class="sorted">Last Updated<span class="lt-arrow">▾</span></th>
+                      <th data-sort="status">Status<span class="lt-arrow">▾</span></th>
+                    </tr>
+                  </thead>
+                  <tbody id="ltListBody">
+                    <tr><td class="lt-empty" colspan="5">Loading…</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <script>
+      (function(){
+        // Roles backend /api/location/live accepts (SM aliased to RM on backend).
+        var ALLOWED_ROLES = ['CEO','RM','SM','DM','DvM','AM','BM'];
+        var POLL_MS = 30000;
+        var CLUSTER_AT_OR_BELOW_ZOOM = 9; // cluster when zoom <= 9 → disable at zoom 10+
+
+        var _ltMap = null;
+        var _ltMarkers = {};       // emp_id → marker
+        var _ltMarkerLayer = null; // L.markerClusterGroup or L.layerGroup
+        var _ltUseCluster = false;
+        var _ltData = [];          // last fetched employees array
+        var _ltFilter = 'all';
+        var _ltQuery = '';
+        var _ltSortKey = 'recorded_at';
+        var _ltSortDir = -1;       // -1 desc, 1 asc
+        var _ltTimer = null;
+        var _ltTickTimer = null;
+        var _ltLastFetched = 0;
+        var _ltFetching = false;
+        var _ltInited = false;
+        var _ltObserver = null;
+
+        function _ltSession(){
+          try { return (window.getEmployeeSession ? getEmployeeSession() : {}) || {}; } catch(e) { return {}; }
+        }
+        function _ltRole(){
+          var s = _ltSession();
+          return (s.role || localStorage.getItem('roleName') || 'CEO').toString();
+        }
+        function _ltLocation(){
+          var s = _ltSession();
+          return (s.location || localStorage.getItem('roleLocation') || '').toString();
+        }
+
+        function _ltApplyRoleGate(){
+          var role = _ltRole();
+          var allowed = ALLOWED_ROLES.indexOf(role) !== -1;
+          var d = document.getElementById('liveTrackingSidebarItem');
+          var m = document.getElementById('liveTrackingMobNav');
+          if (d) d.style.display = allowed ? '' : 'none';
+          if (m) m.style.display = allowed ? '' : 'none';
+          return allowed;
+        }
+
+        function _ltRelative(iso){
+          if (!iso) return '—';
+          var t = new Date(iso).getTime();
+          if (!t || isNaN(t)) return '—';
+          var diff = Math.max(0, (Date.now() - t) / 1000);
+          if (diff < 45) return 'just now';
+          if (diff < 90) return '1 min ago';
+          if (diff < 3600) return Math.floor(diff/60) + ' min ago';
+          if (diff < 5400) return '1 hour ago';
+          if (diff < 86400) return Math.floor(diff/3600) + ' hours ago';
+          if (diff < 172800) return 'yesterday';
+          if (diff < 2592000) return Math.floor(diff/86400) + ' days ago';
+          if (diff < 5184000) return '1 month ago';
+          return Math.floor(diff/2592000) + ' months ago';
+        }
+
+        function _ltFetchedLabel(){
+          if (!_ltLastFetched) return 'never updated';
+          var diff = Math.max(0, Math.floor((Date.now() - _ltLastFetched) / 1000));
+          if (diff < 5) return 'updated just now';
+          if (diff < 60) return 'updated ' + diff + 's ago';
+          if (diff < 3600) return 'updated ' + Math.floor(diff/60) + ' min ago';
+          return 'updated ' + Math.floor(diff/3600) + ' h ago';
+        }
+
+        function _ltBadgeClass(status){
+          if (status === 'live') return 'lt-badge live';
+          if (status === 'last_known') return 'lt-badge last';
+          return 'lt-badge inactive';
+        }
+        function _ltBadgeLabel(status){
+          if (status === 'live') return 'Active';
+          if (status === 'last_known') return 'Last Known';
+          return 'Inactive';
+        }
+
+        function _ltMatches(emp){
+          if (_ltFilter !== 'all' && emp.status !== _ltFilter) return false;
+          if (_ltQuery) {
+            var q = _ltQuery.toLowerCase();
+            var hay = ((emp.name || '') + ' ' + (emp.branch || '') + ' ' + (emp.area || '') + ' ' + (emp.role || '')).toLowerCase();
+            if (hay.indexOf(q) === -1) return false;
+          }
+          return true;
+        }
+
+        function _ltSortVal(e, key){
+          if (key === 'recorded_at') {
+            var t = e.recorded_at ? new Date(e.recorded_at).getTime() : 0;
+            return isNaN(t) ? 0 : t;
+          }
+          if (key === 'branch') return (e.branch || e.area || e.division || e.region || '').toLowerCase();
+          if (key === 'status') {
+            // active first when asc; user can flip
+            return e.status === 'live' ? 0 : e.status === 'last_known' ? 1 : 2;
+          }
+          return ((e[key] != null ? e[key] : '') + '').toLowerCase();
+        }
+
+        function _ltSorted(arr){
+          var k = _ltSortKey, d = _ltSortDir;
+          return arr.slice().sort(function(a, b){
+            var av = _ltSortVal(a, k), bv = _ltSortVal(b, k);
+            if (av < bv) return -1 * d;
+            if (av > bv) return  1 * d;
+            return 0;
+          });
+        }
+
+        function _ltSetSort(key){
+          if (_ltSortKey === key) { _ltSortDir = -_ltSortDir; }
+          else { _ltSortKey = key; _ltSortDir = (key === 'recorded_at') ? -1 : 1; }
+          _ltUpdateSortHeaders();
+          _ltRender(_ltData);
+        }
+        function _ltUpdateSortHeaders(){
+          var ths = document.querySelectorAll('#ltList thead th[data-sort]');
+          for (var i=0; i<ths.length; i++) {
+            var th = ths[i];
+            var arr = th.querySelector('.lt-arrow');
+            if (th.getAttribute('data-sort') === _ltSortKey) {
+              th.classList.add('sorted');
+              if (arr) arr.textContent = _ltSortDir > 0 ? '▴' : '▾';
+            } else {
+              th.classList.remove('sorted');
+              if (arr) arr.textContent = '▾';
+            }
+          }
+        }
+
+        function _ltMakeMarker(e){
+          var lat = parseFloat(e.lat), lng = parseFloat(e.lng);
+          if (!isFinite(lat) || !isFinite(lng)) return null;
+          var cls = e.status === 'live' ? 'live' : 'last';
+          var icon = L.divIcon({
+            className: 'lt-mk-wrap',
+            html: '<div class="lt-mk ' + cls + '"><span class="lt-mk-core"></span></div>',
+            iconSize: [16,16],
+            iconAnchor: [8,8],
+            popupAnchor: [0,-8]
+          });
+          var m = L.marker([lat, lng], { icon: icon, riseOnHover: true });
+          var html = '<div class="lt-popup">' +
+            '<b>' + _ltEscape(e.name || 'Unknown') + '</b><br>' +
+            '<span style="color:#64748B;">' + _ltEscape(e.role || '') + (e.branch ? ' · ' + _ltEscape(e.branch) : '') + '</span><br>' +
+            '<span style="color:#64748B;">Last seen: ' + _ltRelative(e.recorded_at) + '</span>' +
+            (e.mobile ? '<br><a class="lt-call" href="tel:' + _ltEscape(e.mobile) + '">Call ' + _ltEscape(e.mobile) + '</a>' : '') +
+            '</div>';
+          m.bindPopup(html);
+          m.on('click', function(){
+            try { _ltScrollRowIntoView(e.emp_id, true); } catch(err){}
+          });
+          return m;
+        }
+
+        function _ltScrollRowIntoView(empId, highlight){
+          if (!empId) return;
+          var row = document.querySelector('#ltListBody tr[data-emp="' + CSS.escape(String(empId)) + '"]');
+          if (!row) return;
+          row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          if (highlight) {
+            row.classList.remove('lt-hl');
+            // reflow then re-add to retrigger animation
+            void row.offsetWidth;
+            row.classList.add('lt-hl');
+            setTimeout(function(){ row.classList.remove('lt-hl'); }, 1700);
+          }
+        }
+
+        function _ltInit(){
+          if (_ltInited) return;
+          if (typeof L === 'undefined') return; // leaflet not loaded yet
+          var el = document.getElementById('ltMap');
+          if (!el) return;
+          _ltMap = L.map(el, { zoomControl: true, attributionControl: true }).setView([20.5, 78.9], 5);
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap',
+            maxZoom: 19
+          }).addTo(_ltMap);
+          if (typeof L.markerClusterGroup === 'function') {
+            _ltMarkerLayer = L.markerClusterGroup({
+              disableClusteringAtZoom: CLUSTER_AT_OR_BELOW_ZOOM + 1, // cluster when zoom <= 9
+              spiderfyOnMaxZoom: true,
+              showCoverageOnHover: false,
+              maxClusterRadius: 60
+            });
+            _ltUseCluster = true;
+          } else {
+            _ltMarkerLayer = L.layerGroup();
+            _ltUseCluster = false;
+          }
+          _ltMarkerLayer.addTo(_ltMap);
+          _ltInited = true;
+          // Force a re-measure once visible
+          setTimeout(function(){ try { _ltMap.invalidateSize(); } catch(e){} }, 80);
+        }
+
+        function _ltSetRefreshSpinning(on){
+          var btn = document.getElementById('ltRefresh');
+          if (!btn) return;
+          btn.classList.toggle('spinning', !!on);
+          btn.disabled = !!on;
+        }
+
+        function _ltFetch(){
+          if (_ltFetching) return;
+          _ltFetching = true;
+          _ltSetRefreshSpinning(true);
+          var role = _ltRole();
+          var loc = _ltLocation();
+          var url = '/api/location/live?role=' + encodeURIComponent(role) + '&location=' + encodeURIComponent(loc);
+          fetch(url, { credentials: 'same-origin' })
+            .then(function(r){ return r.ok ? r.json() : []; })
+            .then(function(data){
+              if (Array.isArray(data)) _ltData = data;
+              else if (data && Array.isArray(data.employees)) _ltData = data.employees;
+              else _ltData = [];
+              _ltLastFetched = Date.now();
+              _ltRender(_ltData);
+              _ltUpdateFetchedLabel();
+            })
+            .catch(function(){
+              var body = document.getElementById('ltListBody');
+              if (body && !_ltData.length) {
+                body.innerHTML = '<tr><td class="lt-empty" colspan="5">Could not load live locations. Will retry…</td></tr>';
+              }
+            })
+            .then(function(){
+              _ltFetching = false;
+              setTimeout(function(){ _ltSetRefreshSpinning(false); }, 250);
+            });
+        }
+
+        function _ltUpdateFetchedLabel(){
+          var el = document.getElementById('ltFetched');
+          if (el) el.textContent = _ltFetchedLabel();
+        }
+
+        function _ltRender(data){
+          var arr = data || [];
+          var stat = { live: 0, last_known: 0, inactive: 0 };
+          arr.forEach(function(e){ if (stat[e.status] != null) stat[e.status]++; });
+          var sLive = document.getElementById('ltStatLive');
+          var sLast = document.getElementById('ltStatLast');
+          var sInact = document.getElementById('ltStatInactive');
+          if (sLive) sLive.textContent = stat.live;
+          if (sLast) sLast.textContent = stat.last_known;
+          if (sInact) sInact.textContent = stat.inactive;
+
+          // Markers
+          if (_ltInited && _ltMarkerLayer) {
+            _ltMarkerLayer.clearLayers();
+            _ltMarkers = {};
+            arr.forEach(function(e){
+              if (!_ltMatches(e)) return;
+              if (e.status === 'inactive') return; // hide inactive on map
+              var m = _ltMakeMarker(e);
+              if (!m) return;
+              _ltMarkerLayer.addLayer(m);
+              _ltMarkers[e.emp_id] = m;
+            });
+          }
+
+          // List
+          var body = document.getElementById('ltListBody');
+          var meta = document.getElementById('ltListMeta');
+          if (!body) return;
+          var visible = _ltSorted(arr.filter(_ltMatches));
+          if (meta) meta.textContent = visible.length + ' of ' + arr.length;
+          if (!visible.length) {
+            body.innerHTML = '<tr><td class="lt-empty" colspan="5">No employees match the current filter.</td></tr>';
+            return;
+          }
+          var rows = visible.map(function(e){
+            var rel = _ltRelative(e.recorded_at);
+            return '<tr data-emp="' + _ltEscape(String(e.emp_id || '')) + '">' +
+              '<td><div class="lt-name">' + _ltEscape(e.name || '—') + '</div>' +
+                (e.mobile ? '<div class="lt-sub">' + _ltEscape(e.mobile) + '</div>' : '') + '</td>' +
+              '<td>' + _ltEscape(e.role || '—') + '</td>' +
+              '<td>' + _ltEscape(e.branch || e.area || e.division || e.region || '—') + '</td>' +
+              '<td>' + _ltEscape(rel) + '</td>' +
+              '<td><span class="' + _ltBadgeClass(e.status) + '">' +
+                '<span class="lt-dot ' + (e.status === 'live' ? 'live' : e.status === 'last_known' ? 'last' : 'inactive') + '"></span>' +
+                _ltEscape(_ltBadgeLabel(e.status)) + '</span></td>' +
+              '</tr>';
+          }).join('');
+          body.innerHTML = rows;
+        }
+
+        function _ltEscape(s){
+          return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
+        function _ltSetFilter(f){
+          _ltFilter = f || 'all';
+          var pills = document.querySelectorAll('#ltPills .lt-pill');
+          for (var i=0; i<pills.length; i++) {
+            pills[i].classList.toggle('active', pills[i].getAttribute('data-flt') === _ltFilter);
+          }
+          _ltRender(_ltData);
+        }
+
+        function _ltSearch(q){
+          _ltQuery = (q || '').trim();
+          _ltRender(_ltData);
+          // After re-render, scroll the first match into view
+          if (_ltQuery) {
+            var firstRow = document.querySelector('#ltListBody tr[data-emp]');
+            if (firstRow) {
+              try { firstRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch(e){}
+            }
+          }
+        }
+
+        function _ltStartPolling(){
+          if (!_ltTimer) {
+            _ltFetch();
+            _ltTimer = setInterval(_ltFetch, POLL_MS);
+          }
+          if (!_ltTickTimer) {
+            _ltTickTimer = setInterval(_ltUpdateFetchedLabel, 1000);
+          }
+        }
+        function _ltStopPolling(){
+          if (_ltTimer) { clearInterval(_ltTimer); _ltTimer = null; }
+          if (_ltTickTimer) { clearInterval(_ltTickTimer); _ltTickTimer = null; }
+        }
+
+        // Wire pill clicks, refresh, sort headers, row clicks
+        document.addEventListener('click', function(ev){
+          var t = ev.target;
+          if (!t || !t.closest) return;
+          var p = t.closest('#ltPills .lt-pill');
+          if (p) { _ltSetFilter(p.getAttribute('data-flt')); return; }
+          if (t.closest('#ltRefresh')) { _ltFetch(); return; }
+          var th = t.closest('#ltList thead th[data-sort]');
+          if (th) { _ltSetSort(th.getAttribute('data-sort')); return; }
+          var row = t.closest('#ltListBody tr[data-emp]');
+          if (row) {
+            var id = row.getAttribute('data-emp');
+            var m = _ltMarkers[id];
+            if (m && _ltMap) {
+              var ll = m.getLatLng();
+              _ltMap.flyTo(ll, Math.max(_ltMap.getZoom(), 13), { duration: 0.55 });
+              setTimeout(function(){
+                try {
+                  if (_ltUseCluster && _ltMarkerLayer && typeof _ltMarkerLayer.zoomToShowLayer === 'function') {
+                    _ltMarkerLayer.zoomToShowLayer(m, function(){ try { m.openPopup(); } catch(e){} });
+                  } else {
+                    m.openPopup();
+                  }
+                } catch(e){}
+              }, 380);
+              row.classList.remove('lt-hl');
+              void row.offsetWidth;
+              row.classList.add('lt-hl');
+              setTimeout(function(){ row.classList.remove('lt-hl'); }, 1700);
+            }
+          }
+        });
+        var srch = document.getElementById('ltSearch');
+        if (srch) srch.addEventListener('input', function(){ _ltSearch(this.value); });
+
+        // Watch for tab activation/deactivation
+        function _ltWatchTab(){
+          var el = document.getElementById('liveTrackingTab');
+          if (!el || _ltObserver) return;
+          _ltObserver = new MutationObserver(function(){
+            var active = el.classList.contains('active');
+            if (active) {
+              if (!_ltApplyRoleGate()) {
+                _ltStopPolling();
+                if (typeof switchEmpTab === 'function') switchEmpTab('portfolio');
+                return;
+              }
+              if (typeof L !== 'undefined') {
+                _ltInit();
+              } else {
+                var tries = 0;
+                var iv = setInterval(function(){
+                  tries++;
+                  if (typeof L !== 'undefined') { clearInterval(iv); _ltInit(); _ltRender(_ltData); }
+                  else if (tries > 40) { clearInterval(iv); }
+                }, 100);
+              }
+              setTimeout(function(){ if (_ltMap) { try { _ltMap.invalidateSize(); } catch(e){} } }, 120);
+              _ltUpdateSortHeaders();
+              _ltStartPolling();
+            } else {
+              _ltStopPolling();
+            }
+          });
+          _ltObserver.observe(el, { attributes: true, attributeFilter: ['class'] });
+          if (el.classList.contains('active')) {
+            if (_ltApplyRoleGate()) {
+              if (typeof L !== 'undefined') _ltInit();
+              _ltUpdateSortHeaders();
+              _ltStartPolling();
+            }
+          }
+        }
+
+        function _ltBoot(){
+          _ltApplyRoleGate();
+          _ltUpdateSortHeaders();
+          _ltWatchTab();
+        }
+        if (window.getEmployeeSession) {
+          _ltBoot();
+        } else {
+          window.addEventListener('load', _ltBoot);
+        }
+
+        // Expose helpers
+        window._ltInit = _ltInit;
+        window._ltFetch = _ltFetch;
+        window._ltRender = _ltRender;
+        window._ltSetFilter = _ltSetFilter;
+        window._ltSearch = _ltSearch;
+        window._ltSetSort = _ltSetSort;
+        window._ltRelative = _ltRelative;
+      })();
+      </script>
     </div>
 
     <!-- EDIT_BRANCH_DAILY_REPORT Tab (AM only) -->
@@ -2214,6 +2817,10 @@ body.emp-dark .ai-bar-icon { background: rgba(99,102,241,0.15); color: #A5B4FC; 
       <a href="javascript:void(0)" class="sidebar-nav-item" data-sidebar-tab="dailyreports" onclick="closeSidebar(); switchEmpTab('dailyreports');">
         <span class="sidebar-nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
         <span class="sidebar-nav-label">Daily Reports</span>
+      </a>
+      <a href="javascript:void(0)" class="sidebar-nav-item" id="liveTrackingMobNav" data-sidebar-tab="livetracking" onclick="closeSidebar(); switchEmpTab('livetracking');">
+        <span class="sidebar-nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
+        <span class="sidebar-nav-label">Live Tracking</span>
       </a>
       <a href="javascript:void(0)" class="sidebar-nav-item editbranch-mob-nav" data-sidebar-tab="editbranch" onclick="closeSidebar(); switchEmpTab('editbranch');" style="display:none">
         <span class="sidebar-nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span>
@@ -5064,7 +5671,7 @@ document.addEventListener('keydown', function(e) {
 (function() {
   // Hash-based tab routing — e.g. employee.html#dailyreports opens the embedded DR tab
   var hash = (window.location.hash || '').replace('#', '').toLowerCase();
-  var validTabs = ['collection','portfolio','disbursement','hourly','comparison','dailyreports','settings'];
+  var validTabs = ['collection','portfolio','disbursement','hourly','comparison','dailyreports','livetracking','settings'];
   var openHash = function() {
     if (hash === 'ai') {
       if (typeof window._aiOpen === 'function') window._aiOpen();

@@ -5355,3 +5355,153 @@ app.get('/api/otp/audit', async (req, res) => {
   }
 });
 
+// ========== LIVE LOCATION TRACKING ==========
+// Auto-create employee_locations table + indexes on init.
+(async function initEmployeeLocations() {
+  try {
+    await pool.query(`CREATE TABLE IF NOT EXISTS employee_locations (
+      id BIGSERIAL PRIMARY KEY,
+      emp_id VARCHAR(20) NOT NULL,
+      lat DOUBLE PRECISION NOT NULL,
+      lng DOUBLE PRECISION NOT NULL,
+      accuracy DOUBLE PRECISION,
+      battery_pct INT,
+      recorded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`);
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_emp_loc_emp_id ON employee_locations(emp_id)");
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_emp_loc_recorded_at ON employee_locations(recorded_at DESC)");
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_emp_loc_emp_recorded ON employee_locations(emp_id, recorded_at DESC)");
+    console.log("employee_locations table ready");
+  } catch (err) {
+    console.log("employee_locations init skipped:", err.message);
+  }
+})();
+
+// POST /api/location/ping — body {mobile, lat, lng, accuracy, battery_pct}
+app.post('/api/location/ping', async (req, res) => {
+  try {
+    const { mobile, lat, lng, accuracy, battery_pct } = req.body || {};
+    if (mobile === undefined || mobile === null || lat === undefined || lat === null || lng === undefined || lng === null) {
+      return res.status(400).json({ error: 'Missing required fields: mobile, lat, lng' });
+    }
+    const mob = normalizeMobile(mobile);
+    if (!mob) {
+      return res.status(400).json({ error: 'Invalid mobile number' });
+    }
+    const latNum = Number(lat);
+    const lngNum = Number(lng);
+    if (!Number.isFinite(latNum) || !Number.isFinite(lngNum)) {
+      return res.status(400).json({ error: 'Invalid lat/lng' });
+    }
+    const accNum = (accuracy === undefined || accuracy === null || accuracy === '') ? null : Number(accuracy);
+    const battNum = (battery_pct === undefined || battery_pct === null || battery_pct === '') ? null : parseInt(battery_pct, 10);
+    const empRes = await pool.query(
+      "SELECT emp_id FROM employee_master WHERE REGEXP_REPLACE(COALESCE(mobile,''), '\\D', '', 'g') LIKE $1 LIMIT 1",
+      ['%' + mob]
+    );
+    if (empRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Mobile not found in employee_master' });
+    }
+    const empId = empRes.rows[0].emp_id;
+    await pool.query(
+      `INSERT INTO employee_locations (emp_id, lat, lng, accuracy, battery_pct, recorded_at)
+       VALUES ($1, $2, $3, $4, $5, NOW())`,
+      [empId, latNum, lngNum, accNum, (Number.isFinite(battNum) ? battNum : null)]
+    );
+    res.json({ ok: true, emp_id: empId });
+  } catch (err) {
+    console.error('location ping error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/location/live?role=&location= — scoped employees + latest position
+app.get('/api/location/live', async (req, res) => {
+  try {
+    const role = String(req.query.role || '').toUpperCase().trim();
+    const location = (req.query.location || '').toString().trim();
+    if (!role) {
+      return res.status(400).json({ error: 'role is required' });
+    }
+    const where = ["em.status = 'Working'"];
+    const params = [];
+    let idx = 1;
+    if (role === 'CEO') {
+      // no scope filter
+    } else if (role === 'RM' || role === 'SM') {
+      if (!location) return res.status(400).json({ error: 'location required for RM/SM' });
+      where.push("TRIM(em.region_name) ILIKE TRIM($" + (idx++) + ")");
+      params.push(location);
+    } else if (role === 'DM' || role === 'DVM') {
+      if (!location) return res.status(400).json({ error: 'location required for DM/DvM' });
+      where.push("TRIM(em.division_name) ILIKE TRIM($" + (idx++) + ")");
+      params.push(location);
+    } else if (role === 'AM') {
+      if (!location) return res.status(400).json({ error: 'location required for AM' });
+      where.push("TRIM(em.area_name) ILIKE TRIM($" + (idx++) + ")");
+      params.push(location);
+    } else if (role === 'BM' || role === 'FO') {
+      if (!location) return res.status(400).json({ error: 'location required for BM/FO' });
+      where.push("TRIM(em.branch_name) ILIKE TRIM($" + (idx++) + ")");
+      params.push(location);
+    } else {
+      return res.status(400).json({ error: 'Unsupported role: ' + role });
+    }
+    const sql = `
+      SELECT em.emp_id, em.full_name, em.mobile, em.role,
+             em.branch_name, em.area_name, em.division_name, em.region_name,
+             loc.lat, loc.lng, loc.accuracy, loc.battery_pct, loc.recorded_at,
+             CASE
+               WHEN loc.recorded_at IS NULL THEN 'inactive'
+               WHEN loc.recorded_at >= NOW() - INTERVAL '5 minutes' THEN 'live'
+               WHEN loc.recorded_at >= NOW() - INTERVAL '7 days' THEN 'last_known'
+               ELSE 'inactive'
+             END AS status
+      FROM employee_master em
+      LEFT JOIN LATERAL (
+        SELECT lat, lng, accuracy, battery_pct, recorded_at
+        FROM employee_locations
+        WHERE emp_id = em.emp_id
+        ORDER BY recorded_at DESC
+        LIMIT 1
+      ) loc ON TRUE
+      WHERE ${where.join(' AND ')}
+      ORDER BY em.full_name`;
+    const result = await pool.query(sql, params);
+    // Map full_name -> name and rename branch_name/area_name/division_name/region_name
+    // for client convenience. Wrap in {employees, count} for forward-compat.
+    const employees = result.rows.map(r => ({
+      emp_id: r.emp_id,
+      name: r.full_name,
+      mobile: r.mobile,
+      role: r.role,
+      branch: r.branch_name,
+      area: r.area_name,
+      division: r.division_name,
+      region: r.region_name,
+      lat: r.lat,
+      lng: r.lng,
+      accuracy: r.accuracy,
+      battery_pct: r.battery_pct,
+      recorded_at: r.recorded_at,
+      status: r.status,
+    }));
+    res.json({ employees, count: employees.length });
+  } catch (err) {
+    console.error('location live error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Hourly purge job: delete location pings older than 7 days.
+setInterval(async () => {
+  try {
+    const r = await pool.query("DELETE FROM employee_locations WHERE recorded_at < NOW() - INTERVAL '7 days'");
+    if (r.rowCount && r.rowCount > 0) {
+      console.log('employee_locations purge: removed ' + r.rowCount + ' rows');
+    }
+  } catch (err) {
+    console.error('employee_locations purge error:', err.message);
+  }
+}, 60 * 60 * 1000);
+
