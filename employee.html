@@ -31,7 +31,24 @@
   body.chat-active .emp-header { display: none !important; }
   .emp-app:has(#chatTab.active) #breadcrumbBar,
   body.chat-active #breadcrumbBar { display: none !important; }
-  #chatTab.active { padding: 0 !important; margin: 0 !important; }
+
+  /* Pin chat to the full content area (right of the 240px desktop sidebar).
+     Defeats inherited .emp-tab-content max-width/padding/margin so chat goes edge-to-edge. */
+  #chatTab.active {
+    position: fixed !important;
+    inset: 0 0 0 240px !important;   /* desktop sidebar width = 240px */
+    width: auto !important;
+    max-width: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: var(--surface, #fff) !important;
+    overflow: hidden !important;
+    z-index: 40;
+  }
+  @media (max-width: 767px) {
+    /* Mobile: no sidebar — fill the whole viewport */
+    #chatTab.active { inset: 0 !important; }
+  }
 
   /* ── Settings Tab ── */
   .settings-card {
@@ -1690,12 +1707,12 @@
     <!-- Chat Tab (all roles) -->
     <div class="emp-tab-content" id="chatTab">
       <style>
-        /* WhatsApp-style 2-pane chat (Phase J redesign) */
+        /* WhatsApp-style 2-pane chat (Phase J redesign + Phase O full-bleed fix) */
         #chatTab { padding: 0; }
-        #chatTab .ct-wrap { width:100%; max-width:none; margin:0; height: calc(100vh - var(--ct-bottom-nav, 0px)); display:flex; }
+        #chatTab .ct-wrap { width:100%; max-width:none; margin:0; height:100%; display:flex; }
         #chatTab .ct-grid {
           display:grid;
-          grid-template-columns: clamp(300px, 28vw, 340px) 1fr;
+          grid-template-columns: 320px 1fr;
           gap:0;
           width:100%;
           height:100%;
