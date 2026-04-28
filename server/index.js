@@ -5000,15 +5000,22 @@ async function buildDataContext(session) {
   const loc = (session.location || '').trim();
   const isCeo = !role || role === 'CEO' || !loc;
 
+  // -- Time anchors for the AI's "now" awareness ---------------------------
+  const now = new Date();
+  const yyyyMmDd = (d) => d.toISOString().slice(0, 10);
+  const fyStartYear = now.getMonth() + 1 >= 4 ? now.getFullYear() : now.getFullYear() - 1;
+  ctx.now = yyyyMmDd(now);
+  ctx.fyStart = fyStartYear + '-04-01';
+
   // Latest dates available
   const dates = await safeQuery("SELECT MAX(report_date) as latest FROM daily_performance", [], 1);
-  ctx.latestDate = dates[0]?.latest || 'unknown';
+  ctx.latestDate = (Array.isArray(dates) && dates[0]?.latest) || 'unknown';
 
   // Build a branch-name IN clause via employee_master — single source of truth
   let branchFilter = '';
   let params = [];
+  let emCol = null;
   if (!isCeo) {
-    let emCol = null;
     if (role === 'RM' || role === 'SM') emCol = 'region_name';
     else if (role === 'DM' || role === 'DVM') emCol = 'division_name';
     else if (role === 'AM') emCol = 'area_name';
@@ -5021,7 +5028,7 @@ async function buildDataContext(session) {
     }
   }
 
-  // Scoped overall summary
+  // Scoped overall summary (rolling totals from employee_performance)
   const overall = await safeQuery(`
     SELECT SUM(ep.regular_demand) as total_rd, SUM(ep.regular_collection) as total_rc,
            SUM(ep.demand_1_30) as sma0_d, SUM(ep.collection_1_30) as sma0_c,
@@ -5032,10 +5039,10 @@ async function buildDataContext(session) {
     JOIN employees e ON ep.emp_id = e.emp_id
     JOIN branches b ON e.branch_id = b.branch_id
     ${branchFilter}`, params, 1);
-  ctx.summary = overall[0] || {};
+  ctx.summary = (Array.isArray(overall) && overall[0]) || {};
   ctx.scope = isCeo ? 'all' : `${role} — ${loc}`;
 
-  // Scoped branch-level breakdown (top 10 by demand for non-CEO, top 10 overall for CEO)
+  // Scoped branch-level breakdown (top 20 by demand)
   ctx.branches = await safeQuery(`
     SELECT b.branch_name, SUM(ep.regular_demand) as rd, SUM(ep.regular_collection) as rc,
            SUM(ep.npa_cases) as npa_cases
@@ -5044,8 +5051,63 @@ async function buildDataContext(session) {
     JOIN branches b ON e.branch_id = b.branch_id
     ${branchFilter}
     GROUP BY b.branch_name ORDER BY rd DESC LIMIT 20`, params, 20);
+  if (!Array.isArray(ctx.branches)) ctx.branches = [];
 
-  // Scoped disbursement (latest 2 months)
+  // ---------- Monthly history (last 12 months, daily_performance) ---------
+  // Used for "last month vs this month", FY-to-date, and trend questions.
+  ctx.monthly = await safeQuery(`
+    SELECT to_char(date_trunc('month', dp.report_date), 'YYYY-MM') AS month,
+           SUM(dp.regular_demand)::bigint AS total_demand,
+           SUM(dp.regular_collection)::bigint AS total_collection,
+           SUM(dp.npa_cases)::int AS npa_count,
+           SUM(dp.npa_act_amt)::numeric AS npa_amount
+      FROM daily_performance dp
+      JOIN employees e ON dp.emp_id = e.emp_id
+      JOIN branches b ON e.branch_id = b.branch_id
+      ${branchFilter ? branchFilter + ' AND' : 'WHERE'} dp.report_date >= (CURRENT_DATE - INTERVAL '12 months')
+     GROUP BY date_trunc('month', dp.report_date)
+     ORDER BY month DESC`, params, 12);
+  if (!Array.isArray(ctx.monthly)) ctx.monthly = [];
+  // Add collection_pct so the model doesn't need to divide.
+  ctx.monthly = ctx.monthly.map((r) => {
+    const d = Number(r.total_demand) || 0;
+    const c = Number(r.total_collection) || 0;
+    return { ...r, collection_pct: d > 0 ? Number(((c / d) * 100).toFixed(2)) : 0 };
+  });
+
+  // ---------- Daily last-30 (for short-term trend) ------------------------
+  ctx.dailyLast30 = await safeQuery(`
+    SELECT to_char(dp.report_date, 'YYYY-MM-DD') AS date,
+           SUM(dp.regular_demand)::bigint AS demand,
+           SUM(dp.regular_collection)::bigint AS collection
+      FROM daily_performance dp
+      JOIN employees e ON dp.emp_id = e.emp_id
+      JOIN branches b ON e.branch_id = b.branch_id
+      ${branchFilter ? branchFilter + ' AND' : 'WHERE'} dp.report_date >= (CURRENT_DATE - INTERVAL '30 days')
+     GROUP BY dp.report_date
+     ORDER BY dp.report_date DESC`, params, 30);
+  if (!Array.isArray(ctx.dailyLast30)) ctx.dailyLast30 = [];
+  ctx.dailyLast30 = ctx.dailyLast30.map((r) => {
+    const d = Number(r.demand) || 0;
+    const c = Number(r.collection) || 0;
+    return { ...r, collection_pct: d > 0 ? Number(((c / d) * 100).toFixed(2)) : 0 };
+  });
+
+  // ---------- NPA trajectory (last 6 months) ------------------------------
+  ctx.npaTrend = await safeQuery(`
+    SELECT to_char(date_trunc('month', dp.report_date), 'YYYY-MM') AS month,
+           SUM(dp.npa_cases)::int AS npa_cases,
+           SUM(dp.npa_act_acc)::int AS npa_act_acc,
+           SUM(dp.npa_act_amt)::numeric AS npa_act_amt
+      FROM daily_performance dp
+      JOIN employees e ON dp.emp_id = e.emp_id
+      JOIN branches b ON e.branch_id = b.branch_id
+      ${branchFilter ? branchFilter + ' AND' : 'WHERE'} dp.report_date >= (CURRENT_DATE - INTERVAL '6 months')
+     GROUP BY date_trunc('month', dp.report_date)
+     ORDER BY month DESC`, params, 6);
+  if (!Array.isArray(ctx.npaTrend)) ctx.npaTrend = [];
+
+  // ---------- Disbursement: latest 2 months (back-compat) + 12-month trend
   let disbFilter = '';
   if (!isCeo && emCol_for_disb(role)) {
     disbFilter = `WHERE UPPER(d.branch_name) IN (
@@ -5056,9 +5118,158 @@ async function buildDataContext(session) {
     SELECT d.db_month, SUM(d.disb_count) as total_count, SUM(d.disb_amount) as total_amount
     FROM d ${disbFilter}
     GROUP BY d.db_month ORDER BY d.db_month DESC LIMIT 2`, disbFilter ? [loc] : [], 2);
+  if (!Array.isArray(ctx.disbursement)) ctx.disbursement = [];
+
+  ctx.disbursementMonthly = await safeQuery(`${DISB_CTE}
+    SELECT d.db_month AS month, SUM(d.disb_count)::int AS count, SUM(d.disb_amount)::numeric AS amount
+    FROM d ${disbFilter}
+    GROUP BY d.db_month ORDER BY d.db_month DESC LIMIT 12`, disbFilter ? [loc] : [], 12);
+  if (!Array.isArray(ctx.disbursementMonthly)) ctx.disbursementMonthly = [];
+
+  // ---------- Scope members (branch list + counts in user's scope) -------
+  if (isCeo) {
+    const totalsRes = await safeQuery(
+      "SELECT COUNT(DISTINCT branch_name)::int AS branch_count, COUNT(*)::int AS emp_count FROM employee_master WHERE status='Working'",
+      [], 1
+    );
+    ctx.scopeMembers = {
+      scope: 'all',
+      branchCount: (Array.isArray(totalsRes) && totalsRes[0]?.branch_count) || 0,
+      employeeCount: (Array.isArray(totalsRes) && totalsRes[0]?.emp_count) || 0,
+      // Don't dump every branch name for CEO — too noisy. The branches array
+      // already has the top 20 by demand.
+      branches: [],
+    };
+  } else if (emCol) {
+    const memberRes = await safeQuery(
+      `SELECT branch_name, COUNT(*)::int AS emp_count
+         FROM employee_master
+        WHERE status='Working' AND TRIM(${emCol}) ILIKE TRIM($1)
+        GROUP BY branch_name
+        ORDER BY branch_name`,
+      [loc], 100
+    );
+    const list = Array.isArray(memberRes) ? memberRes : [];
+    ctx.scopeMembers = {
+      scope: `${role} — ${loc}`,
+      branchCount: list.length,
+      employeeCount: list.reduce((acc, r) => acc + (Number(r.emp_count) || 0), 0),
+      branches: list.slice(0, 50).map((r) => r.branch_name),
+    };
+  } else {
+    ctx.scopeMembers = { scope: 'unknown', branchCount: 0, employeeCount: 0, branches: [] };
+  }
+
+  // ---------- Employee directory (scoped, capped at 500) ----------------
+  // For "who is X" / "what's the role of Y" questions. Pulls from
+  // employee_master, scoped via the same emCol/loc as everything else.
+  {
+    let where = "status = 'Working'";
+    const empParams = [];
+    if (!isCeo && emCol) {
+      empParams.push(loc);
+      where += ` AND TRIM(${emCol}) ILIKE TRIM($1)`;
+    }
+    const totalRes = await safeQuery(
+      `SELECT COUNT(*)::int AS n FROM employee_master WHERE ${where}`,
+      empParams, 1
+    );
+    const total = (Array.isArray(totalRes) && totalRes[0]?.n) || 0;
+    const empRes = await safeQuery(
+      `SELECT emp_id, full_name AS name, role, branch_name AS branch,
+              area_name AS area, division_name AS division,
+              region_name AS region, mobile, status
+         FROM employee_master
+        WHERE ${where}
+        ORDER BY full_name
+        LIMIT 500`,
+      empParams, 500
+    );
+    ctx.employees = Array.isArray(empRes) ? empRes : [];
+    ctx.employeesTotal = total;
+    ctx.employeesTruncated = total > ctx.employees.length;
+  }
+
+  // ---------- Employee performance leaderboard (top 50 in scope) ---------
+  // FY-to-date totals, used for "top performers" / "who's behind" queries.
+  ctx.employeePerformance = await safeQuery(`
+    SELECT em.emp_id, em.full_name AS name, em.branch_name AS branch,
+           SUM(dp.regular_demand)::bigint AS total_demand,
+           SUM(dp.regular_collection)::bigint AS total_collection,
+           SUM(dp.npa_cases)::int AS npa_count
+      FROM daily_performance dp
+      JOIN employees e ON dp.emp_id = e.emp_id
+      JOIN branches b ON e.branch_id = b.branch_id
+      JOIN employee_master em ON em.emp_id = dp.emp_id
+      ${branchFilter ? branchFilter + ' AND' : 'WHERE'} dp.report_date >= $${params.length + 1}
+     GROUP BY em.emp_id, em.full_name, em.branch_name
+     ORDER BY total_demand DESC
+     LIMIT 50`, [...params, ctx.fyStart], 50);
+  if (!Array.isArray(ctx.employeePerformance)) ctx.employeePerformance = [];
+  ctx.employeePerformance = ctx.employeePerformance.map((r) => {
+    const d = Number(r.total_demand) || 0;
+    const c = Number(r.total_collection) || 0;
+    return { ...r, collection_pct: d > 0 ? Number(((c / d) * 100).toFixed(2)) : 0 };
+  });
+
+  // ---------- Per-branch detail (capped at 100 in scope) ----------------
+  // {branch_name, region, division, area, employee_count, latest_demand,
+  //  latest_collection, npa}. Numbers come from employee_performance (current
+  //  rolling totals) joined to employee_master for hierarchy + headcount.
+  ctx.branchDetail = await safeQuery(`
+    WITH em_agg AS (
+      SELECT branch_name,
+             MAX(region_name) AS region,
+             MAX(division_name) AS division,
+             MAX(area_name) AS area,
+             COUNT(*) FILTER (WHERE status='Working')::int AS employee_count
+        FROM employee_master
+       GROUP BY branch_name
+    ),
+    perf AS (
+      SELECT b.branch_name,
+             SUM(ep.regular_demand)::bigint AS latest_demand,
+             SUM(ep.regular_collection)::bigint AS latest_collection,
+             SUM(ep.npa_cases)::int AS npa
+        FROM employee_performance ep
+        JOIN employees e ON ep.emp_id = e.emp_id
+        JOIN branches b ON e.branch_id = b.branch_id
+        ${branchFilter}
+       GROUP BY b.branch_name
+    )
+    SELECT p.branch_name,
+           em_agg.region, em_agg.division, em_agg.area,
+           COALESCE(em_agg.employee_count, 0) AS employee_count,
+           p.latest_demand, p.latest_collection, p.npa
+      FROM perf p
+      LEFT JOIN em_agg ON UPPER(em_agg.branch_name) = UPPER(p.branch_name)
+     ORDER BY p.latest_demand DESC NULLS LAST
+     LIMIT 100`, params, 100);
+  if (!Array.isArray(ctx.branchDetail)) ctx.branchDetail = [];
 
   return ctx;
 }
+
+// Compact reference of the underlying schema. Used by /api/ai-snapshot so
+// offline mobile clients carry the same DB cheatsheet as the AI prompt.
+const AI_SCHEMA_CHEATSHEET = {
+  branches: 'branch_id, branch_name, district_id',
+  employees: 'emp_id, full_name, role, branch_id',
+  employee_master: 'emp_id, full_name, role, designation, branch_name, area_name, area_manager, division_name, division_manager, region_name, mobile, status (HR roster, single source of truth for hierarchy)',
+  employee_performance: 'emp_id, regular_demand, regular_collection, demand_1_30, collection_1_30, demand_31_60, collection_31_60, pnpa_demand, pnpa_collection, npa_cases, npa_act_acc, npa_act_amt, ... (rolling totals; NO date column)',
+  daily_performance: 'emp_id, report_date, same metric columns as employee_performance (historical daily snapshots)',
+  disbursement: 'db_month, region_name, district_name, branch_name, emp_id, officer_name, product_name, disb_count, disb_amount (monthly aggregate)',
+  disbursement_daily: 'disb_date, region_name, district_name, branch_name, emp_id, officer_name, product_name, disb_count, disb_amount (daily — UNIONed via DISB_CTE for months not yet rolled into disbursement)',
+  daily_reports: 'branch-level plan + achievement entries',
+  npa_activation_runs: 'run_id, source_filename, report_date, row_count, npa_count',
+  hourly_performance: 'intra-day collection snapshots',
+  employee_locations: 'emp_id, lat, lng, accuracy, battery_pct, recorded_at (live tracking pings)',
+  chat_messages: 'id, sender_emp_id, thread_key, body, sent_at, read_by_json',
+  chat_groups: 'id, name, kind (auto|custom), scope_type, scope_value, created_by_emp_id',
+  chat_group_members: 'group_id, emp_id (FK to chat_groups)'
+};
+
+const AI_SNAPSHOT_VERSION = 1;
 
 function emCol_for_disb(role) {
   role = (role || '').toUpperCase();
@@ -5078,6 +5289,31 @@ app.post("/api/ai-context", async (req, res) => {
   } catch (e) {
     console.error("AI context error:", e);
     res.status(500).json({ error: "Failed to load data context" });
+  }
+});
+
+// /api/ai-snapshot — full ctx + schema cheatsheet + version. The mobile app
+// pulls this on login and caches locally so the on-device AI assistant has a
+// schema map and historical/employee data even when offline.
+app.post("/api/ai-snapshot", async (req, res) => {
+  try {
+    const body = req.body || {};
+    const session = {
+      role: body.role || (body.session && body.session.role) || '',
+      location: body.location || (body.session && body.session.location) || '',
+    };
+    const ctx = await buildDataContext(session);
+    res.json({
+      version: AI_SNAPSHOT_VERSION,
+      generated_at: new Date().toISOString(),
+      emp_id: body.emp_id || null,
+      session,
+      schema: AI_SCHEMA_CHEATSHEET,
+      ctx,
+    });
+  } catch (e) {
+    console.error("AI snapshot error:", e);
+    res.status(500).json({ error: "Failed to build snapshot" });
   }
 });
 
@@ -5258,7 +5494,41 @@ app.post("/api/ai-chat", aiLimiter, async (req, res) => {
     const session = (role && location) ? { role, location } : {};
     const ctx = await buildDataContext(session);
     const scopeLabel = (role && location) ? `${role} for ${location}` : 'CEO (all data)';
-    scopedSystemText = `\n\nYou are helping a ${scopeLabel}. Here is their current portfolio data:\n${JSON.stringify(ctx, null, 2)}\n\nOnly answer based on this scoped data. If asked about data outside this scope, politely refuse.`;
+    // Compact JSON to keep payload well under the ~32k Mistral token budget.
+    const ctxJson = JSON.stringify(ctx);
+    scopedSystemText = [
+      '',
+      '',
+      `You are the NLPL Dashboard AI Assistant for ${scopeLabel}.`,
+      '',
+      '## What you know',
+      '- DB schema you have access to:',
+      '  * branches, employees, employee_master (HR roster with hierarchy: region_name → division_name → area_name → branch_name).',
+      '  * employee_performance — current rolling totals per employee (no date column; this is "live" portfolio state).',
+      '  * daily_performance — historical daily snapshots per employee, joined to branches via employees. Has report_date.',
+      '  * disbursement / disbursement_daily — monthly + daily loan disbursement (db_month, branch_name, disb_count, disb_amount).',
+      '  * npa_activation_runs / npa_activation_rows — uploaded NPA action sheets.',
+      '  * daily_reports / daily_reports_achievements — branch-level plan + achievement entries.',
+      '  * hourly_performance — intra-day collection snapshots.',
+      '- The JSON below is YOUR data, scoped to the user\'s role.',
+      `  CEO sees all branches; RM/SM sees their region; DM/DvM sees their division; AM sees their area; BM/FO sees their branch.`,
+      `- Today is ${ctx.now}. The current FY started ${ctx.fyStart} (April 1 → March 31).`,
+      '',
+      '## How to answer',
+      '- Use the JSON below to answer questions about portfolio, collection, disbursement, NPA, daily plans, hierarchy, AND people.',
+      '- For historical queries ("last month", "FY-to-date", "March vs April"), compute from `monthly`, `dailyLast30`, `disbursementMonthly`, `npaTrend`.',
+      '- For "who is X" / "find employee X" / "what\'s X\'s mobile/branch/role" → search `employees` (capped at 500 rows; `employeesTotal` and `employeesTruncated` say if there\'s more).',
+      '- For "top performers" / "who\'s behind" / "leaderboard" → use `employeePerformance` (top 50 in scope, FY-to-date, includes `collection_pct`).',
+      '- For "tell me about branch X" / per-branch comparisons → use `branchDetail` (up to 100 in scope, with employee_count + latest_demand + latest_collection + npa).',
+      '- For comparisons, show numbers + % change. Indian format: 1 Cr = 100 L = 10,000,000.',
+      '- For ambiguous questions, ask ONE crisp clarifying question instead of refusing.',
+      '- Be concise: lead with the headline number, then 2-4 supporting bullets.',
+      '- If a question genuinely needs data NOT in the JSON below, reply: "I don\'t have that detail loaded — try a more specific question or open the relevant tab in the dashboard."',
+      '- Never invent numbers. Quote what you see.',
+      '',
+      '## Data',
+      ctxJson,
+    ].join('\n');
   } catch (e) {
     console.error('AI chat scope fetch error:', e.message);
     // non-fatal: proceed without scoped data
