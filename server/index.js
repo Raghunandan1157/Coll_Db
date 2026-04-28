@@ -5084,6 +5084,8 @@ app.post("/api/ai-context", async (req, res) => {
 // ========== AI Chat Proxy — Google Gemini ==========
 const GEMINI_KEY = process.env.GEMINI_KEY;
 const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'];
+const MISTRAL_KEY = process.env.MISTRAL_KEY;
+const MISTRAL_MODEL = 'mistral-small-latest';
 const crypto = require('crypto');
 
 // ── In-memory response cache ───────────────────────────────────────────────────
@@ -5092,9 +5094,14 @@ const aiReplyCache = new Map();
 const AI_CACHE_TTL_MS = 10 * 60 * 1000;
 const AI_CACHE_MAX = 500;
 
-function getCacheKey(role, location, lastMsg) {
+function getCacheKey(role, location, lastMsg, provider) {
   return crypto.createHash('sha256')
-    .update((role || '') + '|' + (location || '') + '|' + (lastMsg || ''))
+    .update(
+      (provider || '') + '|' +
+      (role || '') + '|' +
+      (location || '') + '|' +
+      (lastMsg || '')
+    )
     .digest('hex');
 }
 
@@ -5113,19 +5120,139 @@ function pruneCache() {
   }
 }
 
+// ── AI provider call helpers ──────────────────────────────────────────────
+// Both helpers take the same "OpenAI-format" `messages` array (with a single
+// system message merged in) and return { ok, text, error }.
+
+async function callMistralAi(messages) {
+  if (!MISTRAL_KEY) return { ok: false, error: 'mistral_not_configured' };
+  const payload = JSON.stringify({
+    model: MISTRAL_MODEL,
+    messages,
+    max_tokens: 1024,
+    temperature: 0.3,
+  });
+  return new Promise((resolve) => {
+    const options = {
+      hostname: 'api.mistral.ai',
+      path: '/v1/chat/completions',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(payload),
+        'Authorization': 'Bearer ' + MISTRAL_KEY,
+      },
+    };
+    const r = https.request(options, (resp) => {
+      let body = '';
+      resp.on('data', (d) => (body += d));
+      resp.on('end', () => {
+        try {
+          const j = JSON.parse(body);
+          if (resp.statusCode >= 200 && resp.statusCode < 300) {
+            const text = j?.choices?.[0]?.message?.content;
+            if (text) return resolve({ ok: true, text });
+            return resolve({ ok: false, error: 'mistral_empty', raw: body.slice(0, 200) });
+          }
+          return resolve({
+            ok: false,
+            error: 'mistral_http_' + resp.statusCode,
+            raw: body.slice(0, 200),
+          });
+        } catch (e) {
+          resolve({ ok: false, error: 'mistral_parse: ' + e.message });
+        }
+      });
+    });
+    r.on('error', (e) => resolve({ ok: false, error: 'mistral_net: ' + e.message }));
+    r.setTimeout(20000, () => r.destroy(new Error('mistral_timeout')));
+    r.write(payload);
+    r.end();
+  });
+}
+
+async function callGeminiAi(messages) {
+  if (!GEMINI_KEY) return { ok: false, error: 'gemini_not_configured' };
+  // Convert OpenAI-style messages to Gemini's contents/systemInstruction format.
+  const systemMsg = messages.find((m) => m.role === 'system');
+  const chatMessages = messages.filter((m) => m.role !== 'system');
+  const contents = chatMessages.map((m) => ({
+    role: m.role === 'assistant' ? 'model' : 'user',
+    parts: [{ text: m.content }],
+  }));
+  const systemInstruction = systemMsg
+    ? { parts: [{ text: systemMsg.content }] }
+    : undefined;
+  for (const model of GEMINI_MODELS) {
+    try {
+      const payload = JSON.stringify({
+        contents,
+        ...(systemInstruction ? { systemInstruction } : {}),
+        generationConfig: { maxOutputTokens: 1024, temperature: 0.3 },
+      });
+      const result = await new Promise((resolve, reject) => {
+        const path = `/v1beta/models/${model}:generateContent?key=${GEMINI_KEY}`;
+        const options = {
+          hostname: 'generativelanguage.googleapis.com',
+          path,
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(payload),
+          },
+        };
+        const r = https.request(options, (resp) => {
+          let body = '';
+          resp.on('data', (d) => (body += d));
+          resp.on('end', () => {
+            try { resolve(JSON.parse(body)); } catch (e) { reject(e); }
+          });
+        });
+        r.on('error', reject);
+        r.setTimeout(20000, () => r.destroy(new Error('gemini_timeout')));
+        r.write(payload);
+        r.end();
+      });
+      const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (text) return { ok: true, text, model };
+      console.error('Gemini model ' + model + ' empty response:', JSON.stringify(result).slice(0, 200));
+    } catch (e) {
+      console.error('Gemini model ' + model + ' failed:', e.message);
+    }
+  }
+  return { ok: false, error: 'gemini_all_models_failed' };
+}
+
 app.post("/api/ai-chat", aiLimiter, async (req, res) => {
-  // Only allow requests from the dashboard domain
+  // Origin check: allow same-origin web traffic, plus mobile clients which
+  // send no Origin/Referer but advertise themselves via x-app-origin.
   const origin = req.headers.origin || req.headers.referer || '';
-  if (origin && !origin.includes('navachetanalivelihoods.com') && !origin.includes('localhost')) {
+  const mobileOrigin = String(req.headers['x-app-origin'] || '').toLowerCase();
+  if (origin) {
+    if (!origin.includes('navachetanalivelihoods.com') && !origin.includes('localhost')) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+  } else if (mobileOrigin !== 'nlpl-mobile') {
+    // No Origin header AND no mobile marker — likely cURL / scraper.
     return res.status(403).json({ error: 'Forbidden' });
   }
-  if (!GEMINI_KEY) return res.status(503).json({ error: 'AI not configured.' });
-  const { messages, role, location } = req.body;
+
+  const { messages, role, location } = req.body || {};
   if (!messages || !Array.isArray(messages)) {
     return res.status(400).json({ error: 'messages array required' });
   }
 
-  // Fetch role-scoped data and inject into system prompt
+  // Provider selection: 'mistral' (default per spec) | 'gemini'. Anything else
+  // is normalised to 'mistral'. The other provider is the fallback on failure.
+  const requested = String((req.body && req.body.provider) || 'mistral').toLowerCase();
+  const primary = requested === 'gemini' ? 'gemini' : 'mistral';
+  const fallback = primary === 'mistral' ? 'gemini' : 'mistral';
+
+  if (!MISTRAL_KEY && !GEMINI_KEY) {
+    return res.status(503).json({ error: 'AI not configured.' });
+  }
+
+  // Fetch role-scoped data and inject into system prompt.
   let scopedSystemText = '';
   try {
     const session = (role && location) ? { role, location } : {};
@@ -5137,64 +5264,57 @@ app.post("/api/ai-chat", aiLimiter, async (req, res) => {
     // non-fatal: proceed without scoped data
   }
 
-  // Convert OpenAI-style messages to Gemini format
-  const systemMsg = messages.find(m => m.role === 'system');
-  const chatMessages = messages.filter(m => m.role !== 'system');
-  const contents = chatMessages.map(m => ({
-    role: m.role === 'assistant' ? 'model' : 'user',
-    parts: [{ text: m.content }]
-  }));
-  const baseSystemText = systemMsg ? systemMsg.content : '';
-  const systemInstruction = (baseSystemText || scopedSystemText)
-    ? { parts: [{ text: baseSystemText + scopedSystemText }] }
-    : undefined;
+  // Build a single OpenAI-format message list with the scoped system prompt
+  // merged in. Both Mistral and the Gemini adapter understand this shape.
+  const incomingSystem = (messages.find(m => m.role === 'system') || {}).content || '';
+  const mergedSystem = (incomingSystem || '') + (scopedSystemText || '');
+  const nonSystem = messages.filter(m => m.role !== 'system');
+  const mergedMessages = mergedSystem
+    ? [{ role: 'system', content: mergedSystem }, ...nonSystem]
+    : nonSystem;
 
-  // Cache lookup — check before spawning any subprocess
-  const lastUserMsg = chatMessages.filter(m => m.role === 'user').slice(-1)[0]?.content || '';
-  const cacheKey = getCacheKey(role, location, lastUserMsg);
+  // Cache lookup — provider-aware so a Mistral reply doesn't shadow a Gemini one.
+  const lastUserMsg = nonSystem.filter(m => m.role === 'user').slice(-1)[0]?.content || '';
+  const cacheKey = getCacheKey(role, location, lastUserMsg, primary);
   pruneCache();
   const cached = aiReplyCache.get(cacheKey);
   if (cached && (Date.now() - cached.ts < AI_CACHE_TTL_MS)) {
-    return res.json({ reply: cached.reply, provider: cached.provider, cached: true });
+    return res.json({
+      reply: cached.reply,
+      provider: cached.provider,
+      cached: true,
+    });
   }
 
-  // Gemini API
-  for (const model of GEMINI_MODELS) {
-    try {
-      const payload = JSON.stringify({
-        contents,
-        ...(systemInstruction ? { systemInstruction } : {}),
-        generationConfig: { maxOutputTokens: 1024, temperature: 0.3 }
+  // Try primary, fall back to the other on failure.
+  const order = [primary, fallback];
+  let lastErr = null;
+  for (const which of order) {
+    const result = which === 'mistral'
+      ? await callMistralAi(mergedMessages)
+      : await callGeminiAi(mergedMessages);
+    if (result.ok && result.text) {
+      const providerLabel = which === 'mistral' ? MISTRAL_MODEL : (result.model || 'gemini');
+      aiReplyCache.set(cacheKey, {
+        reply: result.text,
+        provider: providerLabel,
+        ts: Date.now(),
       });
-      const result = await new Promise((resolve, reject) => {
-        const path = `/v1beta/models/${model}:generateContent?key=${GEMINI_KEY}`;
-        const options = {
-          hostname: 'generativelanguage.googleapis.com', path, method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) }
-        };
-        const r = https.request(options, (resp) => {
-          let body = '';
-          resp.on('data', d => body += d);
-          resp.on('end', () => {
-            try { resolve(JSON.parse(body)); } catch(e) { reject(e); }
-          });
-        });
-        r.on('error', reject);
-        r.write(payload);
-        r.end();
+      return res.json({
+        reply: result.text,
+        provider: which,
+        model: providerLabel,
+        ...(which !== primary ? { fallback: true } : {}),
       });
-      const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (text) {
-        aiReplyCache.set(cacheKey, { reply: text, provider: model, ts: Date.now() });
-        return res.json({ reply: text });
-      }
-      console.error('Gemini model ' + model + ' empty response:', JSON.stringify(result).slice(0, 200));
-    } catch (e) {
-      console.error('Gemini model ' + model + ' failed:', e.message);
     }
+    lastErr = result.error;
+    console.error('AI provider ' + which + ' failed:', result.error);
   }
-  // Queue soft guard: all slots full AND all Gemini models failed
-  res.status(429).json({ error: 'AI is briefly busy. Please retry in a moment.' });
+
+  res.status(429).json({
+    error: 'AI is briefly busy. Please retry in a moment.',
+    detail: lastErr,
+  });
 });
 
 

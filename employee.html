@@ -26,6 +26,13 @@
   body.dr-active .emp-header { display: none !important; }
   #dailyreportsTab #dailyReportsContent { margin-top: 0; }
 
+  /* Chat tab — hide page header + go edge-to-edge while chatting */
+  .emp-app:has(#chatTab.active) .emp-header,
+  body.chat-active .emp-header { display: none !important; }
+  .emp-app:has(#chatTab.active) #breadcrumbBar,
+  body.chat-active #breadcrumbBar { display: none !important; }
+  #chatTab.active { padding: 0 !important; margin: 0 !important; }
+
   /* ── Settings Tab ── */
   .settings-card {
     background: #fff;
@@ -1683,76 +1690,149 @@
     <!-- Chat Tab (all roles) -->
     <div class="emp-tab-content" id="chatTab">
       <style>
-        #chatTab { padding: 0 8px; }
-        #chatTab .ct-wrap { max-width: 1400px; margin: 0 auto; }
-        #chatTab .ct-grid { display:grid; grid-template-columns: 280px 1fr 240px; gap:12px; align-items:stretch; height: calc(100vh - 140px); min-height: 560px; }
-        @media (max-width: 1100px) { #chatTab .ct-grid { grid-template-columns: 280px 1fr; } #chatTab .ct-info { display:none; } }
-        @media (max-width: 760px) {
-          #chatTab .ct-grid { grid-template-columns: 1fr; height: auto; }
-          #chatTab .ct-rail { height: 50vh; }
-          #chatTab .ct-thread.ct-empty { display:none; }
-          #chatTab.ct-mobile-thread .ct-rail { display:none; }
-          #chatTab.ct-mobile-thread .ct-thread { display:flex; height: calc(100vh - 140px); }
+        /* WhatsApp-style 2-pane chat (Phase J redesign) */
+        #chatTab { padding: 0; }
+        #chatTab .ct-wrap { width:100%; max-width:none; margin:0; height: calc(100vh - var(--ct-bottom-nav, 0px)); display:flex; }
+        #chatTab .ct-grid {
+          display:grid;
+          grid-template-columns: clamp(300px, 28vw, 340px) 1fr;
+          gap:0;
+          width:100%;
+          height:100%;
+          background: var(--surface,#fff);
         }
-        #chatTab .ct-card { background: var(--surface,#fff); border:1px solid var(--border,#E2E8F0); border-radius:12px; box-shadow:0 1px 4px rgba(0,0,0,.03); overflow:hidden; display:flex; flex-direction:column; min-height: 0; }
-        #chatTab .ct-rail { display:flex; flex-direction:column; }
-        #chatTab .ct-tabs { display:flex; flex-wrap:wrap; gap:4px; padding:8px; border-bottom:1px solid var(--border,#E2E8F0); }
-        #chatTab .ct-tab { padding:6px 10px; border-radius:999px; font-size:11px; font-weight:600; color: var(--muted,#64748B); cursor:pointer; background:#F1F5F9; border:1px solid transparent; }
+        #chatTab .ct-pane { background: var(--surface,#fff); display:flex; flex-direction:column; min-height:0; min-width:0; overflow:hidden; }
+        #chatTab .ct-rail { border-right:1px solid var(--border,#E2E8F0); }
+        #chatTab .ct-thread { background:#F0F2F5; }
+
+        /* Rail header w/ title + connection dot */
+        #chatTab .ct-rail-head { padding:12px 14px; border-bottom:1px solid var(--border,#E2E8F0); display:flex; align-items:center; justify-content:space-between; gap:8px; background: var(--surface,#fff); }
+        #chatTab .ct-rail-title { font-size:15px; font-weight:700; color:var(--text,#1E293B); display:flex; align-items:center; gap:8px; }
+        #chatTab .ct-conn-pill { display:inline-flex; align-items:center; gap:5px; font-size:10px; font-weight:600; color:var(--muted,#94A3B8); padding:3px 8px; border-radius:999px; background: var(--surface,#F8FAFC); border:1px solid var(--border,#E2E8F0); }
+        #chatTab .ct-conn-pill .ct-dot { width:7px; height:7px; border-radius:50%; background:#94A3B8; box-shadow:0 0 0 2px rgba(148,163,184,.18); }
+        #chatTab .ct-conn-pill.online { color:#047857; border-color:#A7F3D0; background:#ECFDF5; }
+        #chatTab .ct-conn-pill.online .ct-dot { background:#10B981; box-shadow:0 0 0 2px rgba(16,185,129,.18); animation: ctPulseDot 2.2s ease-in-out infinite; }
+        @keyframes ctPulseDot { 0%,100% { opacity:1; } 50% { opacity:.55; } }
+
+        /* Sticky tab strip — single row, scrollable */
+        #chatTab .ct-tabs {
+          display:flex; gap:6px; padding:8px 10px;
+          overflow-x:auto; overflow-y:hidden;
+          flex-wrap:nowrap; white-space:nowrap;
+          border-bottom:1px solid var(--border,#E2E8F0);
+          background: var(--surface,#fff);
+          scrollbar-width: thin;
+          scrollbar-color: #CBD5E1 transparent;
+        }
+        #chatTab .ct-tabs::-webkit-scrollbar { height:4px; }
+        #chatTab .ct-tabs::-webkit-scrollbar-thumb { background:#CBD5E1; border-radius:2px; }
+        #chatTab .ct-tab { flex:0 0 auto; padding:6px 12px; border-radius:999px; font-size:12px; font-weight:600; color:var(--muted,#475569); cursor:pointer; background:#F1F5F9; border:1px solid transparent; transition:background .12s, color .12s, border-color .12s; user-select:none; }
         #chatTab .ct-tab:hover { background:#E2E8F0; }
-        #chatTab .ct-tab.active { background:#059669; color:#fff; }
-        #chatTab .ct-search { padding: 8px; border-bottom:1px solid var(--border,#E2E8F0); }
-        #chatTab .ct-search input { width:100%; padding:8px 10px; border:1px solid var(--border,#E2E8F0); border-radius:8px; font-size:13px; outline:none; font-family:inherit; }
-        #chatTab .ct-search input:focus { border-color:#059669; box-shadow:0 0 0 3px rgba(5,150,105,.12); }
-        #chatTab .ct-list { flex:1; overflow-y:auto; padding:6px 8px 8px; }
-        #chatTab .ct-list-item { padding:10px 10px; border-radius:10px; cursor:pointer; display:flex; gap:10px; align-items:center; transition:background .12s; border:1px solid transparent; margin-bottom:4px; }
-        #chatTab .ct-list-item:hover { background:#F0FDF4; }
-        #chatTab .ct-list-item.active { background:#ECFDF5; border-color:#A7F3D0; }
-        #chatTab .ct-avatar { width:34px; height:34px; border-radius:50%; background:#ECFDF5; color:#059669; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; flex-shrink:0; }
-        #chatTab .ct-li-body { flex:1; min-width:0; }
-        #chatTab .ct-li-title { font-size:13px; font-weight:700; color:var(--text,#1E293B); display:flex; align-items:center; justify-content:space-between; gap:6px; }
-        #chatTab .ct-li-title-text { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-        #chatTab .ct-li-time { font-size:10px; color:var(--muted,#94A3B8); flex-shrink:0; font-weight:500; }
-        #chatTab .ct-li-sub { font-size:11px; color:var(--muted,#64748B); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-        #chatTab .ct-badge { background:#059669; color:#fff; font-size:10px; font-weight:700; padding:2px 6px; border-radius:999px; min-width:18px; text-align:center; }
-        #chatTab .ct-section-title { font-size:10px; font-weight:700; color:var(--muted,#94A3B8); text-transform:uppercase; letter-spacing:.6px; padding: 8px 10px 4px; }
-        #chatTab .ct-thread { display:flex; flex-direction:column; }
-        #chatTab .ct-thread.ct-empty { display:flex; align-items:center; justify-content:center; }
-        #chatTab .ct-thread-head { padding:12px 16px; border-bottom:1px solid var(--border,#E2E8F0); display:flex; align-items:center; gap:10px; }
-        #chatTab .ct-thread-back { width:32px; height:32px; border:1px solid var(--border,#E2E8F0); border-radius:8px; background:#fff; cursor:pointer; display:none; align-items:center; justify-content:center; }
-        @media (max-width: 760px) { #chatTab .ct-thread-back { display:flex; } }
-        #chatTab .ct-thread-title { font-size:15px; font-weight:700; color:var(--text,#1E293B); }
-        #chatTab .ct-thread-sub { font-size:11px; color:var(--muted,#64748B); margin-top:2px; }
-        #chatTab .ct-msgs { flex:1; overflow-y:auto; padding:12px 14px; background:#F8FAFC; }
-        #chatTab .ct-msg-row { display:flex; margin-bottom:6px; }
-        #chatTab .ct-msg-row.mine { justify-content:flex-end; }
-        #chatTab .ct-bubble { max-width:78%; padding:8px 12px; border-radius:14px; font-size:13.5px; line-height:1.35; word-wrap:break-word; white-space:pre-wrap; border:1px solid #E2E8F0; background:#fff; color:var(--text,#1E293B); }
-        #chatTab .ct-msg-row.mine .ct-bubble { background:#059669; color:#fff; border-color:#059669; border-bottom-right-radius:4px; }
-        #chatTab .ct-msg-row.theirs .ct-bubble { border-bottom-left-radius:4px; }
-        #chatTab .ct-msg-meta { font-size:10px; color:var(--muted,#94A3B8); margin-top:2px; padding: 0 4px; display:flex; gap:4px; align-items:center; }
-        #chatTab .ct-tick { font-size:11px; }
-        #chatTab .ct-tick.read { color:#059669; }
-        #chatTab .ct-msg-sender { font-size:10px; font-weight:700; color:#059669; margin-bottom:2px; padding-left:4px; }
-        #chatTab .ct-composer { padding:10px; border-top:1px solid var(--border,#E2E8F0); display:flex; gap:8px; align-items:flex-end; background:#fff; }
-        #chatTab .ct-composer textarea { flex:1; min-height:40px; max-height:140px; padding:10px 12px; border:1px solid var(--border,#E2E8F0); border-radius:18px; font-size:13.5px; outline:none; font-family:inherit; resize:none; }
-        #chatTab .ct-composer textarea:focus { border-color:#059669; box-shadow:0 0 0 3px rgba(5,150,105,.12); }
-        #chatTab .ct-send-btn { width:40px; height:40px; border-radius:50%; background:#059669; color:#fff; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-        #chatTab .ct-send-btn:disabled { opacity:.55; cursor:not-allowed; }
-        #chatTab .ct-empty-state { padding:24px; text-align:center; color:var(--muted,#64748B); }
-        #chatTab .ct-empty-state h3 { font-size:14px; font-weight:700; color:var(--text,#1E293B); margin: 6px 0 2px; }
-        #chatTab .ct-empty-state p { font-size:12px; margin: 0; }
-        #chatTab .ct-info { display:flex; flex-direction:column; }
-        #chatTab .ct-info-head { padding:14px 16px; border-bottom:1px solid var(--border,#E2E8F0); }
-        #chatTab .ct-info-title { font-size:13px; font-weight:700; }
-        #chatTab .ct-info-sub { font-size:11px; color:var(--muted,#64748B); margin-top:2px; }
-        #chatTab .ct-info-body { flex:1; overflow-y:auto; padding:8px 12px; }
-        #chatTab .ct-info-row { font-size:12px; color: var(--text, #1E293B); padding: 6px 4px; display:flex; gap:8px; align-items:center; border-bottom:1px solid #F1F5F9; }
-        #chatTab .ct-info-row .ct-avatar { width:26px; height:26px; font-size:10px; }
-        #chatTab .ct-conn { font-size:10px; color:var(--muted,#94A3B8); padding: 6px 10px; border-top:1px solid var(--border,#E2E8F0); display:flex; align-items:center; gap:6px; }
-        #chatTab .ct-conn .ct-dot { width:7px; height:7px; border-radius:50%; background:#94A3B8; }
-        #chatTab .ct-conn.online .ct-dot { background:#10B981; }
-        #chatTab .ct-newgroup { padding:8px 10px; border-bottom:1px solid var(--border,#E2E8F0); }
-        #chatTab .ct-newgroup-btn { width:100%; padding:8px 10px; border-radius:8px; border:1px dashed #A7F3D0; background:#F0FDF4; color:#059669; font-size:12px; font-weight:700; cursor:pointer; }
+        #chatTab .ct-tab.active { background:#059669; color:#fff; border-color:#059669; }
+        #chatTab .ct-tab.is-empty { display:none; }
+
+        /* Sticky search */
+        #chatTab .ct-search { padding:8px 10px; border-bottom:1px solid var(--border,#E2E8F0); background: var(--surface,#fff); position:sticky; top:0; }
+        #chatTab .ct-search-wrap { position:relative; }
+        #chatTab .ct-search-wrap svg { position:absolute; left:10px; top:50%; transform:translateY(-50%); width:14px; height:14px; color:var(--muted,#94A3B8); }
+        #chatTab .ct-search input { width:100%; padding:8px 10px 8px 30px; border:1px solid var(--border,#E2E8F0); border-radius:10px; font-size:13px; outline:none; font-family:inherit; background: var(--surface,#F8FAFC); color:var(--text,#1E293B); }
+        #chatTab .ct-search input:focus { border-color:#059669; box-shadow:0 0 0 3px rgba(5,150,105,.12); background: var(--surface,#fff); }
+
+        /* New-group button */
+        #chatTab .ct-newgroup { padding:8px 10px; border-bottom:1px solid var(--border,#E2E8F0); background: var(--surface,#fff); }
+        #chatTab .ct-newgroup-btn { width:100%; padding:9px 10px; border-radius:10px; border:1px dashed #A7F3D0; background:#F0FDF4; color:#059669; font-size:12px; font-weight:700; cursor:pointer; transition:background .12s; }
         #chatTab .ct-newgroup-btn:hover { background:#ECFDF5; }
+
+        /* Conversation list */
+        #chatTab .ct-list { flex:1; overflow-y:auto; padding:0; scrollbar-width: thin; scrollbar-color: #CBD5E1 transparent; }
+        #chatTab .ct-list::-webkit-scrollbar { width:6px; }
+        #chatTab .ct-list::-webkit-scrollbar-thumb { background:#CBD5E1; border-radius:3px; }
+        #chatTab .ct-list::-webkit-scrollbar-thumb:hover { background:#94A3B8; }
+        #chatTab .ct-list-item { padding:10px 14px; cursor:pointer; display:flex; gap:12px; align-items:center; transition:background .12s; border-left:3px solid transparent; border-bottom:1px solid #F1F5F9; }
+        #chatTab .ct-list-item:hover { background:#F8FAFC; }
+        #chatTab .ct-list-item.active { background:#ECFDF5; border-left-color:#059669; }
+        #chatTab .ct-avatar { width:42px; height:42px; border-radius:50%; background:linear-gradient(135deg,#ECFDF5,#A7F3D0); color:#047857; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700; flex-shrink:0; letter-spacing:.5px; }
+        #chatTab .ct-li-body { flex:1; min-width:0; }
+        #chatTab .ct-li-title { font-size:14px; font-weight:600; color:var(--text,#0F172A); display:flex; align-items:center; justify-content:space-between; gap:8px; }
+        #chatTab .ct-li-title-text { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        #chatTab .ct-li-time { font-size:11px; color:var(--muted,#94A3B8); flex-shrink:0; font-weight:500; }
+        #chatTab .ct-list-item.has-unread .ct-li-time { color:#059669; font-weight:700; }
+        #chatTab .ct-li-sub-row { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:3px; }
+        #chatTab .ct-li-sub { font-size:12.5px; color:var(--muted,#64748B); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0; }
+        #chatTab .ct-list-item.has-unread .ct-li-sub { color:var(--text,#334155); font-weight:500; }
+        #chatTab .ct-badge { background:#059669; color:#fff; font-size:10px; font-weight:700; padding:2px 7px; border-radius:999px; min-width:18px; text-align:center; flex-shrink:0; }
+        #chatTab .ct-section-title { font-size:10px; font-weight:700; color:var(--muted,#94A3B8); text-transform:uppercase; letter-spacing:.7px; padding:10px 14px 4px; background: var(--surface,#fff); }
+
+        /* Thread pane */
+        #chatTab .ct-thread-head { padding:10px 14px; border-bottom:1px solid var(--border,#E2E8F0); display:flex; align-items:center; gap:10px; background: var(--surface,#fff); flex-shrink:0; }
+        #chatTab .ct-thread-back { width:32px; height:32px; border:none; border-radius:8px; background:transparent; cursor:pointer; display:none; align-items:center; justify-content:center; color:var(--muted,#475569); font-size:20px; }
+        #chatTab .ct-thread-back:hover { background:#F1F5F9; }
+        #chatTab .ct-thread-title { font-size:15px; font-weight:700; color:var(--text,#0F172A); }
+        #chatTab .ct-thread-sub { font-size:11px; color:var(--muted,#64748B); margin-top:1px; }
+        #chatTab .ct-msgs {
+          flex:1; overflow-y:auto; padding:14px 14px 6px;
+          background:#EFEAE2;
+          background-image: linear-gradient(rgba(239,234,226,.92), rgba(239,234,226,.92)), url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'><circle cx='3' cy='3' r='1' fill='%23B7B0A6' opacity='.18'/></svg>");
+          scrollbar-width: thin; scrollbar-color: #C7BFAE transparent;
+        }
+        #chatTab .ct-msgs::-webkit-scrollbar { width:6px; }
+        #chatTab .ct-msgs::-webkit-scrollbar-thumb { background:#C7BFAE; border-radius:3px; }
+        #chatTab .ct-msg-row { display:flex; margin-bottom:4px; }
+        #chatTab .ct-msg-row.mine { justify-content:flex-end; }
+        #chatTab .ct-msg-row + .ct-msg-row { margin-top:2px; }
+        #chatTab .ct-bubble {
+          max-width:72%; padding:6px 10px 8px; border-radius:8px;
+          font-size:14px; line-height:1.4; word-wrap:break-word; white-space:pre-wrap;
+          background:#fff; color:#111827;
+          box-shadow:0 1px 1px rgba(0,0,0,.08);
+          position:relative;
+        }
+        #chatTab .ct-msg-row.mine .ct-bubble { background:#D9FDD3; color:#0F172A; border-bottom-right-radius:2px; }
+        #chatTab .ct-msg-row.theirs .ct-bubble { background:#fff; border-bottom-left-radius:2px; }
+        #chatTab .ct-bubble-text { padding-right:54px; }
+        #chatTab .ct-msg-meta { position:absolute; right:8px; bottom:4px; font-size:10.5px; color:#667781; display:flex; align-items:center; gap:3px; }
+        #chatTab .ct-msg-row.mine .ct-msg-meta { color:#5E886B; }
+        #chatTab .ct-tick { font-size:12px; line-height:1; }
+        #chatTab .ct-tick.read { color:#059669; }
+        #chatTab .ct-msg-sender { font-size:11px; font-weight:700; color:#0EA5E9; margin-bottom:2px; padding-left:2px; }
+
+        /* Composer */
+        #chatTab .ct-composer { padding:8px 10px; border-top:1px solid var(--border,#E2E8F0); display:flex; gap:8px; align-items:flex-end; background: var(--surface,#F0F2F5); flex-shrink:0; }
+        #chatTab .ct-composer textarea { flex:1; min-height:40px; max-height:140px; padding:10px 14px; border:1px solid transparent; border-radius:22px; font-size:14px; outline:none; font-family:inherit; resize:none; background: var(--surface,#fff); color:var(--text,#0F172A); transition: box-shadow .12s; }
+        #chatTab .ct-composer textarea:focus { box-shadow:0 0 0 2px rgba(5,150,105,.18); }
+        #chatTab .ct-send-btn { width:42px; height:42px; border-radius:50%; background:#059669; color:#fff; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:transform .12s, background .12s; }
+        #chatTab .ct-send-btn:hover { background:#047857; transform:scale(1.05); }
+        #chatTab .ct-send-btn:disabled { opacity:.55; cursor:not-allowed; transform:none; }
+
+        /* Empty states */
+        #chatTab .ct-empty-state { padding:32px 24px; text-align:center; color:var(--muted,#64748B); }
+        #chatTab .ct-empty-state svg { opacity:.5; margin-bottom:8px; }
+        #chatTab .ct-empty-state h3 { font-size:14px; font-weight:700; color:var(--text,#1E293B); margin: 6px 0 4px; }
+        #chatTab .ct-empty-state p { font-size:12.5px; margin:0; line-height:1.5; }
+        #chatTab .ct-empty-state .ct-cta { display:inline-block; margin-top:10px; padding:7px 14px; background:#059669; color:#fff; border-radius:999px; font-size:12px; font-weight:600; cursor:pointer; border:none; }
+        #chatTab .ct-empty-state .ct-cta:hover { background:#047857; }
+
+        /* Thread empty state — fully contained inside right pane only */
+        #chatTab .ct-thread.ct-empty { align-items:center; justify-content:center; background:linear-gradient(180deg,#F0FDF4 0%, #ECFDF5 100%); }
+        #chatTab .ct-thread.ct-empty .ct-empty-card {
+          max-width:340px; text-align:center; padding:32px 28px;
+          background: var(--surface,#fff); border-radius:14px;
+          box-shadow: 0 4px 18px rgba(15,23,42,.06);
+          border: 1px solid var(--border,#E2E8F0);
+        }
+        #chatTab .ct-thread.ct-empty h3 { font-size:16px; margin:8px 0 4px; }
+        #chatTab .ct-thread.ct-empty p { font-size:13px; color:var(--muted,#64748B); }
+
+        /* Mobile (<900px) */
+        @media (max-width: 900px) {
+          #chatTab .ct-grid { grid-template-columns: 1fr; }
+          #chatTab .ct-pane.ct-rail { width:100%; }
+          #chatTab .ct-pane.ct-thread { display:none; }
+          #chatTab.ct-mobile-thread .ct-rail { display:none; }
+          #chatTab.ct-mobile-thread .ct-thread { display:flex; }
+          #chatTab .ct-thread-back { display:flex; }
+        }
+
         /* Modal */
         #chatTab .ct-modal { position:fixed; inset:0; background:rgba(15,23,42,.45); display:none; align-items:center; justify-content:center; z-index:9999; }
         #chatTab .ct-modal.open { display:flex; }
@@ -1777,8 +1857,17 @@
       <div class="ct-wrap">
         <div class="ct-grid">
 
-          <!-- Left rail: tabs + list -->
-          <div class="ct-rail ct-card">
+          <!-- Left rail: header / tabs / search / list -->
+          <div class="ct-pane ct-rail">
+            <div class="ct-rail-head">
+              <div class="ct-rail-title">
+                Chats
+                <button type="button" id="ctSwitchIdentity" title="Switch identity" style="margin-left:6px;background:none;border:none;cursor:pointer;color:#94A3B8;display:none;align-items:center;padding:2px;border-radius:6px;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                </button>
+              </div>
+              <span class="ct-conn-pill" id="ctConn" title="Connection status"><span class="ct-dot"></span><span id="ctConnText">Connecting</span></span>
+            </div>
             <div class="ct-tabs" id="ctTabs">
               <span class="ct-tab active" data-ckind="recent">Recent</span>
               <span class="ct-tab" data-ckind="region">Region</span>
@@ -1788,27 +1877,42 @@
               <span class="ct-tab" data-ckind="individual">Individual</span>
               <span class="ct-tab" data-ckind="custom">Custom</span>
             </div>
-            <div class="ct-search"><input id="ctSearchBox" type="text" placeholder="Search…" autocomplete="off" /></div>
+            <div class="ct-search">
+              <div class="ct-search-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input id="ctSearchBox" type="text" placeholder="Search conversations…" autocomplete="off" />
+              </div>
+            </div>
             <div class="ct-newgroup" id="ctNewGroupWrap" style="display:none;">
               <button class="ct-newgroup-btn" id="ctNewGroupBtn">+ New chat group</button>
             </div>
             <div class="ct-list" id="ctList"></div>
-            <div class="ct-conn" id="ctConn"><span class="ct-dot"></span><span id="ctConnText">Connecting…</span></div>
           </div>
 
-          <!-- Center: open thread -->
-          <div class="ct-thread ct-card ct-empty" id="ctThread">
-            <div class="ct-empty-state">
-              <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <!-- Right pane: open thread (or contained empty placeholder) -->
+          <div class="ct-pane ct-thread ct-empty" id="ctThread">
+            <div class="ct-empty-card">
+              <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
               <h3>Pick a conversation</h3>
-              <p>Choose a region, branch, or person from the left rail to start chatting.</p>
+              <p>Choose a region, branch, or person from the left to start chatting.</p>
             </div>
           </div>
+        </div>
+      </div>
 
-          <!-- Right rail: thread info -->
-          <div class="ct-info ct-card" id="ctInfo">
-            <div class="ct-info-head"><div class="ct-info-title" id="ctInfoTitle">Thread info</div><div class="ct-info-sub" id="ctInfoSub">No thread open</div></div>
-            <div class="ct-info-body" id="ctInfoBody"></div>
+      <!-- Identity-picker modal (shown when chat opens but localStorage has no employeeId) -->
+      <div class="ct-modal" id="ctIdentityModal">
+        <div class="ct-modal-card">
+          <div class="ct-modal-title">Identify yourself for chat</div>
+          <p style="font-size:12.5px;color:#64748B;margin:0;line-height:1.5;">
+            Pick your name from the list so colleagues can message you. We'll remember this on this device — you can switch it later.
+          </p>
+          <input type="text" id="ctIdentitySearch" placeholder="Search by name, branch, or mobile…" autocomplete="off" />
+          <div class="ct-modal-list" id="ctIdentityResults">
+            <div class="ct-empty-state" style="padding:14px;"><p>Type your name above to find yourself.</p></div>
+          </div>
+          <div class="ct-modal-actions">
+            <button class="ct-btn" id="ctIdentityCancel">Not now</button>
           </div>
         </div>
       </div>
@@ -1864,7 +1968,7 @@
         function setConn(online){
           var el = $('ctConn'); if (!el) return;
           el.classList.toggle('online', !!online);
-          $('ctConnText').textContent = online ? 'Connected' : 'Reconnecting…';
+          var t = $('ctConnText'); if (t) t.textContent = online ? 'Online' : 'Connecting';
         }
 
         function relTime(s){
@@ -2012,7 +2116,29 @@
 
         // ---- Render: left rail ----
         function dmKey(a, b){ return 'dm:' + (a < b ? a + ':' + b : b + ':' + a); }
-        function selectKind(kind){ state.kind = kind; document.querySelectorAll('#ctTabs .ct-tab').forEach(function(t){ t.classList.toggle('active', t.dataset.ckind === kind); }); $('ctNewGroupWrap').style.display = (kind === 'custom') ? 'block' : 'none'; renderRail(); }
+        function tabHasContent(kind){
+          // Tabs that should always show:
+          if (kind === 'recent' || kind === 'individual' || kind === 'custom') return true;
+          var arr = state.scopes[kind + 's'];
+          return Array.isArray(arr) && arr.length > 0;
+        }
+        function updateTabVisibility(){
+          document.querySelectorAll('#ctTabs .ct-tab').forEach(function(t){
+            t.classList.toggle('is-empty', !tabHasContent(t.dataset.ckind));
+          });
+        }
+        function firstAvailableKind(){
+          var order = ['recent','region','division','area','branch','individual','custom'];
+          for (var i=0; i<order.length; i++) if (tabHasContent(order[i])) return order[i];
+          return 'individual';
+        }
+        function selectKind(kind){
+          if (!tabHasContent(kind)) kind = firstAvailableKind();
+          state.kind = kind;
+          document.querySelectorAll('#ctTabs .ct-tab').forEach(function(t){ t.classList.toggle('active', t.dataset.ckind === kind); });
+          $('ctNewGroupWrap').style.display = (kind === 'custom') ? 'block' : 'none';
+          renderRail();
+        }
 
         function renderRail(){
           var list = $('ctList'); if (!list) return;
@@ -2027,14 +2153,14 @@
               return (t.title || '').toLowerCase().indexOf(q) !== -1;
             });
             html = rows.length ? rows.map(threadRowHtml).join('')
-                                : emptyHtml('No conversations yet', 'Pick a region, branch, or person from the left tabs.');
+                                : emptyHtml('No conversations yet', 'Tap a tab above (Region, Branch, Individual…) to start your first chat.', null);
           } else if (state.kind === 'individual') {
             // Recent DMs first; then directory matches.
             var dms = state.threads.filter(function(t){ return t.kind === 'dm' && (!q || (t.title||'').toLowerCase().indexOf(q) !== -1); });
-            html += '<div class="ct-section-title">Recent</div>';
-            html += dms.length ? dms.map(threadRowHtml).join('') : '<div class="ct-empty-state" style="padding:6px 4px;"><p>No recent DMs.</p></div>';
+            html += '<div class="ct-section-title">Recent DMs</div>';
+            html += dms.length ? dms.map(threadRowHtml).join('') : '<div class="ct-empty-state" style="padding:14px 14px;"><p>No direct messages yet.</p></div>';
             html += '<div class="ct-section-title">Directory</div>';
-            html += '<div id="ctIndivResults"><div class="ct-empty-state"><p>Type to search for an employee.</p></div></div>';
+            html += '<div id="ctIndivResults"><div class="ct-empty-state"><p>Type a name above to find someone.</p></div></div>';
             list.innerHTML = html;
             // Lazy-search.
             if (state._indivTimer) clearTimeout(state._indivTimer);
@@ -2058,7 +2184,7 @@
           } else if (state.kind === 'custom') {
             var groups = state.threads.filter(function(t){ return t.kind === 'custom' && (!q || (t.title||'').toLowerCase().indexOf(q) !== -1); });
             html = groups.length ? groups.map(threadRowHtml).join('')
-                                 : emptyHtml('No custom groups yet', 'Tap "+ New chat group" above.');
+                                 : emptyHtml('No custom groups yet', 'Build a custom group of people you message often.', '+ New chat group', 'newgroup');
           } else {
             // Auto group level: region/division/area/branch
             var values = state.scopes[state.kind + 's'] || [];
@@ -2069,13 +2195,16 @@
               var unread = t ? (t.unread_count || 0) : 0;
               var lastBody = t && t.last_message ? t.last_message.body : (state.kind[0].toUpperCase() + state.kind.slice(1) + ' group');
               var time = t && t.last_message ? relTime(t.last_message.sent_at) : '';
-              return '<div class="ct-list-item" data-thread="' + esc(key) + '" data-title="' + esc(v) + '">' +
+              var unreadCls = unread ? ' has-unread' : '';
+              return '<div class="ct-list-item' + unreadCls + '" data-thread="' + esc(key) + '" data-title="' + esc(v) + '">' +
                 '<div class="ct-avatar">' + esc(initials(v)) + '</div>' +
-                '<div class="ct-li-body"><div class="ct-li-title"><span class="ct-li-title-text">' + esc(v) + '</span><span class="ct-li-time">' + esc(time) + '</span></div>' +
-                '<div class="ct-li-sub">' + esc(lastBody) + '</div></div>' +
-                (unread ? '<span class="ct-badge">' + (unread > 99 ? '99+' : unread) + '</span>' : '') +
-                '</div>';
-            }).join('') : emptyHtml('Nothing here yet', 'Your hierarchy doesn\'t place you in any ' + state.kind + ' group.');
+                '<div class="ct-li-body">' +
+                  '<div class="ct-li-title"><span class="ct-li-title-text">' + esc(v) + '</span><span class="ct-li-time">' + esc(time) + '</span></div>' +
+                  '<div class="ct-li-sub-row"><span class="ct-li-sub">' + esc(lastBody) + '</span>' +
+                  (unread ? '<span class="ct-badge">' + (unread > 99 ? '99+' : unread) + '</span>' : '') +
+                  '</div>' +
+                '</div></div>';
+            }).join('') : emptyHtml('No ' + state.kind + 's in your scope', 'Try Individual to chat 1-on-1.', 'Switch to Individual', 'individual');
           }
 
           list.innerHTML = html;
@@ -2086,16 +2215,26 @@
           var unread = t.unread_count || 0;
           var time = t.last_message ? relTime(t.last_message.sent_at) : '';
           var sub = t.last_message ? (t.last_message.body || '') : 'Group · ' + (t.member_count || 0) + ' members';
-          return '<div class="ct-list-item" data-thread="' + esc(t.thread_key) + '" data-title="' + esc(t.title) + '">' +
+          var unreadCls = unread ? ' has-unread' : '';
+          return '<div class="ct-list-item' + unreadCls + '" data-thread="' + esc(t.thread_key) + '" data-title="' + esc(t.title) + '">' +
             '<div class="ct-avatar">' + esc(initials(t.title)) + '</div>' +
-            '<div class="ct-li-body"><div class="ct-li-title"><span class="ct-li-title-text">' + esc(t.title) + '</span><span class="ct-li-time">' + esc(time) + '</span></div>' +
-            '<div class="ct-li-sub">' + esc(sub) + '</div></div>' +
-            (unread ? '<span class="ct-badge">' + (unread > 99 ? '99+' : unread) + '</span>' : '') +
-            '</div>';
+            '<div class="ct-li-body">' +
+              '<div class="ct-li-title"><span class="ct-li-title-text">' + esc(t.title) + '</span><span class="ct-li-time">' + esc(time) + '</span></div>' +
+              '<div class="ct-li-sub-row"><span class="ct-li-sub">' + esc(sub) + '</span>' +
+              (unread ? '<span class="ct-badge">' + (unread > 99 ? '99+' : unread) + '</span>' : '') +
+              '</div>' +
+            '</div></div>';
         }
 
-        function emptyHtml(title, hint){
-          return '<div class="ct-empty-state"><h3>' + esc(title) + '</h3><p>' + esc(hint) + '</p></div>';
+        function emptyHtml(title, hint, ctaLabel, ctaAction){
+          var cta = '';
+          if (ctaLabel) {
+            cta = '<button type="button" class="ct-cta" data-empty-cta="' + esc(ctaAction || '') + '">' + esc(ctaLabel) + '</button>';
+          }
+          return '<div class="ct-empty-state">' +
+            '<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>' +
+            '<h3>' + esc(title) + '</h3><p>' + esc(hint) + '</p>' + cta +
+            '</div>';
         }
 
         function bindRailRows(){
@@ -2105,6 +2244,13 @@
               var title = el.getAttribute('data-title') || key;
               openThread(key, title);
               document.querySelectorAll('#ctList .ct-list-item').forEach(function(x){ x.classList.toggle('active', x === el); });
+            });
+          });
+          document.querySelectorAll('#ctList [data-empty-cta]').forEach(function(btn){
+            btn.addEventListener('click', function(){
+              var act = btn.getAttribute('data-empty-cta');
+              if (act === 'newgroup') openModal();
+              else if (act) selectKind(act);
             });
           });
         }
@@ -2122,7 +2268,6 @@
           state.activeThread = existing || { thread_key: threadKey, title: title, kind: threadKey.split(':')[0], member_count: 0 };
           var ct = $('chatTab'); if (ct) ct.classList.add('ct-mobile-thread');
           renderThreadShell();
-          renderInfoPane();
           fetchMessages(threadKey);
         }
 
@@ -2152,10 +2297,13 @@
             var c = $('chatTab'); if (c) c.classList.remove('ct-mobile-thread');
             $('ctThread').classList.add('ct-empty');
             $('ctThread').innerHTML =
-              '<div class="ct-empty-state">' +
-                '<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>' +
-                '<h3>Pick a conversation</h3><p>Choose from the left rail to start chatting.</p>' +
+              '<div class="ct-empty-card">' +
+                '<svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>' +
+                '<h3>Pick a conversation</h3>' +
+                '<p>Choose a region, branch, or person from the left to start chatting.</p>' +
               '</div>';
+            // Deselect rail row
+            document.querySelectorAll('#ctList .ct-list-item.active').forEach(function(x){ x.classList.remove('active'); });
           });
           var input = $('ctInput');
           var send = function(){
@@ -2191,32 +2339,21 @@
               }
             }
             html += '<div class="ct-msg-row ' + (mine ? 'mine' : 'theirs') + '">';
-            html += '<div>';
+            html += '<div class="ct-bubble">';
             if (showHeader && (m.sender_name || m.sender_emp_id)) {
               html += '<div class="ct-msg-sender">' + esc(m.sender_name || m.sender_emp_id) + '</div>';
             }
-            html += '<div class="ct-bubble">' + esc(m.body) + '</div>';
-            html += '<div class="ct-msg-meta">' + esc(relTime(m.sent_at));
+            html += '<div class="ct-bubble-text">' + esc(m.body) + '</div>';
+            html += '<span class="ct-msg-meta">' + esc(relTime(m.sent_at));
             if (mine) html += ' <span class="ct-tick ' + (readByOthers ? 'read' : '') + '">' + (readByOthers ? '✓✓' : '✓') + '</span>';
-            html += '</div></div></div>';
+            html += '</span>';
+            html += '</div></div>';
           });
           box.innerHTML = html || '<div class="ct-empty-state"><h3>No messages yet</h3><p>Say hi — pings clear after 7 days.</p></div>';
           box.scrollTop = box.scrollHeight;
         }
 
-        function renderInfoPane(){
-          var t = state.activeThread;
-          if (!t) { $('ctInfoTitle').textContent = 'Thread info'; $('ctInfoSub').textContent = 'No thread open'; $('ctInfoBody').innerHTML = ''; return; }
-          $('ctInfoTitle').textContent = t.title || t.thread_key;
-          if (t.kind === 'auto') $('ctInfoSub').textContent = 'Hierarchy group';
-          else if (t.kind === 'dm') $('ctInfoSub').textContent = 'Direct message';
-          else if (t.kind === 'custom') $('ctInfoSub').textContent = (t.member_count || 0) + ' members';
-          // For now, info pane renders thread metadata only; member list expansion is future work.
-          $('ctInfoBody').innerHTML =
-            '<div class="ct-info-row"><span style="color:#64748B;">Kind</span><span style="margin-left:auto;font-weight:700;">' + esc(t.kind) + '</span></div>' +
-            '<div class="ct-info-row"><span style="color:#64748B;">Members</span><span style="margin-left:auto;font-weight:700;">' + esc(String(t.member_count || '?')) + '</span></div>' +
-            '<div class="ct-info-row"><span style="color:#64748B;">Auto-purge</span><span style="margin-left:auto;font-weight:700;">7 days</span></div>';
-        }
+        // renderInfoPane removed in Phase J — right info column dropped.
 
         // ---- New group modal ----
         var modalSelected = {};
@@ -2264,16 +2401,96 @@
           });
         }
 
+        // ---- Identity bootstrap (role-based logins don't carry emp_id) ----
+        function hasRoleSession(){
+          var s = (typeof getEmployeeSession === 'function') ? getEmployeeSession() : {};
+          return !!(s.role || localStorage.getItem('roleName'));
+        }
+        function clearIdentity(){
+          localStorage.removeItem('employeeId');
+          localStorage.removeItem('employeeName');
+        }
+        function saveIdentity(empId, name){
+          if (empId) localStorage.setItem('employeeId', String(empId));
+          if (name)  localStorage.setItem('employeeName', String(name));
+        }
+        function showSwitchIdentityBtn(visible){
+          var b = $('ctSwitchIdentity'); if (!b) return;
+          b.style.display = visible ? 'inline-flex' : 'none';
+        }
+        function openIdentityModal(){
+          var modal = $('ctIdentityModal'); if (!modal) return;
+          var input = $('ctIdentitySearch');
+          if (input) input.value = '';
+          renderIdentityResults([], '');
+          modal.classList.add('open');
+          setTimeout(function(){ if (input) input.focus(); }, 50);
+        }
+        function closeIdentityModal(){
+          var modal = $('ctIdentityModal'); if (!modal) return;
+          modal.classList.remove('open');
+        }
+        function renderIdentityResults(rows, q){
+          var box = $('ctIdentityResults'); if (!box) return;
+          if (!q) { box.innerHTML = '<div class="ct-empty-state" style="padding:14px;"><p>Type your name above to find yourself.</p></div>'; return; }
+          if (!rows.length) { box.innerHTML = '<div class="ct-empty-state" style="padding:14px;"><p>No matches. Try a shorter name.</p></div>'; return; }
+          box.innerHTML = rows.map(function(e){
+            var sub = [e.role, e.branch || e.area || e.region].filter(Boolean).join(' · ');
+            return '<div class="ct-modal-row" data-emp="' + esc(e.emp_id) + '" data-name="' + esc(e.name || '') + '">' +
+              '<div class="ct-avatar">' + esc(initials(e.name || e.emp_id)) + '</div>' +
+              '<div><div style="font-size:13px;font-weight:700;color:#0F172A;">' + esc(e.name || e.emp_id) + '</div>' +
+              '<div style="font-size:11px;color:#64748B;">' + esc(sub) + (e.mobile ? ' · ' + esc(e.mobile) : '') + '</div></div>' +
+              '<span style="margin-left:auto;font-size:12px;color:#059669;font-weight:700;">Pick</span>' +
+              '</div>';
+          }).join('');
+          box.querySelectorAll('.ct-modal-row').forEach(function(r){
+            r.addEventListener('click', function(){
+              var id = r.getAttribute('data-emp'); var nm = r.getAttribute('data-name');
+              saveIdentity(id, nm);
+              closeIdentityModal();
+              boot(); // reload chat with new identity
+            });
+          });
+        }
+        function searchIdentity(q){
+          if (!q || q.trim().length < 2) { renderIdentityResults([], q); return; }
+          fetch('/api/employees?q=' + encodeURIComponent(q.trim()))
+            .then(function(r){ return r.ok ? r.json() : []; })
+            .then(function(rows){
+              if (!Array.isArray(rows)) rows = [];
+              renderIdentityResults(rows.slice(0, 30), q);
+            })
+            .catch(function(){ renderIdentityResults([], q); });
+        }
+
         // ---- Bootstrap ----
         function boot(){
           state.self = getEmp();
           if (!state.self.id) {
+            // Role-based login (no emp_id stored). Offer identity picker.
+            if (hasRoleSession()) {
+              $('ctList').innerHTML = '<div class="ct-empty-state">' +
+                '<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>' +
+                '<h3>Pick your name to start chatting</h3>' +
+                '<p>Your role login doesn\'t carry an employee ID. Identify yourself once and we\'ll remember.</p>' +
+                '<button class="ct-cta" id="ctIdentityCta">Identify me</button>' +
+                '</div>';
+              var btn = $('ctIdentityCta'); if (btn) btn.addEventListener('click', openIdentityModal);
+              showSwitchIdentityBtn(false);
+              openIdentityModal();
+              return;
+            }
             $('ctList').innerHTML = '<div class="ct-empty-state"><h3>Sign in required</h3><p>Sign in with your employee mobile to use chat.</p></div>';
+            showSwitchIdentityBtn(false);
             return;
           }
+          showSwitchIdentityBtn(true);
           ensureSocket();
           ensureNotifPermission();
-          fetchScopes().then(fetchThreads).then(function(){ selectKind('recent'); });
+          fetchScopes().then(fetchThreads).then(function(){
+            updateTabVisibility();
+            selectKind('recent');
+          });
           // Light polling fallback in case the socket is wedged.
           if (!state._poll) state._poll = setInterval(refreshThreadsSilent, 30000);
         }
@@ -2285,6 +2502,27 @@
         $('ctSearchBox').addEventListener('input', function(e){ state.search = e.target.value; renderRail(); });
         $('ctNewGroupBtn').addEventListener('click', openModal);
         $('ctGroupCancel').addEventListener('click', closeModal);
+
+        // Identity modal wiring
+        var _idTimer = null;
+        var idSearch = $('ctIdentitySearch');
+        if (idSearch) idSearch.addEventListener('input', function(e){
+          if (_idTimer) clearTimeout(_idTimer);
+          var v = e.target.value;
+          _idTimer = setTimeout(function(){ searchIdentity(v); }, 220);
+        });
+        var idCancel = $('ctIdentityCancel');
+        if (idCancel) idCancel.addEventListener('click', closeIdentityModal);
+        var swBtn = $('ctSwitchIdentity');
+        if (swBtn) swBtn.addEventListener('click', function(){
+          if (!confirm('Switch chat identity? Your messages on this device will use a different name until you switch back.')) return;
+          // Tear down active socket so the new identity gets a fresh join.
+          try { if (state.socket) { state.socket.disconnect(); state.socket = null; } } catch(e){}
+          if (state._poll) { clearInterval(state._poll); state._poll = null; }
+          state.activeThread = null;
+          clearIdentity();
+          openIdentityModal();
+        });
         $('ctGroupSearch').addEventListener('input', function(e){
           if (state._modalTimer) clearTimeout(state._modalTimer);
           state._modalTimer = setTimeout(function(){ modalSearch(e.target.value); }, 200);
@@ -2316,9 +2554,22 @@
           var orig = window.switchEmpTab;
           window.switchEmpTab = function(tab){
             var ret = (typeof orig === 'function') ? orig.apply(this, arguments) : undefined;
+            // Toggle body class so global CSS can hide the page header while chat is active.
+            try { document.body.classList.toggle('chat-active', tab === 'chat'); } catch(e){}
             if (tab === 'chat') boot();
+            else {
+              // Leaving chat — drop mobile-thread mode so re-entry shows rail.
+              var c = document.getElementById('chatTab');
+              if (c) c.classList.remove('ct-mobile-thread');
+            }
             return ret;
           };
+          // Apply current state in case chat is the active tab on load
+          try {
+            if (document.getElementById('chatTab') && document.getElementById('chatTab').classList.contains('active')) {
+              document.body.classList.add('chat-active');
+            }
+          } catch(e){}
         }
       })();
       </script>
@@ -3153,6 +3404,10 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
       </button>
     </div>
+    <div class="ai-panel-footer" aria-hidden="true">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></svg>
+      <span>Powered by <strong>Mistral</strong></span>
+    </div>
   </div>
 </div>
 
@@ -3347,6 +3602,13 @@ body.emp-dark .ai-bar-icon { background: rgba(99,102,241,0.15); color: #A5B4FC; 
   transition: background .2s; flex-shrink: 0;
 }
 .ai-panel-send:hover { background: #6366F1; }
+.ai-panel-footer {
+  margin-top: 8px;
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+  font-size: 11px; color: #94A3B8; letter-spacing:.2px;
+}
+.ai-panel-footer svg { color:#FB923C; flex-shrink:0; }
+.ai-panel-footer strong { color:#475569; font-weight:700; }
 
 /* ===== Desktop: Panel + bar visibility ===== */
 @media (min-width: 768px) {
@@ -3975,7 +4237,7 @@ body.emp-dark .ai-bar-icon { background: rgba(99,102,241,0.15); color: #A5B4FC; 
   <script src="js/contacts.js?v=2"></script>
   <script src="js/employee.js?v=52"></script>
   <script>
-  // AI Chat — browser calls server /api/ai-chat (Gemini backend)
+  // AI Chat — browser calls server /api/ai-chat (Mistral backend, Phase L)
   (function(){
     var _aiHistory = [];
     var _aiCtx = null;
@@ -4023,13 +4285,13 @@ body.emp-dark .ai-bar-icon { background: rgba(99,102,241,0.15); color: #A5B4FC; 
       return sys;
     }
 
-    // Call server-side Gemini proxy
+    // Call server-side Mistral proxy (Phase L moved provider from Gemini → Mistral)
     function callAI(messages, callback) {
       var session = (typeof getEmployeeSession === 'function') ? getEmployeeSession() : {};
       fetch('/api/ai-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: messages, role: session.role || '', location: session.location || '' })
+        body: JSON.stringify({ provider: 'mistral', messages: messages, role: session.role || '', location: session.location || '' })
       })
       .then(function(r) { return r.json(); })
       .then(function(data) {
