@@ -5272,7 +5272,7 @@ const AI_SCHEMA_CHEATSHEET = {
 const AI_SNAPSHOT_VERSION = 1;
 
 // Bump when AI prompt or tool surface changes — invalidates aiReplyCache keys.
-const AI_REPLY_CACHE_VERSION = 'v4-count-formatting';
+const AI_REPLY_CACHE_VERSION = 'v6-ambiguous-entity-lookup';
 
 // Mistral function-calling tool definitions. The model picks which to call
 // when the bundled ctx isn't enough. Every tool maps to a parameterised SQL
@@ -5282,7 +5282,7 @@ const AI_TOOLS_SPEC = [
     type: 'function',
     function: {
       name: 'find_employee',
-      description: 'Look up employees by name, mobile, or emp_id. Returns matching rows from employee_master with role, branch, area, division, region, mobile, status. Use for "who is X" / "find Y" / "what is Z\'s mobile/branch/role".',
+      description: 'Look up employees by name, mobile, or emp_id. Returns matching rows from employee_master with role, branch, area, division, region, mobile, status. Use for "who is X" / "find Y" / "what is Z\'s mobile/branch/role". If multiple matches are returned for a name, do not choose one; list the matches and ask which employee the user means.',
       parameters: {
         type: 'object',
         properties: {
@@ -5313,7 +5313,7 @@ const AI_TOOLS_SPEC = [
     type: 'function',
     function: {
       name: 'find_branch',
-      description: 'Look up branches by name. Returns branch + region/division/area + headcount + current rolling perf (demand/collection/NPA).',
+      description: 'Look up branches by name. Returns branch + region/division/area + headcount + current rolling perf (demand/collection/NPA). If multiple branches match, do not choose one silently; list the matches and ask which branch the user means.',
       parameters: {
         type: 'object',
         properties: {
@@ -5464,6 +5464,25 @@ function _scopeWhere(session, alias, params) {
   return ` AND UPPER(${alias}) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(${emCol}) ILIKE TRIM($${params.length}))`;
 }
 
+function normalizeLookupValue(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function normalizeDigits(value) {
+  return String(value || '').replace(/\D/g, '');
+}
+
+function isExactEmployeeLookup(row, query) {
+  const q = normalizeLookupValue(query);
+  const digits = normalizeDigits(query);
+  return normalizeLookupValue(row && row.emp_id) === q ||
+    (!!digits && normalizeDigits(row && row.mobile) === digits);
+}
+
+function isExactNameMatch(value, query) {
+  return normalizeLookupValue(value) === normalizeLookupValue(query);
+}
+
 async function dispatchAiTool(name, args, session) {
   args = args || {};
   const lim = Math.min(Math.max(parseInt(args.limit, 10) || 25, 1), 200);
@@ -5485,7 +5504,30 @@ async function dispatchAiTool(name, args, session) {
          ${scopeClause}
        ORDER BY (em.status='Working') DESC, em.full_name
        LIMIT ${lim}`;
-    return await safeQuery(sql, params, lim);
+    const rows = await safeQuery(sql, params, lim);
+    if (!Array.isArray(rows)) return rows;
+
+    const exactMatches = rows.filter((r) => isExactEmployeeLookup(r, q) || isExactNameMatch(r.name, q));
+    if (rows.length > 1 && exactMatches.length !== 1) {
+      return {
+        ambiguous: true,
+        count: rows.length,
+        instruction: 'Multiple employees match this lookup. List the top matches with name, emp_id, role, branch, division, and region, then ask which one the user means. Do not answer as if only one employee matched. Do not include phone numbers in the disambiguation list.',
+        matches: rows.map((r) => ({
+          emp_id: r.emp_id,
+          name: r.name,
+          role: r.role,
+          designation: r.designation,
+          branch: r.branch,
+          area: r.area,
+          division: r.division,
+          region: r.region,
+          status: r.status
+        }))
+      };
+    }
+    if (exactMatches.length === 1) return exactMatches;
+    return rows;
   }
 
   if (name === 'employee_performance') {
@@ -5551,7 +5593,19 @@ async function dispatchAiTool(name, args, session) {
         LEFT JOIN perf ON UPPER(em_agg.branch_name) = UPPER(perf.branch_name)
        ORDER BY em_agg.branch_name
        LIMIT ${lim}`;
-    return await safeQuery(sql, params, lim);
+    const rows = await safeQuery(sql, params, lim);
+    if (!Array.isArray(rows)) return rows;
+    const exactMatches = rows.filter((r) => isExactNameMatch(r.branch_name, q));
+    if (rows.length > 1 && exactMatches.length !== 1) {
+      return {
+        ambiguous: true,
+        count: rows.length,
+        instruction: 'Multiple branches match this lookup. List the matching branches with region, division, area, and employee_count, then ask which branch the user means. Do not answer as if only one branch matched.',
+        matches: rows
+      };
+    }
+    if (exactMatches.length === 1) return exactMatches;
+    return rows;
   }
 
   if (name === 'period_performance') {
@@ -6122,6 +6176,8 @@ app.post("/api/ai-chat", aiLimiter, async (req, res) => {
       '- The at-a-glance JSON is fine for trivial single-number lookups in the current period. For everything else, call a tool.',
       '- If the JSON doesn\'t have it, call a tool. Do NOT refuse — the tools cover virtually any DB question in scope.',
       '- For ambiguous questions, ask ONE crisp clarifying question.',
+      '- For employee-name lookups: if find_employee returns more than one match or `ambiguous: true`, list the matching employees with emp_id + branch/role and ask which one the user means. Never pick one silently for common names like Karthik. Do not list phone numbers while disambiguating multiple people.',
+      '- For branch/entity lookups: if find_branch returns more than one match or `ambiguous: true`, list the matching branches with region/division/area and ask which one the user means. Never pick one silently for partial branch names.',
       '- Never invent numbers. Quote what tools return.',
       '- Never use the words "snapshot" or "provided data" or "JSON below" in your replies — they leak internal plumbing. Just answer with the numbers and a short label.',
       '- If a question mentions FTOD, DPD, KYC, disbursement plan, NPA closure, or "daily plan" → MUST call daily_reports_query. Do NOT say "data not available" without calling the tool first.',
