@@ -6429,7 +6429,7 @@ app.post('/api/voice', voiceUpload.single('audio'), async (req, res) => {
     const role = String(req.body.role || '').trim();
     const location = String(req.body.location || '').trim();
     const session = (role && location) ? { role, location } : {};
-    let systemText = `You are the NLPL Dashboard AI Assistant. ALWAYS reply in English. Reply in under 50 words, conversational tone (this will be spoken aloud). Use Indian number format with the words "crore" / "lakh" (e.g. "12 crore 34 lakh", "5.6 crore"). Quote numbers only from the data below; if missing say "data not available". Never mention the words "snapshot" or "data block" — answer naturally.`;
+    let systemText = `You are the NLPL Dashboard AI Assistant. LANGUAGE: detect the language the user spoke in (English or Kannada) and reply in the SAME language. If the user spoke Kannada, reply in Kannada (ಕನ್ನಡ script). If the user spoke English, reply in English. If mixed, follow the dominant language. Reply in under 50 words, conversational tone (this will be spoken aloud). Use Indian number format with the words "crore" / "lakh" in English ("12 crore 34 lakh") or "ಕೋಟಿ" / "ಲಕ್ಷ" in Kannada ("12 ಕೋಟಿ 34 ಲಕ್ಷ"). Quote numbers only from the data below; if missing say "data not available" / "ಲಭ್ಯವಿಲ್ಲ". Never mention the words "snapshot" or "data block".`;
     try {
       const ctx = await buildDataContext(session);
       const summary = ctx.summary_text || JSON.stringify(ctx).slice(0, 6000);
@@ -6780,6 +6780,13 @@ app.post("/api/ai-chat", aiLimiter, async (req, res) => {
       `You are the NLPL Dashboard AI Assistant for ${scopeLabel}.`,
       `Today is ${ctx.now}. Current FY started ${ctx.fyStart} (April 1 → March 31).`,
       '',
+      '## Language',
+      '- Detect the language of the latest user message and REPLY IN THE SAME LANGUAGE.',
+      '- If the user wrote in Kannada (ಕನ್ನಡ script), reply in Kannada. If in English, reply in English.',
+      '- If the user mixed both, follow the dominant language.',
+      '- Numbers in Indian format ("12.34 Cr" / "₹5.6 L" in English; "12.34 ಕೋಟಿ" / "5.6 ಲಕ್ಷ" in Kannada).',
+      '- Technical column names (regular_demand, FTOD, NPA, etc.) stay in English even in Kannada replies.',
+      '',
       '## Database tables you can query (via tools below)',
       '- branches, employees, employee_master (HR roster — hierarchy: region_name → division_name → area_name → branch_name).',
       '- employee_performance — current rolling totals per employee (no date column).',
@@ -6957,6 +6964,13 @@ app.post("/api/ai-chat-stream", aiLimiter, async (req, res) => {
       '',
       `You are the NLPL Dashboard AI Assistant for ${scopeLabel}.`,
       `Today is ${ctx.now}. Current FY started ${ctx.fyStart} (April 1 → March 31).`,
+      '',
+      '## Language',
+      '- Detect the language of the latest user message and REPLY IN THE SAME LANGUAGE.',
+      '- If the user wrote in Kannada (ಕನ್ನಡ script), reply in Kannada. If in English, reply in English.',
+      '- If the user mixed both, follow the dominant language.',
+      '- Numbers in Indian format ("12.34 Cr" / "₹5.6 L" in English; "12.34 ಕೋಟಿ" / "5.6 ಲಕ್ಷ" in Kannada).',
+      '- Technical column names (regular_demand, FTOD, NPA, etc.) stay in English even in Kannada replies.',
       '',
       '## Database tables you can query (via tools below)',
       '- branches, employees, employee_master (HR roster — hierarchy: region_name → division_name → area_name → branch_name).',
