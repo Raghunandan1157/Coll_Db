@@ -5507,8 +5507,8 @@ async function dispatchAiTool(name, args, session) {
     const rows = await safeQuery(sql, params, lim);
     if (!Array.isArray(rows)) return rows;
 
-    const exactMatches = rows.filter((r) => isExactEmployeeLookup(r, q) || isExactNameMatch(r.name, q));
-    if (rows.length > 1 && exactMatches.length !== 1) {
+    const exactIdentifierMatches = rows.filter((r) => isExactEmployeeLookup(r, q));
+    if (rows.length > 1 && exactIdentifierMatches.length !== 1) {
       return {
         ambiguous: true,
         count: rows.length,
@@ -5526,7 +5526,7 @@ async function dispatchAiTool(name, args, session) {
         }))
       };
     }
-    if (exactMatches.length === 1) return exactMatches;
+    if (exactIdentifierMatches.length === 1) return exactIdentifierMatches;
     return rows;
   }
 
@@ -5595,8 +5595,7 @@ async function dispatchAiTool(name, args, session) {
        LIMIT ${lim}`;
     const rows = await safeQuery(sql, params, lim);
     if (!Array.isArray(rows)) return rows;
-    const exactMatches = rows.filter((r) => isExactNameMatch(r.branch_name, q));
-    if (rows.length > 1 && exactMatches.length !== 1) {
+    if (rows.length > 1) {
       return {
         ambiguous: true,
         count: rows.length,
@@ -5604,7 +5603,6 @@ async function dispatchAiTool(name, args, session) {
         matches: rows
       };
     }
-    if (exactMatches.length === 1) return exactMatches;
     return rows;
   }
 
