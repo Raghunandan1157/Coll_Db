@@ -6499,7 +6499,7 @@ app.post('/api/voice', voiceUpload.single('audio'), async (req, res) => {
 // POST /api/voice-stream — SSE-style. Same multipart audio input as /api/voice
 // but streams: transcript → tool_result events (with SQL + rows) → reply →
 // audio. Used by the new voice cockpit overlay so SQL/data appear live.
-app.post('/api/voice-stream', voiceUpload.single('audio'), async (req, res) => {
+app.post('/api/voice-stream', aiLimiter, voiceUpload.single('audio'), async (req, res) => {
   const origin = req.headers.origin || req.headers.referer || '';
   const mobileOrigin = String(req.headers['x-app-origin'] || '').toLowerCase();
   if (origin) {
@@ -6576,7 +6576,18 @@ app.post('/api/voice-stream', voiceUpload.single('audio'), async (req, res) => {
     try {
       const ctx = await buildDataContext(session);
       const scopeLabel = (role && location) ? `${role} for ${location}` : 'CEO (all data)';
-      const ctxJson = JSON.stringify(ctx);
+      // CEO ctxJson is ~36k tokens — exceeds OpenAI tier-1 30k TPM in a
+      // single request. Embed only the compact summary; tools fetch the
+      // rest on demand.
+      const ctxLite = {
+        scope: ctx.scope,
+        latestDate: ctx.latestDate,
+        fyStart: ctx.fyStart,
+        now: ctx.now,
+        latest: ctx.latest,
+        summary_text: ctx.summary_text,
+      };
+      const ctxJson = JSON.stringify(ctxLite);
       scopedSystemText = [
         `You are the NLPL Dashboard AI Assistant for ${scopeLabel}.`,
         `Today is ${ctx.now}. FY started ${ctx.fyStart} (April 1 → March 31).`,
@@ -6633,9 +6644,12 @@ app.post('/api/voice-stream', voiceUpload.single('audio'), async (req, res) => {
     };
 
     // Provider chain: prefer Mistral (best tool dispatch), then OpenAI.
+    // Voice replies are short — cap at 6 tool rounds so a runaway loop
+    // doesn't burn the TPM budget.
+    const VOICE_MAX_ROUNDS = 6;
     const chain = [];
-    if (MISTRAL_KEY) chain.push({ name: 'mistral', run: () => runMistralWithTools(messages, session, undefined, onProgress) });
-    if (OPENAI_KEY)  chain.push({ name: 'openai',  run: () => runOpenAiWithTools(messages, session, undefined, onProgress) });
+    if (MISTRAL_KEY) chain.push({ name: 'mistral', run: () => runMistralWithTools(messages, session, VOICE_MAX_ROUNDS, onProgress) });
+    if (OPENAI_KEY)  chain.push({ name: 'openai',  run: () => runOpenAiWithTools(messages, session, VOICE_MAX_ROUNDS, onProgress) });
 
     let result = { ok: false, error: 'no_providers' };
     let usedProvider = null;
@@ -7237,7 +7251,20 @@ app.post("/api/ai-chat-stream", aiLimiter, async (req, res) => {
   try {
     const ctx = await buildDataContext(session);
     const scopeLabel = (role && location) ? `${role} for ${location}` : 'CEO (all data)';
-    const ctxJson = JSON.stringify(ctx);
+    // Trim ctxJson — full ctx is ~36k tokens for CEO, exceeds tier-1 30k
+    // TPM. Tools fetch specifics; assistant gets summary + headline
+    // numbers up front.
+    const ctxLite = {
+      scope: ctx.scope,
+      latestDate: ctx.latestDate,
+      fyStart: ctx.fyStart,
+      now: ctx.now,
+      latest: ctx.latest,
+      summary_text: ctx.summary_text,
+      monthly: Array.isArray(ctx.monthly) ? ctx.monthly.slice(-6) : undefined,
+      disbursementMonthly: Array.isArray(ctx.disbursementMonthly) ? ctx.disbursementMonthly.slice(-6) : undefined,
+    };
+    const ctxJson = JSON.stringify(ctxLite);
     scopedSystemText = [
       '',
       '',

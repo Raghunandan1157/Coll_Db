@@ -6561,6 +6561,12 @@ body.emp-dark .ai-bubble .ai-bq { border-left-color: #374151; color: #9CA3AF; }
         if (_vo.errorEl) _vo.errorEl.textContent = 'Microphone is not supported in this browser.';
         return;
       }
+      // Wipe previous turn's panes BEFORE the new recording starts so the
+      // user isn't looking at stale SQL/data while talking.
+      if (typeof _voResetCockpit === 'function') _voResetCockpit();
+      if (_vo.errorEl) _vo.errorEl.textContent = '';
+      var meta = document.getElementById('voTopMeta');
+      if (meta) meta.textContent = 'Listening…';
       try {
         _vo.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       } catch (e) {
@@ -6858,6 +6864,7 @@ body.emp-dark .ai-bubble .ai-bq { border-left-color: #374151; color: #9CA3AF; }
       var transcriptText = '';
       var replyBuf = '';
       var audioToPlay = null;
+      var finalized = false;
 
       function setMeta(s) { if (meta) meta.textContent = s; }
       function showTranscript(t) {
@@ -6914,6 +6921,7 @@ body.emp-dark .ai-bubble .ai-bq { border-left-color: #374151; color: #9CA3AF; }
           } catch (_) {}
         }
         else if (event === 'done') {
+          finalized = true;
           setMeta('Done. Tap orb again or hold Space.');
           var goIdle = function() {
             _voSetState('idle');
@@ -6929,6 +6937,7 @@ body.emp-dark .ai-bubble .ai-bq { border-left-color: #374151; color: #9CA3AF; }
           }
         }
         else if (event === 'error') {
+          if (finalized) return; // Stream-end races shouldn't clobber a successful turn.
           _voSetState('error');
           if (_vo.errorEl) _vo.errorEl.textContent = data.message || 'Voice failed.';
           setMeta('Error');
@@ -6963,8 +6972,9 @@ body.emp-dark .ai-bubble .ai-bq { border-left-color: #374151; color: #9CA3AF; }
           return pump();
         })
         .catch(function(e) {
+          if (finalized) return; // post-done network error — turn already succeeded.
           _voSetState('error');
-          if (_vo.errorEl) _vo.errorEl.textContent = 'Voice failed: ' + (e.message || 'unknown') + '. Click anywhere to retry.';
+          if (_vo.errorEl) _vo.errorEl.textContent = 'Voice failed: ' + (e.message || 'unknown') + '. Click orb to retry.';
           setMeta('Error');
         });
       // Skip the legacy JSON path below.
@@ -7048,8 +7058,10 @@ body.emp-dark .ai-bubble .ai-bq { border-left-color: #374151; color: #9CA3AF; }
             try { _vo.rec.stop(); } catch (_) {}
           } else if (_vo.state === 'error') {
             _voSetState('idle');
-            _voSetHint('Click anywhere to talk');
+            _voSetHint('Click orb or hold Space to talk');
             if (_vo.errorEl) _vo.errorEl.textContent = '';
+            var m1 = document.getElementById('voTopMeta');
+            if (m1) m1.textContent = 'Tap orb to ask';
           }
           // processing: ignore clicks (busy)
         });
@@ -7074,8 +7086,10 @@ body.emp-dark .ai-bubble .ai-bq { border-left-color: #374151; color: #9CA3AF; }
           } else if (_vo.state === 'error') {
             e.preventDefault();
             _voSetState('idle');
-            _voSetHint('Click or hold Space to talk');
+            _voSetHint('Click orb or hold Space to talk');
             if (_vo.errorEl) _vo.errorEl.textContent = '';
+            var m2 = document.getElementById('voTopMeta');
+            if (m2) m2.textContent = 'Tap orb to ask';
           } else {
             // recording / processing — just consume the key
             e.preventDefault();
