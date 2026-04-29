@@ -6516,20 +6516,29 @@ app.post('/api/voice-stream', voiceUpload.single('audio'), async (req, res) => {
   res.flushHeaders && res.flushHeaders();
 
   let closed = false;
-  req.on('close', () => { closed = true; });
+  let heartbeat = null;
+  const stopHeartbeat = () => {
+    if (heartbeat) { clearInterval(heartbeat); heartbeat = null; }
+  };
+  const finish = () => {
+    closed = true;
+    stopHeartbeat();
+    try { res.end(); } catch (_) {}
+  };
+  req.on('close', () => { closed = true; stopHeartbeat(); });
+  res.on('close', stopHeartbeat);
+
   const send = (event, data) => {
-    if (closed) return;
+    if (closed || res.writableEnded) return;
     try { res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`); } catch (_) {}
   };
   // Apache mod_proxy_http buffers responses by default. Heartbeat comments
   // every 250 ms force flushes through to the client even during long
   // awaits (STT, tool round-trips, TTS).
-  const heartbeat = setInterval(() => {
-    if (closed) return;
-    try { res.write(': hb\n\n'); } catch (_) {}
+  heartbeat = setInterval(() => {
+    if (closed || res.writableEnded) { stopHeartbeat(); return; }
+    try { res.write(': hb\n\n'); } catch (_) { stopHeartbeat(); }
   }, 250);
-  res.on('close', () => clearInterval(heartbeat));
-  res.on('finish', () => clearInterval(heartbeat));
 
   try {
     send('open', {});
@@ -6538,7 +6547,7 @@ app.post('/api/voice-stream', voiceUpload.single('audio'), async (req, res) => {
     const transcript = await openaiStt(req.file.buffer, req.file.mimetype, req.file.originalname);
     if (!transcript) {
       send('error', { message: 'No speech detected. Try again.' });
-      return res.end();
+      return finish();
     }
     send('transcript', { text: transcript });
     send('stage', { stage: 'thinking' });
@@ -6628,7 +6637,7 @@ app.post('/api/voice-stream', voiceUpload.single('audio'), async (req, res) => {
 
     if (!result.ok || !result.text) {
       send('error', { message: 'AI is briefly busy. Please retry.', reason: result.error || 'all_providers_failed' });
-      return res.end();
+      return finish();
     }
 
     const reply = result.text;
@@ -6645,11 +6654,11 @@ app.post('/api/voice-stream', voiceUpload.single('audio'), async (req, res) => {
     if (audioB64) send('audio', { mime: 'audio/mp3', data: audioB64 });
 
     send('done', { provider: usedProvider });
-    res.end();
+    finish();
   } catch (e) {
     console.error('voice-stream error:', e.message);
     send('error', { message: 'voice_failed', detail: e.message.slice(0, 240) });
-    res.end();
+    finish();
   }
 });
 
@@ -6749,6 +6758,7 @@ async function runMistralWithTools(messages, session, maxRounds, onProgress) {
   const convo = messages.slice();
   const max = maxRounds || 12;
   const emit = typeof onProgress === 'function' ? onProgress : null;
+  const callSig = new Map(); // signature -> count, to break infinite re-calls
   for (let round = 0; round < max; round++) {
     if (emit) emit({ type: 'thinking', round: round + 1 });
     const r = await callMistralAi(convo, AI_TOOLS_SPEC);
@@ -6774,16 +6784,26 @@ async function runMistralWithTools(messages, session, maxRounds, onProgress) {
       const fnName = c?.function?.name || '';
       let argObj = {};
       try { argObj = JSON.parse(c?.function?.arguments || '{}'); } catch (_) {}
+      const sig = fnName + '::' + JSON.stringify(argObj);
+      const prev = callSig.get(sig) || 0;
       let toolResult;
-      const sqlLog = [];
-      try {
-        await aiToolLogStore.run(sqlLog, async () => {
-          toolResult = await dispatchAiTool(fnName, argObj, session);
-        });
-      } catch (e) {
-        toolResult = { error: 'tool_threw: ' + e.message };
+      if (prev >= 1) {
+        // Already tried this exact call. Synthesize a hard-stop tool result
+        // so the model is forced to either change args or give up.
+        toolResult = { error: 'duplicate_call_blocked', instruction: 'You already called this tool with these exact arguments. Do NOT retry. Either change the arguments (different date range, different filter) or answer the user with what you have. Do not loop.' };
+        if (emit) emit({ type: 'tool_result', name: fnName, args: argObj, queries: [], result: toolResult });
+      } else {
+        const sqlLog = [];
+        try {
+          await aiToolLogStore.run(sqlLog, async () => {
+            toolResult = await dispatchAiTool(fnName, argObj, session);
+          });
+        } catch (e) {
+          toolResult = { error: 'tool_threw: ' + e.message };
+        }
+        if (emit) emit({ type: 'tool_result', name: fnName, args: argObj, queries: sqlLog, result: toolResult });
       }
-      if (emit) emit({ type: 'tool_result', name: fnName, args: argObj, queries: sqlLog, result: toolResult });
+      callSig.set(sig, prev + 1);
       convo.push({
         role: 'tool',
         tool_call_id: c.id,
@@ -6849,6 +6869,7 @@ async function runOpenAiWithTools(messages, session, maxRounds, onProgress) {
   const convo = messages.slice();
   const max = maxRounds || 12;
   const emit = typeof onProgress === 'function' ? onProgress : null;
+  const callSig = new Map();
   for (let round = 0; round < max; round++) {
     if (emit) emit({ type: 'thinking', round: round + 1 });
     const r = await callOpenAiChatTools(convo, AI_TOOLS_SPEC);
@@ -6873,16 +6894,24 @@ async function runOpenAiWithTools(messages, session, maxRounds, onProgress) {
       const fnName = c?.function?.name || '';
       let argObj = {};
       try { argObj = JSON.parse(c?.function?.arguments || '{}'); } catch (_) {}
+      const sig = fnName + '::' + JSON.stringify(argObj);
+      const prev = callSig.get(sig) || 0;
       let toolResult;
-      const sqlLog = [];
-      try {
-        await aiToolLogStore.run(sqlLog, async () => {
-          toolResult = await dispatchAiTool(fnName, argObj, session);
-        });
-      } catch (e) {
-        toolResult = { error: 'tool_threw: ' + e.message };
+      if (prev >= 1) {
+        toolResult = { error: 'duplicate_call_blocked', instruction: 'You already called this tool with these exact arguments. Do NOT retry. Either change the arguments or answer the user with what you have. Do not loop.' };
+        if (emit) emit({ type: 'tool_result', name: fnName, args: argObj, queries: [], result: toolResult });
+      } else {
+        const sqlLog = [];
+        try {
+          await aiToolLogStore.run(sqlLog, async () => {
+            toolResult = await dispatchAiTool(fnName, argObj, session);
+          });
+        } catch (e) {
+          toolResult = { error: 'tool_threw: ' + e.message };
+        }
+        if (emit) emit({ type: 'tool_result', name: fnName, args: argObj, queries: sqlLog, result: toolResult });
       }
-      if (emit) emit({ type: 'tool_result', name: fnName, args: argObj, queries: sqlLog, result: toolResult });
+      callSig.set(sig, prev + 1);
       convo.push({
         role: 'tool',
         tool_call_id: c.id,
@@ -7155,21 +7184,30 @@ app.post("/api/ai-chat-stream", aiLimiter, async (req, res) => {
   res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders && res.flushHeaders();
 
+  let closed = false;
+  let heartbeat = null;
+  const stopHeartbeat = () => {
+    if (heartbeat) { clearInterval(heartbeat); heartbeat = null; }
+  };
+  const finish = () => {
+    closed = true;
+    stopHeartbeat();
+    try { res.end(); } catch (_) {}
+  };
+  req.on('close', () => { closed = true; stopHeartbeat(); });
+  res.on('close', stopHeartbeat);
+
   const send = (event, data) => {
+    if (closed || res.writableEnded) return;
     try {
       res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
     } catch (_) {}
   };
-
-  let closed = false;
-  req.on('close', () => { closed = true; });
   // Heartbeat — keep Apache from buffering long pauses between events.
-  const heartbeat = setInterval(() => {
-    if (closed) return;
-    try { res.write(': hb\n\n'); } catch (_) {}
+  heartbeat = setInterval(() => {
+    if (closed || res.writableEnded) { stopHeartbeat(); return; }
+    try { res.write(': hb\n\n'); } catch (_) { stopHeartbeat(); }
   }, 250);
-  res.on('close', () => clearInterval(heartbeat));
-  res.on('finish', () => clearInterval(heartbeat));
 
   const session = (role && location) ? { role, location } : {};
   let scopedSystemText = '';
@@ -7275,7 +7313,7 @@ app.post("/api/ai-chat-stream", aiLimiter, async (req, res) => {
   if (!result.ok || !result.text) {
     const reason = (result && result.error) ? String(result.error) : 'all_providers_failed';
     send('error', { message: 'AI is briefly busy. Please retry in a moment.', reason });
-    return res.end();
+    return finish();
   }
 
   const fullText = result.text;
@@ -7295,7 +7333,7 @@ app.post("/api/ai-chat-stream", aiLimiter, async (req, res) => {
     model: usedModel,
     fallback: usedProvider !== primaryProv,
   });
-  res.end();
+  finish();
 });
 
 
