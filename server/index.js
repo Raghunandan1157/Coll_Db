@@ -5763,7 +5763,7 @@ const AI_TOOLS_SPEC = [
         properties: {
           start_date: { type: 'string', description: 'YYYY-MM-DD; reduced to month boundary.' },
           end_date: { type: 'string' },
-          group_by: { type: 'string', enum: ['month', 'branch', 'product', 'employee'] },
+          group_by: { type: 'string', enum: ['day', 'month', 'branch', 'product', 'employee'], description: 'Use "day" for date-precise queries (e.g. "April 7th vs 8th"). "month" for monthly trends.' },
           branch_name: { type: 'string' },
           region_name: { type: 'string' },
           limit: { type: 'integer' }
@@ -6098,41 +6098,80 @@ async function dispatchAiTool(name, args, session) {
   if (name === 'disbursement_query') {
     const start = args.start_date, end = args.end_date;
     if (!start || !end) return { error: 'start_date and end_date required' };
-    const groupBy = ['month', 'branch', 'product', 'employee'].includes(args.group_by) ? args.group_by : 'month';
+    const groupBy = ['month', 'branch', 'product', 'employee', 'day'].includes(args.group_by) ? args.group_by : 'month';
     const params = [start, end];
     let extra = '';
     if (args.branch_name) { params.push(args.branch_name); extra += ` AND d.branch_name ILIKE $${params.length}`; }
     if (args.region_name) { params.push(args.region_name); extra += ` AND d.region_name ILIKE $${params.length}`; }
     const scopeClause = _scopeWhere(session, 'd.branch_name', params);
-    let selectCols, groupCols;
+    let selectCols, groupCols, orderCol;
     if (groupBy === 'month') {
-      selectCols = `d.db_month AS bucket`;
-      groupCols = `d.db_month`;
+      selectCols = `d.bucket_month AS bucket`;
+      groupCols = `d.bucket_month`;
+      orderCol = `d.bucket_month`;
+    } else if (groupBy === 'day') {
+      selectCols = `to_char(d.bucket_day, 'YYYY-MM-DD') AS bucket`;
+      groupCols = `d.bucket_day`;
+      orderCol = `d.bucket_day`;
     } else if (groupBy === 'branch') {
       selectCols = `d.branch_name AS bucket`;
       groupCols = `d.branch_name`;
+      orderCol = `d.branch_name`;
     } else if (groupBy === 'product') {
       selectCols = `d.product_name AS bucket`;
       groupCols = `d.product_name`;
+      orderCol = `d.product_name`;
     } else {
       selectCols = `d.officer_name AS bucket, d.emp_id`;
       groupCols = `d.officer_name, d.emp_id`;
+      orderCol = `d.officer_name`;
     }
-    // db_month is stored as 'Mon-YY' (e.g. 'Mar-26'). Compare via to_date,
-    // not naive string range — the previous YYYY-MM string compare always
-    // returned 0 rows because formats didn't match.
-    const sql = `${DISB_CTE}
+    // Daily-precise CTE: prefer disbursement_daily for any day in the
+    // requested range (true day-level totals), then UNION the monthly
+    // rollup ONLY for months that have NO daily coverage in the range.
+    // The previous DISB_CTE collapsed everything to 'Mon-YY' which made
+    // a single-day filter return the whole month's totals — broken
+    // semantics for "April 7th vs April 8th" style questions.
+    const dailyAwareCte = `
+      WITH d AS (
+        SELECT disb_date AS bucket_day,
+               to_char(disb_date,'Mon-YY') AS bucket_month,
+               COALESCE(region_name,'') AS region_name,
+               COALESCE(district_name,'') AS district_name,
+               COALESCE(branch_name,'') AS branch_name,
+               COALESCE(emp_id,'') AS emp_id,
+               COALESCE(officer_name,'') AS officer_name,
+               product_name,
+               disb_count, disb_amount
+          FROM disbursement_daily
+         WHERE disb_date BETWEEN $1::date AND $2::date
+        UNION ALL
+        SELECT NULL::date AS bucket_day,
+               db_month AS bucket_month,
+               region_name, district_name, branch_name, emp_id,
+               COALESCE(officer_name,'') AS officer_name,
+               product_name,
+               disb_count, disb_amount
+          FROM disbursement
+         WHERE to_date(db_month,'Mon-YY')
+               BETWEEN date_trunc('month', $1::date)::date
+                   AND date_trunc('month', $2::date)::date
+           AND db_month NOT IN (
+               SELECT DISTINCT to_char(disb_date,'Mon-YY')
+                 FROM disbursement_daily
+                WHERE disb_date BETWEEN $1::date AND $2::date
+             )
+      )`;
+    const sql = `${dailyAwareCte}
       SELECT ${selectCols},
              SUM(d.disb_count)::int AS count,
              SUM(d.disb_amount)::numeric AS amount
         FROM d
-       WHERE to_date(d.db_month, 'Mon-YY')
-             BETWEEN date_trunc('month', $1::date)::date
-                 AND date_trunc('month', $2::date)::date
+       WHERE 1=1
          ${extra}
          ${scopeClause}
        GROUP BY ${groupCols}
-       ORDER BY 1
+       ORDER BY ${orderCol}
        LIMIT ${lim}`;
     return await safeQuery(sql, params, lim);
   }
@@ -7220,7 +7259,7 @@ app.post("/api/ai-chat", aiLimiter, async (req, res) => {
       '- find_branch(query, limit?) — branch name lookup with hierarchy + headcount + perf.',
       '- period_performance(start_date, end_date, group_by?, branch_name?, area_name?, division_name?, region_name?, limit?) — collection/demand/NPA over a date range, group by day|month|branch|employee.',
       '- top_performers(metric, start_date, end_date, limit?) — leaderboard by collection|demand|npa_cases.',
-      '- disbursement_query(start_date, end_date, group_by?, branch_name?, region_name?, limit?) — disbursement count + amount over range, group by month|branch|product|employee.',
+      '- disbursement_query(start_date, end_date, group_by?, branch_name?, region_name?, limit?) — disbursement count + amount over range, group by day|month|branch|product|employee. **Use group_by="day" for date-specific questions ("April 7th vs 8th")** so each row is one calendar day; "month" rolls up to month buckets.',
       '- list_hierarchy(level, parent_level?, parent_name?, limit?) — list region|division|area|branch entities, optionally under a parent.',
       '- npa_summary(start_date, end_date, group_by?, branch_name?, region_name?, limit?) — NPA cases + activation amount over range.',
       '- daily_reports_query(start_date, end_date, branch_name?, region_name?, district_name?, table?, metrics?, limit?) — branch-level DAILY PLAN data: FTOD, DPD bucket 1-30/31-60/61-90, NPA activation/closure, disbursement plan vs actual (IGL/FIG/IL), KYC. ALWAYS use this for ANY question mentioning FTOD, DPD, KYC, NPA closure, or disbursement plan-vs-achievement on a specific date or branch.',
