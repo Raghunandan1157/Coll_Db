@@ -4557,18 +4557,61 @@
   <div class="vo-blur vo-blur-1"></div>
   <div class="vo-blur vo-blur-2"></div>
   <div class="vo-blur vo-blur-3"></div>
-  <button class="vo-close" id="voClose" aria-label="Close voice mode">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-  </button>
-  <div class="vo-stage" id="voStage">
-    <div class="vo-orb" id="voOrb">
-      <div class="vo-bars">
-        <span></span><span></span><span></span><span></span>
-      </div>
+  <header class="vo-topbar">
+    <div class="vo-brand">
+      <div class="vo-brand-dot"></div>
+      <span>NLPL Voice Cockpit</span>
     </div>
-    <div class="vo-hint" id="voHint">Click anywhere to talk</div>
-    <div class="vo-status" id="voStatus" aria-live="polite"></div>
-    <div class="vo-error" id="voError"></div>
+    <div class="vo-topbar-meta" id="voTopMeta">Tap orb to ask</div>
+    <button class="vo-close" id="voClose" aria-label="Close voice mode">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </header>
+
+  <div class="vo-cockpit">
+    <!-- LEFT: live SQL log -->
+    <aside class="vo-pane vo-pane-left">
+      <div class="vo-pane-head">
+        <span class="vo-pane-title">SQL trace</span>
+        <span class="vo-pane-sub" id="voSqlCount">0 queries</span>
+      </div>
+      <div class="vo-pane-body" id="voSqlList">
+        <div class="vo-pane-empty">SQL queries will appear here while the assistant fetches data.</div>
+      </div>
+    </aside>
+
+    <!-- CENTER: orb + transcript + spoken reply -->
+    <section class="vo-stage" id="voStage">
+      <div class="vo-orb-wrap">
+        <div class="vo-orb" id="voOrb">
+          <div class="vo-bars">
+            <span></span><span></span><span></span><span></span>
+          </div>
+        </div>
+      </div>
+      <div class="vo-transcript-wrap">
+        <div class="vo-label" id="voTranscriptLabel" style="display:none;">You said</div>
+        <div class="vo-transcript" id="voTranscript"></div>
+      </div>
+      <div class="vo-reply-wrap">
+        <div class="vo-label" id="voReplyLabel" style="display:none;">Assistant</div>
+        <div class="vo-reply" id="voReply"></div>
+      </div>
+      <div class="vo-hint" id="voHint">Click orb or hold Space to talk</div>
+      <div class="vo-status" id="voStatus" aria-live="polite"></div>
+      <div class="vo-error" id="voError"></div>
+    </section>
+
+    <!-- RIGHT: data cards / tables -->
+    <aside class="vo-pane vo-pane-right">
+      <div class="vo-pane-head">
+        <span class="vo-pane-title">Data</span>
+        <span class="vo-pane-sub" id="voDataCount">0 results</span>
+      </div>
+      <div class="vo-pane-body" id="voDataList">
+        <div class="vo-pane-empty">Live tables &amp; metrics from your question will appear here.</div>
+      </div>
+    </aside>
   </div>
 </div>
 
@@ -5049,29 +5092,265 @@ body.emp-dark .ai-bubble .ai-bq { border-left-color: #374151; color: #9CA3AF; }
 /* Decorative blurs disabled in mono theme. */
 #voiceOverlay .vo-blur { display: none !important; }
 #voiceOverlay .vo-close {
-  position: absolute; top: 22px; right: 22px;
-  width: 44px; height: 44px; border-radius: 50%;
+  width: 36px; height: 36px; border-radius: 50%;
   border: 1px solid rgba(255,255,255,.18);
   background: rgba(255,255,255,.04);
   color: rgba(255,255,255,.75);
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   transition: background .2s, transform .2s;
-  z-index: 2;
 }
 #voiceOverlay .vo-close:hover {
   background: rgba(255,255,255,.10);
   transform: scale(1.05);
 }
+
+/* ── Cockpit layout (3-col) ── */
+#voiceOverlay .vo-topbar {
+  position: absolute; top: 0; left: 0; right: 0;
+  height: 56px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 22px;
+  z-index: 5;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+  background: rgba(10,10,10,.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: rgba(255,255,255,.85);
+}
+#voiceOverlay .vo-brand {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 13.5px; font-weight: 600; letter-spacing: .02em;
+  color: #E5E7EB;
+}
+#voiceOverlay .vo-brand-dot {
+  width: 9px; height: 9px; border-radius: 50%;
+  background: #34D399;
+  box-shadow: 0 0 0 4px rgba(52,211,153,.18);
+  animation: voPulseDot 2s ease-in-out infinite;
+}
+@keyframes voPulseDot {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(52,211,153,.18); }
+  50%      { box-shadow: 0 0 0 8px rgba(52,211,153,.06); }
+}
+#voiceOverlay .vo-topbar-meta {
+  font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+  font-size: 11.5px; color: rgba(255,255,255,.55);
+}
+
+#voiceOverlay .vo-cockpit {
+  position: absolute; inset: 56px 0 0 0;
+  display: grid;
+  grid-template-columns: minmax(280px, 26%) 1fr minmax(320px, 36%);
+  gap: 0;
+  z-index: 2;
+}
+#voiceOverlay .vo-pane {
+  display: flex; flex-direction: column;
+  background: rgba(255,255,255,.02);
+  border-right: 1px solid rgba(255,255,255,.06);
+  min-width: 0; min-height: 0;
+}
+#voiceOverlay .vo-pane-right {
+  border-right: none;
+  border-left: 1px solid rgba(255,255,255,.06);
+}
+#voiceOverlay .vo-pane-head {
+  padding: 14px 18px;
+  display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+  background: rgba(255,255,255,.015);
+  flex-shrink: 0;
+}
+#voiceOverlay .vo-pane-title {
+  font-size: 11px; font-weight: 700;
+  letter-spacing: .12em; text-transform: uppercase;
+  color: rgba(255,255,255,.6);
+}
+#voiceOverlay .vo-pane-sub {
+  font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+  font-size: 11px; color: rgba(255,255,255,.4);
+}
+#voiceOverlay .vo-pane-body {
+  flex: 1; overflow-y: auto;
+  padding: 14px 16px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,.18) transparent;
+}
+#voiceOverlay .vo-pane-body::-webkit-scrollbar { width: 6px; }
+#voiceOverlay .vo-pane-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 3px; }
+#voiceOverlay .vo-pane-body::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.24); }
+#voiceOverlay .vo-pane-empty {
+  font-size: 12.5px; color: rgba(255,255,255,.32);
+  text-align: center; padding: 32px 14px;
+  font-style: italic;
+}
+
+/* SQL trace card */
+#voiceOverlay .vo-sql-card {
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 10px;
+  padding: 11px 13px;
+  margin-bottom: 10px;
+  animation: voSlideIn .3s ease-out;
+}
+@keyframes voSlideIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+#voiceOverlay .vo-sql-tool {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 6px;
+}
+#voiceOverlay .vo-sql-toolname {
+  font-size: 11.5px; font-weight: 600; color: #34D399;
+  font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+}
+#voiceOverlay .vo-sql-meta {
+  font-size: 10.5px; color: rgba(255,255,255,.4);
+  font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+}
+#voiceOverlay .vo-sql-text {
+  font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+  font-size: 10.5px; line-height: 1.5;
+  color: rgba(255,255,255,.7);
+  background: rgba(0,0,0,.35);
+  border: 1px solid rgba(255,255,255,.05);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-top: 6px;
+  white-space: pre-wrap; word-break: break-word;
+  max-height: 180px; overflow-y: auto;
+}
+#voiceOverlay .vo-sql-params {
+  font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+  font-size: 10.5px; color: rgba(96, 165, 250, .85);
+  margin-top: 4px; padding-left: 4px;
+  word-break: break-word;
+}
+
+/* Data card / table */
+#voiceOverlay .vo-data-card {
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+  animation: voSlideIn .3s ease-out;
+}
+#voiceOverlay .vo-data-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px;
+}
+#voiceOverlay .vo-data-title {
+  font-size: 12.5px; font-weight: 600; color: #F3F4F6;
+  letter-spacing: .01em;
+}
+#voiceOverlay .vo-data-count {
+  font-size: 11px; color: rgba(255,255,255,.45);
+  font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+}
+#voiceOverlay .vo-data-table-wrap {
+  overflow-x: auto;
+  border: 1px solid rgba(255,255,255,.06);
+  border-radius: 8px;
+}
+#voiceOverlay .vo-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  color: #E5E7EB;
+}
+#voiceOverlay .vo-data-table th,
+#voiceOverlay .vo-data-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(255,255,255,.05);
+  text-align: left;
+  white-space: nowrap;
+}
+#voiceOverlay .vo-data-table th {
+  background: rgba(255,255,255,.04);
+  font-size: 10.5px; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase;
+  color: rgba(255,255,255,.55);
+}
+#voiceOverlay .vo-data-table td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+#voiceOverlay .vo-data-table tr:last-child td { border-bottom: none; }
+#voiceOverlay .vo-data-table tbody tr:hover { background: rgba(255,255,255,.025); }
+
+/* Single-value KPI strip — used when result is a single object */
+#voiceOverlay .vo-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+}
+#voiceOverlay .vo-kpi {
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.06);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+#voiceOverlay .vo-kpi-label {
+  font-size: 10.5px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .08em;
+  color: rgba(255,255,255,.48);
+  margin-bottom: 4px;
+}
+#voiceOverlay .vo-kpi-value {
+  font-size: 17px; font-weight: 600; color: #F9FAFB;
+  font-variant-numeric: tabular-nums;
+}
+
 #voiceOverlay .vo-stage {
-  position: absolute; inset: 0;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
   cursor: pointer;
   user-select: none;
+  padding: 24px 32px;
+  min-height: 0;
+  position: relative;
+  overflow-y: auto;
 }
+#voiceOverlay .vo-orb-wrap {
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+#voiceOverlay .vo-transcript-wrap,
+#voiceOverlay .vo-reply-wrap {
+  margin-top: 14px;
+  width: 100%; max-width: 520px;
+  text-align: center;
+}
+#voiceOverlay .vo-label {
+  font-size: 10.5px; font-weight: 700;
+  letter-spacing: .12em; text-transform: uppercase;
+  color: rgba(255,255,255,.4);
+  margin-bottom: 6px;
+}
+#voiceOverlay .vo-transcript {
+  font-size: 14px; color: rgba(255,255,255,.78);
+  line-height: 1.5; padding: 8px 12px;
+  background: rgba(255,255,255,.04);
+  border-radius: 10px;
+  min-height: 0;
+}
+#voiceOverlay .vo-transcript:empty { display: none; }
+#voiceOverlay .vo-reply {
+  font-size: 16px; color: #F9FAFB;
+  line-height: 1.55; font-weight: 500;
+  padding: 12px 14px;
+  background: rgba(52,211,153,.10);
+  border: 1px solid rgba(52,211,153,.18);
+  border-radius: 10px;
+  min-height: 0;
+}
+#voiceOverlay .vo-reply:empty { display: none; }
 #voiceOverlay .vo-orb {
-  width: 200px; height: 200px;
+  width: 160px; height: 160px;
   border-radius: 50%;
   background: radial-gradient(circle at 30% 30%, #ffffff 0%, #d4d4d4 60%, #6b6b6b 100%);
   border: 1px solid rgba(255,255,255,.18);
@@ -5132,7 +5411,7 @@ body.emp-dark .ai-bubble .ai-bq { border-left-color: #374151; color: #9CA3AF; }
   transition: height 80ms ease-out;
 }
 #voiceOverlay.state-recording .vo-orb {
-  width: 360px; height: 200px;
+  width: 280px; height: 160px;
   border-radius: 36px;
   background: linear-gradient(180deg, #1f1f1f 0%, #141414 100%);
   border-color: rgba(255,255,255,.14);
@@ -5186,6 +5465,20 @@ body.emp-dark .ai-bubble .ai-bq { border-left-color: #374151; color: #9CA3AF; }
   #voiceOverlay.state-processing .vo-orb::after {
     animation: none !important;
   }
+}
+@media (max-width: 1024px) {
+  #voiceOverlay .vo-cockpit {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(180px, 28%) minmax(280px, 1fr) minmax(180px, 28%);
+    overflow-y: auto;
+  }
+  #voiceOverlay .vo-pane-right { border-left: none; border-top: 1px solid rgba(255,255,255,.06); }
+  #voiceOverlay .vo-pane-left  { border-right: none; border-bottom: 1px solid rgba(255,255,255,.06); }
+}
+@media (max-width: 640px) {
+  #voiceOverlay .vo-orb { width: 120px; height: 120px; }
+  #voiceOverlay.state-recording .vo-orb { width: 220px; height: 120px; }
+  #voiceOverlay .vo-topbar-meta { display: none; }
 }
 .ai-panel-footer {
   margin-top: 8px;
@@ -6249,9 +6542,10 @@ body.emp-dark .ai-bubble .ai-bq { border-left-color: #374151; color: #9CA3AF; }
       _vo.el.classList.add('open');
       _vo.el.setAttribute('aria-hidden', 'false');
       _voSetState('idle');
-      _voSetHint('Click or hold Space to talk');
+      _voSetHint('Click orb or hold Space to talk');
       _voStopCycleStatus();
       if (_vo.errorEl) _vo.errorEl.textContent = '';
+      if (typeof _voResetCockpit === 'function') _voResetCockpit();
     }
     function _voClose() {
       _voStopRecording(true);
@@ -6342,6 +6636,204 @@ body.emp-dark .ai-bubble .ai-bq { border-left-color: #374151; color: #9CA3AF; }
       }
       _vo.rafId = requestAnimationFrame(_voTickBars);
     }
+    // ── Voice cockpit helpers — render SQL + data cards live ──────────
+    function _voResetCockpit() {
+      var sql = document.getElementById('voSqlList');
+      var data = document.getElementById('voDataList');
+      var sqlCount = document.getElementById('voSqlCount');
+      var dataCount = document.getElementById('voDataCount');
+      var t = document.getElementById('voTranscript');
+      var tLabel = document.getElementById('voTranscriptLabel');
+      var r = document.getElementById('voReply');
+      var rLabel = document.getElementById('voReplyLabel');
+      var meta = document.getElementById('voTopMeta');
+      if (sql) sql.innerHTML = '<div class="vo-pane-empty">SQL queries will appear here while the assistant fetches data.</div>';
+      if (data) data.innerHTML = '<div class="vo-pane-empty">Live tables &amp; metrics from your question will appear here.</div>';
+      if (sqlCount) sqlCount.textContent = '0 queries';
+      if (dataCount) dataCount.textContent = '0 results';
+      if (t) t.textContent = '';
+      if (tLabel) tLabel.style.display = 'none';
+      if (r) r.textContent = '';
+      if (rLabel) rLabel.style.display = 'none';
+      if (meta) meta.textContent = 'Listening pipeline armed';
+      _vo.sqlNum = 0;
+      _vo.dataNum = 0;
+    }
+    function _voEsc(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){return '&#'+c.charCodeAt(0)+';';});
+    }
+    function _voInterpolate(sql, params) {
+      // Turn $1, $2... into the literal value with light quoting so the
+      // SQL trace is readable without revealing types incorrectly.
+      var arr = Array.isArray(params) ? params : [];
+      return String(sql).replace(/\$(\d+)/g, function(_m, n){
+        var v = arr[(+n) - 1];
+        if (v == null) return 'NULL';
+        if (typeof v === 'number') return String(v);
+        return "'" + String(v).replace(/'/g, "''") + "'";
+      });
+    }
+    function _voIsMoneyCol(k) {
+      return /amount|amt|demand|collection|disb_amount|principal|outstanding/.test(k);
+    }
+    function _voIsCountCol(k) {
+      return /count|cases|acc|accounts|days|rows|kyc/.test(k);
+    }
+    function _voFmtIN(n) {
+      var num = Number(n);
+      if (!isFinite(num)) return String(n == null ? '' : n);
+      var sign = num < 0 ? '-' : '';
+      var abs = Math.abs(num);
+      if (abs >= 1e7) return sign + '₹' + (abs / 1e7).toFixed(2) + ' Cr';
+      if (abs >= 1e5) return sign + '₹' + (abs / 1e5).toFixed(2) + ' L';
+      return sign + abs.toLocaleString('en-IN');
+    }
+    function _voFmtCount(n) {
+      var num = Number(n);
+      if (!isFinite(num)) return String(n == null ? '' : n);
+      return num.toLocaleString('en-IN');
+    }
+    function _voCellRender(key, val) {
+      if (val == null) return '<span style="color:rgba(255,255,255,.3)">—</span>';
+      if (typeof val === 'number' || (/^-?\d+(?:\.\d+)?$/.test(String(val)))) {
+        if (_voIsMoneyCol(key)) return _voFmtIN(val);
+        if (_voIsCountCol(key))  return _voFmtCount(val);
+        // generic number
+        return _voFmtCount(val);
+      }
+      var s = String(val);
+      if (s.length > 60) s = s.slice(0, 57) + '…';
+      return _voEsc(s);
+    }
+    function _voIsNumericCol(rows, key) {
+      for (var i = 0; i < rows.length; i++) {
+        var v = rows[i][key];
+        if (v == null) continue;
+        if (typeof v === 'number') return true;
+        if (!/^-?\d+(?:\.\d+)?$/.test(String(v))) return false;
+      }
+      return true;
+    }
+    function _voRenderTable(rows) {
+      if (!Array.isArray(rows) || !rows.length) return '<div class="vo-pane-empty">No rows.</div>';
+      var keys = Object.keys(rows[0]);
+      // Drop fields that are usually noise in an audit table.
+      keys = keys.filter(function(k){ return k !== 'mobile' && !/_id$/.test(k) || k === 'emp_id'; });
+      if (!keys.length) keys = Object.keys(rows[0]);
+      var numericKeys = {};
+      keys.forEach(function(k){ numericKeys[k] = _voIsNumericCol(rows, k); });
+      var head = '<tr>' + keys.map(function(k){
+        return '<th class="' + (numericKeys[k] ? 'num' : '') + '">' + _voEsc(k) + '</th>';
+      }).join('') + '</tr>';
+      var body = rows.slice(0, 50).map(function(row){
+        return '<tr>' + keys.map(function(k){
+          var cls = numericKeys[k] ? 'num' : '';
+          return '<td class="' + cls + '">' + _voCellRender(k, row[k]) + '</td>';
+        }).join('') + '</tr>';
+      }).join('');
+      return '<div class="vo-data-table-wrap"><table class="vo-data-table"><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>';
+    }
+    function _voRenderKpi(obj) {
+      var keys = Object.keys(obj).filter(function(k){
+        return obj[k] != null && k !== 'mobile' && !/^.*_id$/.test(k);
+      });
+      var html = '<div class="vo-kpi-grid">';
+      keys.forEach(function(k){
+        var v = obj[k];
+        var rendered = (typeof v === 'number' || /^-?\d+(?:\.\d+)?$/.test(String(v)))
+          ? (_voIsMoneyCol(k) ? _voFmtIN(v) : _voFmtCount(v))
+          : _voEsc(String(v));
+        html += '<div class="vo-kpi"><div class="vo-kpi-label">' + _voEsc(k) + '</div><div class="vo-kpi-value">' + rendered + '</div></div>';
+      });
+      html += '</div>';
+      return html;
+    }
+    function _voAppendSqlCard(toolName, queries) {
+      var list = document.getElementById('voSqlList');
+      var counter = document.getElementById('voSqlCount');
+      if (!list) return;
+      // Drop empty-state placeholder on first add.
+      if (list.querySelector('.vo-pane-empty')) list.innerHTML = '';
+      var qs = Array.isArray(queries) ? queries : [];
+      qs.forEach(function(q){
+        _vo.sqlNum++;
+        var sqlText = _voInterpolate(q.sql || '', q.params || []);
+        var meta = (q.error ? 'ERR · ' : (q.rowCount != null ? q.rowCount + ' rows · ' : '')) + (q.ms != null ? q.ms + ' ms' : '');
+        var card = document.createElement('div');
+        card.className = 'vo-sql-card';
+        card.innerHTML =
+          '<div class="vo-sql-tool">'
+          + '<span class="vo-sql-toolname">#' + _vo.sqlNum + ' ' + _voEsc(toolName) + '</span>'
+          + '<span class="vo-sql-meta">' + _voEsc(meta) + '</span>'
+          + '</div>'
+          + '<div class="vo-sql-text">' + _voEsc(sqlText) + '</div>'
+          + (q.error ? '<div class="vo-sql-params" style="color:#fca5a5">' + _voEsc(q.error) + '</div>' : '');
+        list.appendChild(card);
+      });
+      list.scrollTop = list.scrollHeight;
+      if (counter) counter.textContent = _vo.sqlNum + (_vo.sqlNum === 1 ? ' query' : ' queries');
+    }
+    function _voAppendDataCard(toolName, args, result) {
+      var list = document.getElementById('voDataList');
+      var counter = document.getElementById('voDataCount');
+      if (!list) return;
+      if (list.querySelector('.vo-pane-empty')) list.innerHTML = '';
+      // Determine what to render:
+      //   - array of objects → table
+      //   - single object → KPI grid
+      //   - { error } → error card
+      //   - structured tool with nested rows (e.g. daily_reports_query)
+      //     → render each source as its own subsection.
+      var card = document.createElement('div');
+      card.className = 'vo-data-card';
+      var argSummary = '';
+      try {
+        var compact = {};
+        Object.keys(args || {}).forEach(function(k){
+          if (args[k] != null && args[k] !== '') compact[k] = args[k];
+        });
+        argSummary = Object.keys(compact).length ? JSON.stringify(compact) : '';
+      } catch (_) {}
+      var inner = '<div class="vo-data-head">'
+        + '<span class="vo-data-title">' + _voEsc(toolName) + '</span>'
+        + (argSummary ? '<span class="vo-data-count" style="font-size:10.5px">' + _voEsc(argSummary) + '</span>' : '')
+        + '</div>';
+
+      function renderBlock(rows, label) {
+        if (rows && typeof rows === 'object' && rows.error) {
+          return '<div class="vo-pane-empty" style="color:#fca5a5">'
+            + (label ? '<strong>' + _voEsc(label) + ':</strong> ' : '')
+            + _voEsc(rows.error) + '</div>';
+        }
+        if (Array.isArray(rows)) {
+          if (!rows.length) return '<div class="vo-pane-empty">' + (label ? '<strong>' + _voEsc(label) + '</strong> — ' : '') + 'No rows.</div>';
+          var prefix = label ? '<div class="vo-data-count" style="margin:6px 0 8px;color:rgba(255,255,255,.5)">' + _voEsc(label) + ' · ' + rows.length + ' rows</div>' : '';
+          return prefix + _voRenderTable(rows);
+        }
+        if (rows && typeof rows === 'object') {
+          // Single result object.
+          return _voRenderKpi(rows);
+        }
+        return '<div class="vo-pane-empty">' + _voEsc(String(rows)) + '</div>';
+      }
+
+      if (Array.isArray(result) && result.length && result[0] && typeof result[0] === 'object'
+          && (result[0].source || result[0].rows)) {
+        // Structured (e.g. daily_reports_query)
+        result.forEach(function(block){
+          var label = block.source || '';
+          inner += renderBlock(block.rows || block, label);
+        });
+      } else {
+        inner += renderBlock(result, '');
+      }
+      card.innerHTML = inner;
+      list.appendChild(card);
+      list.scrollTop = list.scrollHeight;
+      _vo.dataNum++;
+      if (counter) counter.textContent = _vo.dataNum + (_vo.dataNum === 1 ? ' result' : ' results');
+    }
+
     function _voOnRecordingFinished(blob) {
       // Tear down stream, switch to processing.
       if (_vo.rafId) { cancelAnimationFrame(_vo.rafId); _vo.rafId = null; }
@@ -6353,8 +6845,136 @@ body.emp-dark .ai-bubble .ai-bq { border-left-color: #374151; color: #9CA3AF; }
       _vo.analyser = null;
       _voSetState('processing');
       _voSetHint('');
-      _voCycleStatus();
+      _voResetCockpit();
+      var meta = document.getElementById('voTopMeta');
+      if (meta) meta.textContent = 'Transcribing audio (Whisper)…';
 
+      var session = (typeof getEmployeeSession === 'function') ? getEmployeeSession() : {};
+      var fd = new FormData();
+      fd.append('audio', blob, 'rec.webm');
+      if (session.role) fd.append('role', session.role);
+      if (session.location) fd.append('location', session.location);
+
+      var transcriptText = '';
+      var replyBuf = '';
+      var audioToPlay = null;
+
+      function setMeta(s) { if (meta) meta.textContent = s; }
+      function showTranscript(t) {
+        var el = document.getElementById('voTranscript');
+        var label = document.getElementById('voTranscriptLabel');
+        if (el) el.textContent = t;
+        if (label) label.style.display = 'block';
+      }
+      function showReply(t) {
+        var el = document.getElementById('voReply');
+        var label = document.getElementById('voReplyLabel');
+        if (el) el.textContent = t;
+        if (label) label.style.display = 'block';
+      }
+      function applyEvent(event, dataStr) {
+        var data = {};
+        try { data = JSON.parse(dataStr); } catch (_) {}
+        if (event === 'open') setMeta('Connected · model booting');
+        else if (event === 'stage') {
+          if (data.stage === 'stt') setMeta('Transcribing audio (Whisper)…');
+          else if (data.stage === 'thinking') setMeta('Reasoning + planning DB queries…');
+          else if (data.stage === 'tts') setMeta('Synthesising voice…');
+        }
+        else if (event === 'transcript') {
+          transcriptText = data.text || '';
+          showTranscript(transcriptText);
+          // Also push to chat history so the side chat sees the turn.
+          if (typeof _aiHistory !== 'undefined') _aiHistory.push({ role: 'user', content: transcriptText });
+        }
+        else if (event === 'tools') {
+          setMeta('Calling: ' + (data.names || []).join(', '));
+        }
+        else if (event === 'tool_result') {
+          _voAppendSqlCard(data.name || 'tool', data.queries || []);
+          _voAppendDataCard(data.name || 'tool', data.args || {}, data.result);
+        }
+        else if (event === 'fallback') {
+          setMeta('Fallback: ' + data.from + ' → ' + data.to);
+        }
+        else if (event === 'reply') {
+          replyBuf = data.text || '';
+          showReply(replyBuf);
+          if (typeof _aiHistory !== 'undefined') _aiHistory.push({ role: 'assistant', content: replyBuf });
+          if (typeof _aiAppendBubble === 'function' && transcriptText) {
+            // Mirror the turn into the chat panel for continuity.
+            try { _aiAppendBubble(transcriptText, 'user'); _aiAppendBubble(replyBuf, 'bot'); } catch (_) {}
+          }
+        }
+        else if (event === 'audio') {
+          try {
+            audioToPlay = new Audio('data:' + (data.mime || 'audio/mp3') + ';base64,' + data.data);
+            audioToPlay.play().catch(function(){});
+            setMeta('Speaking…');
+          } catch (_) {}
+        }
+        else if (event === 'done') {
+          setMeta('Done. Tap orb again or hold Space.');
+          var goIdle = function() {
+            _voSetState('idle');
+            _voSetHint('Click orb or hold Space to continue');
+            if (_vo.errorEl) _vo.errorEl.textContent = '';
+          };
+          if (audioToPlay) {
+            audioToPlay.onended = goIdle;
+            audioToPlay.onerror = goIdle;
+            setTimeout(goIdle, 90000);
+          } else {
+            goIdle();
+          }
+        }
+        else if (event === 'error') {
+          _voSetState('error');
+          if (_vo.errorEl) _vo.errorEl.textContent = data.message || 'Voice failed.';
+          setMeta('Error');
+        }
+      }
+
+      fetch('/api/voice-stream', { method: 'POST', body: fd })
+        .then(function(r) {
+          if (!r.ok || !r.body) {
+            return r.text().then(function(t) { throw new Error(t || ('HTTP ' + r.status)); });
+          }
+          var reader = r.body.getReader();
+          var decoder = new TextDecoder();
+          var pending = '';
+          function pump() {
+            return reader.read().then(function(rd) {
+              if (rd.done) return;
+              pending += decoder.decode(rd.value, { stream: true });
+              var parts = pending.split('\n\n');
+              pending = parts.pop();
+              parts.forEach(function(chunk){
+                var ev = 'message', data = '';
+                chunk.split('\n').forEach(function(line){
+                  if (line.indexOf('event:') === 0) ev = line.slice(6).trim();
+                  else if (line.indexOf('data:') === 0) data += line.slice(5).trim();
+                });
+                applyEvent(ev, data);
+              });
+              return pump();
+            });
+          }
+          return pump();
+        })
+        .catch(function(e) {
+          _voSetState('error');
+          if (_vo.errorEl) _vo.errorEl.textContent = 'Voice failed: ' + (e.message || 'unknown') + '. Click anywhere to retry.';
+          setMeta('Error');
+        });
+      // Skip the legacy JSON path below.
+      return;
+    }
+
+    // Legacy JSON path — retained for the older /api/voice endpoint
+    // call site. The new flow above ends with `return;` so this is dead.
+    // Keeping it avoids re-indenting the original promise chain.
+    function _voOnRecordingFinishedLegacy(blob) {
       var session = (typeof getEmployeeSession === 'function') ? getEmployeeSession() : {};
       var fd = new FormData();
       fd.append('audio', blob, 'rec.webm');

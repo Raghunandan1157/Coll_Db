@@ -4980,13 +4980,23 @@ app.post("/api/daily-plan/bulk-save", async (req, res) => {
 // OpenRouter API key + models are now used client-side (see employee.html)
 
 // Helper: run a read-only query safely (with timeout + row limit)
+// AsyncLocalStorage so voice/stream endpoints can capture every SQL run by
+// AI tool calls without threading a logger through every callsite.
+const { AsyncLocalStorage } = require('async_hooks');
+const aiToolLogStore = new AsyncLocalStorage();
+
 async function safeQuery(sql, params, maxRows) {
   const client = await pool.connect();
+  const log = aiToolLogStore.getStore();
+  const t0 = Date.now();
   try {
     await client.query("SET statement_timeout = '5000'"); // 5s max
     const result = await client.query(sql, params);
-    return result.rows.slice(0, maxRows || 50);
+    const rows = result.rows.slice(0, maxRows || 50);
+    if (log) log.push({ sql, params: params || [], rowCount: rows.length, ms: Date.now() - t0 });
+    return rows;
   } catch (e) {
+    if (log) log.push({ sql, params: params || [], error: e.message, ms: Date.now() - t0 });
     return { error: e.message };
   } finally {
     client.release();
@@ -6450,6 +6460,159 @@ app.post('/api/voice', voiceUpload.single('audio'), async (req, res) => {
   }
 });
 
+// POST /api/voice-stream — SSE-style. Same multipart audio input as /api/voice
+// but streams: transcript → tool_result events (with SQL + rows) → reply →
+// audio. Used by the new voice cockpit overlay so SQL/data appear live.
+app.post('/api/voice-stream', voiceUpload.single('audio'), async (req, res) => {
+  const origin = req.headers.origin || req.headers.referer || '';
+  const mobileOrigin = String(req.headers['x-app-origin'] || '').toLowerCase();
+  if (origin) {
+    if (!origin.includes('navachetanalivelihoods.com') && !origin.includes('localhost')) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+  } else if (mobileOrigin !== 'nlpl-mobile') {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  if (!OPENAI_KEY) return res.status(503).json({ error: 'openai_not_configured' });
+  if (!req.file || !req.file.buffer || !req.file.buffer.length) {
+    return res.status(400).json({ error: 'audio_file_required' });
+  }
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders && res.flushHeaders();
+
+  let closed = false;
+  req.on('close', () => { closed = true; });
+  const send = (event, data) => {
+    if (closed) return;
+    try { res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`); } catch (_) {}
+  };
+
+  try {
+    send('open', {});
+    send('stage', { stage: 'stt' });
+
+    const transcript = await openaiStt(req.file.buffer, req.file.mimetype, req.file.originalname);
+    if (!transcript) {
+      send('error', { message: 'No speech detected. Try again.' });
+      return res.end();
+    }
+    send('transcript', { text: transcript });
+    send('stage', { stage: 'thinking' });
+
+    const role = String(req.body.role || '').trim();
+    const location = String(req.body.location || '').trim();
+    const session = (role && location) ? { role, location } : {};
+
+    // Build the same rich tool-aware prompt as the text streaming endpoint,
+    // but add a voice-mode rule so the spoken reply stays brief.
+    let scopedSystemText = '';
+    try {
+      const ctx = await buildDataContext(session);
+      const scopeLabel = (role && location) ? `${role} for ${location}` : 'CEO (all data)';
+      const ctxJson = JSON.stringify(ctx);
+      scopedSystemText = [
+        `You are the NLPL Dashboard AI Assistant for ${scopeLabel}.`,
+        `Today is ${ctx.now}. FY started ${ctx.fyStart} (April 1 → March 31).`,
+        '',
+        '## Language',
+        '- Detect the language of the transcript and REPLY IN THE SAME LANGUAGE (English or Kannada / ಕನ್ನಡ).',
+        '- Numbers in Indian format ("12.34 Cr" / "5.6 L" in English; "12.34 ಕೋಟಿ" / "5.6 ಲಕ್ಷ" in Kannada).',
+        '',
+        '## Voice mode rules',
+        '- This reply will be spoken aloud. Keep it under 60 words, conversational, no markdown.',
+        '- Lead with the headline number, then ONE supporting sentence.',
+        '- The companion screen shows the raw rows you fetch — you do not need to dictate every value, just the highlight + interpretation.',
+        '',
+        '## Tools available — CALL THESE for any specifics',
+        '- find_employee, employee_performance, find_branch, period_performance, top_performers, disbursement_query, list_hierarchy, npa_summary, daily_reports_query, sql_describe',
+        '',
+        '## Tool guidance',
+        '- ANY question with the words disbursement / disb / disbursed / loan disbursed → call disbursement_query with the appropriate date range and group_by.',
+        '- ANY question about FTOD / DPD / KYC / NPA closure / daily plan → call daily_reports_query.',
+        '- For collection/demand metrics → call period_performance.',
+        '- For FTOD specifically: also fetch demand and collection so the user sees demand + collection + FTOD together (FTOD = demand - collection).',
+        '- For comparison questions (vs last month, top N, etc.) → call period_performance or top_performers.',
+        '- "this month" → first of current month → today. "last month" → prior calendar month full range.',
+        '- If the at-a-glance JSON below has the answer for a trivial single number, you may quote it directly. For everything else, CALL A TOOL.',
+        '- Never say "data not available" without first calling the relevant tool.',
+        '',
+        '## Units',
+        'Monetary columns (regular_demand, regular_collection, npa_act_amt, disb_amount) are stored in rupees. Format as ₹X.XX Cr (÷ 1,00,00,000) or ₹X.XX L (÷ 1,00,000).',
+        'Count columns (npa_cases, disb_count, KYC counts, DPD/FTOD counts) are plain counts.',
+        '',
+        '## Internal context block (do NOT mention)',
+        ctxJson,
+      ].join('\n');
+    } catch (e) {
+      console.error('voice-stream context error:', e.message);
+    }
+
+    const messages = [
+      { role: 'system', content: scopedSystemText },
+      { role: 'user', content: transcript },
+    ];
+
+    const onProgress = (ev) => {
+      if (closed) return;
+      if (ev.type === 'thinking') send('thinking', { round: ev.round });
+      else if (ev.type === 'tools') send('tools', { names: ev.names });
+      else if (ev.type === 'tool_result') send('tool_result', {
+        name: ev.name,
+        args: ev.args,
+        queries: ev.queries,
+        result: ev.result,
+      });
+    };
+
+    // Provider chain: prefer Mistral (best tool dispatch), then OpenAI.
+    const chain = [];
+    if (MISTRAL_KEY) chain.push({ name: 'mistral', run: () => runMistralWithTools(messages, session, undefined, onProgress) });
+    if (OPENAI_KEY)  chain.push({ name: 'openai',  run: () => runOpenAiWithTools(messages, session, undefined, onProgress) });
+
+    let result = { ok: false, error: 'no_providers' };
+    let usedProvider = null;
+    for (let i = 0; i < chain.length; i++) {
+      if (closed) return;
+      const step = chain[i];
+      if (i > 0) send('fallback', { from: chain[i - 1].name, to: step.name });
+      result = await step.run();
+      if (result.ok && result.text) { usedProvider = step.name; break; }
+      console.error('voice-stream: ' + step.name + ' failed:', result.error);
+    }
+
+    if (closed) return;
+
+    if (!result.ok || !result.text) {
+      send('error', { message: 'AI is briefly busy. Please retry.', reason: result.error || 'all_providers_failed' });
+      return res.end();
+    }
+
+    const reply = result.text;
+    send('reply', { text: reply });
+    send('stage', { stage: 'tts' });
+
+    let audioB64 = null;
+    try {
+      const buf = await openaiTts(reply);
+      audioB64 = buf.toString('base64');
+    } catch (e) {
+      console.error('voice-stream tts skipped:', e.message);
+    }
+    if (audioB64) send('audio', { mime: 'audio/mp3', data: audioB64 });
+
+    send('done', { provider: usedProvider });
+    res.end();
+  } catch (e) {
+    console.error('voice-stream error:', e.message);
+    send('error', { message: 'voice_failed', detail: e.message.slice(0, 240) });
+    res.end();
+  }
+});
+
 // ── In-memory response cache ───────────────────────────────────────────────────
 // Key: SHA256(role | location | lastUserMsg). TTL: 10 min. Hard cap: 500 entries.
 const aiReplyCache = new Map();
@@ -6572,11 +6735,15 @@ async function runMistralWithTools(messages, session, maxRounds, onProgress) {
       let argObj = {};
       try { argObj = JSON.parse(c?.function?.arguments || '{}'); } catch (_) {}
       let toolResult;
+      const sqlLog = [];
       try {
-        toolResult = await dispatchAiTool(fnName, argObj, session);
+        await aiToolLogStore.run(sqlLog, async () => {
+          toolResult = await dispatchAiTool(fnName, argObj, session);
+        });
       } catch (e) {
         toolResult = { error: 'tool_threw: ' + e.message };
       }
+      if (emit) emit({ type: 'tool_result', name: fnName, args: argObj, queries: sqlLog, result: toolResult });
       convo.push({
         role: 'tool',
         tool_call_id: c.id,
@@ -6667,11 +6834,15 @@ async function runOpenAiWithTools(messages, session, maxRounds, onProgress) {
       let argObj = {};
       try { argObj = JSON.parse(c?.function?.arguments || '{}'); } catch (_) {}
       let toolResult;
+      const sqlLog = [];
       try {
-        toolResult = await dispatchAiTool(fnName, argObj, session);
+        await aiToolLogStore.run(sqlLog, async () => {
+          toolResult = await dispatchAiTool(fnName, argObj, session);
+        });
       } catch (e) {
         toolResult = { error: 'tool_threw: ' + e.message };
       }
+      if (emit) emit({ type: 'tool_result', name: fnName, args: argObj, queries: sqlLog, result: toolResult });
       convo.push({
         role: 'tool',
         tool_call_id: c.id,
@@ -7027,6 +7198,12 @@ app.post("/api/ai-chat-stream", aiLimiter, async (req, res) => {
     if (closed) return;
     if (ev.type === 'thinking') send('thinking', { round: ev.round });
     else if (ev.type === 'tools') send('tools', { names: ev.names });
+    else if (ev.type === 'tool_result') send('tool_result', {
+      name: ev.name,
+      args: ev.args,
+      queries: ev.queries,
+      result: ev.result,
+    });
   };
 
   // Try Mistral → Gemini → OpenAI in order, skipping unconfigured ones.
