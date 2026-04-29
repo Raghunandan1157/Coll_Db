@@ -4600,6 +4600,14 @@
       <div class="vo-hint" id="voHint">Click orb or hold Space to talk</div>
       <div class="vo-status" id="voStatus" aria-live="polite"></div>
       <div class="vo-error" id="voError"></div>
+      <button class="vo-retry-btn" id="voRetry" type="button" aria-label="Retry with last recording">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/></svg>
+        Retry last recording
+      </button>
+      <button class="vo-cancel-pill" id="voCancel" type="button" aria-label="Cancel and return to idle">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        Cancel
+      </button>
     </section>
 
     <!-- RIGHT: data cards / tables -->
@@ -5459,6 +5467,32 @@ body.emp-dark .ai-bubble .ai-bq { border-left-color: #374151; color: #9CA3AF; }
   max-width: 420px; text-align: center;
 }
 #voiceOverlay.state-error .vo-error { display: block; }
+#voiceOverlay .vo-cancel-pill,
+#voiceOverlay .vo-retry-btn {
+  display: none;
+  margin-top: 14px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: .02em;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.22);
+  color: #f5f5f5;
+  cursor: pointer;
+  align-items: center;
+  gap: 6px;
+  transition: background .15s ease, border-color .15s ease, transform .12s ease;
+}
+#voiceOverlay .vo-cancel-pill:hover,
+#voiceOverlay .vo-retry-btn:hover {
+  background: rgba(255,255,255,.12);
+  border-color: rgba(255,255,255,.36);
+}
+#voiceOverlay .vo-cancel-pill:active,
+#voiceOverlay .vo-retry-btn:active { transform: scale(.97); }
+#voiceOverlay.state-processing .vo-cancel-pill { display: inline-flex; }
+#voiceOverlay.state-error .vo-retry-btn { display: inline-flex; }
 @media (prefers-reduced-motion: reduce) {
   #voiceOverlay.state-idle .vo-orb,
   #voiceOverlay.state-processing .vo-orb,
@@ -6477,6 +6511,11 @@ body.emp-dark .ai-bubble .ai-bq { border-left-color: #374151; color: #9CA3AF; }
       smoothed: [0, 0, 0, 0],
       statusTimer: null,
       statusIdx: 0,
+      // P2 — abort + retry plumbing
+      fetchCtrl: null,    // AbortController for in-flight /api/voice-stream
+      lastBlob: null,     // last recorded blob, used by Retry button
+      currentAudio: null, // last <Audio> element so we can pause it on cancel/close
+      gen: 0,             // increments on cancel/close/retry to ignore stale events
     };
     // SQL-flavoured status cycle. The strings rotate while the server
     // composes the reply. Each `vo-prompt` line is the operation;
@@ -6545,9 +6584,16 @@ body.emp-dark .ai-bubble .ai-bq { border-left-color: #374151; color: #9CA3AF; }
       _voSetHint('Click orb or hold Space to talk');
       _voStopCycleStatus();
       if (_vo.errorEl) _vo.errorEl.textContent = '';
+      _vo.lastBlob = null; // fresh session — discard prior retry blob
       if (typeof _voResetCockpit === 'function') _voResetCockpit();
     }
     function _voClose() {
+      // P2: abort any in-flight voice-stream fetch + stop TTS audio so
+      // nothing leaks past the close. Bumping `gen` makes any racing
+      // pump events become noops.
+      _vo.gen++;
+      if (_vo.fetchCtrl) { try { _vo.fetchCtrl.abort(); } catch (_) {} _vo.fetchCtrl = null; }
+      if (_vo.currentAudio) { try { _vo.currentAudio.pause(); } catch (_) {} _vo.currentAudio = null; }
       _voStopRecording(true);
       _voStopCycleStatus();
       if (_vo.el) {
@@ -6852,8 +6898,21 @@ body.emp-dark .ai-bubble .ai-bq { border-left-color: #374151; color: #9CA3AF; }
       _voSetState('processing');
       _voSetHint('');
       _voResetCockpit();
+      if (_vo.errorEl) _vo.errorEl.textContent = '';
       var meta = document.getElementById('voTopMeta');
       if (meta) meta.textContent = 'Transcribing audio (Whisper)…';
+
+      // P2 — Abort any earlier in-flight stream, stash blob for Retry,
+      // bump generation so stale pump events become noops.
+      _vo.lastBlob = blob;
+      if (_vo.fetchCtrl) { try { _vo.fetchCtrl.abort(); } catch (_) {} }
+      if (_vo.currentAudio) { try { _vo.currentAudio.pause(); } catch (_) {} _vo.currentAudio = null; }
+      var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+      _vo.fetchCtrl = ctrl;
+      var myGen = ++_vo.gen;
+      function alive() {
+        return myGen === _vo.gen && _vo.el && _vo.el.classList.contains('open');
+      }
 
       var session = (typeof getEmployeeSession === 'function') ? getEmployeeSession() : {};
       var fd = new FormData();
@@ -6880,6 +6939,7 @@ body.emp-dark .ai-bubble .ai-bq { border-left-color: #374151; color: #9CA3AF; }
         if (label) label.style.display = 'block';
       }
       function applyEvent(event, dataStr) {
+        if (!alive()) return; // overlay closed or superseded by retry/cancel
         var data = {};
         try { data = JSON.parse(dataStr); } catch (_) {}
         if (event === 'open') setMeta('Connected · model booting');
@@ -6916,6 +6976,7 @@ body.emp-dark .ai-bubble .ai-bq { border-left-color: #374151; color: #9CA3AF; }
         else if (event === 'audio') {
           try {
             audioToPlay = new Audio('data:' + (data.mime || 'audio/mp3') + ';base64,' + data.data);
+            _vo.currentAudio = audioToPlay; // expose so _voClose / cancel can stop it
             audioToPlay.play().catch(function(){});
             setMeta('Speaking…');
           } catch (_) {}
@@ -6944,7 +7005,7 @@ body.emp-dark .ai-bubble .ai-bq { border-left-color: #374151; color: #9CA3AF; }
         }
       }
 
-      fetch('/api/voice-stream', { method: 'POST', body: fd })
+      fetch('/api/voice-stream', { method: 'POST', body: fd, signal: ctrl ? ctrl.signal : undefined })
         .then(function(r) {
           if (!r.ok || !r.body) {
             return r.text().then(function(t) { throw new Error(t || ('HTTP ' + r.status)); });
@@ -6973,10 +7034,14 @@ body.emp-dark .ai-bubble .ai-bq { border-left-color: #374151; color: #9CA3AF; }
         })
         .catch(function(e) {
           if (finalized) return; // post-done network error — turn already succeeded.
+          // User-initiated cancel/close → silent. Don't paint error state.
+          if (e && (e.name === 'AbortError' || /aborted/i.test(String(e.message || '')))) return;
+          if (!alive()) return;
           _voSetState('error');
           if (_vo.errorEl) _vo.errorEl.textContent = 'Voice failed: ' + (e.message || 'unknown') + '. Click orb to retry.';
           setMeta('Error');
-        });
+        })
+        .then(function(){ if (myGen === _vo.gen) _vo.fetchCtrl = null; });
       // Skip the legacy JSON path below.
       return;
     }
@@ -7069,6 +7134,30 @@ body.emp-dark .ai-bubble .ai-bq { border-left-color: #374151; color: #9CA3AF; }
       if (closeBtn) closeBtn.addEventListener('click', function(e) {
         e.stopPropagation();
         _voClose();
+      });
+      // P2 — Cancel pill aborts in-flight processing without closing the overlay.
+      var cancelBtn = document.getElementById('voCancel');
+      if (cancelBtn) cancelBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        if (_vo.state !== 'processing') return;
+        _vo.gen++; // future events from the dying fetch are ignored
+        if (_vo.fetchCtrl) { try { _vo.fetchCtrl.abort(); } catch (_) {} _vo.fetchCtrl = null; }
+        if (_vo.currentAudio) { try { _vo.currentAudio.pause(); } catch (_) {} _vo.currentAudio = null; }
+        _voStopCycleStatus();
+        _voSetState('idle');
+        _voSetHint('Click orb or hold Space to talk');
+        if (_vo.errorEl) _vo.errorEl.textContent = '';
+        var mC = document.getElementById('voTopMeta');
+        if (mC) mC.textContent = 'Cancelled · tap orb to ask';
+        _voResetCockpit();
+      });
+      // P2 — Retry replays the last recorded blob through the pipeline.
+      var retryBtn = document.getElementById('voRetry');
+      if (retryBtn) retryBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        if (!_vo.lastBlob) return;
+        if (_vo.state === 'processing' || _vo.state === 'recording') return;
+        _voOnRecordingFinished(_vo.lastBlob);
       });
       // Esc to close. Spacebar = push-to-talk while overlay is open.
       var _voSpaceDown = false;
