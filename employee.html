@@ -1840,6 +1840,121 @@
         #chatTab .ct-thread.ct-empty h3 { font-size:16px; margin:8px 0 4px; }
         #chatTab .ct-thread.ct-empty p { font-size:13px; color:var(--muted,#64748B); }
 
+        /* === Phase Q optimizations (audit P0/P1 fixes) === */
+
+        /* Use dvh + visualViewport-driven height so mobile keyboard
+           doesn't push the composer off-screen on iOS/Android. */
+        #chatTab .ct-wrap { height: 100dvh; max-height: 100dvh; }
+        @supports not (height: 100dvh) {
+          #chatTab .ct-wrap { height: 100vh; max-height: 100vh; }
+        }
+        /* Adjusted at runtime via --ct-vvh (visualViewport.height) */
+        #chatTab.ct-vv-active .ct-wrap { height: var(--ct-vvh, 100dvh); max-height: var(--ct-vvh, 100dvh); }
+
+        /* Connection pill: more visible when offline / connecting */
+        #chatTab .ct-conn-pill { font-size:11px; padding:4px 9px; }
+        #chatTab .ct-conn-pill:not(.online) { color:#B45309; border-color:#FCD34D; background:#FFFBEB; }
+        #chatTab .ct-conn-pill:not(.online) .ct-dot { background:#F59E0B; box-shadow:0 0 0 2px rgba(245,158,11,.18); animation: ctPulseDot 1.2s ease-in-out infinite; }
+
+        /* Search: clear button (X) */
+        #chatTab .ct-search-wrap .ct-search-clear {
+          position:absolute; right:6px; top:50%; transform:translateY(-50%);
+          width:22px; height:22px; border-radius:50%; border:none;
+          background:transparent; color:var(--muted,#94A3B8); cursor:pointer;
+          display:none; align-items:center; justify-content:center; padding:0;
+        }
+        #chatTab .ct-search-wrap.has-text .ct-search-clear { display:flex; }
+        #chatTab .ct-search-wrap .ct-search-clear:hover { background:#F1F5F9; color:#475569; }
+        #chatTab .ct-search input { padding-right:30px; }
+
+        /* Tab strip: edge fades to hint at horizontal scroll */
+        #chatTab .ct-tabs-wrap { position:relative; }
+        #chatTab .ct-tabs-wrap::before,
+        #chatTab .ct-tabs-wrap::after {
+          content:""; position:absolute; top:0; bottom:0; width:18px;
+          pointer-events:none; opacity:0; transition:opacity .15s; z-index:2;
+        }
+        #chatTab .ct-tabs-wrap::before { left:0; background:linear-gradient(90deg, var(--surface,#fff), transparent); }
+        #chatTab .ct-tabs-wrap::after  { right:0; background:linear-gradient(-90deg, var(--surface,#fff), transparent); }
+        #chatTab .ct-tabs-wrap.has-left::before { opacity:1; }
+        #chatTab .ct-tabs-wrap.has-right::after { opacity:1; }
+
+        /* Date / day separator inside thread */
+        #chatTab .ct-day-sep {
+          position:sticky; top:6px; z-index:1;
+          align-self:center; margin:8px auto 6px;
+          padding:3px 10px; border-radius:999px;
+          background: rgba(255,255,255,.92); color:#475569;
+          font-size:11px; font-weight:600; letter-spacing:.2px;
+          box-shadow: 0 1px 2px rgba(15,23,42,.08);
+          width:fit-content; display:block;
+          backdrop-filter: blur(2px);
+        }
+
+        /* First-unread divider */
+        #chatTab .ct-unread-sep {
+          display:flex; align-items:center; gap:8px;
+          margin:10px 0 6px; color:#DC2626; font-size:11px; font-weight:700;
+          text-transform:uppercase; letter-spacing:.4px;
+        }
+        #chatTab .ct-unread-sep::before,
+        #chatTab .ct-unread-sep::after {
+          content:""; flex:1; height:1px; background:#FCA5A5;
+        }
+
+        /* Auto-linked URLs inside bubbles */
+        #chatTab .ct-bubble a {
+          color:#0369A1; text-decoration:underline; word-break:break-all;
+        }
+        #chatTab .ct-msg-row.mine .ct-bubble a { color:#065F46; }
+
+        /* Loading skeleton for messages list */
+        #chatTab .ct-msgs-loading { display:flex; flex-direction:column; gap:8px; padding:8px 0; }
+        #chatTab .ct-skeleton-row { display:flex; }
+        #chatTab .ct-skeleton-row.mine { justify-content:flex-end; }
+        #chatTab .ct-skeleton {
+          height:34px; width:60%; max-width:240px;
+          border-radius:8px;
+          background: linear-gradient(90deg, rgba(255,255,255,.7) 0%, rgba(255,255,255,.95) 50%, rgba(255,255,255,.7) 100%);
+          background-size: 200% 100%;
+          animation: ctShimmer 1.4s infinite linear;
+        }
+        #chatTab .ct-skeleton-row.mine .ct-skeleton { background-color:#D9FDD3; }
+        @keyframes ctShimmer {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+
+        /* Scroll-to-bottom floating button (shown when not at bottom) */
+        #chatTab .ct-scroll-bottom {
+          position:absolute; right:16px; bottom:78px;
+          width:36px; height:36px; border-radius:50%;
+          background:#fff; color:#059669; border:1px solid #E2E8F0;
+          box-shadow:0 4px 12px rgba(15,23,42,.12);
+          display:none; align-items:center; justify-content:center;
+          cursor:pointer; z-index:3; padding:0;
+        }
+        #chatTab .ct-scroll-bottom.visible { display:flex; }
+        #chatTab .ct-scroll-bottom .ct-sb-badge {
+          position:absolute; top:-4px; right:-4px;
+          background:#059669; color:#fff; font-size:9px; font-weight:700;
+          min-width:16px; height:16px; padding:0 4px; border-radius:999px;
+          display:flex; align-items:center; justify-content:center;
+        }
+        #chatTab .ct-thread { position:relative; }
+
+        /* Bubble polish: symmetric corner radii, mobile cap */
+        #chatTab .ct-bubble { border-radius:10px; }
+        #chatTab .ct-msg-row.mine .ct-bubble { border-bottom-right-radius:4px; }
+        #chatTab .ct-msg-row.theirs .ct-bubble { border-bottom-left-radius:4px; }
+
+        /* Outbox / pending message visual */
+        #chatTab .ct-msg-row.pending .ct-bubble { opacity:.7; }
+        #chatTab .ct-msg-row.failed .ct-bubble { background:#FEF2F2; border:1px solid #FCA5A5; color:#7F1D1D; }
+        #chatTab .ct-msg-row.failed .ct-msg-meta::after {
+          content:"failed — tap to retry"; margin-left:6px; color:#DC2626; font-weight:600;
+        }
+
         /* Mobile (<900px) */
         @media (max-width: 900px) {
           #chatTab .ct-grid { grid-template-columns: 1fr; }
@@ -1848,6 +1963,18 @@
           #chatTab.ct-mobile-thread .ct-rail { display:none; }
           #chatTab.ct-mobile-thread .ct-thread { display:flex; }
           #chatTab .ct-thread-back { display:flex; }
+          #chatTab .ct-bubble { max-width: 86%; }
+        }
+
+        /* Mobile landscape (short viewport) — keep composer above keyboard */
+        @media (max-width: 900px) and (max-height: 520px) {
+          #chatTab .ct-rail-head { padding:8px 12px; }
+          #chatTab .ct-tabs { padding:5px 8px; }
+          #chatTab .ct-search { padding:5px 8px; }
+          #chatTab .ct-msgs { padding:8px 10px 4px; }
+          #chatTab .ct-composer { padding:6px 8px; }
+          #chatTab .ct-composer textarea { min-height:34px; max-height:90px; padding:7px 12px; }
+          #chatTab .ct-send-btn { width:36px; height:36px; }
         }
 
         /* Modal */
@@ -1885,19 +2012,24 @@
               </div>
               <span class="ct-conn-pill" id="ctConn" title="Connection status"><span class="ct-dot"></span><span id="ctConnText">Connecting</span></span>
             </div>
-            <div class="ct-tabs" id="ctTabs">
-              <span class="ct-tab active" data-ckind="recent">Recent</span>
-              <span class="ct-tab" data-ckind="region">Region</span>
-              <span class="ct-tab" data-ckind="division">Division</span>
-              <span class="ct-tab" data-ckind="area">Area</span>
-              <span class="ct-tab" data-ckind="branch">Branch</span>
-              <span class="ct-tab" data-ckind="individual">Individual</span>
-              <span class="ct-tab" data-ckind="custom">Custom</span>
+            <div class="ct-tabs-wrap" id="ctTabsWrap">
+              <div class="ct-tabs" id="ctTabs">
+                <span class="ct-tab active" data-ckind="recent">Recent</span>
+                <span class="ct-tab" data-ckind="region">Region</span>
+                <span class="ct-tab" data-ckind="division">Division</span>
+                <span class="ct-tab" data-ckind="area">Area</span>
+                <span class="ct-tab" data-ckind="branch">Branch</span>
+                <span class="ct-tab" data-ckind="individual">Individual</span>
+                <span class="ct-tab" data-ckind="custom">Custom</span>
+              </div>
             </div>
             <div class="ct-search">
-              <div class="ct-search-wrap">
+              <div class="ct-search-wrap" id="ctSearchWrap">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                 <input id="ctSearchBox" type="text" placeholder="Search conversations…" autocomplete="off" />
+                <button type="button" class="ct-search-clear" id="ctSearchClear" title="Clear" aria-label="Clear search">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
               </div>
             </div>
             <div class="ct-newgroup" id="ctNewGroupWrap" style="display:none;">
@@ -1909,7 +2041,13 @@
           <!-- Right pane: open thread (or contained empty placeholder) -->
           <div class="ct-pane ct-thread ct-empty" id="ctThread">
             <div class="ct-empty-card">
-              <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              <svg width="72" height="72" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <circle cx="32" cy="32" r="30" fill="#ECFDF5"/>
+                <path d="M16 22a4 4 0 0 1 4-4h20a4 4 0 0 1 4 4v14a4 4 0 0 1-4 4H28l-7 6v-6h-1a4 4 0 0 1-4-4V22z" fill="#fff" stroke="#10B981" stroke-width="1.8" stroke-linejoin="round"/>
+                <circle cx="26" cy="29" r="1.6" fill="#10B981"/>
+                <circle cx="32" cy="29" r="1.6" fill="#10B981"/>
+                <circle cx="38" cy="29" r="1.6" fill="#10B981"/>
+              </svg>
               <h3>Pick a conversation</h3>
               <p>Choose a region, branch, or person from the left to start chatting.</p>
             </div>
@@ -1979,8 +2117,29 @@
           self: getEmp(),
           socket: null,
           notifAsked: false,
-          notifGranted: false
+          notifGranted: false,
+          // Phase Q
+          outbox: [],              // pending sends: {client_msg_id, thread_key, body, status, sent_at}
+          firstUnreadId: null,     // first unread message id when opening a thread (for divider)
+          stickToBottom: true,     // user is at bottom (scroll new msgs into view)
+          unseenWhileScrolledUp: 0,
+          loadingMessages: false,
+          ticker: null,            // setInterval handle for reactive timestamps
+          _indivReq: 0             // request tag for directory search (drops stale responses)
         };
+
+        var DRAFT_KEY = 'ctDrafts';
+        function loadDrafts(){
+          try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || '{}') || {}; } catch(e){ return {}; }
+        }
+        function saveDraft(threadKey, text){
+          if (!threadKey) return;
+          var d = loadDrafts();
+          if (text && text.trim()) d[threadKey] = text;
+          else delete d[threadKey];
+          try { localStorage.setItem(DRAFT_KEY, JSON.stringify(d)); } catch(e){}
+        }
+        function getDraft(threadKey){ return (loadDrafts()[threadKey] || ''); }
 
         function setConn(online){
           var el = $('ctConn'); if (!el) return;
@@ -2001,7 +2160,58 @@
         function initials(name){
           if (!name) return '?';
           var parts = String(name).trim().split(/\s+/).slice(0,2);
-          return parts.map(function(p){ return p ? p[0] : ''; }).join('').toUpperCase();
+          // Take first grapheme/codepoint of each part (emoji-safe).
+          var out = parts.map(function(p){
+            if (!p) return '';
+            try { var arr = Array.from(p); return arr[0] || ''; } catch(e){ return p[0] || ''; }
+          }).join('');
+          return (out || '?').toUpperCase();
+        }
+
+        // RFC4122-ish v4 (good enough as idempotency key for chat sends).
+        function uuidv4(){
+          if (window.crypto && crypto.randomUUID) { try { return crypto.randomUUID(); } catch(e){} }
+          return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c){
+            var r = Math.random()*16|0; return (c==='x' ? r : (r&0x3|0x8)).toString(16);
+          });
+        }
+
+        // Auto-link http/https URLs inside an *already-escaped* string.
+        // Strict scheme allowlist; rel=noopener noreferrer; target=_blank.
+        function linkify(escaped){
+          if (!escaped) return '';
+          // We work post-esc; & is &amp; etc. The URL chars themselves don't need un-escaping here.
+          return escaped.replace(/\b(https?:\/\/[^\s<>"']+[^\s<>"'.,;:!?)\]])/g, function(url){
+            // url is already escaped (& -> &amp;) — safe to put inside attribute
+            // since we escape again with esc() of the raw URL would double-escape.
+            return '<a href="' + url + '" target="_blank" rel="noopener noreferrer">' + url + '</a>';
+          });
+        }
+
+        // Date helpers for day separators.
+        function _daySigOf(d){ return d.getFullYear()*10000 + (d.getMonth()+1)*100 + d.getDate(); }
+        function daySignature(s){
+          if (!s) return 0;
+          var d = new Date(s); if (isNaN(d.getTime())) return 0;
+          return _daySigOf(d);
+        }
+        function dayLabel(s){
+          if (!s) return '';
+          var d = new Date(s); if (isNaN(d.getTime())) return '';
+          var today = new Date();
+          var yest  = new Date(); yest.setDate(today.getDate()-1);
+          var sig = _daySigOf(d);
+          if (sig === _daySigOf(today)) return 'Today';
+          if (sig === _daySigOf(yest))  return 'Yesterday';
+          var sameYear = d.getFullYear() === today.getFullYear();
+          return d.toLocaleDateString([], sameYear
+            ? { weekday:'short', day:'2-digit', month:'short' }
+            : { day:'2-digit', month:'short', year:'numeric' });
+        }
+        function fullTimestamp(s){
+          if (!s) return '';
+          var d = new Date(s); if (isNaN(d.getTime())) return '';
+          return d.toLocaleString([], { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
         }
 
         // ---- Notifications API ----
@@ -2050,18 +2260,76 @@
           state.socket = s;
           s.on('connect', function(){
             setConn(true);
-            s.emit('chat:join', { emp_id: state.self.id });
+            // Build last_seen_ids map across all threads so server can replay
+            // anything missed in any membership-thread (audit P0 #3, P1 #30).
+            var lastSeen = {};
+            (state.threads || []).forEach(function(t){
+              if (t && t.thread_key && t.last_message && t.last_message.id) {
+                lastSeen[t.thread_key] = t.last_message.id;
+              }
+            });
+            // Also include the active thread's local-tail (in case it has more
+            // local messages than the threads-list snapshot).
+            if (state.activeThread && state.messages.length) {
+              var localTail = state.messages[state.messages.length-1].id;
+              var prev = lastSeen[state.activeThread.thread_key] || 0;
+              if (Number(localTail) > Number(prev)) lastSeen[state.activeThread.thread_key] = localTail;
+            }
+            // ack-callback prevents the old socket-join race (P1 #30).
+            s.emit('chat:join', { emp_id: state.self.id, last_seen_ids: lastSeen }, function(resp){
+              // After ack: refresh unread counts (cheap), flush outbox.
+              refreshUnreadBadge();
+              refreshThreadsSilent();
+              flushOutbox();
+              // If server didn't replay (older deploy), top-up the active thread by REST.
+              if (!resp || resp.replayed == null) {
+                if (state.activeThread) {
+                  var lastId = state.messages.length ? state.messages[state.messages.length-1].id : 0;
+                  fetchMessagesAfter(state.activeThread.thread_key, lastId);
+                }
+              }
+            });
           });
           s.on('disconnect', function(){ setConn(false); });
+          // Replay missed messages on reconnect (P0 #3).
+          s.on('chat:replay', function(payload){
+            var msgs = (payload && payload.messages) || [];
+            if (!msgs.length) return;
+            // Already ASC from server.
+            msgs.forEach(function(m){
+              if (state.activeThread && state.activeThread.thread_key === m.thread_key) {
+                var dup = state.messages.some(function(x){
+                  return x.id === m.id ||
+                    (m.client_msg_id && x.client_msg_id === m.client_msg_id);
+                });
+                if (!dup) state.messages.push(m);
+              }
+            });
+            renderMessages();
+            refreshThreadsSilent();
+          });
           s.on('chat:new', function(msg){
             if (!msg) return;
             // Append to active thread.
             if (state.activeThread && state.activeThread.thread_key === msg.thread_key) {
-              if (!state.messages.some(function(x){ return x.id === msg.id; })) {
+              // Dedup: by server id OR by client_msg_id (echo of our own optimistic send).
+              var dup = state.messages.some(function(x){
+                return x.id === msg.id ||
+                  (msg.client_msg_id && x.client_msg_id === msg.client_msg_id);
+              });
+              if (dup) {
+                // Replace any optimistic placeholder with the canonical row.
+                state.messages = state.messages.map(function(x){
+                  if (msg.client_msg_id && x.client_msg_id === msg.client_msg_id && x._pending) {
+                    return msg;
+                  }
+                  return x;
+                });
+              } else {
                 state.messages.push(msg);
-                renderMessages();
-                if (msg.sender_emp_id !== state.self.id) markRead(msg.id);
               }
+              renderMessages();
+              if (msg.sender_emp_id !== state.self.id) markRead(msg.id);
             } else {
               showNotif(msg);
             }
@@ -2097,26 +2365,175 @@
             .then(function(j){ state.threads = (j && j.threads) || []; renderRail(); renderSidebarBadge(); });
         }
         function refreshThreadsSilent(){ fetchThreads(); }
+        // Cheap unread-only refresh — used after socket reconnect & after markRead.
+        // Server returns { total, threads: { [thread_key]: count } }.
+        function refreshUnreadBadge(){
+          if (!state.self.id) return Promise.resolve();
+          return fetch('/api/chat/unread?emp_id=' + encodeURIComponent(state.self.id))
+            .then(function(r){ return r.ok ? r.json() : null; })
+            .then(function(j){
+              if (!j) return;
+              // Patch unread_count on existing threads in place to avoid full re-render.
+              if (j.threads && state.threads) {
+                state.threads.forEach(function(t){
+                  if (t && t.thread_key) t.unread_count = j.threads[t.thread_key] || 0;
+                });
+              }
+              renderSidebarBadge();
+              renderRail();
+            })
+            .catch(function(){ /* fall back to full thread fetch on next tick */ });
+        }
         function fetchMessages(threadKey){
           if (!state.self.id) return Promise.resolve();
+          state.loadingMessages = true;
+          renderMessageSkeleton();
           return fetch('/api/chat/messages?thread_key=' + encodeURIComponent(threadKey) + '&emp_id=' + encodeURIComponent(state.self.id) + '&limit=50')
             .then(function(r){ return r.json(); })
             .then(function(j){
               var msgs = (j && j.messages) || [];
               msgs.sort(function(a,b){ return Number(a.id) - Number(b.id); });
+              // Compute first-unread divider before we mark read.
+              var threadObj = state.threads.find(function(t){ return t.thread_key === threadKey; });
+              var unreadN = threadObj ? (threadObj.unread_count || 0) : 0;
+              state.firstUnreadId = null;
+              if (unreadN > 0) {
+                // First message NOT sent by self that we haven't read yet.
+                // Heuristic: take the (unreadN)th message from end that's not mine.
+                var notMine = msgs.filter(function(m){ return m.sender_emp_id !== state.self.id; });
+                if (notMine.length >= unreadN) {
+                  state.firstUnreadId = notMine[notMine.length - unreadN].id;
+                }
+              }
               state.messages = msgs;
+              state.loadingMessages = false;
+              state.stickToBottom = true;
+              state.unseenWhileScrolledUp = 0;
               renderMessages();
               var last = msgs.length ? msgs[msgs.length - 1] : null;
               if (last) markRead(last.id);
+            })
+            .catch(function(){
+              state.loadingMessages = false;
+              renderMessages();
             });
         }
-        function postSend(body){
-          var ak = state.activeThread; if (!ak) return Promise.reject('No active thread');
+        // Pull any messages with id > lastId for thread (used after reconnect).
+        function fetchMessagesAfter(threadKey, lastId){
+          if (!state.self.id) return Promise.resolve();
+          var url = '/api/chat/messages?thread_key=' + encodeURIComponent(threadKey)
+                  + '&emp_id=' + encodeURIComponent(state.self.id)
+                  + '&after_id=' + encodeURIComponent(lastId || 0)
+                  + '&limit=100';
+          return fetch(url)
+            .then(function(r){ return r.json(); })
+            .then(function(j){
+              var msgs = (j && j.messages) || [];
+              if (!msgs.length) return;
+              msgs.sort(function(a,b){ return Number(a.id) - Number(b.id); });
+              var added = false;
+              msgs.forEach(function(m){
+                if (!state.messages.some(function(x){ return x.id === m.id; })) {
+                  state.messages.push(m); added = true;
+                }
+              });
+              if (added) {
+                renderMessages();
+                var last = state.messages[state.messages.length-1];
+                if (last) markRead(last.id);
+              }
+            })
+            .catch(function(){ /* server may not support after_id yet — silent */ });
+        }
+        function postSend(body, clientMsgId, threadKey){
+          var tk = threadKey || (state.activeThread && state.activeThread.thread_key);
+          if (!tk) return Promise.reject(new Error('No active thread'));
           return fetch('/api/chat/send', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sender_emp_id: state.self.id, thread_key: ak.thread_key, body: body })
-          }).then(function(r){ return r.json(); });
+            body: JSON.stringify({
+              sender_emp_id: state.self.id,
+              thread_key: tk,
+              body: body,
+              client_msg_id: clientMsgId || undefined
+            })
+          }).then(function(r){
+            if (r.status === 429) {
+              return r.json().catch(function(){ return {}; }).then(function(j){
+                var err = new Error('rate_limited');
+                err.rateLimited = true;
+                err.retryAfterMs = (j && j.retry_after_ms) || 1000;
+                throw err;
+              });
+            }
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.json();
+          });
+        }
+        function isOnline(){
+          return !!(state.socket && state.socket.connected) && (typeof navigator === 'undefined' || navigator.onLine !== false);
+        }
+        function enqueueOutbox(item){
+          state.outbox.push(item);
+        }
+        function _flushDelay(ms){
+          return new Promise(function(res){ setTimeout(res, ms); });
+        }
+        function flushOutbox(){
+          if (state._flushing) return;
+          if (!state.outbox.length) return;
+          state._flushing = true;
+          var pending = state.outbox.slice();
+          state.outbox = [];
+          // Send sequentially so server idempotency stays simple.
+          var p = Promise.resolve();
+          pending.forEach(function(item){
+            p = p.then(function(){
+              return postSend(item.body, item.client_msg_id, item.thread_key)
+                .then(function(row){
+                  // If this is the active thread, replace optimistic placeholder.
+                  if (state.activeThread && state.activeThread.thread_key === item.thread_key && row && row.id) {
+                    var replaced = false;
+                    state.messages = state.messages.map(function(x){
+                      if (x.client_msg_id === item.client_msg_id) { replaced = true; return row; }
+                      return x;
+                    });
+                    if (!replaced && !state.messages.some(function(x){ return x.id === row.id; })) {
+                      state.messages.push(row);
+                    }
+                    renderMessages();
+                  }
+                })
+                .catch(function(err){
+                  // Rate-limit: back off and retry — same client_msg_id is dedup-safe.
+                  if (err && err.rateLimited) {
+                    var attempts = (item._attempts || 0) + 1;
+                    item._attempts = attempts;
+                    // Cap at 5 attempts; widen backoff each time.
+                    if (attempts <= 5) {
+                      state.outbox.push(item);
+                      var wait = Math.max(err.retryAfterMs || 1000, 250 * attempts);
+                      return _flushDelay(wait);
+                    }
+                  }
+                  // Mark the optimistic message as failed; user can retry.
+                  if (state.activeThread && state.activeThread.thread_key === item.thread_key) {
+                    state.messages = state.messages.map(function(x){
+                      if (x.client_msg_id === item.client_msg_id) { x._failed = true; x._pending = false; }
+                      return x;
+                    });
+                    renderMessages();
+                  }
+                  // Re-queue once for next reconnect attempt (network errors only).
+                  if (!err || !err.rateLimited) state.outbox.push(item);
+                });
+            });
+          });
+          p.then(function(){
+            state._flushing = false;
+            // If new items were added during the run, run again.
+            if (state.outbox.length) flushOutbox();
+          }, function(){ state._flushing = false; });
         }
         function markRead(upToId){
           if (!state.activeThread) return;
@@ -2124,7 +2541,7 @@
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ emp_id: state.self.id, thread_key: state.activeThread.thread_key, up_to_message_id: upToId })
-          }).catch(function(){});
+          }).then(function(){ refreshUnreadBadge(); }).catch(function(){});
         }
         function searchEmployees(q){
           var url = '/api/chat/employees?limit=60' + (q ? '&q=' + encodeURIComponent(q) : '') + (state.self.id ? '&emp_id=' + encodeURIComponent(state.self.id) : '');
@@ -2179,10 +2596,13 @@
             html += '<div class="ct-section-title">Directory</div>';
             html += '<div id="ctIndivResults"><div class="ct-empty-state"><p>Type a name above to find someone.</p></div></div>';
             list.innerHTML = html;
-            // Lazy-search.
+            // Lazy-search (debounced ~250ms).
             if (state._indivTimer) clearTimeout(state._indivTimer);
+            // Tag the request so a stale response is dropped after another keystroke.
+            var reqTag = ++state._indivReq;
             state._indivTimer = setTimeout(function(){
               searchEmployees(q).then(function(rows){
+                if (reqTag !== state._indivReq) return; // stale
                 var box = $('ctIndivResults'); if (!box) return;
                 rows = rows.filter(function(e){ return e.emp_id !== state.self.id; });
                 if (!rows.length) { box.innerHTML = '<div class="ct-empty-state"><p>No employees match.</p></div>'; return; }
@@ -2195,8 +2615,11 @@
                     '<div class="ct-li-sub">' + esc(sub) + '</div></div></div>';
                 }).join('');
                 bindRailRows();
+              }).catch(function(){
+                if (reqTag !== state._indivReq) return;
+                var box = $('ctIndivResults'); if (box) box.innerHTML = '<div class="ct-empty-state"><p>Couldn\'t reach the directory. Try again.</p></div>';
               });
-            }, 200);
+            }, 250);
             return;
           } else if (state.kind === 'custom') {
             var groups = state.threads.filter(function(t){ return t.kind === 'custom' && (!q || (t.title||'').toLowerCase().indexOf(q) !== -1); });
@@ -2218,7 +2641,7 @@
                 '<div class="ct-li-body">' +
                   '<div class="ct-li-title"><span class="ct-li-title-text">' + esc(v) + '</span><span class="ct-li-time">' + esc(time) + '</span></div>' +
                   '<div class="ct-li-sub-row"><span class="ct-li-sub">' + esc(lastBody) + '</span>' +
-                  (unread ? '<span class="ct-badge">' + (unread > 99 ? '99+' : unread) + '</span>' : '') +
+                  (unread ? '<span class="ct-badge" title="' + unread + ' unread">' + (unread > 99 ? '99+' : unread) + '</span>' : '') +
                   '</div>' +
                 '</div></div>';
             }).join('') : emptyHtml('No ' + state.kind + 's in your scope', 'Try Individual to chat 1-on-1.', 'Switch to Individual', 'individual');
@@ -2238,7 +2661,7 @@
             '<div class="ct-li-body">' +
               '<div class="ct-li-title"><span class="ct-li-title-text">' + esc(t.title) + '</span><span class="ct-li-time">' + esc(time) + '</span></div>' +
               '<div class="ct-li-sub-row"><span class="ct-li-sub">' + esc(sub) + '</span>' +
-              (unread ? '<span class="ct-badge">' + (unread > 99 ? '99+' : unread) + '</span>' : '') +
+              (unread ? '<span class="ct-badge" title="' + unread + ' unread">' + (unread > 99 ? '99+' : unread) + '</span>' : '') +
               '</div>' +
             '</div></div>';
         }
@@ -2303,48 +2726,193 @@
               '<div><div class="ct-thread-title">' + esc(t.title) + '</div><div class="ct-thread-sub">' + esc(sub) + '</div></div>' +
             '</div>' +
             '<div class="ct-msgs" id="ctMsgs"></div>' +
+            '<button class="ct-scroll-bottom" id="ctScrollBottom" title="Scroll to latest" aria-label="Scroll to latest">' +
+              '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>' +
+              '<span class="ct-sb-badge" style="display:none;"></span>' +
+            '</button>' +
             '<div class="ct-composer">' +
-              '<textarea id="ctInput" placeholder="Type a message"></textarea>' +
-              '<button class="ct-send-btn" id="ctSend" title="Send">' +
+              '<textarea id="ctInput" placeholder="Type a message" maxlength="4000"></textarea>' +
+              '<button class="ct-send-btn" id="ctSend" title="Send" aria-label="Send">' +
                 '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>' +
               '</button>' +
             '</div>';
           $('ctBack').addEventListener('click', function(){
+            // Persist any draft before tearing down.
+            try { var inp = $('ctInput'); if (inp && state.activeThread) saveDraft(state.activeThread.thread_key, inp.value); } catch(e){}
             state.activeThread = null;
+            stopTimeTicker();
             var c = $('chatTab'); if (c) c.classList.remove('ct-mobile-thread');
             $('ctThread').classList.add('ct-empty');
             $('ctThread').innerHTML =
               '<div class="ct-empty-card">' +
-                '<svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>' +
+                '<svg width="72" height="72" viewBox="0 0 64 64" fill="none" aria-hidden="true">' +
+                  '<circle cx="32" cy="32" r="30" fill="#ECFDF5"/>' +
+                  '<path d="M16 22a4 4 0 0 1 4-4h20a4 4 0 0 1 4 4v14a4 4 0 0 1-4 4H28l-7 6v-6h-1a4 4 0 0 1-4-4V22z" fill="#fff" stroke="#10B981" stroke-width="1.8" stroke-linejoin="round"/>' +
+                  '<circle cx="26" cy="29" r="1.6" fill="#10B981"/>' +
+                  '<circle cx="32" cy="29" r="1.6" fill="#10B981"/>' +
+                  '<circle cx="38" cy="29" r="1.6" fill="#10B981"/>' +
+                '</svg>' +
                 '<h3>Pick a conversation</h3>' +
                 '<p>Choose a region, branch, or person from the left to start chatting.</p>' +
               '</div>';
             // Deselect rail row
             document.querySelectorAll('#ctList .ct-list-item.active').forEach(function(x){ x.classList.remove('active'); });
           });
+
           var input = $('ctInput');
+          var msgsBox = $('ctMsgs');
+
+          // Restore draft for this thread.
+          var draft = getDraft(t.thread_key);
+          if (draft) input.value = draft;
+
+          // Scroll position tracking — drives stickToBottom + scroll-to-bottom pill.
+          msgsBox.addEventListener('scroll', function(){
+            var atBottom = (msgsBox.scrollHeight - msgsBox.scrollTop - msgsBox.clientHeight) < 60;
+            state.stickToBottom = atBottom;
+            if (atBottom) state.unseenWhileScrolledUp = 0;
+            updateScrollBottomBtn();
+          }, { passive: true });
+
+          $('ctScrollBottom').addEventListener('click', function(){
+            msgsBox.scrollTop = msgsBox.scrollHeight;
+            state.stickToBottom = true;
+            state.unseenWhileScrolledUp = 0;
+            updateScrollBottomBtn();
+          });
+
+          // Failed-bubble retry.
+          msgsBox.addEventListener('click', function(e){
+            var row = e.target.closest('.ct-msg-row.failed');
+            if (!row) return;
+            var cmid = row.getAttribute('data-cmid'); if (!cmid) return;
+            var msg = state.messages.find(function(x){ return x.client_msg_id === cmid; });
+            if (!msg) return;
+            msg._failed = false; msg._pending = true;
+            renderMessages();
+            enqueueOutbox({ client_msg_id: cmid, thread_key: t.thread_key, body: msg.body, sent_at: msg.sent_at });
+            if (isOnline()) flushOutbox();
+          });
+
           var send = function(){
             var v = input.value.trim(); if (!v) return;
+            var cmid = uuidv4();
+            var nowIso = new Date().toISOString();
+            // Optimistic local push.
+            var optimistic = {
+              id: 'tmp-' + cmid,                // string id; replaced by server row on echo
+              client_msg_id: cmid,
+              sender_emp_id: state.self.id,
+              sender_name: state.self.name,
+              thread_key: t.thread_key,
+              body: v,
+              sent_at: nowIso,
+              read_by_json: {},
+              _pending: true
+            };
+            state.messages.push(optimistic);
             input.value = '';
-            postSend(v).then(function(row){
-              if (row && row.id && !state.messages.some(function(x){ return x.id === row.id; })) {
-                state.messages.push(row); renderMessages();
-              }
-            }).catch(function(e){ alert('Send failed: ' + e); });
+            saveDraft(t.thread_key, '');
+            state.stickToBottom = true; // sender always wants to see their own send
+            renderMessages();
+
+            if (!isOnline()) {
+              enqueueOutbox({ client_msg_id: cmid, thread_key: t.thread_key, body: v, sent_at: nowIso });
+              return;
+            }
+            postSend(v, cmid, t.thread_key)
+              .then(function(row){
+                if (!row || !row.id) return;
+                // Replace optimistic placeholder with server row.
+                var replaced = false;
+                state.messages = state.messages.map(function(x){
+                  if (x.client_msg_id === cmid) {
+                    replaced = true;
+                    // Carry client_msg_id forward in case server didn't echo it.
+                    if (!row.client_msg_id) row.client_msg_id = cmid;
+                    return row;
+                  }
+                  return x;
+                });
+                if (!replaced && !state.messages.some(function(x){ return x.id === row.id; })) {
+                  state.messages.push(row);
+                }
+                renderMessages();
+              })
+              .catch(function(err){
+                if (err && err.rateLimited) {
+                  // Throttled — enqueue with same cmid; flush after backoff.
+                  enqueueOutbox({ client_msg_id: cmid, thread_key: t.thread_key, body: v, sent_at: nowIso });
+                  setTimeout(flushOutbox, Math.max(err.retryAfterMs || 1000, 600));
+                  return;
+                }
+                // Other errors: mark failed; user can tap to retry. Queue for reconnect.
+                state.messages = state.messages.map(function(x){
+                  if (x.client_msg_id === cmid) { x._failed = true; x._pending = false; }
+                  return x;
+                });
+                renderMessages();
+                enqueueOutbox({ client_msg_id: cmid, thread_key: t.thread_key, body: v, sent_at: nowIso });
+              });
           };
           $('ctSend').addEventListener('click', send);
           input.addEventListener('keydown', function(e){
             if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
           });
-          input.focus();
+          // Draft autosave (debounced).
+          var draftTimer = null;
+          input.addEventListener('input', function(){
+            if (draftTimer) clearTimeout(draftTimer);
+            var v = input.value;
+            draftTimer = setTimeout(function(){ saveDraft(t.thread_key, v); }, 400);
+          });
+          // Don't autofocus on mobile (would yank up the keyboard before user opts in).
+          if (window.matchMedia && !window.matchMedia('(max-width: 900px)').matches) {
+            input.focus();
+          }
+          startTimeTicker();
+        }
+
+        function renderMessageSkeleton(){
+          var box = $('ctMsgs'); if (!box) return;
+          var rows = '';
+          var widths = [56, 38, 70, 44, 60, 35];
+          for (var i = 0; i < widths.length; i++) {
+            var mine = i % 3 === 0;
+            rows += '<div class="ct-skeleton-row ' + (mine ? 'mine' : '') + '">'
+                  + '<div class="ct-skeleton" style="width:' + widths[i] + '%;"></div></div>';
+          }
+          box.innerHTML = '<div class="ct-msgs-loading">' + rows + '</div>';
         }
 
         function renderMessages(){
           var box = $('ctMsgs'); if (!box) return;
+          if (state.loadingMessages) { renderMessageSkeleton(); return; }
           var self = state.self.id;
+
+          // Capture scroll position BEFORE we wipe innerHTML.
+          var prevAtBottom = state.stickToBottom;
+          // Recompute from DOM in case state lagged.
+          if (box.scrollHeight - box.scrollTop - box.clientHeight < 60) prevAtBottom = true;
+
           var html = '';
           var lastSender = null;
+          var lastDaySig = 0;
+          var unreadDividerEmitted = false;
+
           state.messages.forEach(function(m){
+            // Day separator when day changes.
+            var sig = daySignature(m.sent_at);
+            if (sig && sig !== lastDaySig) {
+              html += '<div class="ct-day-sep" data-day="' + sig + '">' + esc(dayLabel(m.sent_at)) + '</div>';
+              lastDaySig = sig;
+              lastSender = null; // force sender label on first message of new day
+            }
+            // Unread divider just before the first unread (their) message.
+            if (!unreadDividerEmitted && state.firstUnreadId && Number(m.id) === Number(state.firstUnreadId)) {
+              html += '<div class="ct-unread-sep">Unread messages</div>';
+              unreadDividerEmitted = true;
+            }
             var mine = m.sender_emp_id === self;
             var showHeader = !mine && lastSender !== m.sender_emp_id;
             lastSender = m.sender_emp_id;
@@ -2355,19 +2923,85 @@
                 if (keys[i] !== m.sender_emp_id && Number(m.read_by_json[keys[i]]) >= Number(m.id)) { readByOthers = true; break; }
               }
             }
-            html += '<div class="ct-msg-row ' + (mine ? 'mine' : 'theirs') + '">';
+            var stateCls = '';
+            if (m._pending) stateCls = ' pending';
+            else if (m._failed) stateCls = ' failed';
+            html += '<div class="ct-msg-row ' + (mine ? 'mine' : 'theirs') + stateCls + '"'
+                  + (m.client_msg_id ? ' data-cmid="' + esc(m.client_msg_id) + '"' : '')
+                  + (m.id ? ' data-mid="' + esc(m.id) + '"' : '') + '>';
             html += '<div class="ct-bubble">';
             if (showHeader && (m.sender_name || m.sender_emp_id)) {
               html += '<div class="ct-msg-sender">' + esc(m.sender_name || m.sender_emp_id) + '</div>';
             }
-            html += '<div class="ct-bubble-text">' + esc(m.body) + '</div>';
-            html += '<span class="ct-msg-meta">' + esc(relTime(m.sent_at));
-            if (mine) html += ' <span class="ct-tick ' + (readByOthers ? 'read' : '') + '">' + (readByOthers ? '✓✓' : '✓') + '</span>';
+            // Auto-link URLs in the body. esc first, then linkify.
+            html += '<div class="ct-bubble-text">' + linkify(esc(m.body)) + '</div>';
+            html += '<span class="ct-msg-meta" title="' + esc(fullTimestamp(m.sent_at)) + '" data-sent="' + esc(m.sent_at || '') + '">'
+                  + esc(relTime(m.sent_at));
+            if (mine && !m._pending && !m._failed) {
+              html += ' <span class="ct-tick ' + (readByOthers ? 'read' : '') + '">' + (readByOthers ? '✓✓' : '✓') + '</span>';
+            } else if (mine && m._pending) {
+              html += ' <span class="ct-tick" title="Sending…">⏱</span>';
+            }
             html += '</span>';
             html += '</div></div>';
           });
-          box.innerHTML = html || '<div class="ct-empty-state"><h3>No messages yet</h3><p>Say hi — pings clear after 7 days.</p></div>';
-          box.scrollTop = box.scrollHeight;
+
+          if (!html) {
+            box.innerHTML = '<div class="ct-empty-state"><h3>No messages yet</h3><p>Say hi — pings clear after 7 days.</p></div>';
+            return;
+          }
+          box.innerHTML = html;
+
+          // Scroll behaviour: only auto-scroll if user was already at the bottom.
+          if (prevAtBottom) {
+            box.scrollTop = box.scrollHeight;
+            state.stickToBottom = true;
+            state.unseenWhileScrolledUp = 0;
+            updateScrollBottomBtn();
+          } else {
+            // User was reading older messages — leave their scroll alone, but
+            // if a new message came in increment the unseen counter & show pill.
+            // (Counter for our own sent messages stays at 0.)
+            updateScrollBottomBtn();
+          }
+        }
+
+        function updateScrollBottomBtn(){
+          var btn = $('ctScrollBottom'); if (!btn) return;
+          if (state.stickToBottom) {
+            btn.classList.remove('visible');
+            var b = btn.querySelector('.ct-sb-badge'); if (b) b.style.display = 'none';
+            return;
+          }
+          btn.classList.add('visible');
+          var badge = btn.querySelector('.ct-sb-badge');
+          if (badge) {
+            if (state.unseenWhileScrolledUp > 0) {
+              badge.style.display = 'flex';
+              badge.textContent = state.unseenWhileScrolledUp > 99 ? '99+' : String(state.unseenWhileScrolledUp);
+            } else {
+              badge.style.display = 'none';
+            }
+          }
+        }
+
+        // Re-tick "2 min" / "5 min" stamps every 30s without re-rendering bubbles.
+        function startTimeTicker(){
+          if (state.ticker) return;
+          state.ticker = setInterval(function(){
+            var box = $('ctMsgs'); if (!box) return;
+            box.querySelectorAll('.ct-msg-meta[data-sent]').forEach(function(el){
+              var sent = el.getAttribute('data-sent');
+              if (!sent) return;
+              // Replace just the leading text node (relTime); keep the trailing tick/icon untouched.
+              var newRel = relTime(sent);
+              var first = el.firstChild;
+              if (first && first.nodeType === 3) first.nodeValue = newRel;
+            });
+          }, 30000);
+        }
+        function stopTimeTicker(){
+          if (state.ticker) { clearInterval(state.ticker); state.ticker = null; }
         }
 
         // renderInfoPane removed in Phase J — right info column dropped.
@@ -2441,7 +3075,14 @@
           if (input) input.value = '';
           renderIdentityResults([], '');
           modal.classList.add('open');
-          setTimeout(function(){ if (input) input.focus(); }, 50);
+          // Wait for the modal to actually be painted and focusable.
+          requestAnimationFrame(function(){
+            requestAnimationFrame(function(){
+              if (input && document.body.contains(input)) {
+                try { input.focus({ preventScroll: true }); } catch(e){ input.focus(); }
+              }
+            });
+          });
         }
         function closeIdentityModal(){
           var modal = $('ctIdentityModal'); if (!modal) return;
@@ -2516,7 +3157,55 @@
         document.querySelectorAll('#ctTabs .ct-tab').forEach(function(t){
           t.addEventListener('click', function(){ selectKind(t.dataset.ckind); });
         });
-        $('ctSearchBox').addEventListener('input', function(e){ state.search = e.target.value; renderRail(); });
+        // Debounced search (~250ms) with cancel-on-tab-switch.
+        var _searchTimer = null;
+        function applySearch(v){
+          state.search = v;
+          var wrap = $('ctSearchWrap'); if (wrap) wrap.classList.toggle('has-text', !!v);
+          renderRail();
+        }
+        $('ctSearchBox').addEventListener('input', function(e){
+          var v = e.target.value;
+          var wrap = $('ctSearchWrap'); if (wrap) wrap.classList.toggle('has-text', !!v);
+          if (_searchTimer) clearTimeout(_searchTimer);
+          _searchTimer = setTimeout(function(){ applySearch(v); }, 250);
+        });
+        $('ctSearchClear').addEventListener('click', function(){
+          if (_searchTimer) { clearTimeout(_searchTimer); _searchTimer = null; }
+          var inp = $('ctSearchBox'); inp.value = ''; inp.focus();
+          applySearch('');
+        });
+        // Tab strip: edge fade indicators (only meaningful when overflowing).
+        (function(){
+          var wrap = $('ctTabsWrap'); var tabs = $('ctTabs');
+          if (!wrap || !tabs) return;
+          function update(){
+            wrap.classList.toggle('has-left',  tabs.scrollLeft > 4);
+            wrap.classList.toggle('has-right', (tabs.scrollWidth - tabs.scrollLeft - tabs.clientWidth) > 4);
+          }
+          tabs.addEventListener('scroll', update, { passive: true });
+          window.addEventListener('resize', update);
+          // First paint
+          setTimeout(update, 0);
+        })();
+        // Update placeholder per active tab so search context is obvious.
+        var _origRenderRail = renderRail;
+        renderRail = function(){
+          var inp = $('ctSearchBox');
+          if (inp) {
+            var hint = ({
+              recent:'Search conversations…',
+              region:'Search regions…',
+              division:'Search divisions…',
+              area:'Search areas…',
+              branch:'Search branches…',
+              individual:'Search people…',
+              custom:'Search groups…'
+            })[state.kind] || 'Search…';
+            inp.setAttribute('placeholder', hint);
+          }
+          return _origRenderRail.apply(this, arguments);
+        };
         $('ctNewGroupBtn').addEventListener('click', openModal);
         $('ctGroupCancel').addEventListener('click', closeModal);
 
@@ -2545,17 +3234,72 @@
           state._modalTimer = setTimeout(function(){ modalSearch(e.target.value); }, 200);
         });
         $('ctGroupCreate').addEventListener('click', function(){
+          var btn = $('ctGroupCreate');
+          if (btn.disabled) return;
           var name = $('ctGroupName').value.trim(); if (!name) { alert('Enter a group name'); return; }
           var ids = Object.keys(modalSelected); if (!ids.length) { alert('Pick at least one member'); return; }
+          var origText = btn.textContent;
+          btn.disabled = true; btn.textContent = 'Creating…';
           fetch('/api/chat/groups', {
             method: 'POST', headers: { 'Content-Type':'application/json' },
             body: JSON.stringify({ created_by_emp_id: state.self.id, name: name, member_emp_ids: ids })
           }).then(function(r){ return r.json(); }).then(function(grp){
-            if (!grp || !grp.id) { alert('Create failed'); return; }
+            if (!grp || !grp.id) { alert('Create failed'); btn.disabled = false; btn.textContent = origText; return; }
             closeModal();
+            btn.disabled = false; btn.textContent = origText;
+            // Surface skipped emp_ids so the user knows which adds didn't take.
+            if (Array.isArray(grp.skipped) && grp.skipped.length) {
+              var labels = grp.skipped.map(function(id){ return modalSelected[id] || id; }).join(', ');
+              setTimeout(function(){
+                alert('Group created. Couldn\'t add ' + grp.skipped.length + ' member' +
+                      (grp.skipped.length > 1 ? 's' : '') + ' (not in directory): ' + labels);
+              }, 100);
+            }
             fetchThreads().then(function(){ selectKind('custom'); openThread(grp.id, name); });
-          }).catch(function(e){ alert('Create failed: ' + e); });
+          }).catch(function(e){
+            btn.disabled = false; btn.textContent = origText;
+            alert('Create failed: ' + e);
+          });
         });
+
+        // visualViewport — keep the composer above the on-screen keyboard on iOS/Android.
+        (function(){
+          var vv = window.visualViewport;
+          if (!vv) return;
+          var ct = $('chatTab');
+          function apply(){
+            if (!ct) ct = document.getElementById('chatTab');
+            if (!ct) return;
+            // Only engage on narrow viewports (where the keyboard actually overlays).
+            var narrow = window.matchMedia('(max-width: 900px)').matches;
+            if (!narrow) {
+              ct.classList.remove('ct-vv-active');
+              ct.style.removeProperty('--ct-vvh');
+              return;
+            }
+            ct.style.setProperty('--ct-vvh', vv.height + 'px');
+            ct.classList.add('ct-vv-active');
+            // If composer was visible & user is at bottom, keep it there as keyboard appears.
+            var box = document.getElementById('ctMsgs');
+            if (box && state.stickToBottom) box.scrollTop = box.scrollHeight;
+          }
+          vv.addEventListener('resize', apply);
+          vv.addEventListener('scroll', apply);
+          window.addEventListener('orientationchange', function(){ setTimeout(apply, 50); });
+          apply();
+        })();
+
+        // Sidebar unread badge & per-thread badges: real-count tooltip when shown as 99+.
+        var _origRenderSidebarBadge = renderSidebarBadge;
+        renderSidebarBadge = function(){
+          _origRenderSidebarBadge.apply(this, arguments);
+          var b = document.getElementById('chatSidebarBadge');
+          if (!b) return;
+          var total = (state.threads || []).reduce(function(acc, t){ return acc + (t.unread_count || 0); }, 0);
+          if (total > 99) b.title = String(total) + ' unread';
+          else if (total > 0) b.title = String(total) + ' unread';
+          else b.removeAttribute('title');
+        };
 
         // Boot on first paint, and re-boot if the user opens the chat tab later.
         var boundBoot = false;
@@ -3554,21 +4298,28 @@ body.emp-dark .ai-bar-icon { background: rgba(99,102,241,0.15); color: #A5B4FC; 
 }
 #aiOverlay.open { display: block; }
 
-/* ===== AI Chat Panel ===== */
+/* ===== AI Chat Panel — FULL SCREEN ===== */
 #aiPanel {
   display: none;
   position: fixed;
+  inset: 0;
   z-index: 10000;
   background: #fff;
   flex-direction: column;
   overflow: hidden;
+  border-radius: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+  width: auto !important;
+  height: auto !important;
 }
 #aiPanel.open { display: flex; }
 .ai-panel-header {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 16px 20px;
+  padding: 18px 28px;
   border-bottom: 1px solid #F1F5F9;
   flex-shrink: 0;
+  background: #fff;
 }
 .ai-panel-avatar {
   width: 36px; height: 36px; border-radius: 10px;
@@ -3583,8 +4334,9 @@ body.emp-dark .ai-bar-icon { background: rgba(99,102,241,0.15); color: #A5B4FC; 
 }
 .ai-panel-close:hover { background: #E2E8F0; }
 .ai-panel-messages {
-  flex: 1; overflow-y: auto; padding: 20px;
+  flex: 1; overflow-y: auto; padding: 28px 20px 28px;
   display: flex; flex-direction: column; gap: 16px;
+  width: 100%; max-width: 920px; margin: 0 auto;
 }
 .ai-msg-avatar {
   width: 28px; height: 28px; border-radius: 8px;
@@ -3597,9 +4349,16 @@ body.emp-dark .ai-bar-icon { background: rgba(99,102,241,0.15); color: #A5B4FC; 
   font-size: 14px; color: #334155; line-height: 1.6; max-width: 80%;
 }
 .ai-panel-input-area {
-  padding: 12px 20px 16px;
+  padding: 18px 20px 22px;
   border-top: 1px solid #F1F5F9;
   flex-shrink: 0;
+  background: #fff;
+}
+.ai-panel-input-area > * {
+  width: 100%; max-width: 920px; margin: 0 auto;
+}
+.ai-msg-bubble {
+  max-width: 100% !important;
 }
 .ai-panel-input-wrap {
   display: flex; align-items: center; gap: 8px;
@@ -3629,14 +4388,14 @@ body.emp-dark .ai-bar-icon { background: rgba(99,102,241,0.15); color: #A5B4FC; 
 
 /* ===== Desktop: Panel + bar visibility ===== */
 @media (min-width: 768px) {
-  #aiFloatingBar { display: none !important; }
+  #aiFloatingBar { display: flex !important; }
   #aiFab { display: none !important; }
   #aiPanel {
-    bottom: 24px; right: 24px;
-    width: 440px; height: 560px;
-    border-radius: 20px;
-    border: 1px solid #E2E8F0;
-    box-shadow: 0 12px 48px rgba(0,0,0,0.12), 0 4px 16px rgba(0,0,0,0.06);
+    inset: 0 !important;
+    width: auto !important; height: auto !important;
+    border-radius: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
   }
   #aiPanel.open ~ #aiFloatingBar { display: none !important; }
 }
@@ -3646,12 +4405,15 @@ body.emp-dark .ai-bar-icon { background: rgba(99,102,241,0.15); color: #A5B4FC; 
   #aiFloatingBar { display: none !important; }
   #aiFab { display: flex; }
   #aiPanel {
-    bottom: 0; left: 0; right: 0;
-    height: 75vh;
-    border-radius: 20px 20px 0 0;
-    box-shadow: 0 -8px 32px rgba(0,0,0,0.12);
+    inset: 0 !important;
+    height: auto !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
   }
   #aiPanel.open ~ #aiFab { display: none !important; }
+  /* Hide overlay since panel covers viewport on mobile too. */
+  #aiPanel.open ~ #aiOverlay,
+  #aiOverlay.open { display: none !important; }
 }
 </style>
 
@@ -4273,7 +5035,7 @@ body.emp-dark .ai-bar-icon { background: rgba(99,102,241,0.15); color: #A5B4FC; 
     }
 
     function buildSystemPrompt(ctx, session) {
-      var o = ctx.overallSummary || {};
+      var o = ctx.summary || ctx.overallSummary || {};
       var pct = o.total_rd > 0 ? ((o.total_rc / o.total_rd) * 100).toFixed(1) + '%' : '-';
       var sys = 'You are the NLPL AI Assistant — a data analyst for NLPL (Nava Chetana Livelihoods) employee dashboard.\n\n';
       if (session && session.role) {
@@ -4298,7 +5060,7 @@ body.emp-dark .ai-bar-icon { background: rgba(99,102,241,0.15); color: #A5B4FC; 
         sys += '\nUSER DATA: RD=' + fmtIN(m.rd) + ', RC=' + fmtIN(m.rc) + ', NPA=' + fmtIN(m.npa_cases) + '\n';
       }
       sys += '\nTERMINOLOGY: RD=Regular Demand, RC=Regular Collection, FTOD=RD-RC, Coll%=RC/RD*100, SMA=Special Mention Account, DPD=Days Past Due, NPA=Non-Performing Asset, PNPA=Pre-NPA\n';
-      sys += '\nRULES: Be concise. Use Indian number format. Only use data above. Don\'t make up numbers. 2-4 sentences for simple questions.';
+      sys += '\nRULES: Be concise. Use Indian number format. Only use data above. Don\'t make up numbers. 2-4 sentences for simple questions. Counts/cases/accounts are plain counts, not money or lakhs/crores. If the user asks only about collection, answer only demand, collection, and collection %.';
       return sys;
     }
 

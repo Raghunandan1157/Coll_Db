@@ -5271,6 +5271,525 @@ const AI_SCHEMA_CHEATSHEET = {
 
 const AI_SNAPSHOT_VERSION = 1;
 
+// Bump when AI prompt or tool surface changes — invalidates aiReplyCache keys.
+const AI_REPLY_CACHE_VERSION = 'v4-count-formatting';
+
+// Mistral function-calling tool definitions. The model picks which to call
+// when the bundled ctx isn't enough. Every tool maps to a parameterised SQL
+// query in dispatchAiTool() below, scope-respecting via _scopeWhere().
+const AI_TOOLS_SPEC = [
+  {
+    type: 'function',
+    function: {
+      name: 'find_employee',
+      description: 'Look up employees by name, mobile, or emp_id. Returns matching rows from employee_master with role, branch, area, division, region, mobile, status. Use for "who is X" / "find Y" / "what is Z\'s mobile/branch/role".',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'Substring of full_name (ILIKE), or exact mobile, or exact emp_id.' },
+          limit: { type: 'integer', description: 'Max rows. Default 25, max 200.' }
+        },
+        required: ['query']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'employee_performance',
+      description: 'Collection/demand/NPA totals for ONE employee over a date range. Default range = current FY-to-date.',
+      parameters: {
+        type: 'object',
+        properties: {
+          emp_id: { type: 'string' },
+          start_date: { type: 'string', description: 'YYYY-MM-DD. Default = current FY start (Apr 1).' },
+          end_date: { type: 'string', description: 'YYYY-MM-DD. Default = today.' }
+        },
+        required: ['emp_id']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'find_branch',
+      description: 'Look up branches by name. Returns branch + region/division/area + headcount + current rolling perf (demand/collection/NPA).',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'Substring of branch_name (ILIKE).' },
+          limit: { type: 'integer' }
+        },
+        required: ['query']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'period_performance',
+      description: 'Aggregate collection/demand/NPA from daily_performance over a date range. Group by day, month, branch, or employee. Optional filters: branch_name / area_name / division_name / region_name (one or more).',
+      parameters: {
+        type: 'object',
+        properties: {
+          start_date: { type: 'string', description: 'YYYY-MM-DD' },
+          end_date: { type: 'string', description: 'YYYY-MM-DD' },
+          group_by: { type: 'string', enum: ['day', 'month', 'branch', 'employee'], description: 'Default month.' },
+          branch_name: { type: 'string' },
+          area_name: { type: 'string' },
+          division_name: { type: 'string' },
+          region_name: { type: 'string' },
+          limit: { type: 'integer' }
+        },
+        required: ['start_date', 'end_date']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'top_performers',
+      description: 'Leaderboard of employees by metric over a date range.',
+      parameters: {
+        type: 'object',
+        properties: {
+          metric: { type: 'string', enum: ['collection', 'demand', 'npa_cases'] },
+          start_date: { type: 'string' },
+          end_date: { type: 'string' },
+          limit: { type: 'integer' }
+        },
+        required: ['metric', 'start_date', 'end_date']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'disbursement_query',
+      description: 'Disbursement count + amount over a date range. Group by month, branch, product, or employee. Optional filters: branch_name / region_name.',
+      parameters: {
+        type: 'object',
+        properties: {
+          start_date: { type: 'string', description: 'YYYY-MM-DD; reduced to month boundary.' },
+          end_date: { type: 'string' },
+          group_by: { type: 'string', enum: ['month', 'branch', 'product', 'employee'] },
+          branch_name: { type: 'string' },
+          region_name: { type: 'string' },
+          limit: { type: 'integer' }
+        },
+        required: ['start_date', 'end_date']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'list_hierarchy',
+      description: 'List children of a hierarchy node from employee_master. Examples: list_hierarchy(level="branch", parent_level="area", parent_name="X") → branches under area X. list_hierarchy(level="region") → all regions in scope.',
+      parameters: {
+        type: 'object',
+        properties: {
+          level: { type: 'string', enum: ['region', 'division', 'area', 'branch'] },
+          parent_level: { type: 'string', enum: ['region', 'division', 'area'] },
+          parent_name: { type: 'string' },
+          limit: { type: 'integer' }
+        },
+        required: ['level']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'npa_summary',
+      description: 'NPA cases + activated count + amount over a date range. Group by month, branch, or employee. Optional filters: branch_name / region_name.',
+      parameters: {
+        type: 'object',
+        properties: {
+          start_date: { type: 'string' },
+          end_date: { type: 'string' },
+          group_by: { type: 'string', enum: ['month', 'branch', 'employee'] },
+          branch_name: { type: 'string' },
+          region_name: { type: 'string' },
+          limit: { type: 'integer' }
+        },
+        required: ['start_date', 'end_date']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'daily_reports_query',
+      description: 'Branch-level daily plan + achievement data. Source for FTOD (First Time Over Due), DPD buckets (1-30, 31-60, 61-90), NPA activation/closure, disbursement plan/achievement (IGL/FIG/IL count + amount), KYC counts. Each row = one branch on one date. Use for ANY question mentioning FTOD, DPD bucket, NPA closure, disbursement plan-vs-actual, KYC.',
+      parameters: {
+        type: 'object',
+        properties: {
+          start_date: { type: 'string', description: 'YYYY-MM-DD. For a single date, use same value for start_date and end_date.' },
+          end_date: { type: 'string', description: 'YYYY-MM-DD' },
+          branch_name: { type: 'string' },
+          region_name: { type: 'string' },
+          district_name: { type: 'string' },
+          table: { type: 'string', enum: ['plan', 'achievements', 'both'], description: 'Default both — daily_reports (plan) and daily_reports_achievements (actual).' },
+          metrics: { type: 'string', description: 'Comma list to project. Available: ftod, dpd_1_30, dpd_31_60, dpd_61_90, npa, disb, kyc, fy_non_start, all. Default all.' },
+          limit: { type: 'integer' }
+        },
+        required: ['start_date', 'end_date']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'sql_describe',
+      description: 'Returns the schema cheatsheet of all tables/columns the AI can query.',
+      parameters: { type: 'object', properties: {} }
+    }
+  }
+];
+
+// Build " AND UPPER(<alias>) IN (SELECT ... FROM employee_master WHERE ...)"
+// for the current session. Mutates `params` to append $loc. CEO/empty session → ''.
+function _scopeWhere(session, alias, params) {
+  const role = String((session && session.role) || '').toUpperCase();
+  const loc = String((session && session.location) || '').trim();
+  if (!role || role === 'CEO' || !loc) return '';
+  let emCol = null;
+  if (role === 'RM' || role === 'SM') emCol = 'region_name';
+  else if (role === 'DM' || role === 'DVM') emCol = 'division_name';
+  else if (role === 'AM') emCol = 'area_name';
+  else if (role === 'BM' || role === 'FO') emCol = 'branch_name';
+  if (!emCol) return '';
+  params.push(loc);
+  return ` AND UPPER(${alias}) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(${emCol}) ILIKE TRIM($${params.length}))`;
+}
+
+async function dispatchAiTool(name, args, session) {
+  args = args || {};
+  const lim = Math.min(Math.max(parseInt(args.limit, 10) || 25, 1), 200);
+
+  if (name === 'sql_describe') return AI_SCHEMA_CHEATSHEET;
+
+  if (name === 'find_employee') {
+    const q = String(args.query || '').trim();
+    if (!q) return { error: 'query required' };
+    const params = [`%${q}%`, q];
+    const scopeClause = _scopeWhere(session, 'em.branch_name', params);
+    const sql = `
+      SELECT em.emp_id, em.full_name AS name, em.role, em.designation,
+             em.branch_name AS branch, em.area_name AS area,
+             em.division_name AS division, em.region_name AS region,
+             em.mobile, em.status
+        FROM employee_master em
+       WHERE (em.full_name ILIKE $1 OR em.mobile = $2 OR em.emp_id = $2)
+         ${scopeClause}
+       ORDER BY (em.status='Working') DESC, em.full_name
+       LIMIT ${lim}`;
+    return await safeQuery(sql, params, lim);
+  }
+
+  if (name === 'employee_performance') {
+    const empId = String(args.emp_id || '').trim();
+    if (!empId) return { error: 'emp_id required' };
+    const now = new Date();
+    const fy = now.getMonth() + 1 >= 4 ? now.getFullYear() : now.getFullYear() - 1;
+    const startDate = args.start_date || `${fy}-04-01`;
+    const endDate = args.end_date || now.toISOString().slice(0, 10);
+    const sql = `
+      SELECT em.emp_id, em.full_name AS name, em.role, em.branch_name AS branch,
+             em.area_name AS area, em.division_name AS division,
+             em.region_name AS region, em.mobile, em.status,
+             COALESCE(SUM(dp.regular_demand), 0)::bigint AS demand,
+             COALESCE(SUM(dp.regular_collection), 0)::bigint AS collection,
+             COALESCE(SUM(dp.npa_cases), 0)::int AS npa_cases,
+             COALESCE(SUM(dp.npa_act_amt), 0)::numeric AS npa_amount,
+             COUNT(DISTINCT dp.report_date)::int AS days_reported
+        FROM employee_master em
+        LEFT JOIN daily_performance dp
+          ON dp.emp_id = em.emp_id
+         AND dp.report_date BETWEEN $2 AND $3
+       WHERE em.emp_id = $1
+       GROUP BY em.emp_id, em.full_name, em.role, em.branch_name,
+                em.area_name, em.division_name, em.region_name, em.mobile, em.status`;
+    return await safeQuery(sql, [empId, startDate, endDate], 1);
+  }
+
+  if (name === 'find_branch') {
+    const q = String(args.query || '').trim();
+    if (!q) return { error: 'query required' };
+    const params = [`%${q}%`];
+    const scopeClause = _scopeWhere(session, 'em.branch_name', params);
+    const sql = `
+      WITH em_agg AS (
+        SELECT em.branch_name,
+               MAX(em.region_name) AS region,
+               MAX(em.division_name) AS division,
+               MAX(em.area_name) AS area,
+               COUNT(*) FILTER (WHERE em.status='Working')::int AS employee_count
+          FROM employee_master em
+         WHERE em.branch_name ILIKE $1
+           ${scopeClause}
+         GROUP BY em.branch_name
+      ),
+      perf AS (
+        SELECT b.branch_name,
+               SUM(ep.regular_demand)::bigint AS demand,
+               SUM(ep.regular_collection)::bigint AS collection,
+               SUM(ep.npa_cases)::int AS npa_cases
+          FROM employee_performance ep
+          JOIN employees e ON ep.emp_id = e.emp_id
+          JOIN branches b ON e.branch_id = b.branch_id
+         WHERE b.branch_name ILIKE $1
+         GROUP BY b.branch_name
+      )
+      SELECT em_agg.branch_name, em_agg.region, em_agg.division, em_agg.area,
+             em_agg.employee_count,
+             COALESCE(perf.demand, 0) AS demand,
+             COALESCE(perf.collection, 0) AS collection,
+             COALESCE(perf.npa_cases, 0) AS npa_cases
+        FROM em_agg
+        LEFT JOIN perf ON UPPER(em_agg.branch_name) = UPPER(perf.branch_name)
+       ORDER BY em_agg.branch_name
+       LIMIT ${lim}`;
+    return await safeQuery(sql, params, lim);
+  }
+
+  if (name === 'period_performance') {
+    const start = args.start_date, end = args.end_date;
+    if (!start || !end) return { error: 'start_date and end_date required' };
+    const groupBy = ['day', 'month', 'branch', 'employee'].includes(args.group_by) ? args.group_by : 'month';
+    const params = [start, end];
+    let extra = '';
+    if (args.branch_name) { params.push(args.branch_name); extra += ` AND b.branch_name ILIKE $${params.length}`; }
+    if (args.area_name) {
+      params.push(args.area_name);
+      extra += ` AND UPPER(b.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE area_name ILIKE $${params.length})`;
+    }
+    if (args.division_name) {
+      params.push(args.division_name);
+      extra += ` AND UPPER(b.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE division_name ILIKE $${params.length})`;
+    }
+    if (args.region_name) {
+      params.push(args.region_name);
+      extra += ` AND UPPER(b.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE region_name ILIKE $${params.length})`;
+    }
+    const scopeClause = _scopeWhere(session, 'b.branch_name', params);
+    let selectCols, groupCols, joinEm = '';
+    if (groupBy === 'day') {
+      selectCols = `to_char(dp.report_date, 'YYYY-MM-DD') AS bucket`;
+      groupCols = `dp.report_date`;
+    } else if (groupBy === 'month') {
+      selectCols = `to_char(date_trunc('month', dp.report_date), 'YYYY-MM') AS bucket`;
+      groupCols = `date_trunc('month', dp.report_date)`;
+    } else if (groupBy === 'branch') {
+      selectCols = `b.branch_name AS bucket`;
+      groupCols = `b.branch_name`;
+    } else {
+      selectCols = `em.full_name AS bucket, dp.emp_id`;
+      groupCols = `em.full_name, dp.emp_id`;
+      joinEm = `LEFT JOIN employee_master em ON em.emp_id = dp.emp_id`;
+    }
+    const sql = `
+      SELECT ${selectCols},
+             SUM(dp.regular_demand)::bigint AS demand,
+             SUM(dp.regular_collection)::bigint AS collection,
+             SUM(dp.npa_cases)::int AS npa_cases,
+             SUM(dp.npa_act_amt)::numeric AS npa_amount
+        FROM daily_performance dp
+        JOIN employees e ON dp.emp_id = e.emp_id
+        JOIN branches b ON e.branch_id = b.branch_id
+        ${joinEm}
+       WHERE dp.report_date BETWEEN $1 AND $2
+         ${extra}
+         ${scopeClause}
+       GROUP BY ${groupCols}
+       ORDER BY 1
+       LIMIT ${lim}`;
+    return await safeQuery(sql, params, lim);
+  }
+
+  if (name === 'top_performers') {
+    const metric = ['collection', 'demand', 'npa_cases'].includes(args.metric) ? args.metric : 'collection';
+    const start = args.start_date, end = args.end_date;
+    if (!start || !end) return { error: 'start_date and end_date required' };
+    const params = [start, end];
+    const scopeClause = _scopeWhere(session, 'b.branch_name', params);
+    const orderCol = metric === 'collection' ? 'SUM(dp.regular_collection)' :
+                     metric === 'demand'     ? 'SUM(dp.regular_demand)' :
+                                               'SUM(dp.npa_cases)';
+    const sql = `
+      SELECT em.emp_id, em.full_name AS name, em.branch_name AS branch,
+             em.region_name AS region,
+             SUM(dp.regular_demand)::bigint AS demand,
+             SUM(dp.regular_collection)::bigint AS collection,
+             SUM(dp.npa_cases)::int AS npa_cases
+        FROM daily_performance dp
+        JOIN employees e ON dp.emp_id = e.emp_id
+        JOIN branches b ON e.branch_id = b.branch_id
+        JOIN employee_master em ON em.emp_id = dp.emp_id
+       WHERE dp.report_date BETWEEN $1 AND $2
+         ${scopeClause}
+       GROUP BY em.emp_id, em.full_name, em.branch_name, em.region_name
+       ORDER BY ${orderCol} DESC NULLS LAST
+       LIMIT ${lim}`;
+    return await safeQuery(sql, params, lim);
+  }
+
+  if (name === 'disbursement_query') {
+    const start = args.start_date, end = args.end_date;
+    if (!start || !end) return { error: 'start_date and end_date required' };
+    const groupBy = ['month', 'branch', 'product', 'employee'].includes(args.group_by) ? args.group_by : 'month';
+    const params = [start, end];
+    let extra = '';
+    if (args.branch_name) { params.push(args.branch_name); extra += ` AND d.branch_name ILIKE $${params.length}`; }
+    if (args.region_name) { params.push(args.region_name); extra += ` AND d.region_name ILIKE $${params.length}`; }
+    const scopeClause = _scopeWhere(session, 'd.branch_name', params);
+    let selectCols, groupCols;
+    if (groupBy === 'month') {
+      selectCols = `d.db_month AS bucket`;
+      groupCols = `d.db_month`;
+    } else if (groupBy === 'branch') {
+      selectCols = `d.branch_name AS bucket`;
+      groupCols = `d.branch_name`;
+    } else if (groupBy === 'product') {
+      selectCols = `d.product_name AS bucket`;
+      groupCols = `d.product_name`;
+    } else {
+      selectCols = `d.officer_name AS bucket, d.emp_id`;
+      groupCols = `d.officer_name, d.emp_id`;
+    }
+    const sql = `${DISB_CTE}
+      SELECT ${selectCols},
+             SUM(d.disb_count)::int AS count,
+             SUM(d.disb_amount)::numeric AS amount
+        FROM d
+       WHERE d.db_month BETWEEN to_char($1::date, 'YYYY-MM') AND to_char($2::date, 'YYYY-MM')
+         ${extra}
+         ${scopeClause}
+       GROUP BY ${groupCols}
+       ORDER BY 1
+       LIMIT ${lim}`;
+    return await safeQuery(sql, params, lim);
+  }
+
+  if (name === 'list_hierarchy') {
+    const level = ['region', 'division', 'area', 'branch'].includes(args.level) ? args.level : 'branch';
+    const parentLevel = ['region', 'division', 'area'].includes(args.parent_level) ? args.parent_level : null;
+    const parentName = args.parent_name;
+    const params = [];
+    let where = `status = 'Working'`;
+    if (parentLevel && parentName) {
+      params.push(parentName);
+      where += ` AND ${parentLevel}_name ILIKE $${params.length}`;
+    }
+    const scopeClause = _scopeWhere(session, 'branch_name', params);
+    const col = level + '_name';
+    const sql = `
+      SELECT ${col} AS name,
+             COUNT(*)::int AS employee_count,
+             COUNT(DISTINCT branch_name)::int AS branch_count
+        FROM employee_master
+       WHERE ${where}
+         ${scopeClause}
+         AND ${col} IS NOT NULL AND ${col} <> ''
+       GROUP BY ${col}
+       ORDER BY ${col}
+       LIMIT ${lim}`;
+    return await safeQuery(sql, params, lim);
+  }
+
+  if (name === 'daily_reports_query') {
+    const start = args.start_date, end = args.end_date;
+    if (!start || !end) return { error: 'start_date and end_date required' };
+    const tableArg = ['plan', 'achievements', 'both'].includes(args.table) ? args.table : 'both';
+    const tables = tableArg === 'both'
+      ? [['daily_reports', 'plan'], ['daily_reports_achievements', 'achievements']]
+      : tableArg === 'plan'
+        ? [['daily_reports', 'plan']]
+        : [['daily_reports_achievements', 'achievements']];
+    const allCols = ['ftod_actual','ftod_plan','dpd_1_30_actual','dpd_1_30_plan','dpd_31_60_actual','dpd_31_60_plan','dpd_61_90_actual','dpd_61_90_plan','npa_activation','npa_closure','fy_non_start_acc','fy_non_start_plan','disb_igl_acc','disb_igl_amt','disb_fig_acc','disb_fig_amt','disb_il_acc','disb_il_amt','kyc_igl','kyc_fig','kyc_il'];
+    const metricsArg = String(args.metrics || 'all').toLowerCase();
+    const wanted = metricsArg === 'all' ? null : metricsArg.split(',').map((s) => s.trim()).filter(Boolean);
+    const projectCols = wanted
+      ? allCols.filter((c) => wanted.some((w) =>
+          (w === 'ftod' && c.startsWith('ftod_')) ||
+          (w === 'dpd_1_30' && c.startsWith('dpd_1_30_')) ||
+          (w === 'dpd_31_60' && c.startsWith('dpd_31_60_')) ||
+          (w === 'dpd_61_90' && c.startsWith('dpd_61_90_')) ||
+          (w === 'npa' && (c === 'npa_activation' || c === 'npa_closure')) ||
+          (w === 'disb' && c.startsWith('disb_')) ||
+          (w === 'kyc' && c.startsWith('kyc_')) ||
+          (w === 'fy_non_start' && c.startsWith('fy_non_start_'))
+        ))
+      : allCols;
+    if (!projectCols.length) projectCols.push(...allCols);
+    const out = [];
+    for (const [t, label] of tables) {
+      const params = [start, end];
+      let extra = '';
+      if (args.branch_name) { params.push(args.branch_name); extra += ` AND branch_name ILIKE $${params.length}`; }
+      if (args.region_name) { params.push(args.region_name); extra += ` AND region ILIKE $${params.length}`; }
+      if (args.district_name) { params.push(args.district_name); extra += ` AND district ILIKE $${params.length}`; }
+      const scopeClause = _scopeWhere(session, 'branch_name', params);
+      const sql = `SELECT date, branch_name, region, district, dm_name, ${projectCols.join(', ')}
+                     FROM ${t}
+                    WHERE date BETWEEN $1 AND $2
+                      ${extra}
+                      ${scopeClause}
+                    ORDER BY date, branch_name
+                    LIMIT ${lim}`;
+      const rows = await safeQuery(sql, params, lim);
+      if (Array.isArray(rows)) out.push({ source: label, count: rows.length, rows });
+      else out.push({ source: label, error: rows.error || 'unknown' });
+    }
+    return out;
+  }
+
+  if (name === 'npa_summary') {
+    const start = args.start_date, end = args.end_date;
+    if (!start || !end) return { error: 'start_date and end_date required' };
+    const groupBy = ['month', 'branch', 'employee'].includes(args.group_by) ? args.group_by : 'month';
+    const params = [start, end];
+    let extra = '';
+    if (args.branch_name) { params.push(args.branch_name); extra += ` AND b.branch_name ILIKE $${params.length}`; }
+    if (args.region_name) {
+      params.push(args.region_name);
+      extra += ` AND UPPER(b.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE region_name ILIKE $${params.length})`;
+    }
+    const scopeClause = _scopeWhere(session, 'b.branch_name', params);
+    let selectCols, groupCols, joinEm = '';
+    if (groupBy === 'month') {
+      selectCols = `to_char(date_trunc('month', dp.report_date), 'YYYY-MM') AS bucket`;
+      groupCols = `date_trunc('month', dp.report_date)`;
+    } else if (groupBy === 'branch') {
+      selectCols = `b.branch_name AS bucket`;
+      groupCols = `b.branch_name`;
+    } else {
+      selectCols = `em.full_name AS bucket, dp.emp_id`;
+      groupCols = `em.full_name, dp.emp_id`;
+      joinEm = `LEFT JOIN employee_master em ON em.emp_id = dp.emp_id`;
+    }
+    const sql = `
+      SELECT ${selectCols},
+             SUM(dp.npa_cases)::int AS npa_cases,
+             SUM(dp.npa_act_acc)::int AS npa_activated,
+             SUM(dp.npa_act_amt)::numeric AS npa_amount
+        FROM daily_performance dp
+        JOIN employees e ON dp.emp_id = e.emp_id
+        JOIN branches b ON e.branch_id = b.branch_id
+        ${joinEm}
+       WHERE dp.report_date BETWEEN $1 AND $2
+         ${extra}
+         ${scopeClause}
+       GROUP BY ${groupCols}
+       ORDER BY 1
+       LIMIT ${lim}`;
+    return await safeQuery(sql, params, lim);
+  }
+
+  return { error: 'unknown_tool: ' + name };
+}
+
 function emCol_for_disb(role) {
   role = (role || '').toUpperCase();
   if (role === 'RM' || role === 'SM') return 'region_name';
@@ -5333,6 +5852,7 @@ const AI_CACHE_MAX = 500;
 function getCacheKey(role, location, lastMsg, provider) {
   return crypto.createHash('sha256')
     .update(
+      AI_REPLY_CACHE_VERSION + '|' +
       (provider || '') + '|' +
       (role || '') + '|' +
       (location || '') + '|' +
@@ -5360,14 +5880,19 @@ function pruneCache() {
 // Both helpers take the same "OpenAI-format" `messages` array (with a single
 // system message merged in) and return { ok, text, error }.
 
-async function callMistralAi(messages) {
+async function callMistralAi(messages, tools) {
   if (!MISTRAL_KEY) return { ok: false, error: 'mistral_not_configured' };
-  const payload = JSON.stringify({
+  const body = {
     model: MISTRAL_MODEL,
     messages,
     max_tokens: 1024,
     temperature: 0.3,
-  });
+  };
+  if (tools && tools.length) {
+    body.tools = tools;
+    body.tool_choice = 'auto';
+  }
+  const payload = JSON.stringify(body);
   return new Promise((resolve) => {
     const options = {
       hostname: 'api.mistral.ai',
@@ -5380,20 +5905,20 @@ async function callMistralAi(messages) {
       },
     };
     const r = https.request(options, (resp) => {
-      let body = '';
-      resp.on('data', (d) => (body += d));
+      let buf = '';
+      resp.on('data', (d) => (buf += d));
       resp.on('end', () => {
         try {
-          const j = JSON.parse(body);
+          const j = JSON.parse(buf);
           if (resp.statusCode >= 200 && resp.statusCode < 300) {
-            const text = j?.choices?.[0]?.message?.content;
-            if (text) return resolve({ ok: true, text });
-            return resolve({ ok: false, error: 'mistral_empty', raw: body.slice(0, 200) });
+            const msg = j?.choices?.[0]?.message;
+            if (!msg) return resolve({ ok: false, error: 'mistral_empty', raw: buf.slice(0, 200) });
+            return resolve({ ok: true, message: msg, text: msg.content || '' });
           }
           return resolve({
             ok: false,
             error: 'mistral_http_' + resp.statusCode,
-            raw: body.slice(0, 200),
+            raw: buf.slice(0, 200),
           });
         } catch (e) {
           resolve({ ok: false, error: 'mistral_parse: ' + e.message });
@@ -5401,10 +5926,56 @@ async function callMistralAi(messages) {
       });
     });
     r.on('error', (e) => resolve({ ok: false, error: 'mistral_net: ' + e.message }));
-    r.setTimeout(20000, () => r.destroy(new Error('mistral_timeout')));
+    r.setTimeout(25000, () => r.destroy(new Error('mistral_timeout')));
     r.write(payload);
     r.end();
   });
+}
+
+// Tool-loop runner. Calls Mistral with AI_TOOLS_SPEC. If the model returns
+// tool_calls, dispatches each, appends the results, and re-asks. Stops when
+// the model returns plain text or after MAX_ROUNDS. Doesn't mutate `messages`.
+async function runMistralWithTools(messages, session, maxRounds) {
+  const convo = messages.slice();
+  const max = maxRounds || 12;
+  for (let round = 0; round < max; round++) {
+    const r = await callMistralAi(convo, AI_TOOLS_SPEC);
+    if (!r.ok) {
+      console.error(`[ai-tools] round ${round + 1}/${max} call failed: ${r.error}`);
+      return r;
+    }
+    const msg = r.message || {};
+    const calls = Array.isArray(msg.tool_calls) ? msg.tool_calls : null;
+    if (!calls || !calls.length) {
+      console.log(`[ai-tools] round ${round + 1}/${max} done (text len ${(msg.content || '').length})`);
+      return { ok: true, text: msg.content || '' };
+    }
+    console.log(`[ai-tools] round ${round + 1}/${max} calling ${calls.length} tool(s): ${calls.map(c => c?.function?.name).join(', ')}`);
+    // Echo the assistant turn (with tool_calls) back into the conversation.
+    convo.push({
+      role: 'assistant',
+      content: msg.content == null ? null : msg.content,
+      tool_calls: calls,
+    });
+    for (const c of calls) {
+      const fnName = c?.function?.name || '';
+      let argObj = {};
+      try { argObj = JSON.parse(c?.function?.arguments || '{}'); } catch (_) {}
+      let toolResult;
+      try {
+        toolResult = await dispatchAiTool(fnName, argObj, session);
+      } catch (e) {
+        toolResult = { error: 'tool_threw: ' + e.message };
+      }
+      convo.push({
+        role: 'tool',
+        tool_call_id: c.id,
+        name: fnName,
+        content: JSON.stringify(toolResult).slice(0, 24000),
+      });
+    }
+  }
+  return { ok: false, error: 'mistral_tool_loop_exceeded' };
 }
 
 async function callGeminiAi(messages) {
@@ -5489,9 +6060,11 @@ app.post("/api/ai-chat", aiLimiter, async (req, res) => {
   }
 
   // Fetch role-scoped data and inject into system prompt.
+  // session is hoisted because the Mistral tool dispatcher (downstream of this
+  // try/catch) needs it to scope every DB tool call.
+  const session = (role && location) ? { role, location } : {};
   let scopedSystemText = '';
   try {
-    const session = (role && location) ? { role, location } : {};
     const ctx = await buildDataContext(session);
     const scopeLabel = (role && location) ? `${role} for ${location}` : 'CEO (all data)';
     // Compact JSON to keep payload well under the ~32k Mistral token budget.
@@ -5500,33 +6073,62 @@ app.post("/api/ai-chat", aiLimiter, async (req, res) => {
       '',
       '',
       `You are the NLPL Dashboard AI Assistant for ${scopeLabel}.`,
+      `Today is ${ctx.now}. Current FY started ${ctx.fyStart} (April 1 → March 31).`,
       '',
-      '## What you know',
-      '- DB schema you have access to:',
-      '  * branches, employees, employee_master (HR roster with hierarchy: region_name → division_name → area_name → branch_name).',
-      '  * employee_performance — current rolling totals per employee (no date column; this is "live" portfolio state).',
-      '  * daily_performance — historical daily snapshots per employee, joined to branches via employees. Has report_date.',
-      '  * disbursement / disbursement_daily — monthly + daily loan disbursement (db_month, branch_name, disb_count, disb_amount).',
-      '  * npa_activation_runs / npa_activation_rows — uploaded NPA action sheets.',
-      '  * daily_reports / daily_reports_achievements — branch-level plan + achievement entries.',
-      '  * hourly_performance — intra-day collection snapshots.',
-      '- The JSON below is YOUR data, scoped to the user\'s role.',
-      `  CEO sees all branches; RM/SM sees their region; DM/DvM sees their division; AM sees their area; BM/FO sees their branch.`,
-      `- Today is ${ctx.now}. The current FY started ${ctx.fyStart} (April 1 → March 31).`,
+      '## Database tables you can query (via tools below)',
+      '- branches, employees, employee_master (HR roster — hierarchy: region_name → division_name → area_name → branch_name).',
+      '- employee_performance — current rolling totals per employee (no date column).',
+      '- daily_performance — historical daily snapshots per employee. Has report_date.',
+      '- disbursement / disbursement_daily — monthly + daily loan disbursement (db_month, branch_name, disb_count, disb_amount).',
+      '- npa_activation_runs / npa_activation_rows — uploaded NPA action sheets.',
+      '- daily_reports / daily_reports_achievements — branch-level daily PLAN + ACHIEVEMENT (per branch per date). Columns: ftod_actual/plan, dpd_1_30_actual/plan, dpd_31_60_actual/plan, dpd_61_90_actual/plan, npa_activation, npa_closure, fy_non_start_acc/plan, disb_igl_acc/amt, disb_fig_acc/amt, disb_il_acc/amt, kyc_igl, kyc_fig, kyc_il.',
+      '- hourly_performance — intra-day collection snapshots.',
+      '',
+      '## Scope',
+      'Data is scoped to the user\'s role: CEO=all branches; RM/SM=region; DM/DvM=division; AM=area; BM/FO=branch.',
+      'Every tool call is automatically scope-filtered. You do not need to add scope filters yourself.',
+      '',
+      '## Units',
+      'All monetary columns (regular_demand, regular_collection, npa_act_amt, disb_amount) are stored in **rupees** (raw integers, NOT lakhs). When formatting: divide by 1,00,000 for L; by 1,00,00,000 for Cr.',
+      'Count columns (regular_demand, regular_collection when used as account counts, npa_cases, npa_act_acc, npa_clo_acc, disb_count, KYC counts, DPD/FTOD counts) are plain counts. Never format count columns as ₹, L, or Cr.',
+      '',
+      '## Tools available — CALL THESE for any specifics not in the at-a-glance JSON',
+      '- find_employee(query, limit?) — name/mobile/emp_id substring lookup.',
+      '- employee_performance(emp_id, start_date?, end_date?) — one employee\'s totals over a period (default = FY-to-date).',
+      '- find_branch(query, limit?) — branch name lookup with hierarchy + headcount + perf.',
+      '- period_performance(start_date, end_date, group_by?, branch_name?, area_name?, division_name?, region_name?, limit?) — collection/demand/NPA over a date range, group by day|month|branch|employee.',
+      '- top_performers(metric, start_date, end_date, limit?) — leaderboard by collection|demand|npa_cases.',
+      '- disbursement_query(start_date, end_date, group_by?, branch_name?, region_name?, limit?) — disbursement count + amount over range, group by month|branch|product|employee.',
+      '- list_hierarchy(level, parent_level?, parent_name?, limit?) — list region|division|area|branch entities, optionally under a parent.',
+      '- npa_summary(start_date, end_date, group_by?, branch_name?, region_name?, limit?) — NPA cases + activation amount over range.',
+      '- daily_reports_query(start_date, end_date, branch_name?, region_name?, district_name?, table?, metrics?, limit?) — branch-level DAILY PLAN data: FTOD, DPD bucket 1-30/31-60/61-90, NPA activation/closure, disbursement plan vs actual (IGL/FIG/IL), KYC. ALWAYS use this for ANY question mentioning FTOD, DPD, KYC, NPA closure, or disbursement plan-vs-achievement on a specific date or branch.',
+      '- sql_describe() — schema cheatsheet refresher.',
+      '',
+      '## Date range guidance',
+      `- "today" → ${ctx.now}.`,
+      `- "this month" → first of current month → ${ctx.now}.`,
+      '- "last month" → first to last of prior month.',
+      `- "FY-to-date" / "this year" → ${ctx.fyStart} → ${ctx.now}.`,
+      '- "last quarter" → prior 3 calendar months.',
+      `- A bare month name ("July") → that month in the current FY year (FY runs Apr→Mar). FY start = ${ctx.fyStart}.`,
       '',
       '## How to answer',
-      '- Use the JSON below to answer questions about portfolio, collection, disbursement, NPA, daily plans, hierarchy, AND people.',
-      '- For historical queries ("last month", "FY-to-date", "March vs April"), compute from `monthly`, `dailyLast30`, `disbursementMonthly`, `npaTrend`.',
-      '- For "who is X" / "find employee X" / "what\'s X\'s mobile/branch/role" → search `employees` (capped at 500 rows; `employeesTotal` and `employeesTruncated` say if there\'s more).',
-      '- For "top performers" / "who\'s behind" / "leaderboard" → use `employeePerformance` (top 50 in scope, FY-to-date, includes `collection_pct`).',
-      '- For "tell me about branch X" / per-branch comparisons → use `branchDetail` (up to 100 in scope, with employee_count + latest_demand + latest_collection + npa).',
-      '- For comparisons, show numbers + % change. Indian format: 1 Cr = 100 L = 10,000,000.',
-      '- For ambiguous questions, ask ONE crisp clarifying question instead of refusing.',
-      '- Be concise: lead with the headline number, then 2-4 supporting bullets.',
-      '- If a question genuinely needs data NOT in the JSON below, reply: "I don\'t have that detail loaded — try a more specific question or open the relevant tab in the dashboard."',
-      '- Never invent numbers. Quote what you see.',
+      '- Lead with the headline number, then 2-4 supporting bullets.',
+      '- Indian number format: lakh comma pattern 12,34,56,789. Prefer "₹X.XX Cr" (1 Cr = 1,00,00,000) or "₹X.XX L" (1 L = 1,00,000) — never raw rupees with broken commas.',
+      '- If the user asks only for collection, compare only demand, collection, and collection %. Do not add NPA, disbursement, or other metrics unless asked.',
+      '- Label count metrics as counts/accounts/cases and format with plain Indian commas, for example "30,340 cases", not "30.34 L".',
+      '- For ANY month-vs-month / period-vs-period / branch-vs-branch comparison, ALWAYS call `period_performance` with explicit start/end dates for each side and compute % change yourself. Do NOT eyeball the at-a-glance monthly array — collection (`monthly[].total_collection`) and disbursement (`disbursementMonthly[].amount`) are different metrics and have been mis-substituted before.',
+      '- For ANY specific question (a named employee, a named branch, a date range not pre-aggregated, a comparison, a leaderboard, a hierarchy listing), CALL THE RIGHT TOOL.',
+      '- The at-a-glance JSON is fine for trivial single-number lookups in the current period. For everything else, call a tool.',
+      '- If the JSON doesn\'t have it, call a tool. Do NOT refuse — the tools cover virtually any DB question in scope.',
+      '- For ambiguous questions, ask ONE crisp clarifying question.',
+      '- Never invent numbers. Quote what tools return.',
+      '- Never use the words "snapshot" or "provided data" or "JSON below" in your replies — they leak internal plumbing. Just answer with the numbers and a short label.',
+      '- If a question mentions FTOD, DPD, KYC, disbursement plan, NPA closure, or "daily plan" → MUST call daily_reports_query. Do NOT say "data not available" without calling the tool first.',
+      '- "11th April" / "April 11" / "11/04" all mean the same date — convert to YYYY-MM-DD using the current FY year.',
+      '- When a tool returns 0 rows for a specific date, ALWAYS retry the same tool with a wider window (the full month, then the full FY) to find the nearest available date(s). Then tell the user "no data for {requested date}; nearest available is {date} — here it is" and answer with that data. Do NOT just say "data not available" and stop.',
       '',
-      '## Data',
+      '## Internal context block (DO NOT mention this in your reply — quote numbers naturally)',
       ctxJson,
     ].join('\n');
   } catch (e) {
@@ -5561,7 +6163,7 @@ app.post("/api/ai-chat", aiLimiter, async (req, res) => {
   let lastErr = null;
   for (const which of order) {
     const result = which === 'mistral'
-      ? await callMistralAi(mergedMessages)
+      ? await runMistralWithTools(mergedMessages, session)
       : await callGeminiAi(mergedMessages);
     if (result.ok && result.text) {
       const providerLabel = which === 'mistral' ? MISTRAL_MODEL : (result.model || 'gemini');
@@ -5925,8 +6527,12 @@ setInterval(async () => {
       sent_at TIMESTAMPTZ DEFAULT NOW(),
       read_by_json JSONB DEFAULT '{}'::jsonb
     )`);
-    await pool.query("CREATE INDEX IF NOT EXISTS idx_chat_msg_thread_sent ON chat_messages(thread_key, sent_at DESC)");
+    // Idempotency token from the client — dedupe retries of the same logical send.
+    await pool.query("ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS client_msg_id TEXT");
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_chat_msg_thread_sent ON chat_messages(thread_key, sent_at DESC, id DESC)");
     await pool.query("CREATE INDEX IF NOT EXISTS idx_chat_msg_sender ON chat_messages(sender_emp_id)");
+    // Unique idempotency per sender — only enforced when client_msg_id is supplied.
+    await pool.query("CREATE UNIQUE INDEX IF NOT EXISTS uq_chat_msg_client ON chat_messages(sender_emp_id, client_msg_id) WHERE client_msg_id IS NOT NULL");
     await pool.query("CREATE INDEX IF NOT EXISTS idx_chat_grp_member_emp ON chat_group_members(emp_id)");
     console.log('chat_* tables ready');
   } catch (err) {
@@ -6192,95 +6798,136 @@ app.get('/api/chat/scopes', async (req, res) => {
 
 // GET /api/chat/threads?emp_id=ID
 // Returns recent threads with last message + unread count + member count.
+// Optimized: one window-function query for last message + unread count, batched
+// group lookups, member count via chatThreadRecipients only for `auto` kind.
 app.get('/api/chat/threads', async (req, res) => {
   try {
     const empId = String(req.query.emp_id || '').trim();
     if (!empId) return res.status(400).json({ error: 'emp_id required' });
-    // Pull every distinct thread that has a message and where emp is a member.
-    // To avoid scanning all messages, we scope by:
-    //   - DMs that include emp_id
-    //   - custom groups emp_id is a member of
-    //   - auto:* — we list those that have at least one message in emp's scope set
-    // Easier: pull all distinct threads that have messages + filter via chatIsMember.
+    // Single CTE: candidate threads + their last message + unread count.
     const rows = await pool.query(
-      `SELECT thread_key, COUNT(*) AS msg_count,
-              MAX(sent_at) AS last_sent_at
-         FROM chat_messages
-         GROUP BY thread_key
-         ORDER BY MAX(sent_at) DESC
-         LIMIT 500`
-    );
-    const out = [];
-    for (const r of rows.rows) {
-      const tk = r.thread_key;
-      const ok = await chatIsMember(empId, tk);
-      if (!ok) continue;
-      // Last message details.
-      const last = await pool.query(
-        `SELECT m.id, m.body, m.sent_at, m.sender_emp_id, m.read_by_json,
-                em.full_name AS sender_name
+      `WITH candidates AS (
+         SELECT thread_key, MAX(sent_at) AS last_sent_at
+           FROM chat_messages
+          GROUP BY thread_key
+          ORDER BY MAX(sent_at) DESC
+          LIMIT 500
+       ),
+       last_msg AS (
+         SELECT DISTINCT ON (m.thread_key)
+                m.thread_key, m.id, m.body, m.sent_at, m.sender_emp_id, m.read_by_json
            FROM chat_messages m
-           LEFT JOIN employee_master em ON em.emp_id = m.sender_emp_id
-          WHERE m.thread_key = $1
-          ORDER BY m.sent_at DESC LIMIT 1`,
-        [tk]
+           JOIN candidates c ON c.thread_key = m.thread_key
+          ORDER BY m.thread_key, m.sent_at DESC, m.id DESC
+       ),
+       unread AS (
+         SELECT m.thread_key, COUNT(*)::int AS n
+           FROM chat_messages m
+           JOIN candidates c ON c.thread_key = m.thread_key
+          WHERE m.sender_emp_id <> $1
+            AND m.id > COALESCE((m.read_by_json->>$1)::bigint, 0)
+          GROUP BY m.thread_key
+       )
+       SELECT c.thread_key, c.last_sent_at,
+              l.id AS last_id, l.body AS last_body, l.sent_at AS last_at,
+              l.sender_emp_id AS last_sender, l.read_by_json AS last_read_by,
+              em.full_name AS last_sender_name,
+              COALESCE(u.n, 0) AS unread_count
+         FROM candidates c
+         LEFT JOIN last_msg l ON l.thread_key = c.thread_key
+         LEFT JOIN unread u ON u.thread_key = c.thread_key
+         LEFT JOIN employee_master em ON em.emp_id = l.sender_emp_id
+        ORDER BY c.last_sent_at DESC`,
+      [String(empId)]
+    );
+    // Filter by membership and enrich. Use caches to avoid duplicate lookups
+    // across the 100-thread page.
+    const dmEmpIds = new Set();
+    const customGroupIds = new Set();
+    const memberOk = [];
+    for (const r of rows.rows) {
+      const ok = await chatIsMember(empId, r.thread_key);
+      if (!ok) continue;
+      memberOk.push(r);
+      const parsed = chatParseThread(r.thread_key);
+      if (parsed && parsed.kind === 'dm') {
+        const otherId = parsed.a === String(empId) ? parsed.b : parsed.a;
+        if (otherId) dmEmpIds.add(otherId);
+      } else if (parsed && parsed.kind === 'custom') {
+        customGroupIds.add(parsed.groupId);
+      }
+      if (memberOk.length >= 100) break;
+    }
+    // Batch DM peer name lookup.
+    const dmNames = new Map();
+    if (dmEmpIds.size > 0) {
+      const r = await pool.query(
+        'SELECT emp_id, full_name FROM employee_master WHERE emp_id = ANY($1::text[])',
+        [Array.from(dmEmpIds)]
       );
-      const lastRow = last.rows[0] || null;
-      // Unread = messages newer than last read marker for this emp.
-      const unreadRes = await pool.query(
-        `SELECT COUNT(*)::int AS n FROM chat_messages
-          WHERE thread_key = $1
-            AND sender_emp_id <> $2
-            AND id > COALESCE((read_by_json->>$2)::bigint, 0)`,
-        [tk, String(empId)]
+      for (const row of r.rows) dmNames.set(row.emp_id, row.full_name);
+    }
+    // Batch custom group name + member count lookups.
+    const groupInfo = new Map();
+    if (customGroupIds.size > 0) {
+      const ids = Array.from(customGroupIds);
+      const gn = await pool.query(
+        'SELECT id, name FROM chat_groups WHERE id = ANY($1::text[])',
+        [ids]
       );
-      const unreadCount = unreadRes.rows[0]?.n || 0;
-      // Title + member count.
+      const gc = await pool.query(
+        `SELECT group_id, COUNT(*)::int AS n
+           FROM chat_group_members
+          WHERE group_id = ANY($1::text[])
+          GROUP BY group_id`,
+        [ids]
+      );
+      for (const row of gn.rows) groupInfo.set(row.id, { name: row.name, count: 0 });
+      for (const row of gc.rows) {
+        const e = groupInfo.get(row.group_id) || { name: null, count: 0 };
+        e.count = Number(row.n) || 0;
+        groupInfo.set(row.group_id, e);
+      }
+    }
+    const out = [];
+    for (const r of memberOk) {
+      const tk = r.thread_key;
+      const parsed = chatParseThread(tk);
       let title = tk;
       let kind = 'auto';
-      const parsed = chatParseThread(tk);
       let memberCount = 0;
       if (parsed) {
         kind = parsed.kind;
         if (parsed.kind === 'dm') {
           const otherId = parsed.a === String(empId) ? parsed.b : parsed.a;
-          const other = await chatGetEmployee(otherId);
-          title = other ? (other.full_name || otherId) : otherId;
+          title = dmNames.get(otherId) || otherId;
           memberCount = 2;
         } else if (parsed.kind === 'auto') {
           title = parsed.value;
           const recip = await chatThreadRecipients(tk);
           memberCount = recip.length;
         } else if (parsed.kind === 'custom') {
-          const grp = await pool.query(
-            'SELECT name FROM chat_groups WHERE id=$1 LIMIT 1',
-            [parsed.groupId]
-          );
-          title = grp.rows[0]?.name || tk;
-          const cnt = await pool.query(
-            'SELECT COUNT(*)::int AS n FROM chat_group_members WHERE group_id=$1',
-            [parsed.groupId]
-          );
-          memberCount = cnt.rows[0]?.n || 0;
+          const info = groupInfo.get(parsed.groupId);
+          title = (info && info.name) || tk;
+          memberCount = info ? info.count : 0;
         }
       }
       out.push({
         thread_key: tk,
         title,
         kind,
-        last_message: lastRow
+        last_message: r.last_id
           ? {
-              id: Number(lastRow.id),
-              body: lastRow.body,
-              sent_at: lastRow.sent_at,
-              sender_emp_id: lastRow.sender_emp_id,
-              sender_name: lastRow.sender_name,
+              id: Number(r.last_id),
+              body: r.last_body,
+              sent_at: r.last_at,
+              sender_emp_id: r.last_sender,
+              sender_name: r.last_sender_name,
             }
           : null,
-        unread_count: unreadCount,
+        unread_count: Number(r.unread_count) || 0,
         member_count: memberCount,
       });
-      if (out.length >= 100) break;
     }
     res.json({ threads: out, count: out.length });
   } catch (err) {
@@ -6289,41 +6936,115 @@ app.get('/api/chat/threads', async (req, res) => {
   }
 });
 
-// GET /api/chat/messages?thread_key=K&emp_id=ID&limit=50&before_id=N
+// GET /api/chat/messages?thread_key=K&emp_id=ID&limit=50&before_id=N&before_sent_at=ISO&after_id=N
+// Two cursor modes:
+//   - Older messages (default): pass `before_id` (+ optional `before_sent_at`).
+//     Returns DESC-ordered page with has_more / next_before_* cursor.
+//   - Reconnect catch-up: pass `after_id` to fetch every message strictly newer
+//     than that anchor in the thread, ASC-ordered. Useful for socket-reconnect
+//     replay of a single thread.
+// `before_*` and `after_id` are mutually exclusive; if both are given,
+// `after_id` wins.
 app.get('/api/chat/messages', async (req, res) => {
   try {
     const threadKey = String(req.query.thread_key || '').trim();
     const empId = String(req.query.emp_id || '').trim();
     const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
     const beforeId = req.query.before_id ? parseInt(req.query.before_id, 10) : null;
+    const beforeSentAt = req.query.before_sent_at
+      ? new Date(String(req.query.before_sent_at))
+      : null;
+    const afterId = req.query.after_id ? parseInt(req.query.after_id, 10) : null;
     if (!threadKey || !empId) {
       return res.status(400).json({ error: 'thread_key and emp_id required' });
     }
     const ok = await chatIsMember(empId, threadKey);
     if (!ok) return res.status(403).json({ error: 'Not a member of this thread' });
     const params = [threadKey];
-    let where = 'thread_key = $1';
-    if (beforeId) {
+    let where = 'm.thread_key = $1';
+    let order = 'm.sent_at DESC, m.id DESC';
+    let mode = 'before';
+    if (afterId !== null && !isNaN(afterId)) {
+      params.push(afterId);
+      where += ` AND m.id > $${params.length}`;
+      order = 'm.sent_at ASC, m.id ASC';
+      mode = 'after';
+    } else if (beforeSentAt && !isNaN(beforeSentAt.getTime()) && beforeId) {
+      // Stable composite cursor.
+      params.push(beforeSentAt.toISOString(), beforeId);
+      where += ` AND (m.sent_at, m.id) < ($${params.length - 1}::timestamptz, $${params.length}::bigint)`;
+    } else if (beforeId) {
       params.push(beforeId);
-      where += ' AND id < $2';
+      where += ` AND m.id < $${params.length}`;
     }
-    const sql = `SELECT m.id, m.sender_emp_id, m.thread_key, m.body, m.sent_at, m.read_by_json,
+    params.push(limit + 1);
+    const limitIdx = params.length;
+    const sql = `SELECT m.id, m.sender_emp_id, m.thread_key, m.body, m.sent_at,
+                        m.read_by_json, m.client_msg_id,
                         em.full_name AS sender_name
                    FROM chat_messages m
                    LEFT JOIN employee_master em ON em.emp_id = m.sender_emp_id
                   WHERE ${where}
-                  ORDER BY m.id DESC
-                  LIMIT ${limit}`;
+                  ORDER BY ${order}
+                  LIMIT $${limitIdx}`;
     const r = await pool.query(sql, params);
-    res.json({ messages: r.rows, count: r.rows.length });
+    const hasMore = r.rows.length > limit;
+    const messages = hasMore ? r.rows.slice(0, limit) : r.rows;
+    const last = messages[messages.length - 1] || null;
+    res.json({
+      messages,
+      count: messages.length,
+      has_more: hasMore,
+      mode,
+      // Older-page cursor (only meaningful for `mode === 'before'`).
+      next_before_id: mode === 'before' && last ? Number(last.id) : null,
+      next_before_sent_at: mode === 'before' && last ? last.sent_at : null,
+      // Newer-page cursor (only meaningful for `mode === 'after'`).
+      next_after_id: mode === 'after' && last ? Number(last.id) : null,
+    });
   } catch (err) {
     console.error('chat messages error:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
+// ----- Rate limit (token bucket) for chat:send per emp_id -----------
+// 1 token/sec sustained, burst of 5. In-memory; resets on restart.
+const _chatSendBuckets = new Map();
+function chatSendAcquireToken(empId) {
+  if (!empId) return false;
+  const now = Date.now();
+  const RATE_PER_MS = 1 / 1000; // 1 token/sec
+  const BURST = 5;
+  let b = _chatSendBuckets.get(empId);
+  if (!b) {
+    b = { tokens: BURST, ts: now };
+    _chatSendBuckets.set(empId, b);
+  }
+  // Refill.
+  const elapsed = now - b.ts;
+  if (elapsed > 0) {
+    b.tokens = Math.min(BURST, b.tokens + elapsed * RATE_PER_MS);
+    b.ts = now;
+  }
+  if (b.tokens >= 1) {
+    b.tokens -= 1;
+    return true;
+  }
+  return false;
+}
+// Periodic GC so the map doesn't grow unbounded.
+setInterval(() => {
+  const cutoff = Date.now() - 10 * 60 * 1000;
+  for (const [k, v] of _chatSendBuckets) {
+    if (v.ts < cutoff) _chatSendBuckets.delete(k);
+  }
+}, 5 * 60 * 1000).unref?.();
+
 // Internal: insert a message + emit socket events. Returns the inserted row.
-async function chatPostInternal({ senderEmpId, threadKey, body }) {
+// Supports idempotency via clientMsgId — same (sender, clientMsgId) returns the
+// previously inserted row instead of creating a duplicate.
+async function chatPostInternal({ senderEmpId, threadKey, body, clientMsgId }) {
   if (!senderEmpId || !threadKey) {
     const e = new Error('sender_emp_id and thread_key required');
     e.status = 400;
@@ -6340,11 +7061,30 @@ async function chatPostInternal({ senderEmpId, threadKey, body }) {
     e.status = 403;
     throw e;
   }
+  const cmid = clientMsgId ? String(clientMsgId).slice(0, 64) : null;
+  // Idempotency check — if the client retried with the same client_msg_id,
+  // return the existing row without re-broadcasting.
+  if (cmid) {
+    const existing = await pool.query(
+      `SELECT m.id, m.sender_emp_id, m.thread_key, m.body, m.sent_at, m.read_by_json,
+              m.client_msg_id, em.full_name AS sender_name
+         FROM chat_messages m
+         LEFT JOIN employee_master em ON em.emp_id = m.sender_emp_id
+        WHERE m.sender_emp_id = $1 AND m.client_msg_id = $2
+        LIMIT 1`,
+      [String(senderEmpId), cmid]
+    );
+    if (existing.rows.length > 0) {
+      const row = existing.rows[0];
+      row.duplicate = true;
+      return row;
+    }
+  }
   const ins = await pool.query(
-    `INSERT INTO chat_messages (sender_emp_id, thread_key, body)
-       VALUES ($1, $2, $3)
-       RETURNING id, sender_emp_id, thread_key, body, sent_at, read_by_json`,
-    [String(senderEmpId), threadKey, String(body).trim()]
+    `INSERT INTO chat_messages (sender_emp_id, thread_key, body, client_msg_id)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, sender_emp_id, thread_key, body, sent_at, read_by_json, client_msg_id`,
+    [String(senderEmpId), threadKey, String(body).trim(), cmid]
   );
   const row = ins.rows[0];
   // Sender display name for the broadcast.
@@ -6366,13 +7106,19 @@ async function chatPostInternal({ senderEmpId, threadKey, body }) {
 }
 
 // POST /api/chat/send
+// Accepts optional `client_msg_id` for idempotent retries. Returns the row
+// (with `duplicate: true` if the same client_msg_id was already accepted).
 app.post('/api/chat/send', async (req, res) => {
   try {
-    const { sender_emp_id, thread_key, body } = req.body || {};
+    const { sender_emp_id, thread_key, body, client_msg_id } = req.body || {};
+    if (sender_emp_id && !chatSendAcquireToken(String(sender_emp_id))) {
+      return res.status(429).json({ error: 'rate_limited', retry_after_ms: 1000 });
+    }
     const row = await chatPostInternal({
       senderEmpId: sender_emp_id,
       threadKey: thread_key,
       body,
+      clientMsgId: client_msg_id,
     });
     res.json(row);
   } catch (err) {
@@ -6381,12 +7127,21 @@ app.post('/api/chat/send', async (req, res) => {
   }
 });
 
+// Validate emp_id format before using it as a JSONB key — alnum + dash/underscore
+// only, max 32 chars. Prevents malformed IDs from corrupting read_by_json.
+function chatValidEmpId(s) {
+  return typeof s === 'string' && /^[A-Za-z0-9_-]{1,32}$/.test(s);
+}
+
 // POST /api/chat/read
 app.post('/api/chat/read', async (req, res) => {
   try {
     const { emp_id, thread_key, up_to_message_id } = req.body || {};
     if (!emp_id || !thread_key || up_to_message_id === undefined) {
       return res.status(400).json({ error: 'emp_id, thread_key, up_to_message_id required' });
+    }
+    if (!chatValidEmpId(String(emp_id))) {
+      return res.status(400).json({ error: 'invalid emp_id format' });
     }
     const ok = await chatIsMember(emp_id, thread_key);
     if (!ok) return res.status(403).json({ error: 'Not a member of this thread' });
@@ -6420,23 +7175,91 @@ app.post('/api/chat/read', async (req, res) => {
   }
 });
 
+// GET /api/chat/unread?emp_id=ID
+// Lightweight per-thread unread counts so the chatSidebarBadge can update in
+// O(1) without re-running the heavy /threads pipeline.
+// Response: { total, threads: { [thread_key]: count } }
+app.get('/api/chat/unread', async (req, res) => {
+  try {
+    const empId = String(req.query.emp_id || '').trim();
+    if (!empId) return res.status(400).json({ error: 'emp_id required' });
+    if (!chatValidEmpId(empId)) {
+      return res.status(400).json({ error: 'invalid emp_id format' });
+    }
+    // Pull recent threads once, filter by membership, then aggregate.
+    const recent = await pool.query(
+      `SELECT thread_key, MAX(sent_at) AS last_sent_at
+         FROM chat_messages
+         GROUP BY thread_key
+         ORDER BY MAX(sent_at) DESC
+         LIMIT 500`
+    );
+    const myThreads = [];
+    for (const r of recent.rows) {
+      const ok = await chatIsMember(empId, r.thread_key);
+      if (ok) myThreads.push(r.thread_key);
+    }
+    if (myThreads.length === 0) return res.json({ total: 0, threads: {} });
+    const counts = await pool.query(
+      `SELECT thread_key, COUNT(*)::int AS n
+         FROM chat_messages
+        WHERE thread_key = ANY($1::text[])
+          AND sender_emp_id <> $2
+          AND id > COALESCE((read_by_json->>$2)::bigint, 0)
+        GROUP BY thread_key`,
+      [myThreads, empId]
+    );
+    const threads = {};
+    let total = 0;
+    for (const row of counts.rows) {
+      const n = Number(row.n) || 0;
+      if (n > 0) {
+        threads[row.thread_key] = n;
+        total += n;
+      }
+    }
+    res.json({ total, threads });
+  } catch (err) {
+    console.error('chat unread error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST /api/chat/groups — create custom group.
+// Validates that every supplied emp_id exists in employee_master and reports
+// any unknown ones in `skipped` instead of silently inserting them.
 app.post('/api/chat/groups', async (req, res) => {
   try {
     const { created_by_emp_id, name, member_emp_ids } = req.body || {};
     if (!created_by_emp_id || !name || !Array.isArray(member_emp_ids)) {
       return res.status(400).json({ error: 'created_by_emp_id, name, member_emp_ids[] required' });
     }
+    if (!chatValidEmpId(String(created_by_emp_id))) {
+      return res.status(400).json({ error: 'invalid created_by_emp_id format' });
+    }
+    const trimmedName = String(name).trim();
+    if (!trimmedName) return res.status(400).json({ error: 'name required' });
+    // Dedupe + normalize requested members. Always include the creator.
+    const requested = new Set(
+      member_emp_ids.map((x) => String(x || '').trim()).filter(Boolean)
+    );
+    requested.add(String(created_by_emp_id));
+    // Verify each emp_id exists.
+    const verifyRes = await pool.query(
+      "SELECT emp_id FROM employee_master WHERE emp_id = ANY($1::text[])",
+      [Array.from(requested)]
+    );
+    const valid = new Set(verifyRes.rows.map((r) => r.emp_id));
+    const skipped = Array.from(requested).filter((e) => !valid.has(e));
+    if (!valid.has(String(created_by_emp_id))) {
+      return res.status(400).json({ error: 'created_by_emp_id not found in employee_master' });
+    }
     const id = 'custom:' + chatNanoid(10);
     await pool.query(
       `INSERT INTO chat_groups (id, name, kind, created_by_emp_id) VALUES ($1, $2, 'custom', $3)`,
-      [id, String(name).trim(), String(created_by_emp_id)]
+      [id, trimmedName, String(created_by_emp_id)]
     );
-    // Always include the creator as a member.
-    const members = new Set(member_emp_ids.map((x) => String(x)));
-    members.add(String(created_by_emp_id));
-    for (const mid of members) {
-      if (!mid) continue;
+    for (const mid of valid) {
       await pool.query(
         'INSERT INTO chat_group_members (group_id, emp_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
         [id, mid]
@@ -6444,10 +7267,11 @@ app.post('/api/chat/groups', async (req, res) => {
     }
     res.json({
       id,
-      name: String(name).trim(),
+      name: trimmedName,
       kind: 'custom',
       created_by_emp_id: String(created_by_emp_id),
-      member_emp_ids: Array.from(members),
+      member_emp_ids: Array.from(valid),
+      skipped,
     });
   } catch (err) {
     console.error('chat groups create error:', err);
@@ -6456,6 +7280,8 @@ app.post('/api/chat/groups', async (req, res) => {
 });
 
 // POST /api/chat/groups/:id/members — add members.
+// Returns `added` (count), `added_emp_ids` (the new ones), and `skipped`
+// (emp_ids that don't exist in employee_master).
 app.post('/api/chat/groups/:id/members', async (req, res) => {
   try {
     const id = String(req.params.id || '').trim();
@@ -6465,16 +7291,27 @@ app.post('/api/chat/groups/:id/members', async (req, res) => {
     }
     const grp = await pool.query('SELECT id FROM chat_groups WHERE id = $1 LIMIT 1', [id]);
     if (grp.rows.length === 0) return res.status(404).json({ error: 'Group not found' });
-    let added = 0;
-    for (const mid of emp_ids) {
-      if (!mid) continue;
+    const requested = Array.from(
+      new Set(emp_ids.map((x) => String(x || '').trim()).filter(Boolean))
+    );
+    if (requested.length === 0) {
+      return res.json({ id, added: 0, added_emp_ids: [], skipped: [] });
+    }
+    const verifyRes = await pool.query(
+      "SELECT emp_id FROM employee_master WHERE emp_id = ANY($1::text[])",
+      [requested]
+    );
+    const valid = new Set(verifyRes.rows.map((r) => r.emp_id));
+    const skipped = requested.filter((e) => !valid.has(e));
+    const addedIds = [];
+    for (const mid of valid) {
       const r = await pool.query(
         'INSERT INTO chat_group_members (group_id, emp_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-        [id, String(mid)]
+        [id, mid]
       );
-      if (r.rowCount > 0) added += 1;
+      if (r.rowCount > 0) addedIds.push(mid);
     }
-    res.json({ id, added });
+    res.json({ id, added: addedIds.length, added_emp_ids: addedIds, skipped });
   } catch (err) {
     console.error('chat group add members error:', err);
     res.status(500).json({ error: err.message });
@@ -6508,23 +7345,95 @@ app.get('/api/chat/employees', async (req, res) => {
 
 // ----- socket.io: chat namespace on the main io server ---------------
 io.on('connection', (socket) => {
-  socket.on('chat:join', (data) => {
+  // chat:join — emp joins their personal room. Optional `last_seen_ids`
+  // (`{ [thread_key]: last_id }`) or `since` ISO timestamp triggers a server-side
+  // missed-message replay over `chat:replay`. Caps at 200 messages to bound work.
+  socket.on('chat:join', async (data, ack) => {
     try {
       const empId = data && data.emp_id ? String(data.emp_id) : '';
-      if (!empId) return;
+      if (!empId) {
+        if (typeof ack === 'function') ack({ ok: false, error: 'emp_id required' });
+        return;
+      }
       socket.data.empId = empId;
       socket.join('emp:' + empId);
+      // Optional missed-message replay.
+      const lastSeenIds =
+        data && typeof data.last_seen_ids === 'object' && data.last_seen_ids
+          ? data.last_seen_ids
+          : null;
+      const since =
+        data && data.since ? new Date(String(data.since)) : null;
+      let missed = [];
+      if (lastSeenIds) {
+        const keys = Object.keys(lastSeenIds).slice(0, 50);
+        const ids = keys.map((k) => Number(lastSeenIds[k]) || 0);
+        if (keys.length > 0) {
+          const r = await pool.query(
+            `SELECT m.id, m.sender_emp_id, m.thread_key, m.body, m.sent_at,
+                    m.read_by_json, m.client_msg_id,
+                    em.full_name AS sender_name
+               FROM chat_messages m
+               LEFT JOIN employee_master em ON em.emp_id = m.sender_emp_id
+               JOIN unnest($1::text[], $2::bigint[]) AS c(tk, last_id)
+                 ON c.tk = m.thread_key AND m.id > c.last_id
+              ORDER BY m.sent_at ASC, m.id ASC
+              LIMIT 200`,
+            [keys, ids]
+          );
+          missed = r.rows;
+        }
+      } else if (since && !isNaN(since.getTime())) {
+        const r = await pool.query(
+          `SELECT m.id, m.sender_emp_id, m.thread_key, m.body, m.sent_at,
+                  m.read_by_json, m.client_msg_id,
+                  em.full_name AS sender_name
+             FROM chat_messages m
+             LEFT JOIN employee_master em ON em.emp_id = m.sender_emp_id
+            WHERE m.sent_at > $1
+            ORDER BY m.sent_at ASC, m.id ASC
+            LIMIT 200`,
+          [since.toISOString()]
+        );
+        missed = r.rows;
+      }
+      // Filter by membership before emitting.
+      if (missed.length > 0) {
+        const memberCache = new Map();
+        const out = [];
+        for (const m of missed) {
+          let isMember = memberCache.get(m.thread_key);
+          if (isMember === undefined) {
+            isMember = await chatIsMember(empId, m.thread_key);
+            memberCache.set(m.thread_key, isMember);
+          }
+          if (isMember) out.push(m);
+        }
+        if (out.length > 0) socket.emit('chat:replay', { messages: out, count: out.length });
+      }
+      if (typeof ack === 'function') ack({ ok: true, replayed: missed.length });
     } catch (e) {
       console.error('chat:join error:', e.message);
+      if (typeof ack === 'function') ack({ ok: false, error: e.message });
     }
   });
 
   socket.on('chat:send', async (data, ack) => {
     try {
+      const senderId = data && data.sender_emp_id ? String(data.sender_emp_id) : '';
+      if (!senderId) {
+        if (typeof ack === 'function') ack({ ok: false, error: 'sender_emp_id required' });
+        return;
+      }
+      if (!chatSendAcquireToken(senderId)) {
+        if (typeof ack === 'function') ack({ ok: false, error: 'rate_limited', retry_after_ms: 1000 });
+        return;
+      }
       const row = await chatPostInternal({
-        senderEmpId: data && data.sender_emp_id,
+        senderEmpId: senderId,
         threadKey: data && data.thread_key,
         body: data && data.body,
+        clientMsgId: data && data.client_msg_id,
       });
       if (typeof ack === 'function') ack({ ok: true, message: row });
     } catch (e) {
@@ -6538,6 +7447,7 @@ io.on('connection', (socket) => {
       const tk = data && data.thread_key;
       const upTo = data && data.up_to_message_id;
       if (!empId || !tk || upTo === undefined) return;
+      if (!chatValidEmpId(String(empId))) return;
       const ok = await chatIsMember(empId, tk);
       if (!ok) return;
       await pool.query(
@@ -6578,4 +7488,3 @@ setInterval(async () => {
     console.error('chat_messages purge error:', err.message);
   }
 }, 60 * 60 * 1000);
-
