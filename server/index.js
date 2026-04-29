@@ -6588,6 +6588,101 @@ async function runMistralWithTools(messages, session, maxRounds, onProgress) {
   return { ok: false, error: 'mistral_tool_loop_exceeded' };
 }
 
+// ── OpenAI chat with tool-calling — drop-in shape match for runMistralWithTools.
+// OpenAI's chat-completions tool format is identical to Mistral's, so we can
+// reuse AI_TOOLS_SPEC and dispatchAiTool unchanged.
+async function callOpenAiChatTools(messages, tools) {
+  if (!OPENAI_KEY) return { ok: false, error: 'openai_not_configured' };
+  const body = {
+    model: OPENAI_LLM,
+    messages,
+    max_tokens: 1024,
+    temperature: 0.3,
+  };
+  if (tools && tools.length) {
+    body.tools = tools;
+    body.tool_choice = 'auto';
+  }
+  const payload = JSON.stringify(body);
+  return new Promise((resolve) => {
+    const r = https.request({
+      hostname: 'api.openai.com',
+      path: '/v1/chat/completions',
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + OPENAI_KEY,
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(payload),
+      },
+    }, (resp) => {
+      let buf = '';
+      resp.on('data', (d) => (buf += d));
+      resp.on('end', () => {
+        try {
+          const j = JSON.parse(buf);
+          if (resp.statusCode >= 200 && resp.statusCode < 300) {
+            const msg = j?.choices?.[0]?.message;
+            if (!msg) return resolve({ ok: false, error: 'openai_empty', raw: buf.slice(0, 200) });
+            return resolve({ ok: true, message: msg, text: msg.content || '' });
+          }
+          return resolve({ ok: false, error: 'openai_http_' + resp.statusCode, raw: buf.slice(0, 240) });
+        } catch (e) {
+          resolve({ ok: false, error: 'openai_parse: ' + e.message });
+        }
+      });
+    });
+    r.on('error', (e) => resolve({ ok: false, error: 'openai_net: ' + e.message }));
+    r.setTimeout(30000, () => r.destroy(new Error('openai_timeout')));
+    r.write(payload);
+    r.end();
+  });
+}
+
+async function runOpenAiWithTools(messages, session, maxRounds, onProgress) {
+  const convo = messages.slice();
+  const max = maxRounds || 12;
+  const emit = typeof onProgress === 'function' ? onProgress : null;
+  for (let round = 0; round < max; round++) {
+    if (emit) emit({ type: 'thinking', round: round + 1 });
+    const r = await callOpenAiChatTools(convo, AI_TOOLS_SPEC);
+    if (!r.ok) {
+      console.error(`[openai-tools] round ${round + 1}/${max} call failed: ${r.error}`);
+      return r;
+    }
+    const msg = r.message || {};
+    const calls = Array.isArray(msg.tool_calls) ? msg.tool_calls : null;
+    if (!calls || !calls.length) {
+      console.log(`[openai-tools] round ${round + 1}/${max} done (text len ${(msg.content || '').length})`);
+      return { ok: true, text: msg.content || '' };
+    }
+    console.log(`[openai-tools] round ${round + 1}/${max} calling ${calls.length} tool(s): ${calls.map(c => c?.function?.name).join(', ')}`);
+    if (emit) emit({ type: 'tools', names: calls.map(c => c?.function?.name).filter(Boolean) });
+    convo.push({
+      role: 'assistant',
+      content: msg.content == null ? null : msg.content,
+      tool_calls: calls,
+    });
+    for (const c of calls) {
+      const fnName = c?.function?.name || '';
+      let argObj = {};
+      try { argObj = JSON.parse(c?.function?.arguments || '{}'); } catch (_) {}
+      let toolResult;
+      try {
+        toolResult = await dispatchAiTool(fnName, argObj, session);
+      } catch (e) {
+        toolResult = { error: 'tool_threw: ' + e.message };
+      }
+      convo.push({
+        role: 'tool',
+        tool_call_id: c.id,
+        name: fnName,
+        content: JSON.stringify(toolResult).slice(0, 24000),
+      });
+    }
+  }
+  return { ok: false, error: 'openai_tool_loop_exceeded' };
+}
+
 async function callGeminiAi(messages) {
   if (!GEMINI_KEY) return { ok: false, error: 'gemini_not_configured' };
   // Convert OpenAI-style messages to Gemini's contents/systemInstruction format.
@@ -6665,7 +6760,7 @@ app.post("/api/ai-chat", aiLimiter, async (req, res) => {
   const primary = requested === 'gemini' ? 'gemini' : 'mistral';
   const fallback = primary === 'mistral' ? 'gemini' : 'mistral';
 
-  if (!MISTRAL_KEY && !GEMINI_KEY) {
+  if (!MISTRAL_KEY && !GEMINI_KEY && !OPENAI_KEY) {
     return res.status(503).json({ error: 'AI not configured.' });
   }
 
@@ -6770,15 +6865,25 @@ app.post("/api/ai-chat", aiLimiter, async (req, res) => {
     });
   }
 
-  // Try primary, fall back to the other on failure.
-  const order = [primary, fallback];
+  // Try primary, then secondary, then OpenAI as last-resort fallback.
+  const order = [primary, fallback, 'openai'].filter((p, i, a) => a.indexOf(p) === i);
   let lastErr = null;
   for (const which of order) {
-    const result = which === 'mistral'
-      ? await runMistralWithTools(mergedMessages, session)
-      : await callGeminiAi(mergedMessages);
-    if (result.ok && result.text) {
-      const providerLabel = which === 'mistral' ? MISTRAL_MODEL : (result.model || 'gemini');
+    let result;
+    if (which === 'mistral') {
+      if (!MISTRAL_KEY) { lastErr = 'mistral_not_configured'; continue; }
+      result = await runMistralWithTools(mergedMessages, session);
+    } else if (which === 'gemini') {
+      if (!GEMINI_KEY) { lastErr = 'gemini_not_configured'; continue; }
+      result = await callGeminiAi(mergedMessages);
+    } else if (which === 'openai') {
+      if (!OPENAI_KEY) { lastErr = 'openai_not_configured'; continue; }
+      result = await runOpenAiWithTools(mergedMessages, session);
+    }
+    if (result && result.ok && result.text) {
+      const providerLabel = which === 'mistral' ? MISTRAL_MODEL
+        : which === 'openai' ? OPENAI_LLM
+        : (result.model || 'gemini');
       aiReplyCache.set(cacheKey, {
         reply: result.text,
         provider: providerLabel,
@@ -6791,8 +6896,8 @@ app.post("/api/ai-chat", aiLimiter, async (req, res) => {
         ...(which !== primary ? { fallback: true } : {}),
       });
     }
-    lastErr = result.error;
-    console.error('AI provider ' + which + ' failed:', result.error);
+    lastErr = (result && result.error) || lastErr;
+    console.error('AI provider ' + which + ' failed:', lastErr);
   }
 
   res.status(429).json({
@@ -6821,7 +6926,7 @@ app.post("/api/ai-chat-stream", aiLimiter, async (req, res) => {
     return res.status(400).json({ error: 'messages array required' });
   }
 
-  if (!MISTRAL_KEY && !GEMINI_KEY) {
+  if (!MISTRAL_KEY && !GEMINI_KEY && !OPENAI_KEY) {
     return res.status(503).json({ error: 'AI not configured.' });
   }
 
@@ -6897,7 +7002,12 @@ app.post("/api/ai-chat-stream", aiLimiter, async (req, res) => {
     ? [{ role: 'system', content: mergedSystem }, ...nonSystem]
     : nonSystem;
 
-  send('open', { provider: 'mistral', model: MISTRAL_MODEL });
+  // Pick first available provider as primary.
+  const primaryProv = MISTRAL_KEY ? 'mistral' : (GEMINI_KEY ? 'gemini' : 'openai');
+  const primaryModel = primaryProv === 'mistral' ? MISTRAL_MODEL
+    : primaryProv === 'openai' ? OPENAI_LLM
+    : 'gemini';
+  send('open', { provider: primaryProv, model: primaryModel });
 
   const onProgress = (ev) => {
     if (closed) return;
@@ -6905,19 +7015,28 @@ app.post("/api/ai-chat-stream", aiLimiter, async (req, res) => {
     else if (ev.type === 'tools') send('tools', { names: ev.names });
   };
 
-  let result = await runMistralWithTools(mergedMessages, session, undefined, onProgress);
-  let usedFallback = false;
-  if (!result.ok || !result.text) {
-    console.error('Stream: mistral failed, trying gemini:', result.error);
-    send('fallback', { from: 'mistral', to: 'gemini' });
-    result = await callGeminiAi(mergedMessages);
-    usedFallback = true;
+  // Try Mistral → Gemini → OpenAI in order, skipping unconfigured ones.
+  const chain = [];
+  if (MISTRAL_KEY) chain.push({ name: 'mistral', run: () => runMistralWithTools(mergedMessages, session, undefined, onProgress) });
+  if (GEMINI_KEY)  chain.push({ name: 'gemini',  run: () => callGeminiAi(mergedMessages) });
+  if (OPENAI_KEY)  chain.push({ name: 'openai',  run: () => runOpenAiWithTools(mergedMessages, session, undefined, onProgress) });
+
+  let result = { ok: false, error: 'no_providers' };
+  let usedProvider = null;
+  for (let i = 0; i < chain.length; i++) {
+    if (closed) return;
+    const step = chain[i];
+    if (i > 0) send('fallback', { from: chain[i - 1].name, to: step.name });
+    result = await step.run();
+    if (result.ok && result.text) { usedProvider = step.name; break; }
+    console.error('Stream: ' + step.name + ' failed:', result.error);
   }
 
   if (closed) return;
 
   if (!result.ok || !result.text) {
-    send('error', { message: 'AI is briefly busy. Please retry in a moment.' });
+    const reason = (result && result.error) ? String(result.error) : 'all_providers_failed';
+    send('error', { message: 'AI is briefly busy. Please retry in a moment.', reason });
     return res.end();
   }
 
@@ -6930,10 +7049,13 @@ app.post("/api/ai-chat-stream", aiLimiter, async (req, res) => {
     // Tiny pacing — total ~30 tokens/sec feel without blocking too long.
     await new Promise(r => setTimeout(r, 12));
   }
+  const usedModel = usedProvider === 'mistral' ? MISTRAL_MODEL
+    : usedProvider === 'openai' ? OPENAI_LLM
+    : (result.model || 'gemini');
   send('done', {
-    provider: usedFallback ? 'gemini' : 'mistral',
-    model: usedFallback ? (result.model || 'gemini') : MISTRAL_MODEL,
-    fallback: usedFallback,
+    provider: usedProvider,
+    model: usedModel,
+    fallback: usedProvider !== primaryProv,
   });
   res.end();
 });

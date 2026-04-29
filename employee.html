@@ -4738,14 +4738,17 @@ body.emp-dark .ai-bar-icon { background: rgba(99,102,241,0.15); color: #A5B4FC; 
 .ai-panel-messages::-webkit-scrollbar { width: 8px; }
 .ai-panel-messages::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 4px; }
 .ai-panel-messages::-webkit-scrollbar-thumb:hover { background: #9CA3AF; }
+body.emp-dark .ai-panel-messages::-webkit-scrollbar-thumb { background: #1F2937; }
+body.emp-dark .ai-panel-messages::-webkit-scrollbar-thumb:hover { background: #374151; }
 
 /* Message rows */
 .ai-row {
-  display: flex; gap: 14px; align-items: flex-start;
+  display: flex; gap: 12px; align-items: flex-start;
   width: 100%; max-width: 760px; margin: 0 auto;
 }
 .ai-row-user { justify-content: flex-end; }
 .ai-row-bot  { justify-content: flex-start; }
+.ai-row-bot .ai-bot-col { max-width: calc(100% - 42px); }
 
 .ai-msg-avatar {
   width: 30px; height: 30px; border-radius: 8px;
@@ -4777,11 +4780,24 @@ body.emp-dark .ai-bar-icon { background: rgba(99,102,241,0.15); color: #A5B4FC; 
   color: #1F2937;
 }
 .ai-bubble-error {
+  display: inline-flex; align-items: center; gap: 10px;
   background: #FEF2F2; border: 1px solid #FCA5A5;
-  border-radius: 12px; padding: 12px 16px;
-  color: #B91C1C; font-size: 14px;
-  max-width: 78%;
+  border-radius: 12px; padding: 10px 14px;
+  color: #991B1B; font-size: 13.5px; font-weight: 500;
+  max-width: 100%;
+  flex-wrap: wrap;
 }
+.ai-bubble-error .ai-err-icon { flex-shrink: 0; color: #DC2626; }
+.ai-retry-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  margin-left: auto;
+  background: #fff; border: 1px solid #FCA5A5;
+  color: #B91C1C; font-weight: 600; font-size: 12.5px;
+  padding: 5px 11px; border-radius: 999px;
+  cursor: pointer; font-family: inherit;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.ai-retry-btn:hover { background: #DC2626; color: #fff; border-color: #DC2626; }
 
 /* Markdown elements */
 .ai-bubble .ai-h { font-weight: 600; color: #111827; margin: 14px 0 6px; line-height: 1.3; }
@@ -4999,6 +5015,21 @@ body.emp-dark .ai-panel-talk { color: #9CA3AF; }
 body.emp-dark .ai-panel-talk:hover { background: #1F2937; color: #F9FAFB; }
 body.emp-dark .ai-panel-footer { color: #6B7280; }
 body.emp-dark .ai-action-btn:hover { background: #1F2937; color: #F9FAFB; }
+body.emp-dark .ai-bubble-error {
+  background: rgba(220, 38, 38, 0.12);
+  border-color: rgba(248, 113, 113, 0.45);
+  color: #FCA5A5;
+}
+body.emp-dark .ai-bubble-error .ai-err-icon { color: #F87171; }
+body.emp-dark .ai-retry-btn {
+  background: transparent; border-color: rgba(248, 113, 113, 0.6); color: #FCA5A5;
+}
+body.emp-dark .ai-retry-btn:hover { background: #DC2626; color: #fff; border-color: #DC2626; }
+body.emp-dark .ai-status { color: #9CA3AF; }
+body.emp-dark .ai-status::before { border-color: #1F2937; border-top-color: #10A37F; }
+body.emp-dark .ai-cursor { background: #34D399; }
+body.emp-dark .ai-bubble .ai-pre { background: #020617; border: 1px solid #1F2937; }
+body.emp-dark .ai-bubble .ai-bq { border-left-color: #374151; color: #9CA3AF; }
 
 /* ===== Voice Interaction Overlay (ChatGPT-style mono theme) ===== */
 #voiceOverlay {
@@ -5913,11 +5944,32 @@ body.emp-dark .ai-action-btn:hover { background: #1F2937; color: #F9FAFB; }
       return row;
     }
 
-    function appendErrorBubble(box, errText) {
+    function appendErrorBubble(box, errText, retryMsg) {
       var row = document.createElement('div');
       row.className = 'ai-row ai-row-bot';
-      row.innerHTML = botIcon + '<div class="ai-bubble ai-bubble-error">' + esc(errText) + '</div>';
+      var retryBtn = retryMsg
+        ? '<button class="ai-retry-btn" data-retry><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/></svg>Retry</button>'
+        : '';
+      row.innerHTML = botIcon + '<div class="ai-bot-col">'
+        + '<div class="ai-bubble ai-bubble-error">'
+        +   '<svg class="ai-err-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'
+        +   '<span>' + esc(errText) + '</span>'
+        +   retryBtn
+        + '</div></div>';
       box.appendChild(row);
+      if (retryMsg) {
+        var btn = row.querySelector('[data-retry]');
+        if (btn) btn.addEventListener('click', function(){
+          // Remove error row + the failed user bubble immediately above it.
+          var prev = row.previousElementSibling;
+          row.remove();
+          if (prev && prev.classList.contains('ai-row-user')) prev.remove();
+          if (_aiHistory.length && _aiHistory[_aiHistory.length - 1].role === 'user') {
+            _aiHistory.pop();
+          }
+          sendStream(retryMsg, false);
+        });
+      }
       box.scrollTop = box.scrollHeight;
     }
 
@@ -6006,7 +6058,7 @@ body.emp-dark .ai-action-btn:hover { background: #1F2937; color: #F9FAFB; }
         } else if (event === 'error') {
           setStatus('');
           row.remove();
-          appendErrorBubble(box, data.message || 'AI is briefly busy. Please retry.');
+          appendErrorBubble(box, data.message || 'AI is briefly busy. Please retry.', msg);
           _aiBusy = false;
         }
       }
@@ -6031,7 +6083,7 @@ body.emp-dark .ai-action-btn:hover { background: #1F2937; color: #F9FAFB; }
                   bindActions(row, buffer, msg);
                 } else {
                   row.remove();
-                  appendErrorBubble(box, 'Stream ended unexpectedly.');
+                  appendErrorBubble(box, 'Stream ended unexpectedly.', msg);
                 }
               }
               return;
@@ -6054,7 +6106,7 @@ body.emp-dark .ai-action-btn:hover { background: #1F2937; color: #F9FAFB; }
       }).catch(function(err){
         setStatus('');
         row.remove();
-        appendErrorBubble(box, 'Could not reach AI. Please try again.');
+        appendErrorBubble(box, 'Could not reach AI. Please try again.', msg);
         _aiBusy = false;
       });
     }
