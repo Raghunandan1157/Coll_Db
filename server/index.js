@@ -5994,11 +5994,12 @@ async function dispatchAiTool(name, args, session) {
     let rows = await safeQuery(buildSql('em.branch_name ILIKE $1', params), params, lim);
 
     // Pass 2: trigram similarity fallback — handles voice typos
-    // ("Davangere" → "Davanagere", "Belgaum" → "Belagavi"). Threshold 0.3
-    // is permissive but rejects truly random matches.
-    if (Array.isArray(rows) && rows.length === 0) {
+    // ("Davangere" → "Davanagere", "Belgaum" → "Belagavi"). Threshold 0.5
+    // — looser was returning bogus matches (e.g. "Bangalore" → "Bangarpet").
+    // Skip the fallback for very short queries where typos can match anything.
+    if (Array.isArray(rows) && rows.length === 0 && q.length >= 4) {
       params = [q];
-      rows = await safeQuery(buildSql(`similarity(em.branch_name, $1) > 0.3`, params), params, lim);
+      rows = await safeQuery(buildSql(`similarity(em.branch_name, $1) > 0.5`, params), params, lim);
     }
 
     if (!Array.isArray(rows)) return rows;
@@ -6742,9 +6743,18 @@ app.post('/api/voice-stream', aiLimiter, voiceUpload.single('audio'), async (req
         '- If the at-a-glance JSON below has the answer for a trivial single number, you may quote it directly. For everything else, CALL A TOOL.',
         '- Never say "data not available" without first calling the relevant tool.',
         '',
-        '## Units',
-        'Monetary columns (regular_demand, regular_collection, npa_act_amt, disb_amount) are stored in rupees. Format as ₹X.XX Cr (÷ 1,00,00,000) or ₹X.XX L (÷ 1,00,000).',
-        'Count columns (npa_cases, disb_count, KYC counts, DPD/FTOD counts) are plain counts.',
+        '## Hard rules — DO NOT BREAK',
+        '- **top_performers ranks EMPLOYEES, not branches.** For "top N branches by collection / demand / disbursement / NPA", call `period_performance(group_by=\'branch\', start_date, end_date)` and pick the top N rows yourself. NEVER substitute disbursement_query for collection or vice versa.',
+        '- **Never relabel one tool\'s output as a different metric.** disbursement is NOT collection; npa_activation is NOT npa_closure. If the user asks for collection and you only have disbursement, fetch collection.',
+        '- **Never fabricate totals.** When a tool returns N rows, your reply must either (a) sum all N rows in the answer, or (b) explicitly say "showing top X of N — total is Y" using the actual sum. If you can\'t compute the total, say "showing first N rows" without a fake total.',
+        '',
+        '## Units — READ CAREFULLY',
+        '**COUNT columns (integers, NOT money — never format as ₹/L/Cr):**',
+        '  regular_demand, regular_collection, demand_1_30, collection_1_30, demand_31_60, ..., npa_cases, npa_act_acc, npa_clo_acc, disb_count, ftod, kyc_*, fy_non_start_acc.',
+        '**MONETARY columns (rupees — divide by 1,00,000 for L or 1,00,00,000 for Cr):**',
+        '  regular_demand_amt, regular_collection_amt, demand_*_amt, npa_act_amt, npa_clo_amt, disb_amount, disb_*_amt.',
+        'Rule of thumb: any column ending in `_amt` or `disb_amount` is money. Everything else is a count.',
+        'Collection % = regular_collection / regular_demand × 100 (count ratio, dimensionless).',
         '',
         '## Internal context block (do NOT mention)',
         ctxJson,
@@ -7196,9 +7206,13 @@ app.post("/api/ai-chat", aiLimiter, async (req, res) => {
       'Data is scoped to the user\'s role: CEO=all branches; RM/SM=region; DM/DvM=division; AM=area; BM/FO=branch.',
       'Every tool call is automatically scope-filtered. You do not need to add scope filters yourself.',
       '',
-      '## Units',
-      'All monetary columns (regular_demand, regular_collection, npa_act_amt, disb_amount) are stored in **rupees** (raw integers, NOT lakhs). When formatting: divide by 1,00,000 for L; by 1,00,00,000 for Cr.',
-      'Count columns (regular_demand, regular_collection when used as account counts, npa_cases, npa_act_acc, npa_clo_acc, disb_count, KYC counts, DPD/FTOD counts) are plain counts. Never format count columns as ₹, L, or Cr.',
+      '## Units — READ CAREFULLY',
+      '**COUNT columns (integers, NOT money — never format as ₹/L/Cr):**',
+      '  regular_demand, regular_collection, demand_1_30, collection_1_30, demand_31_60, ..., npa_cases, npa_act_acc, npa_clo_acc, disb_count, ftod, kyc_*, fy_non_start_acc.',
+      '**MONETARY columns (rupees — divide by 1,00,000 for L or 1,00,00,000 for Cr):**',
+      '  regular_demand_amt, regular_collection_amt, demand_*_amt, npa_act_amt, npa_clo_amt, disb_amount, disb_*_amt.',
+      'Rule of thumb: any column ending in `_amt` or `disb_amount` is money. Everything else is a count.',
+      'Collection % = regular_collection / regular_demand × 100 (count ratio, dimensionless).',
       '',
       '## Tools available — CALL THESE for any specifics not in the at-a-glance JSON',
       '- find_employee(query, limit?) — name/mobile/emp_id substring lookup.',
@@ -7237,6 +7251,12 @@ app.post("/api/ai-chat", aiLimiter, async (req, res) => {
       '- If a question mentions FTOD, DPD, KYC, disbursement plan, NPA closure, or "daily plan" → MUST call daily_reports_query. Do NOT say "data not available" without calling the tool first.',
       '- "11th April" / "April 11" / "11/04" all mean the same date — convert to YYYY-MM-DD using the current FY year.',
       '- When a tool returns 0 rows for a specific date, ALWAYS retry the same tool with a wider window (the full month, then the full FY) to find the nearest available date(s). Then tell the user "no data for {requested date}; nearest available is {date} — here it is" and answer with that data. Do NOT just say "data not available" and stop.',
+      '',
+      '## Hard rules — DO NOT BREAK',
+      '- **top_performers ranks EMPLOYEES, not branches.** For "top N branches by collection / demand / disbursement / NPA", call `period_performance(group_by=\'branch\', start_date, end_date)` and sort/pick top N yourself. NEVER label disbursement_query rows as collection (or vice versa).',
+      '- **Never relabel one tool\'s output as a different metric.** If the user asked for collection and you only fetched disbursement, fetch collection — do not rename columns.',
+      '- **Never fabricate totals.** When summarising tool rows, your reply must either (a) sum ALL returned rows accurately, or (b) explicitly say "showing first N of M — total is X" using the actual sum. Never invent a total that doesn\'t match the rows shown.',
+      '- **find_branch / find_employee FIRST when user names an entity.** Use the canonical branch_name / emp_id from the result in every downstream tool. Never pass spoken/typed name straight into disbursement_query / period_performance / daily_reports_query.',
       '',
       '## Internal context block (DO NOT mention this in your reply — quote numbers naturally)',
       ctxJson,
@@ -7418,9 +7438,13 @@ app.post("/api/ai-chat-stream", aiLimiter, async (req, res) => {
       'Data is scoped to the user\'s role: CEO=all branches; RM/SM=region; DM/DvM=division; AM=area; BM/FO=branch.',
       'Every tool call is automatically scope-filtered. You do not need to add scope filters yourself.',
       '',
-      '## Units',
-      'All monetary columns (regular_demand, regular_collection, npa_act_amt, disb_amount) are stored in **rupees** (raw integers, NOT lakhs). When formatting: divide by 1,00,000 for L; by 1,00,00,000 for Cr.',
-      'Count columns (regular_demand, regular_collection when used as account counts, npa_cases, npa_act_acc, npa_clo_acc, disb_count, KYC counts, DPD/FTOD counts) are plain counts. Never format count columns as ₹, L, or Cr.',
+      '## Units — READ CAREFULLY',
+      '**COUNT columns (integers, NOT money — never format as ₹/L/Cr):**',
+      '  regular_demand, regular_collection, demand_1_30, collection_1_30, demand_31_60, ..., npa_cases, npa_act_acc, npa_clo_acc, disb_count, ftod, kyc_*, fy_non_start_acc.',
+      '**MONETARY columns (rupees — divide by 1,00,000 for L or 1,00,00,000 for Cr):**',
+      '  regular_demand_amt, regular_collection_amt, demand_*_amt, npa_act_amt, npa_clo_amt, disb_amount, disb_*_amt.',
+      'Rule of thumb: any column ending in `_amt` or `disb_amount` is money. Everything else is a count.',
+      'Collection % = regular_collection / regular_demand × 100 (count ratio, dimensionless).',
       '',
       '## Tools available — CALL THESE for any specifics not in the at-a-glance JSON',
       '- find_employee, employee_performance, find_branch, period_performance, top_performers, disbursement_query, list_hierarchy, npa_summary, daily_reports_query, sql_describe',
