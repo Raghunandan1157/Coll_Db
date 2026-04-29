@@ -6303,16 +6303,27 @@ const voiceUpload = multer({
   limits: { fileSize: 12 * 1024 * 1024 },
 });
 
-function openaiStt(audioBuffer, mimetype, originalName) {
+function _openaiSttCall(audioBuffer, mimetype, originalName, model) {
   return new Promise((resolve, reject) => {
     const boundary = '----nlplboundary' + Date.now();
-    const filename = originalName || 'audio.webm';
-    const ctype = mimetype || 'audio/webm';
+    // Pick a sane filename + extension based on the mime so OpenAI can
+    // detect the format. Browser MediaRecorder usually emits audio/webm
+    // (Opus) — Whisper supports it, but only when the filename ends in
+    // a known extension.
+    const mt = String(mimetype || 'audio/webm').toLowerCase();
+    let ext = 'webm';
+    if (mt.indexOf('mp4') >= 0) ext = 'mp4';
+    else if (mt.indexOf('mpeg') >= 0 || mt.indexOf('mp3') >= 0) ext = 'mp3';
+    else if (mt.indexOf('wav') >= 0) ext = 'wav';
+    else if (mt.indexOf('ogg') >= 0) ext = 'ogg';
+    else if (mt.indexOf('m4a') >= 0) ext = 'm4a';
+    const filename = originalName && /\.[a-z0-9]+$/i.test(originalName) ? originalName : `audio.${ext}`;
+    const ctype = mt;
     const head = Buffer.from(
       `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${filename}"\r\nContent-Type: ${ctype}\r\n\r\n`
     );
     const tailFile = Buffer.from(
-      `\r\n--${boundary}\r\nContent-Disposition: form-data; name="model"\r\n\r\n${OPENAI_STT}\r\n--${boundary}--\r\n`
+      `\r\n--${boundary}\r\nContent-Disposition: form-data; name="model"\r\n\r\n${model}\r\n--${boundary}--\r\n`
     );
     const body = Buffer.concat([head, audioBuffer, tailFile]);
     const req = https.request({
@@ -6332,7 +6343,10 @@ function openaiStt(audioBuffer, mimetype, originalName) {
           try { return resolve((JSON.parse(buf).text || '').trim()); }
           catch (e) { return reject(new Error('stt_parse: ' + e.message)); }
         }
-        reject(new Error('stt_http_' + resp.statusCode + ': ' + buf.slice(0, 240)));
+        const err = new Error('stt_http_' + resp.statusCode + ': ' + buf.slice(0, 240));
+        err.statusCode = resp.statusCode;
+        err.body = buf;
+        reject(err);
       });
     });
     req.on('error', reject);
@@ -6340,6 +6354,23 @@ function openaiStt(audioBuffer, mimetype, originalName) {
     req.write(body);
     req.end();
   });
+}
+
+// Public STT: try the configured model; if it returns 400 with the
+// "audio file might be corrupted" signal (gpt-4o-mini-transcribe does
+// this for a lot of valid browser webm), retry with whisper-1 which is
+// the most permissive model OpenAI offers.
+async function openaiStt(audioBuffer, mimetype, originalName) {
+  try {
+    return await _openaiSttCall(audioBuffer, mimetype, originalName, OPENAI_STT);
+  } catch (e) {
+    const isAudioReject = e && e.statusCode === 400 && /corrupt|unsupport|invalid/i.test(String(e.body || ''));
+    if (isAudioReject && OPENAI_STT !== 'whisper-1') {
+      console.warn('STT primary (' + OPENAI_STT + ') rejected audio, retrying with whisper-1');
+      return await _openaiSttCall(audioBuffer, mimetype, originalName, 'whisper-1');
+    }
+    throw e;
+  }
 }
 
 function openaiChat(systemText, userText) {
@@ -6490,6 +6521,15 @@ app.post('/api/voice-stream', voiceUpload.single('audio'), async (req, res) => {
     if (closed) return;
     try { res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`); } catch (_) {}
   };
+  // Apache mod_proxy_http buffers responses by default. Heartbeat comments
+  // every 250 ms force flushes through to the client even during long
+  // awaits (STT, tool round-trips, TTS).
+  const heartbeat = setInterval(() => {
+    if (closed) return;
+    try { res.write(': hb\n\n'); } catch (_) {}
+  }, 250);
+  res.on('close', () => clearInterval(heartbeat));
+  res.on('finish', () => clearInterval(heartbeat));
 
   try {
     send('open', {});
@@ -7123,6 +7163,13 @@ app.post("/api/ai-chat-stream", aiLimiter, async (req, res) => {
 
   let closed = false;
   req.on('close', () => { closed = true; });
+  // Heartbeat — keep Apache from buffering long pauses between events.
+  const heartbeat = setInterval(() => {
+    if (closed) return;
+    try { res.write(': hb\n\n'); } catch (_) {}
+  }, 250);
+  res.on('close', () => clearInterval(heartbeat));
+  res.on('finish', () => clearInterval(heartbeat));
 
   const session = (role && location) ? { role, location } : {};
   let scopedSystemText = '';
