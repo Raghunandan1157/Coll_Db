@@ -4484,47 +4484,93 @@
 <!-- Overlay backdrop -->
 <div id="aiOverlay" onclick="window._aiClose()"></div>
 
-<!-- Chat panel (slides up from bottom) -->
-<div id="aiPanel">
+<!-- Chat panel (full screen) -->
+<div id="aiPanel" role="dialog" aria-label="NLPL AI Assistant">
   <div class="ai-panel-header">
-    <div style="display:flex;align-items:center;gap:10px;">
+    <div class="ai-header-left">
       <div class="ai-panel-avatar">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 14.5 8.5 21 11l-6.5 2.5L12 20l-2.5-6.5L3 11l6.5-2.5z"/></svg>
       </div>
       <div>
-        <div style="font-size:15px;font-weight:700;color:#1E293B;">NLPL AI Assistant</div>
-        <div style="font-size:12px;color:#94A3B8;">Ask anything about your data</div>
+        <div class="ai-header-title">NLPL Assistant</div>
+        <div class="ai-header-sub" id="aiHeaderSub">Online · Mistral large + tools</div>
       </div>
     </div>
-    <button onclick="window._aiClose()" class="ai-panel-close">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-    </button>
+    <div class="ai-header-right">
+      <button onclick="window._aiNewChat && window._aiNewChat()" class="ai-icon-btn" title="New chat" aria-label="New chat">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+      </button>
+      <button onclick="window._aiClose()" class="ai-icon-btn" title="Close" aria-label="Close">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
   </div>
   <div id="aiMessages" class="ai-panel-messages">
-    <div style="display:flex;gap:10px;align-items:flex-start;">
-      <div class="ai-msg-avatar">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    <div class="ai-empty">
+      <div class="ai-empty-orb">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 14.5 8.5 21 11l-6.5 2.5L12 20l-2.5-6.5L3 11l6.5-2.5z"/></svg>
       </div>
-      <div class="ai-msg-bubble">
-        Hi! I'm your NLPL AI Assistant. I can help you understand your collection data, portfolio metrics, and more. What would you like to know?
+      <div class="ai-empty-title">How can I help today?</div>
+      <div class="ai-empty-sub">Ask about collection, portfolio, branches, employees, or daily plans.</div>
+      <div id="aiSuggestionChips" class="ai-chips">
+        <button class="ai-chip" onclick="window._aiAskSuggestion('What is my collection % this month vs last month?')">
+          <span class="ai-chip-icon">📊</span>
+          <span><strong>Collection trend</strong><span class="ai-chip-sub">This month vs last month</span></span>
+        </button>
+        <button class="ai-chip" onclick="window._aiAskSuggestion('Top 5 branches by collection FY-to-date.')">
+          <span class="ai-chip-icon">🏆</span>
+          <span><strong>Top branches</strong><span class="ai-chip-sub">By collection FY-to-date</span></span>
+        </button>
+        <button class="ai-chip" onclick="window._aiAskSuggestion('Show my NPA cases and activation amount.')">
+          <span class="ai-chip-icon">⚠️</span>
+          <span><strong>NPA snapshot</strong><span class="ai-chip-sub">Cases + activation amount</span></span>
+        </button>
+        <button class="ai-chip" onclick="window._aiAskSuggestion('Disbursement summary for last 3 months by product.')">
+          <span class="ai-chip-icon">💰</span>
+          <span><strong>Disbursement</strong><span class="ai-chip-sub">Last 3 months by product</span></span>
+        </button>
       </div>
     </div>
   </div>
   <div class="ai-panel-input-area">
     <div class="ai-panel-input-wrap" id="aiInputWrap">
-      <input type="text" id="aiInput" placeholder="Ask about your data..." class="ai-panel-input" onkeydown="if(event.key==='Enter')window._aiSend()">
-      <button onclick="window._aiSend()" class="ai-panel-send">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      <textarea id="aiInput" placeholder="Message NLPL Assistant…" class="ai-panel-input" rows="1"
+        onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();window._aiSend();}"></textarea>
+      <button onclick="window._aiTalk()" class="ai-panel-talk" id="aiTalkBtn" title="Tap to talk" aria-label="Talk">
+        <svg id="aiTalkIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a4 4 0 0 0-4 4v6a4 4 0 0 0 8 0V5a4 4 0 0 0-4-4z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
+      </button>
+      <button onclick="window._aiSend()" class="ai-panel-send" aria-label="Send">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
       </button>
     </div>
     <div class="ai-panel-footer" aria-hidden="true">
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></svg>
-      <span>Powered by <strong>Mistral</strong></span>
+      <span>NLPL Assistant can make mistakes. Verify important numbers.</span>
     </div>
   </div>
 </div>
 
 <!-- AI Assistant entry now lives in the sidebar; floating bar + FAB removed. -->
+
+<!-- ===== Voice Interaction Overlay (idle → recording → processing) ===== -->
+<div id="voiceOverlay" aria-hidden="true">
+  <div class="vo-bg"></div>
+  <div class="vo-blur vo-blur-1"></div>
+  <div class="vo-blur vo-blur-2"></div>
+  <div class="vo-blur vo-blur-3"></div>
+  <button class="vo-close" id="voClose" aria-label="Close voice mode">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+  </button>
+  <div class="vo-stage" id="voStage">
+    <div class="vo-orb" id="voOrb">
+      <div class="vo-bars">
+        <span></span><span></span><span></span><span></span>
+      </div>
+    </div>
+    <div class="vo-hint" id="voHint">Click anywhere to talk</div>
+    <div class="vo-status" id="voStatus" aria-live="polite"></div>
+    <div class="vo-error" id="voError"></div>
+  </div>
+</div>
 
 <style>
 /* ===== Bottom padding (desktop: no floating bar, minimal padding) ===== */
@@ -4634,13 +4680,13 @@ body.emp-dark .ai-bar-icon { background: rgba(99,102,241,0.15); color: #A5B4FC; 
 }
 #aiOverlay.open { display: block; }
 
-/* ===== AI Chat Panel — FULL SCREEN ===== */
+/* ===== AI Chat Panel — ChatGPT-style full-screen ===== */
 #aiPanel {
   display: none;
   position: fixed;
   inset: 0;
   z-index: 10000;
-  background: #fff;
+  background: #ffffff;
   flex-direction: column;
   overflow: hidden;
   border-radius: 0 !important;
@@ -4648,79 +4694,473 @@ body.emp-dark .ai-bar-icon { background: rgba(99,102,241,0.15); color: #A5B4FC; 
   box-shadow: none !important;
   width: auto !important;
   height: auto !important;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color: #0f172a;
 }
 #aiPanel.open { display: flex; }
+
+/* Header */
 .ai-panel-header {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 18px 28px;
-  border-bottom: 1px solid #F1F5F9;
+  padding: 14px 22px;
+  border-bottom: 1px solid #ECECF1;
   flex-shrink: 0;
-  background: #fff;
+  background: #ffffff;
+  position: relative;
+  z-index: 2;
 }
+.ai-header-left { display: flex; align-items: center; gap: 12px; }
+.ai-header-right { display: flex; align-items: center; gap: 6px; }
 .ai-panel-avatar {
-  width: 36px; height: 36px; border-radius: 10px;
-  background: linear-gradient(135deg, #6366F1, #8B5CF6);
+  width: 34px; height: 34px; border-radius: 10px;
+  background: linear-gradient(135deg, #10A37F, #0e8c6c);
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  box-shadow: 0 1px 0 rgba(255,255,255,.5) inset, 0 1px 4px rgba(16,163,127,.25);
 }
-.ai-panel-close {
-  width: 36px; height: 36px; border-radius: 50%;
-  border: none; background: #F1F5F9; color: #64748B;
+.ai-header-title { font-size: 15px; font-weight: 600; color: #0f172a; line-height: 1.1; }
+.ai-header-sub   { font-size: 11.5px; color: #6B7280; margin-top: 3px; letter-spacing:.01em; }
+.ai-icon-btn {
+  width: 36px; height: 36px; border-radius: 8px;
+  border: none; background: transparent; color: #4B5563;
   cursor: pointer; display: flex; align-items: center; justify-content: center;
-  transition: background .2s;
+  transition: background .15s, color .15s;
 }
-.ai-panel-close:hover { background: #E2E8F0; }
+.ai-icon-btn:hover { background: #F3F4F6; color: #111827; }
+
+/* Messages region */
 .ai-panel-messages {
-  flex: 1; overflow-y: auto; padding: 28px 20px 28px;
-  display: flex; flex-direction: column; gap: 16px;
-  width: 100%; max-width: 920px; margin: 0 auto;
+  flex: 1; overflow-y: auto;
+  padding: 32px 24px 24px;
+  display: flex; flex-direction: column; gap: 24px;
+  width: 100%;
+  scroll-behavior: smooth;
 }
+.ai-panel-messages::-webkit-scrollbar { width: 8px; }
+.ai-panel-messages::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 4px; }
+.ai-panel-messages::-webkit-scrollbar-thumb:hover { background: #9CA3AF; }
+
+/* Message rows */
+.ai-row {
+  display: flex; gap: 14px; align-items: flex-start;
+  width: 100%; max-width: 760px; margin: 0 auto;
+}
+.ai-row-user { justify-content: flex-end; }
+.ai-row-bot  { justify-content: flex-start; }
+
 .ai-msg-avatar {
-  width: 28px; height: 28px; border-radius: 8px;
-  background: linear-gradient(135deg, #6366F1, #8B5CF6);
+  width: 30px; height: 30px; border-radius: 8px;
+  background: linear-gradient(135deg, #10A37F, #0e8c6c);
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  margin-top: 2px;
+  box-shadow: 0 1px 0 rgba(255,255,255,.5) inset;
 }
-.ai-msg-bubble {
-  background: #F8FAFC; border: 1px solid #F1F5F9;
+
+/* Bubbles — ChatGPT-style: user bubble; assistant flowing prose */
+.ai-bubble {
+  font-size: 15px; line-height: 1.65; color: #0f172a;
+  word-break: break-word; overflow-wrap: anywhere;
+}
+.ai-bubble-user {
+  background: #F4F4F4;
+  border: 1px solid #ECECEC;
+  border-radius: 18px;
+  padding: 12px 16px;
+  max-width: 78%;
+  color: #111827;
+  white-space: pre-wrap;
+}
+.ai-bot-col { display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1; }
+.ai-bubble-bot {
+  background: transparent;
+  padding: 4px 2px 0;
+  max-width: 100%;
+  color: #1F2937;
+}
+.ai-bubble-error {
+  background: #FEF2F2; border: 1px solid #FCA5A5;
   border-radius: 12px; padding: 12px 16px;
-  font-size: 14px; color: #334155; line-height: 1.6; max-width: 80%;
+  color: #B91C1C; font-size: 14px;
+  max-width: 78%;
 }
+
+/* Markdown elements */
+.ai-bubble .ai-h { font-weight: 600; color: #111827; margin: 14px 0 6px; line-height: 1.3; }
+.ai-bubble h2.ai-h { font-size: 17px; }
+.ai-bubble h3.ai-h { font-size: 15.5px; }
+.ai-bubble h4.ai-h { font-size: 14.5px; color:#374151; }
+.ai-bubble strong { color: #0f172a; font-weight: 600; }
+.ai-bubble em { color: #374151; }
+.ai-bubble .ai-ul, .ai-bubble .ai-ol {
+  margin: 8px 0; padding-left: 22px;
+}
+.ai-bubble .ai-ul li, .ai-bubble .ai-ol li { margin: 3px 0; }
+.ai-bubble .ai-ul li::marker { color: #10A37F; }
+.ai-bubble .ai-bq {
+  border-left: 3px solid #D1D5DB;
+  padding: 4px 0 4px 12px;
+  margin: 8px 0;
+  color: #4B5563;
+}
+.ai-bubble .ai-code {
+  background: #F3F4F6; border: 1px solid #E5E7EB;
+  padding: 1px 6px; border-radius: 5px;
+  font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 13px; color: #B45309;
+}
+.ai-bubble .ai-pre {
+  background: #0B1020; color: #E5E7EB;
+  padding: 12px 14px; border-radius: 10px;
+  margin: 10px 0; overflow-x: auto;
+  font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 13px; line-height: 1.55;
+}
+.ai-bubble .ai-pre code { background: transparent; border: 0; color: inherit; padding: 0; font-size: inherit; }
+.ai-bubble .ai-table-wrap {
+  overflow-x: auto; margin: 10px 0;
+  border: 1px solid #E5E7EB; border-radius: 10px;
+}
+.ai-bubble .ai-table {
+  width: 100%; border-collapse: collapse; font-size: 13.5px;
+}
+.ai-bubble .ai-table th, .ai-bubble .ai-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #F1F5F9;
+  text-align: left;
+  vertical-align: top;
+}
+.ai-bubble .ai-table th { background: #F9FAFB; font-weight: 600; color: #111827; font-size: 12.5px; letter-spacing: .02em; text-transform: uppercase; }
+.ai-bubble .ai-table tr:last-child td { border-bottom: 0; }
+.ai-bubble .ai-table tbody tr:hover { background: #FAFBFC; }
+
+/* Streaming cursor */
+.ai-cursor {
+  display: inline-block; width: 7px; height: 16px;
+  background: #10A37F;
+  margin-left: 2px; vertical-align: -2px;
+  animation: aiBlink 1s steps(2) infinite;
+  border-radius: 1px;
+}
+@keyframes aiBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+/* Status line ("Thinking…", "Querying X…") */
+.ai-status {
+  display: none; align-items: center; gap: 8px;
+  font-size: 12.5px; color: #6B7280; font-weight: 500;
+  padding: 4px 0;
+}
+.ai-status::before {
+  content: ''; width: 12px; height: 12px;
+  border-radius: 50%;
+  border: 2px solid #E5E7EB; border-top-color: #10A37F;
+  animation: aiSpin .8s linear infinite;
+}
+@keyframes aiSpin { to { transform: rotate(360deg); } }
+
+/* Typing dots (initial pre-stream state) */
+.ai-typing { display: inline-flex; gap: 4px; align-items: center; height: 24px; }
+
+/* Action toolbar under bot reply */
+.ai-actions { display: flex; gap: 4px; margin-top: 4px; opacity: 0; transition: opacity .2s; }
+.ai-row-bot:hover .ai-actions { opacity: 1; }
+.ai-action-btn {
+  width: 28px; height: 28px; border-radius: 6px;
+  border: none; background: transparent; color: #6B7280;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: background .15s, color .15s;
+}
+.ai-action-btn:hover { background: #F3F4F6; color: #111827; }
+
+/* Empty state */
+.ai-empty {
+  margin: auto;
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+  text-align: center; padding: 24px 16px;
+  max-width: 760px;
+}
+.ai-empty-orb {
+  width: 64px; height: 64px; border-radius: 18px;
+  background: linear-gradient(135deg, #10A37F, #0e8c6c);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 8px 28px rgba(16,163,127,.28), 0 1px 0 rgba(255,255,255,.5) inset;
+}
+.ai-empty-title {
+  font-size: 24px; font-weight: 600; color: #111827;
+  letter-spacing: -0.01em;
+}
+.ai-empty-sub {
+  font-size: 14px; color: #6B7280;
+}
+.ai-chips {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px; margin-top: 14px; width: 100%; max-width: 640px;
+}
+.ai-chip {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid #E5E7EB; border-radius: 12px;
+  background: #fff; color: #111827;
+  font-size: 13px; cursor: pointer; text-align: left;
+  transition: border-color .15s, background .15s, transform .15s;
+  font-family: inherit;
+}
+.ai-chip:hover { border-color: #10A37F; background: #F9FAFB; transform: translateY(-1px); }
+.ai-chip-icon { font-size: 18px; line-height: 1; flex-shrink: 0; }
+.ai-chip strong { display: block; font-weight: 600; font-size: 13.5px; margin-bottom: 2px; }
+.ai-chip-sub { display: block; font-size: 12px; color: #6B7280; font-weight: 400; }
+@media (max-width: 640px) {
+  .ai-chips { grid-template-columns: 1fr; }
+}
+
+/* Composer */
 .ai-panel-input-area {
-  padding: 18px 20px 22px;
-  border-top: 1px solid #F1F5F9;
+  padding: 12px 16px 18px;
+  border-top: 1px solid #ECECF1;
   flex-shrink: 0;
-  background: #fff;
+  background: #ffffff;
 }
 .ai-panel-input-area > * {
-  width: 100%; max-width: 920px; margin: 0 auto;
-}
-.ai-msg-bubble {
-  max-width: 100% !important;
+  width: 100%; max-width: 760px; margin: 0 auto;
 }
 .ai-panel-input-wrap {
-  display: flex; align-items: center; gap: 8px;
-  background: #F8FAFC; border: 2px solid #E2E8F0;
-  border-radius: 28px; padding: 6px 6px 6px 20px;
-  transition: border-color .2s;
+  display: flex; align-items: flex-end; gap: 6px;
+  background: #ffffff;
+  border: 1px solid #D1D5DB;
+  border-radius: 22px;
+  padding: 8px 8px 8px 18px;
+  box-shadow: 0 1px 2px rgba(0,0,0,.04);
+  transition: border-color .15s, box-shadow .15s;
 }
-.ai-panel-input-wrap:focus-within { border-color: #6366F1; }
+.ai-panel-input-wrap:focus-within {
+  border-color: #10A37F;
+  box-shadow: 0 0 0 3px rgba(16,163,127,.15);
+}
 .ai-panel-input {
-  flex: 1; border: none; outline: none; font-size: 15px;
-  font-family: inherit; color: #1E293B; background: transparent;
+  flex: 1; border: none; outline: none;
+  font-size: 15px; font-family: inherit;
+  color: #111827; background: transparent;
+  resize: none; min-height: 28px; max-height: 160px;
+  line-height: 1.5;
+  padding: 6px 4px;
 }
+.ai-panel-input::placeholder { color: #9CA3AF; }
 .ai-panel-send {
-  width: 42px; height: 42px; border-radius: 50%;
-  border: none; background: #1E293B; color: #fff;
+  width: 36px; height: 36px; border-radius: 50%;
+  border: none; background: #10A37F; color: #fff;
   cursor: pointer; display: flex; align-items: center; justify-content: center;
-  transition: background .2s; flex-shrink: 0;
+  transition: background .15s, transform .1s; flex-shrink: 0;
 }
-.ai-panel-send:hover { background: #6366F1; }
+.ai-panel-send:hover { background: #0e8c6c; }
+.ai-panel-send:active { transform: scale(0.94); }
+.ai-panel-talk {
+  width: 36px; height: 36px; border-radius: 50%;
+  border: none; background: transparent; color: #6B7280;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: background .15s, color .15s;
+  flex-shrink: 0;
+}
+.ai-panel-talk:hover { background: #F3F4F6; color: #111827; }
+.ai-panel-talk.recording {
+  background: #DC2626; color: #fff;
+  box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.18);
+  animation: aiTalkPulse 1.4s ease-in-out infinite;
+}
+.ai-panel-talk.busy { background: #10A37F; color: #fff; cursor: wait; }
+@keyframes aiTalkPulse {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.18); }
+  50%      { box-shadow: 0 0 0 8px rgba(220, 38, 38, 0.06); }
+}
+
+/* Dark-mode-ish softening when emp-dark is active */
+body.emp-dark #aiPanel { background: #0F172A; color: #E5E7EB; }
+body.emp-dark .ai-panel-header { background: #0F172A; border-color: #1F2937; }
+body.emp-dark .ai-header-title { color: #F9FAFB; }
+body.emp-dark .ai-header-sub   { color: #9CA3AF; }
+body.emp-dark .ai-icon-btn { color: #9CA3AF; }
+body.emp-dark .ai-icon-btn:hover { background: #1F2937; color: #F9FAFB; }
+body.emp-dark .ai-bubble { color: #E5E7EB; }
+body.emp-dark .ai-bubble-user { background: #1F2937; border-color: #374151; color: #F3F4F6; }
+body.emp-dark .ai-bubble-bot  { color: #E5E7EB; }
+body.emp-dark .ai-bubble strong { color: #F9FAFB; }
+body.emp-dark .ai-bubble .ai-h  { color: #F9FAFB; }
+body.emp-dark .ai-bubble .ai-code { background: #1F2937; border-color: #374151; color: #FCD34D; }
+body.emp-dark .ai-bubble .ai-table-wrap { border-color: #374151; }
+body.emp-dark .ai-bubble .ai-table th { background: #1F2937; color: #E5E7EB; }
+body.emp-dark .ai-bubble .ai-table th, body.emp-dark .ai-bubble .ai-table td { border-color: #1F2937; }
+body.emp-dark .ai-empty-title { color: #F9FAFB; }
+body.emp-dark .ai-empty-sub   { color: #9CA3AF; }
+body.emp-dark .ai-chip { background: #111827; border-color: #1F2937; color: #F3F4F6; }
+body.emp-dark .ai-chip:hover { background: #1F2937; border-color: #10A37F; }
+body.emp-dark .ai-chip-sub { color: #9CA3AF; }
+body.emp-dark .ai-panel-input-area { background: #0F172A; border-color: #1F2937; }
+body.emp-dark .ai-panel-input-wrap { background: #111827; border-color: #1F2937; box-shadow: none; }
+body.emp-dark .ai-panel-input { color: #F3F4F6; }
+body.emp-dark .ai-panel-input::placeholder { color: #6B7280; }
+body.emp-dark .ai-panel-talk { color: #9CA3AF; }
+body.emp-dark .ai-panel-talk:hover { background: #1F2937; color: #F9FAFB; }
+body.emp-dark .ai-panel-footer { color: #6B7280; }
+body.emp-dark .ai-action-btn:hover { background: #1F2937; color: #F9FAFB; }
+
+/* ===== Voice Interaction Overlay (ChatGPT-style mono theme) ===== */
+#voiceOverlay {
+  display: none;
+  position: fixed; inset: 0;
+  z-index: 11000;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  letter-spacing: .015em;
+}
+#voiceOverlay.open { display: block; }
+#voiceOverlay .vo-bg {
+  position: absolute; inset: 0;
+  background: #0a0a0a;
+}
+/* Decorative blurs disabled in mono theme. */
+#voiceOverlay .vo-blur { display: none !important; }
+#voiceOverlay .vo-close {
+  position: absolute; top: 22px; right: 22px;
+  width: 44px; height: 44px; border-radius: 50%;
+  border: 1px solid rgba(255,255,255,.18);
+  background: rgba(255,255,255,.04);
+  color: rgba(255,255,255,.75);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .2s, transform .2s;
+  z-index: 2;
+}
+#voiceOverlay .vo-close:hover {
+  background: rgba(255,255,255,.10);
+  transform: scale(1.05);
+}
+#voiceOverlay .vo-stage {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  cursor: pointer;
+  user-select: none;
+}
+#voiceOverlay .vo-orb {
+  width: 200px; height: 200px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #ffffff 0%, #d4d4d4 60%, #6b6b6b 100%);
+  border: 1px solid rgba(255,255,255,.18);
+  box-shadow:
+    inset 0 0 40px rgba(0,0,0,.20),
+    0 20px 60px rgba(255,255,255,.06);
+  position: relative;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform .2s ease-out;
+}
+#voiceOverlay.state-idle .vo-orb { animation: voBreathe 3s ease-in-out infinite; }
+#voiceOverlay.state-idle .vo-stage:hover .vo-orb { transform: scale(1.06); }
+@keyframes voBreathe {
+  0%, 100% { transform: scale(1);   box-shadow: inset 0 0 40px rgba(0,0,0,.20), 0 20px 60px rgba(255,255,255,.06); }
+  50%      { transform: scale(1.05); box-shadow: inset 0 0 50px rgba(0,0,0,.20), 0 30px 80px rgba(255,255,255,.10); }
+}
+#voiceOverlay.state-processing .vo-orb {
+  animation: voPulse 1.0s ease-in-out infinite;
+}
+#voiceOverlay.state-processing .vo-orb::after {
+  content: '';
+  position: absolute; inset: -10px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  background:
+    conic-gradient(from 0deg,
+      rgba(255,255,255,0),
+      rgba(255,255,255,.55),
+      rgba(255,255,255,.95),
+      rgba(255,255,255,.55),
+      rgba(255,255,255,0)) border-box;
+  -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  animation: voSpin 2.4s linear infinite;
+}
+@keyframes voPulse {
+  0%, 100% { transform: scale(1);    box-shadow: inset 0 0 40px rgba(0,0,0,.20), 0 20px 60px rgba(255,255,255,.10); }
+  50%      { transform: scale(1.07); box-shadow: inset 0 0 60px rgba(0,0,0,.25), 0 30px 90px rgba(255,255,255,.18); }
+}
+@keyframes voSpin {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+#voiceOverlay .vo-bars {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  gap: 14px;
+  opacity: 0;
+  transition: opacity .25s ease-out;
+}
+#voiceOverlay .vo-bars span {
+  width: 22px; height: 36px;
+  border-radius: 12px;
+  background: #f5f5f5;
+  box-shadow: 0 0 18px rgba(255,255,255,.25);
+  transform-origin: center;
+  transition: height 80ms ease-out;
+}
+#voiceOverlay.state-recording .vo-orb {
+  width: 360px; height: 200px;
+  border-radius: 36px;
+  background: linear-gradient(180deg, #1f1f1f 0%, #141414 100%);
+  border-color: rgba(255,255,255,.14);
+  box-shadow:
+    inset 0 0 30px rgba(255,255,255,.04),
+    0 20px 60px rgba(0,0,0,.6);
+  transition: width .4s ease-out, height .4s ease-out, border-radius .4s ease-out, box-shadow .4s ease-out, background .4s;
+}
+#voiceOverlay.state-recording .vo-bars { opacity: 1; }
+#voiceOverlay .vo-hint {
+  margin-top: 36px;
+  color: rgba(255,255,255,.55);
+  font-size: 13px; font-weight: 400;
+  letter-spacing: .04em;
+  transition: opacity .3s;
+}
+#voiceOverlay.state-recording .vo-hint { color: rgba(255,255,255,.7); }
+#voiceOverlay .vo-status {
+  margin-top: 24px;
+  min-height: 22px;
+  color: rgba(255,255,255,.78);
+  font-family: 'JetBrains Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
+  font-size: 12.5px; font-weight: 400;
+  letter-spacing: 0;
+  opacity: 0;
+  transition: opacity .3s ease-out, transform .3s ease-out;
+  transform: translateY(6px);
+  max-width: min(720px, 92vw);
+  text-align: center;
+  white-space: pre-wrap; word-break: break-word;
+  padding: 0 16px;
+}
+#voiceOverlay .vo-status.show {
+  opacity: 1; transform: translateY(0);
+}
+#voiceOverlay .vo-status .vo-prompt { color: rgba(255,255,255,.40); }
+#voiceOverlay .vo-error {
+  margin-top: 22px;
+  display: none;
+  padding: 12px 18px;
+  border-radius: 12px;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.25);
+  color: #f5f5f5; font-size: 13px;
+  max-width: 420px; text-align: center;
+}
+#voiceOverlay.state-error .vo-error { display: block; }
+@media (prefers-reduced-motion: reduce) {
+  #voiceOverlay.state-idle .vo-orb,
+  #voiceOverlay.state-processing .vo-orb,
+  #voiceOverlay.state-processing .vo-orb::after {
+    animation: none !important;
+  }
+}
 .ai-panel-footer {
   margin-top: 8px;
-  display: flex; align-items: center; justify-content: center; gap: 5px;
-  font-size: 11px; color: #94A3B8; letter-spacing:.2px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11.5px; color: #9CA3AF; letter-spacing:.01em;
 }
-.ai-panel-footer svg { color:#FB923C; flex-shrink:0; }
-.ai-panel-footer strong { color:#475569; font-weight:700; }
 
 /* ===== Desktop: Panel + bar visibility ===== */
 @media (min-width: 768px) {
@@ -5352,139 +5792,637 @@ body.emp-dark .ai-bar-icon { background: rgba(99,102,241,0.15); color: #A5B4FC; 
   <script src="js/contacts.js?v=2"></script>
   <script src="js/employee.js?v=52"></script>
   <script>
-  // AI Chat — browser calls server /api/ai-chat (Mistral backend, Phase L)
+  // AI Chat — browser calls server /api/ai-chat-stream (SSE, Mistral large + tools)
   (function(){
     var _aiHistory = [];
-    var _aiCtx = null;
-    var botIcon = '<div class="ai-msg-avatar">'
-      + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>';
+    var _aiBusy = false;
+    var botIcon = '<div class="ai-msg-avatar" aria-hidden="true">'
+      + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 14.5 8.5 21 11l-6.5 2.5L12 20l-2.5-6.5L3 11l6.5-2.5z"/></svg></div>';
 
     function esc(s) { return String(s).replace(/[&<>"']/g, function(c){return '&#'+c.charCodeAt(0)+';';}); }
-    function fmtIN(n) { return n != null ? Number(n).toLocaleString('en-IN') : '0'; }
 
-    function md(s) {
-      return esc(s)
-        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*(.+?)\*/g, '<em>$1</em>')
-        .replace(/`(.+?)`/g, '<code style="background:#F1F5F9;padding:1px 5px;border-radius:4px;font-size:13px;">$1</code>')
-        .replace(/\n/g, '<br>');
-    }
-
-    function buildSystemPrompt(ctx, session) {
-      var o = ctx.summary || ctx.overallSummary || {};
-      var pct = o.total_rd > 0 ? ((o.total_rc / o.total_rd) * 100).toFixed(1) + '%' : '-';
-      var sys = 'You are the NLPL AI Assistant — a data analyst for NLPL (Nava Chetana Livelihoods) employee dashboard.\n\n';
-      if (session && session.role) {
-        var loc = session.location || 'Overall';
-        sys += 'USER CONTEXT: You are helping a ' + session.role + ' whose scope is ' + loc + '. Tailor your answers to their scope.\n\n';
-      }
-      sys += 'CURRENT DATA (latest: ' + (ctx.latestDate || 'unknown') + '):\n\n';
-      sys += 'OVERALL: RD=' + fmtIN(o.total_rd) + ', RC=' + fmtIN(o.total_rc) + ', Coll%=' + pct + '\n';
-      sys += 'SMA-0: D=' + fmtIN(o.sma0_d) + ' C=' + fmtIN(o.sma0_c) + ' | SMA-1: D=' + fmtIN(o.sma1_d) + ' C=' + fmtIN(o.sma1_c) + '\n';
-      sys += 'Pre-NPA: D=' + fmtIN(o.pnpa_d) + ' C=' + fmtIN(o.pnpa_c) + ' | NPA: Cases=' + fmtIN(o.npa_cases) + ' Act=' + fmtIN(o.npa_act) + '\n\n';
-      sys += 'REGIONS:\n';
-      (ctx.regionSummary || []).forEach(function(r) {
-        var p = r.rd > 0 ? ((r.rc / r.rd) * 100).toFixed(1) + '%' : '-';
-        sys += '- ' + r.region_name + ': RD=' + fmtIN(r.rd) + ', RC=' + fmtIN(r.rc) + ', ' + p + '\n';
+    // ── Lightweight markdown renderer ─────────────────────────────────
+    // Handles: # headings, **bold**, *italic*, `code`, ```fences```, ordered
+    // + unordered lists, blockquotes, and GitHub-style tables. Output is
+    // sanitised — input is escaped first, only our own tags pass through.
+    function md(src) {
+      src = String(src || '');
+      // Extract fenced code blocks first so their content isn't mangled.
+      var fences = [];
+      src = src.replace(/```([\s\S]*?)```/g, function(_m, body){
+        fences.push(body); return ' F' + (fences.length - 1) + ' ';
       });
-      sys += '\nTOP BRANCHES:\n';
-      (ctx.topBranches || []).forEach(function(b) { sys += '- ' + b.branch_name + ': RD=' + fmtIN(b.rd) + ', RC=' + fmtIN(b.rc) + '\n'; });
-      sys += '\nDISBURSEMENT:\n';
-      (ctx.disbursement || []).forEach(function(d) { sys += '- ' + d.db_month + ': Count=' + fmtIN(d.total_count) + ', Amt=' + fmtIN(d.total_amount) + '\n'; });
-      if (ctx.myData && ctx.myData[0]) {
-        var m = ctx.myData[0];
-        sys += '\nUSER DATA: RD=' + fmtIN(m.rd) + ', RC=' + fmtIN(m.rc) + ', NPA=' + fmtIN(m.npa_cases) + '\n';
-      }
-      sys += '\nTERMINOLOGY: RD=Regular Demand, RC=Regular Collection, FTOD=RD-RC, Coll%=RC/RD*100, SMA=Special Mention Account, DPD=Days Past Due, NPA=Non-Performing Asset, PNPA=Pre-NPA\n';
-      sys += '\nRULES: Be concise. Use Indian number format. Only use data above. Don\'t make up numbers. 2-4 sentences for simple questions. Counts/cases/accounts are plain counts, not money or lakhs/crores. If the user asks only about collection, answer only demand, collection, and collection %.';
-      return sys;
+      var inline = [];
+      src = src.replace(/`([^`\n]+)`/g, function(_m, body){
+        inline.push(body); return ' I' + (inline.length - 1) + ' ';
+      });
+      var s = esc(src);
+
+      // GitHub-style tables: detect blocks of |...| lines with a separator row.
+      s = s.replace(/(^|\n)((?:\|[^\n]+\|\n)+)/g, function(_m, lead, block){
+        var rows = block.trim().split('\n').map(function(r){ return r.trim(); });
+        if (rows.length < 2) return lead + block;
+        var sep = rows[1];
+        if (!/^\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?$/.test(sep)) return lead + block;
+        function cells(r){
+          return r.replace(/^\||\|$/g, '').split('|').map(function(c){ return c.trim(); });
+        }
+        var head = cells(rows[0]);
+        var body = rows.slice(2).map(cells);
+        var html = '<div class="ai-table-wrap"><table class="ai-table"><thead><tr>' +
+          head.map(function(c){ return '<th>' + c + '</th>'; }).join('') +
+          '</tr></thead><tbody>' +
+          body.map(function(r){
+            return '<tr>' + r.map(function(c){ return '<td>' + c + '</td>'; }).join('') + '</tr>';
+          }).join('') +
+          '</tbody></table></div>';
+        return lead + html;
+      });
+
+      // Headings #, ##, ### at start of line.
+      s = s.replace(/^###\s+(.+)$/gm, '<h4 class="ai-h">$1</h4>');
+      s = s.replace(/^##\s+(.+)$/gm,  '<h3 class="ai-h">$1</h3>');
+      s = s.replace(/^#\s+(.+)$/gm,   '<h2 class="ai-h">$1</h2>');
+
+      // Blockquotes.
+      s = s.replace(/^&gt;\s?(.+)$/gm, '<blockquote class="ai-bq">$1</blockquote>');
+      s = s.replace(/(<\/blockquote>)\n(<blockquote class="ai-bq">)/g, '<br>');
+
+      // Lists: collapse consecutive bullet/numbered lines into <ul>/<ol>.
+      s = s.replace(/(?:^|\n)((?:\s*[-*]\s+.+(?:\n|$))+)/g, function(_m, block){
+        var items = block.trim().split(/\n/).map(function(l){
+          return '<li>' + l.replace(/^\s*[-*]\s+/, '') + '</li>';
+        }).join('');
+        return '\n<ul class="ai-ul">' + items + '</ul>';
+      });
+      s = s.replace(/(?:^|\n)((?:\s*\d+\.\s+.+(?:\n|$))+)/g, function(_m, block){
+        var items = block.trim().split(/\n/).map(function(l){
+          return '<li>' + l.replace(/^\s*\d+\.\s+/, '') + '</li>';
+        }).join('');
+        return '\n<ol class="ai-ol">' + items + '</ol>';
+      });
+
+      // Inline emphasis.
+      s = s.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+      s = s.replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>');
+
+      // Restore inline code.
+      s = s.replace(/ I(\d+) /g, function(_m, i){
+        return '<code class="ai-code">' + esc(inline[+i]) + '</code>';
+      });
+      // Restore fenced code blocks.
+      s = s.replace(/ F(\d+) /g, function(_m, i){
+        return '<pre class="ai-pre"><code>' + esc(fences[+i]) + '</code></pre>';
+      });
+
+      // Paragraphs / line breaks. Don't insert <br> right after block tags.
+      s = s.replace(/\n{2,}/g, '<br><br>');
+      s = s.replace(/\n/g, '<br>');
+      s = s.replace(/<br>\s*(<\/?(?:h[2-4]|ul|ol|li|table|thead|tbody|tr|td|th|pre|blockquote|div)\b[^>]*>)/g, '$1');
+      s = s.replace(/(<\/(?:h[2-4]|ul|ol|table|pre|blockquote|div)>)\s*<br>/g, '$1');
+      return s;
     }
 
-    // Call server-side Mistral proxy (Phase L moved provider from Gemini → Mistral)
-    function callAI(messages, callback) {
-      var session = (typeof getEmployeeSession === 'function') ? getEmployeeSession() : {};
-      fetch('/api/ai-chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider: 'mistral', messages: messages, role: session.role || '', location: session.location || '' })
-      })
-      .then(function(r) { return r.json(); })
-      .then(function(data) {
-        if (data.reply) {
-          callback(data.reply, null);
-        } else {
-          callback(null, data.error || 'AI is busy. Please try again.');
-        }
-      })
-      .catch(function(e) { callback(null, 'Could not reach AI. Please try again.'); });
+    function getSession() {
+      try { return (typeof getEmployeeSession === 'function') ? getEmployeeSession() : {}; }
+      catch (_) { return {}; }
     }
+
+    function appendUserBubble(box, msg) {
+      var row = document.createElement('div');
+      row.className = 'ai-row ai-row-user';
+      row.innerHTML = '<div class="ai-bubble ai-bubble-user">' + esc(msg) + '</div>';
+      box.appendChild(row);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function appendAssistantShell(box) {
+      var row = document.createElement('div');
+      row.className = 'ai-row ai-row-bot';
+      row.innerHTML = botIcon
+        + '<div class="ai-bot-col">'
+        + '<div class="ai-status" data-status></div>'
+        + '<div class="ai-bubble ai-bubble-bot" data-content><span class="ai-typing"><span class="ai-dot"></span><span class="ai-dot" style="animation-delay:.2s"></span><span class="ai-dot" style="animation-delay:.4s"></span></span></div>'
+        + '<div class="ai-actions" data-actions style="display:none;">'
+        + '<button class="ai-action-btn" data-act="copy" title="Copy"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>'
+        + '<button class="ai-action-btn" data-act="regen" title="Regenerate"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button>'
+        + '</div>'
+        + '</div>';
+      box.appendChild(row);
+      box.scrollTop = box.scrollHeight;
+      return row;
+    }
+
+    function appendErrorBubble(box, errText) {
+      var row = document.createElement('div');
+      row.className = 'ai-row ai-row-bot';
+      row.innerHTML = botIcon + '<div class="ai-bubble ai-bubble-error">' + esc(errText) + '</div>';
+      box.appendChild(row);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function bindActions(row, fullText, userMsg) {
+      var bar = row.querySelector('[data-actions]');
+      if (!bar) return;
+      bar.style.display = 'flex';
+      bar.querySelector('[data-act="copy"]').addEventListener('click', function(){
+        try { navigator.clipboard.writeText(fullText); } catch (_) {}
+        var btn = this;
+        var prev = btn.innerHTML;
+        btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+        setTimeout(function(){ btn.innerHTML = prev; }, 1200);
+      });
+      bar.querySelector('[data-act="regen"]').addEventListener('click', function(){
+        if (_aiBusy || !userMsg) return;
+        // drop the assistant turn we're regenerating, then resend.
+        if (_aiHistory.length && _aiHistory[_aiHistory.length - 1].role === 'assistant') {
+          _aiHistory.pop();
+        }
+        row.remove();
+        sendStream(userMsg, /*alreadyInHistory*/ true);
+      });
+    }
+
+    // ── Streaming sender ──────────────────────────────────────────────
+    // Opens an SSE-style POST and consumes events: open, thinking, tools,
+    // delta, fallback, done, error. Renders the running buffer with md()
+    // on each delta so tables / lists appear progressively.
+    function sendStream(msg, alreadyInHistory) {
+      if (_aiBusy) return;
+      _aiBusy = true;
+      var box = document.getElementById('aiMessages');
+      hideSuggestionChips();
+      if (!alreadyInHistory) {
+        appendUserBubble(box, msg);
+        _aiHistory.push({ role: 'user', content: msg });
+      } else {
+        appendUserBubble(box, msg); // visible echo for re-runs
+      }
+      var row = appendAssistantShell(box);
+      var content = row.querySelector('[data-content]');
+      var statusEl = row.querySelector('[data-status]');
+      var session = getSession();
+      var msgs = [];
+      _aiHistory.slice(-20).forEach(function(h){ msgs.push({ role: h.role, content: h.content }); });
+      if (msgs.length === 0 || msgs[msgs.length - 1].role !== 'user') {
+        msgs.push({ role: 'user', content: msg });
+      }
+
+      var buffer = '';
+      var sawDelta = false;
+      function setStatus(text) {
+        if (!statusEl) return;
+        if (!text) { statusEl.style.display = 'none'; statusEl.textContent = ''; return; }
+        statusEl.style.display = 'inline-flex';
+        statusEl.textContent = text;
+      }
+      function applyEvent(event, dataStr) {
+        var data = {};
+        try { data = JSON.parse(dataStr); } catch (_) {}
+        if (event === 'open') {
+          setStatus('Thinking…');
+        } else if (event === 'thinking') {
+          if (!sawDelta) setStatus('Thinking…');
+        } else if (event === 'tools') {
+          var names = (data.names || []).join(', ');
+          setStatus('Querying ' + (names || 'database') + '…');
+        } else if (event === 'fallback') {
+          setStatus('Switching providers…');
+        } else if (event === 'delta') {
+          if (!sawDelta) {
+            sawDelta = true;
+            setStatus('');
+            content.innerHTML = '';
+          }
+          buffer += data.text || '';
+          content.innerHTML = md(buffer) + '<span class="ai-cursor"></span>';
+          box.scrollTop = box.scrollHeight;
+        } else if (event === 'done') {
+          setStatus('');
+          content.innerHTML = md(buffer);
+          _aiHistory.push({ role: 'assistant', content: buffer });
+          bindActions(row, buffer, msg);
+          _aiBusy = false;
+        } else if (event === 'error') {
+          setStatus('');
+          row.remove();
+          appendErrorBubble(box, data.message || 'AI is briefly busy. Please retry.');
+          _aiBusy = false;
+        }
+      }
+
+      fetch('/api/ai-chat-stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream' },
+        body: JSON.stringify({ messages: msgs, role: session.role || '', location: session.location || '' })
+      }).then(function(resp){
+        if (!resp.ok || !resp.body) throw new Error('http_' + resp.status);
+        var reader = resp.body.getReader();
+        var decoder = new TextDecoder();
+        var pending = '';
+        function pump() {
+          return reader.read().then(function(r){
+            if (r.done) {
+              if (_aiBusy) {
+                _aiBusy = false;
+                if (sawDelta) {
+                  content.innerHTML = md(buffer);
+                  _aiHistory.push({ role: 'assistant', content: buffer });
+                  bindActions(row, buffer, msg);
+                } else {
+                  row.remove();
+                  appendErrorBubble(box, 'Stream ended unexpectedly.');
+                }
+              }
+              return;
+            }
+            pending += decoder.decode(r.value, { stream: true });
+            var parts = pending.split('\n\n');
+            pending = parts.pop();
+            parts.forEach(function(chunk){
+              var ev = 'message', data = '';
+              chunk.split('\n').forEach(function(line){
+                if (line.indexOf('event:') === 0) ev = line.slice(6).trim();
+                else if (line.indexOf('data:') === 0) data += line.slice(5).trim();
+              });
+              applyEvent(ev, data);
+            });
+            return pump();
+          });
+        }
+        return pump();
+      }).catch(function(err){
+        setStatus('');
+        row.remove();
+        appendErrorBubble(box, 'Could not reach AI. Please try again.');
+        _aiBusy = false;
+      });
+    }
+
+    var _initialMessagesHtml = null;
+    function captureEmptyState() {
+      if (_initialMessagesHtml === null) {
+        var box = document.getElementById('aiMessages');
+        if (box) _initialMessagesHtml = box.innerHTML;
+      }
+    }
+    function hideSuggestionChips() {
+      var empty = document.querySelector('#aiMessages .ai-empty');
+      if (empty) empty.style.display = 'none';
+    }
+    window._aiNewChat = function() {
+      _aiHistory = [];
+      _aiBusy = false;
+      var box = document.getElementById('aiMessages');
+      if (box && _initialMessagesHtml !== null) {
+        box.innerHTML = _initialMessagesHtml;
+      }
+      var input = document.getElementById('aiInput');
+      if (input) { input.value = ''; input.focus(); }
+    };
+    document.addEventListener('DOMContentLoaded', captureEmptyState);
+    captureEmptyState();
+    window._aiAskSuggestion = function(text) {
+      var input = document.getElementById('aiInput');
+      input.value = text;
+      window._aiSend();
+    };
 
     window._aiSend = function() {
       var input = document.getElementById('aiInput');
       var msg = input.value.trim();
       if (!msg) return;
+      if (_aiBusy) return;
       input.value = '';
-      var box = document.getElementById('aiMessages');
-
-      // User bubble
-      box.innerHTML += '<div style="display:flex;gap:10px;align-items:flex-start;justify-content:flex-end;">'
-        + '<div style="background:#6366F1;border-radius:12px;padding:12px 16px;font-size:14px;color:#fff;line-height:1.6;max-width:80%;word-break:break-word;">'
-        + esc(msg) + '</div></div>';
-      _aiHistory.push({ role: 'user', content: msg });
-
-      // Typing indicator
-      var typingId = 'typing-' + Date.now();
-      box.innerHTML += '<div id="' + typingId + '" style="display:flex;gap:10px;align-items:flex-start;">'
-        + botIcon
-        + '<div style="background:#F8FAFC;border:1px solid #F1F5F9;border-radius:12px;padding:12px 16px;font-size:14px;color:#94A3B8;">'
-        + '<span style="display:inline-flex;gap:4px;"><span class="ai-dot"></span><span class="ai-dot" style="animation-delay:.2s"></span><span class="ai-dot" style="animation-delay:.4s"></span></span>'
-        + '</div></div>';
-      box.scrollTop = box.scrollHeight;
-
-      function doSend(ctx) {
-        var sysPr = buildSystemPrompt(ctx, (typeof getEmployeeSession === 'function') ? getEmployeeSession() : {});
-        var msgs = [{ role: 'system', content: sysPr }];
-        _aiHistory.slice(-6).forEach(function(h) { msgs.push({ role: h.role, content: h.content }); });
-        // Last one is already in history, but let's ensure user message is last
-        if (msgs[msgs.length - 1].role !== 'user') msgs.push({ role: 'user', content: msg });
-
-        callAI(msgs, function(reply, err) {
-          var el = document.getElementById(typingId);
-          if (el) el.remove();
-          if (err) {
-            box.innerHTML += '<div style="display:flex;gap:10px;align-items:flex-start;">' + botIcon
-              + '<div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:12px;padding:12px 16px;font-size:14px;color:#DC2626;line-height:1.6;max-width:80%;word-break:break-word;">'
-              + esc(err) + '</div></div>';
-          } else {
-            _aiHistory.push({ role: 'assistant', content: reply });
-            box.innerHTML += '<div style="display:flex;gap:10px;align-items:flex-start;">' + botIcon
-              + '<div class="ai-msg-bubble">'
-              + md(reply) + '</div></div>';
-          }
-          box.scrollTop = box.scrollHeight;
-        });
-      }
-
-      // Fetch DB context from server, then call AI
-      var session = {};
-      try { session = typeof getEmployeeSession === 'function' ? getEmployeeSession() : {}; } catch(e) {}
-
-      if (_aiCtx) {
-        doSend(_aiCtx);
-      } else {
-        fetch('/api/ai-context', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ session: session })
-        })
-        .then(function(r) { return r.json(); })
-        .then(function(ctx) { _aiCtx = ctx; doSend(ctx); })
-        .catch(function() { doSend({}); });
-      }
+      autosizeInput(input);
+      sendStream(msg, false);
     };
 
-    // Refresh context every 5 minutes
-    setInterval(function() { _aiCtx = null; }, 300000);
+    // Auto-grow textarea-like input
+    function autosizeInput(el) {
+      if (el.tagName !== 'TEXTAREA') return;
+      el.style.height = 'auto';
+      el.style.height = Math.min(el.scrollHeight, 160) + 'px';
+    }
+    document.addEventListener('input', function(e){
+      if (e.target && e.target.id === 'aiInput') autosizeInput(e.target);
+    });
+
+    // ── Voice mode overlay (idle → recording → processing) ──────────────
+    function _aiAppendBubble(text, who) {
+      var box = document.getElementById('aiMessages');
+      hideSuggestionChips();
+      if (who === 'user') {
+        appendUserBubble(box, text);
+        _aiHistory.push({ role: 'user', content: text });
+      } else {
+        var row = document.createElement('div');
+        row.className = 'ai-row ai-row-bot';
+        row.innerHTML = botIcon + '<div class="ai-bot-col"><div class="ai-bubble ai-bubble-bot">' + md(text) + '</div></div>';
+        box.appendChild(row);
+        _aiHistory.push({ role: 'assistant', content: text });
+        box.scrollTop = box.scrollHeight;
+      }
+    }
+
+    var _vo = {
+      el: null, stage: null, hint: null, status: null, errorEl: null, bars: null,
+      stream: null, audioCtx: null, analyser: null, rafId: null,
+      rec: null, chunks: [], state: 'idle',
+      smoothed: [0, 0, 0, 0],
+      statusTimer: null,
+      statusIdx: 0,
+    };
+    // SQL-flavoured status cycle. The strings rotate while the server
+    // composes the reply. Each `vo-prompt` line is the operation;
+    // the SELECT below it is what buildDataContext actually issues
+    // server-side, shown so the user sees the work happening.
+    var _voStatusMessages = [
+      '> Connecting to PostgreSQL …',
+      '> Transcribing audio (Whisper)\nSELECT * FROM speech;',
+      '> Loading scope\nSELECT branch_name, area_name, division_name, region_name FROM employee_master WHERE status = \'Working\';',
+      '> Fetching live portfolio\nSELECT SUM(regular_demand), SUM(regular_collection), SUM(npa_cases) FROM employee_performance;',
+      '> Fetching daily plan\nSELECT date, ftod_actual, ftod_plan, dpd_1_30_actual, dpd_31_60_actual FROM daily_reports ORDER BY date DESC LIMIT 14;',
+      '> Fetching disbursement\nSELECT db_month, SUM(disb_count), SUM(disb_amount) FROM disbursement GROUP BY db_month ORDER BY db_month DESC LIMIT 12;',
+      '> Fetching NPA trend\nSELECT date_trunc(\'month\', report_date), SUM(npa_cases) FROM daily_performance GROUP BY 1 ORDER BY 1 DESC LIMIT 6;',
+      '> Composing reply (gpt-4o)',
+      '> Synthesising voice (gpt-4o-mini-tts • shimmer)',
+      '> Finalising'
+    ];
+
+    function _voSetState(s) {
+      var el = _vo.el; if (!el) return;
+      el.classList.remove('state-idle', 'state-recording', 'state-processing', 'state-error');
+      el.classList.add('state-' + s);
+      _vo.state = s;
+    }
+    function _voSetHint(text) { if (_vo.hint) _vo.hint.textContent = text || ''; }
+    function _voShowStatus(text) {
+      if (!_vo.status) return;
+      _vo.status.classList.remove('show');
+      void _vo.status.offsetWidth;
+      // Split the first line (prompt) from the rest (SQL body) so we
+      // can render them in different shades.
+      var nl = text.indexOf('\n');
+      if (nl > 0) {
+        var head = text.slice(0, nl);
+        var body = text.slice(nl + 1);
+        _vo.status.innerHTML =
+          '<span class="vo-prompt">' + esc(head) + '</span>\n' + esc(body);
+      } else {
+        _vo.status.innerHTML = '<span class="vo-prompt">' + esc(text) + '</span>';
+      }
+      _vo.status.classList.add('show');
+    }
+    function _voCycleStatus() {
+      _vo.statusIdx = 0;
+      _voShowStatus(_voStatusMessages[0]);
+      _vo.statusTimer = setInterval(function() {
+        _vo.statusIdx = (_vo.statusIdx + 1) % _voStatusMessages.length;
+        _voShowStatus(_voStatusMessages[_vo.statusIdx]);
+      }, 1500);
+    }
+    function _voStopCycleStatus() {
+      if (_vo.statusTimer) { clearInterval(_vo.statusTimer); _vo.statusTimer = null; }
+      if (_vo.status) _vo.status.classList.remove('show');
+    }
+
+    function _voOpen() {
+      _vo.el = document.getElementById('voiceOverlay');
+      _vo.stage = document.getElementById('voStage');
+      _vo.hint = document.getElementById('voHint');
+      _vo.status = document.getElementById('voStatus');
+      _vo.errorEl = document.getElementById('voError');
+      _vo.bars = _vo.el.querySelectorAll('.vo-bars span');
+      _vo.el.classList.add('open');
+      _vo.el.setAttribute('aria-hidden', 'false');
+      _voSetState('idle');
+      _voSetHint('Click or hold Space to talk');
+      _voStopCycleStatus();
+      if (_vo.errorEl) _vo.errorEl.textContent = '';
+    }
+    function _voClose() {
+      _voStopRecording(true);
+      _voStopCycleStatus();
+      if (_vo.el) {
+        _vo.el.classList.remove('open');
+        _vo.el.setAttribute('aria-hidden', 'true');
+      }
+    }
+    async function _voStartRecording() {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        _voSetState('error');
+        if (_vo.errorEl) _vo.errorEl.textContent = 'Microphone is not supported in this browser.';
+        return;
+      }
+      try {
+        _vo.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (e) {
+        _voSetState('error');
+        if (_vo.errorEl) _vo.errorEl.textContent = 'Microphone access denied: ' + (e.message || e);
+        return;
+      }
+      // Mic visualizer
+      try {
+        _vo.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        var src = _vo.audioCtx.createMediaStreamSource(_vo.stream);
+        _vo.analyser = _vo.audioCtx.createAnalyser();
+        _vo.analyser.fftSize = 64;
+        src.connect(_vo.analyser);
+      } catch (_) { _vo.analyser = null; }
+
+      var mime = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm'
+               : MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : '';
+      _vo.rec = new MediaRecorder(_vo.stream, mime ? { mimeType: mime } : undefined);
+      _vo.chunks = [];
+      _vo.rec.ondataavailable = function(e) { if (e.data && e.data.size) _vo.chunks.push(e.data); };
+      _vo.rec.onstop = function() {
+        var blob = new Blob(_vo.chunks, { type: mime || 'audio/webm' });
+        _voOnRecordingFinished(blob);
+      };
+      _vo.rec.start();
+      _voSetState('recording');
+      _voSetHint('Release Space (or click) to stop');
+      _voTickBars();
+    }
+    function _voStopRecording(silent) {
+      // silent=true → stop everything without sending (used on close).
+      if (_vo.rafId) { cancelAnimationFrame(_vo.rafId); _vo.rafId = null; }
+      if (_vo.rec && _vo.rec.state !== 'inactive') {
+        if (silent) {
+          // Drop chunks before stop fires onstop.
+          _vo.rec.ondataavailable = null;
+          _vo.rec.onstop = function() {};
+          _vo.chunks = [];
+        }
+        try { _vo.rec.stop(); } catch (_) {}
+      }
+      if (_vo.stream) {
+        _vo.stream.getTracks().forEach(function(t) { try { t.stop(); } catch (_) {} });
+        _vo.stream = null;
+      }
+      if (_vo.audioCtx) {
+        try { _vo.audioCtx.close(); } catch (_) {}
+        _vo.audioCtx = null;
+      }
+      _vo.analyser = null;
+      _vo.smoothed = [0, 0, 0, 0];
+    }
+    function _voTickBars() {
+      if (_vo.state !== 'recording' || !_vo.analyser) return;
+      var n = _vo.analyser.frequencyBinCount;
+      var data = new Uint8Array(n);
+      _vo.analyser.getByteFrequencyData(data);
+      // 4 bins (low → high). Average within each.
+      var bands = [0, 0, 0, 0];
+      var per = Math.max(1, Math.floor(n / 4));
+      for (var b = 0; b < 4; b++) {
+        var sum = 0;
+        for (var i = b * per; i < (b + 1) * per; i++) sum += data[i] || 0;
+        bands[b] = sum / per / 255;
+      }
+      var minH = 36, maxH = Math.min(window.innerHeight * 0.6, 360);
+      for (var k = 0; k < 4; k++) {
+        // lerp smoothing
+        _vo.smoothed[k] = _vo.smoothed[k] + (bands[k] - _vo.smoothed[k]) * 0.3;
+        var h = minH + _vo.smoothed[k] * (maxH - minH);
+        if (_vo.bars[k]) _vo.bars[k].style.height = h + 'px';
+      }
+      _vo.rafId = requestAnimationFrame(_voTickBars);
+    }
+    function _voOnRecordingFinished(blob) {
+      // Tear down stream, switch to processing.
+      if (_vo.rafId) { cancelAnimationFrame(_vo.rafId); _vo.rafId = null; }
+      if (_vo.stream) {
+        _vo.stream.getTracks().forEach(function(t) { try { t.stop(); } catch (_) {} });
+        _vo.stream = null;
+      }
+      if (_vo.audioCtx) { try { _vo.audioCtx.close(); } catch (_) {} _vo.audioCtx = null; }
+      _vo.analyser = null;
+      _voSetState('processing');
+      _voSetHint('');
+      _voCycleStatus();
+
+      var session = (typeof getEmployeeSession === 'function') ? getEmployeeSession() : {};
+      var fd = new FormData();
+      fd.append('audio', blob, 'rec.webm');
+      if (session.role) fd.append('role', session.role);
+      if (session.location) fd.append('location', session.location);
+
+      fetch('/api/voice', { method: 'POST', body: fd })
+        .then(function(r) {
+          if (!r.ok) return r.text().then(function(t) { throw new Error(t || ('HTTP ' + r.status)); });
+          return r.json();
+        })
+        .then(function(j) {
+          _voStopCycleStatus();
+          if (j.note === 'no_speech_detected') {
+            _voSetState('error');
+            if (_vo.errorEl) _vo.errorEl.textContent = 'No speech detected — try again.';
+            return;
+          }
+          if (j.transcript) {
+            _aiAppendBubble(j.transcript, 'user');
+            _aiHistory.push({ role: 'user', content: j.transcript });
+          }
+          if (j.reply) {
+            _aiAppendBubble(j.reply, 'bot');
+            _aiHistory.push({ role: 'assistant', content: j.reply });
+          }
+          var audio = null;
+          if (j.audio_b64) {
+            try {
+              audio = new Audio('data:audio/mp3;base64,' + j.audio_b64);
+              audio.play().catch(function() {});
+            } catch (_) {}
+          }
+          // Keep the overlay open for continuous conversation. Return to
+          // idle so the next click / space starts a new recording.
+          var goIdle = function() {
+            _voSetState('idle');
+            _voSetHint('Click or hold Space to continue');
+            if (_vo.errorEl) _vo.errorEl.textContent = '';
+          };
+          if (audio) {
+            audio.onended = goIdle;
+            audio.onerror = goIdle;
+            // Safety: even if events never fire, fall back after 60s.
+            setTimeout(goIdle, 60000);
+          } else {
+            goIdle();
+          }
+        })
+        .catch(function(e) {
+          _voStopCycleStatus();
+          _voSetState('error');
+          if (_vo.errorEl) _vo.errorEl.textContent = 'Voice failed: ' + (e.message || 'unknown') + '. Click anywhere to retry.';
+        });
+    }
+
+    window._aiTalk = function() {
+      _voOpen();
+    };
+
+    // Stage click drives the state transitions.
+    document.addEventListener('DOMContentLoaded', function() {
+      var stage = document.getElementById('voStage');
+      var closeBtn = document.getElementById('voClose');
+      if (stage) {
+        stage.addEventListener('click', function() {
+          if (_vo.state === 'idle') {
+            _voStartRecording();
+          } else if (_vo.state === 'recording') {
+            // Stop -> onstop triggers _voOnRecordingFinished
+            try { _vo.rec.stop(); } catch (_) {}
+          } else if (_vo.state === 'error') {
+            _voSetState('idle');
+            _voSetHint('Click anywhere to talk');
+            if (_vo.errorEl) _vo.errorEl.textContent = '';
+          }
+          // processing: ignore clicks (busy)
+        });
+      }
+      if (closeBtn) closeBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        _voClose();
+      });
+      // Esc to close. Spacebar = push-to-talk while overlay is open.
+      var _voSpaceDown = false;
+      document.addEventListener('keydown', function(e) {
+        var ov = document.getElementById('voiceOverlay');
+        var open = ov && ov.classList.contains('open');
+        if (e.key === 'Escape' && open) { _voClose(); return; }
+        if (open && (e.code === 'Space' || e.key === ' ')) {
+          // Don't auto-fire while held; record start once.
+          if (e.repeat || _voSpaceDown) { e.preventDefault(); return; }
+          _voSpaceDown = true;
+          if (_vo.state === 'idle') {
+            e.preventDefault();
+            _voStartRecording();
+          } else if (_vo.state === 'error') {
+            e.preventDefault();
+            _voSetState('idle');
+            _voSetHint('Click or hold Space to talk');
+            if (_vo.errorEl) _vo.errorEl.textContent = '';
+          } else {
+            // recording / processing — just consume the key
+            e.preventDefault();
+          }
+        }
+      });
+      document.addEventListener('keyup', function(e) {
+        var ov = document.getElementById('voiceOverlay');
+        var open = ov && ov.classList.contains('open');
+        if (open && (e.code === 'Space' || e.key === ' ')) {
+          if (!_voSpaceDown) return;
+          _voSpaceDown = false;
+          e.preventDefault();
+          if (_vo.state === 'recording') {
+            try { _vo.rec.stop(); } catch (_) {}
+          }
+        }
+      });
+    });
 
     // Focus ring handled by CSS :focus-within on .ai-panel-input-wrap
   })();

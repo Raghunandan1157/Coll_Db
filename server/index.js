@@ -5459,6 +5459,11 @@ function renderSnapshotSummary(ctx) {
   // ---------- FTOD ----------
   const dp = Array.isArray(ctx.dailyPlan) ? ctx.dailyPlan : [];
   const lbb = Array.isArray(ctx.latestByBranch) ? ctx.latestByBranch : [];
+  // The by-branch slice may be from a past date if today's actuals are empty.
+  const lbbDate = ctx.latestByBranchDate || (ctx.latest && ctx.latest.date) || '';
+  const lbbLabel = lbbDate && ctx.latest && lbbDate !== ctx.latest.date
+    ? `latest with actuals (${lbbDate})`
+    : 'today';
   if (ctx.latest) {
     const L = ctx.latest;
     md.push('');
@@ -5482,7 +5487,7 @@ function renderSnapshotSummary(ctx) {
         .slice(0, 5)
         .map((r) => `${r.branch_name} ${fmt(r.ftod_actual)}`)
         .join(', ');
-      md.push(`FTOD top branches today: ${top}.`);
+      md.push(`FTOD top branches (${lbbLabel}): ${top}.`);
     }
 
     // ---------- DPD bands ----------
@@ -5501,7 +5506,7 @@ function renderSnapshotSummary(ctx) {
         .slice(0, 5)
         .map((r) => `${r.branch_name} ${fmt(r.dpd_1_30_actual)}`)
         .join(', ');
-      md.push(`DPD 1-30 top branches today: ${top}.`);
+      md.push(`DPD 1-30 top branches (${lbbLabel}): ${top}.`);
     }
     md.push(
       `DPD 31-60: today plan ${fmt(L.dpd_31_60_plan)}, actual ${fmt(L.dpd_31_60_actual)}` +
@@ -5517,7 +5522,7 @@ function renderSnapshotSummary(ctx) {
         .slice(0, 5)
         .map((r) => `${r.branch_name} ${fmt(r.dpd_31_60_actual)}`)
         .join(', ');
-      md.push(`DPD 31-60 top branches today: ${top}.`);
+      md.push(`DPD 31-60 top branches (${lbbLabel}): ${top}.`);
     }
     md.push(
       `DPD 61-90: today plan ${fmt(L.dpd_61_90_plan)}, actual ${fmt(L.dpd_61_90_actual)}` +
@@ -5533,7 +5538,7 @@ function renderSnapshotSummary(ctx) {
         .slice(0, 5)
         .map((r) => `${r.branch_name} ${fmt(r.dpd_61_90_actual)}`)
         .join(', ');
-      md.push(`DPD 61-90 top branches today: ${top}.`);
+      md.push(`DPD 61-90 top branches (${lbbLabel}): ${top}.`);
     }
   }
 
@@ -6273,8 +6278,177 @@ app.post("/api/ai-snapshot", async (req, res) => {
 const GEMINI_KEY = process.env.GEMINI_KEY;
 const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'];
 const MISTRAL_KEY = process.env.MISTRAL_KEY;
-const MISTRAL_MODEL = 'mistral-small-latest';
+const MISTRAL_MODEL = process.env.MISTRAL_MODEL || 'mistral-large-latest';
 const crypto = require('crypto');
+
+// ========== OpenAI voice pipeline (STT + LLM + TTS) ==========
+const OPENAI_KEY = process.env.OPENAI_API_KEY;
+const OPENAI_LLM = process.env.OPENAI_LLM_MODEL || 'gpt-4o';
+const OPENAI_STT = process.env.OPENAI_STT_MODEL || 'gpt-4o-mini-transcribe';
+const OPENAI_TTS = process.env.OPENAI_TTS_MODEL || 'gpt-4o-mini-tts';
+const OPENAI_VOICE = process.env.OPENAI_TTS_VOICE || 'ash';
+
+const voiceUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 12 * 1024 * 1024 },
+});
+
+function openaiStt(audioBuffer, mimetype, originalName) {
+  return new Promise((resolve, reject) => {
+    const boundary = '----nlplboundary' + Date.now();
+    const filename = originalName || 'audio.webm';
+    const ctype = mimetype || 'audio/webm';
+    const head = Buffer.from(
+      `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${filename}"\r\nContent-Type: ${ctype}\r\n\r\n`
+    );
+    const tailFile = Buffer.from(
+      `\r\n--${boundary}\r\nContent-Disposition: form-data; name="model"\r\n\r\n${OPENAI_STT}\r\n--${boundary}--\r\n`
+    );
+    const body = Buffer.concat([head, audioBuffer, tailFile]);
+    const req = https.request({
+      hostname: 'api.openai.com',
+      path: '/v1/audio/transcriptions',
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + OPENAI_KEY,
+        'Content-Type': 'multipart/form-data; boundary=' + boundary,
+        'Content-Length': body.length,
+      },
+    }, (resp) => {
+      let buf = '';
+      resp.on('data', (d) => (buf += d));
+      resp.on('end', () => {
+        if (resp.statusCode >= 200 && resp.statusCode < 300) {
+          try { return resolve((JSON.parse(buf).text || '').trim()); }
+          catch (e) { return reject(new Error('stt_parse: ' + e.message)); }
+        }
+        reject(new Error('stt_http_' + resp.statusCode + ': ' + buf.slice(0, 240)));
+      });
+    });
+    req.on('error', reject);
+    req.setTimeout(30000, () => req.destroy(new Error('stt_timeout')));
+    req.write(body);
+    req.end();
+  });
+}
+
+function openaiChat(systemText, userText) {
+  const messages = [];
+  if (systemText) messages.push({ role: 'system', content: systemText });
+  messages.push({ role: 'user', content: userText });
+  const payload = JSON.stringify({
+    model: OPENAI_LLM,
+    messages,
+    max_tokens: 400,
+    temperature: 0.4,
+  });
+  return new Promise((resolve, reject) => {
+    const req = https.request({
+      hostname: 'api.openai.com',
+      path: '/v1/chat/completions',
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + OPENAI_KEY,
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(payload),
+      },
+    }, (resp) => {
+      let buf = '';
+      resp.on('data', (d) => (buf += d));
+      resp.on('end', () => {
+        if (resp.statusCode >= 200 && resp.statusCode < 300) {
+          try {
+            const j = JSON.parse(buf);
+            return resolve(j?.choices?.[0]?.message?.content || '');
+          } catch (e) { return reject(new Error('chat_parse: ' + e.message)); }
+        }
+        reject(new Error('chat_http_' + resp.statusCode + ': ' + buf.slice(0, 240)));
+      });
+    });
+    req.on('error', reject);
+    req.setTimeout(30000, () => req.destroy(new Error('chat_timeout')));
+    req.write(payload);
+    req.end();
+  });
+}
+
+function openaiTts(text) {
+  const payload = JSON.stringify({
+    model: OPENAI_TTS,
+    voice: OPENAI_VOICE,
+    input: text,
+    format: 'mp3',
+  });
+  return new Promise((resolve, reject) => {
+    const req = https.request({
+      hostname: 'api.openai.com',
+      path: '/v1/audio/speech',
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + OPENAI_KEY,
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(payload),
+      },
+    }, (resp) => {
+      const chunks = [];
+      resp.on('data', (d) => chunks.push(d));
+      resp.on('end', () => {
+        const out = Buffer.concat(chunks);
+        if (resp.statusCode >= 200 && resp.statusCode < 300) return resolve(out);
+        reject(new Error('tts_http_' + resp.statusCode + ': ' + out.toString().slice(0, 240)));
+      });
+    });
+    req.on('error', reject);
+    req.setTimeout(30000, () => req.destroy(new Error('tts_timeout')));
+    req.write(payload);
+    req.end();
+  });
+}
+
+// POST /api/voice — multipart upload field "audio". Optional fields: role,
+// location. Returns { transcript, reply, audio_b64 (mp3 base64) }.
+app.post('/api/voice', voiceUpload.single('audio'), async (req, res) => {
+  const origin = req.headers.origin || req.headers.referer || '';
+  const mobileOrigin = String(req.headers['x-app-origin'] || '').toLowerCase();
+  if (origin) {
+    if (!origin.includes('navachetanalivelihoods.com') && !origin.includes('localhost')) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+  } else if (mobileOrigin !== 'nlpl-mobile') {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  if (!OPENAI_KEY) return res.status(503).json({ error: 'openai_not_configured' });
+  if (!req.file || !req.file.buffer || !req.file.buffer.length) {
+    return res.status(400).json({ error: 'audio_file_required' });
+  }
+  try {
+    const transcript = await openaiStt(req.file.buffer, req.file.mimetype, req.file.originalname);
+    if (!transcript) {
+      return res.json({ transcript: '', reply: '', audio_b64: null, note: 'no_speech_detected' });
+    }
+    const role = String(req.body.role || '').trim();
+    const location = String(req.body.location || '').trim();
+    const session = (role && location) ? { role, location } : {};
+    let systemText = `You are the NLPL Dashboard AI Assistant. ALWAYS reply in English. Reply in under 50 words, conversational tone (this will be spoken aloud). Use Indian number format with the words "crore" / "lakh" (e.g. "12 crore 34 lakh", "5.6 crore"). Quote numbers only from the data below; if missing say "data not available". Never mention the words "snapshot" or "data block" — answer naturally.`;
+    try {
+      const ctx = await buildDataContext(session);
+      const summary = ctx.summary_text || JSON.stringify(ctx).slice(0, 6000);
+      systemText += `\n\nToday: ${ctx.now}. Scope: ${role && location ? `${role} ${location}` : 'CEO (all)'}.\n\nDATA:\n${summary}`;
+    } catch (_) {}
+    const reply = await openaiChat(systemText, transcript);
+    let audioB64 = null;
+    try {
+      const buf = await openaiTts(reply);
+      audioB64 = buf.toString('base64');
+    } catch (e) {
+      console.error('voice tts skipped:', e.message);
+    }
+    res.json({ transcript, reply, audio_b64: audioB64 });
+  } catch (e) {
+    console.error('voice error:', e.message);
+    res.status(500).json({ error: 'voice_failed', detail: e.message.slice(0, 240) });
+  }
+});
 
 // ── In-memory response cache ───────────────────────────────────────────────────
 // Key: SHA256(role | location | lastUserMsg). TTL: 10 min. Hard cap: 500 entries.
@@ -6368,10 +6542,12 @@ async function callMistralAi(messages, tools) {
 // Tool-loop runner. Calls Mistral with AI_TOOLS_SPEC. If the model returns
 // tool_calls, dispatches each, appends the results, and re-asks. Stops when
 // the model returns plain text or after MAX_ROUNDS. Doesn't mutate `messages`.
-async function runMistralWithTools(messages, session, maxRounds) {
+async function runMistralWithTools(messages, session, maxRounds, onProgress) {
   const convo = messages.slice();
   const max = maxRounds || 12;
+  const emit = typeof onProgress === 'function' ? onProgress : null;
   for (let round = 0; round < max; round++) {
+    if (emit) emit({ type: 'thinking', round: round + 1 });
     const r = await callMistralAi(convo, AI_TOOLS_SPEC);
     if (!r.ok) {
       console.error(`[ai-tools] round ${round + 1}/${max} call failed: ${r.error}`);
@@ -6384,6 +6560,7 @@ async function runMistralWithTools(messages, session, maxRounds) {
       return { ok: true, text: msg.content || '' };
     }
     console.log(`[ai-tools] round ${round + 1}/${max} calling ${calls.length} tool(s): ${calls.map(c => c?.function?.name).join(', ')}`);
+    if (emit) emit({ type: 'tools', names: calls.map(c => c?.function?.name).filter(Boolean) });
     // Echo the assistant turn (with tool_calls) back into the conversation.
     convo.push({
       role: 'assistant',
@@ -6622,6 +6799,143 @@ app.post("/api/ai-chat", aiLimiter, async (req, res) => {
     error: 'AI is briefly busy. Please retry in a moment.',
     detail: lastErr,
   });
+});
+
+// ── /api/ai-chat-stream — SSE wrapper around the same tool loop. ──────────
+// Emits progress events while tools run, then streams the final reply text
+// in word-sized chunks for a typing-style UX. Same auth/origin checks as
+// /api/ai-chat. Falls back to Gemini if Mistral fails.
+app.post("/api/ai-chat-stream", aiLimiter, async (req, res) => {
+  const origin = req.headers.origin || req.headers.referer || '';
+  const mobileOrigin = String(req.headers['x-app-origin'] || '').toLowerCase();
+  if (origin) {
+    if (!origin.includes('navachetanalivelihoods.com') && !origin.includes('localhost')) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+  } else if (mobileOrigin !== 'nlpl-mobile') {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  const { messages, role, location } = req.body || {};
+  if (!messages || !Array.isArray(messages)) {
+    return res.status(400).json({ error: 'messages array required' });
+  }
+
+  if (!MISTRAL_KEY && !GEMINI_KEY) {
+    return res.status(503).json({ error: 'AI not configured.' });
+  }
+
+  // SSE setup
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders && res.flushHeaders();
+
+  const send = (event, data) => {
+    try {
+      res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    } catch (_) {}
+  };
+
+  let closed = false;
+  req.on('close', () => { closed = true; });
+
+  const session = (role && location) ? { role, location } : {};
+  let scopedSystemText = '';
+  try {
+    const ctx = await buildDataContext(session);
+    const scopeLabel = (role && location) ? `${role} for ${location}` : 'CEO (all data)';
+    const ctxJson = JSON.stringify(ctx);
+    scopedSystemText = [
+      '',
+      '',
+      `You are the NLPL Dashboard AI Assistant for ${scopeLabel}.`,
+      `Today is ${ctx.now}. Current FY started ${ctx.fyStart} (April 1 → March 31).`,
+      '',
+      '## Database tables you can query (via tools below)',
+      '- branches, employees, employee_master (HR roster — hierarchy: region_name → division_name → area_name → branch_name).',
+      '- employee_performance — current rolling totals per employee (no date column).',
+      '- daily_performance — historical daily snapshots per employee. Has report_date.',
+      '- disbursement / disbursement_daily — monthly + daily loan disbursement (db_month, branch_name, disb_count, disb_amount).',
+      '- npa_activation_runs / npa_activation_rows — uploaded NPA action sheets.',
+      '- daily_reports / daily_reports_achievements — branch-level daily PLAN + ACHIEVEMENT (per branch per date). Columns: ftod_actual/plan, dpd_1_30_actual/plan, dpd_31_60_actual/plan, dpd_61_90_actual/plan, npa_activation, npa_closure, fy_non_start_acc/plan, disb_igl_acc/amt, disb_fig_acc/amt, disb_il_acc/amt, kyc_igl, kyc_fig, kyc_il.',
+      '- hourly_performance — intra-day collection snapshots.',
+      '',
+      '## Scope',
+      'Data is scoped to the user\'s role: CEO=all branches; RM/SM=region; DM/DvM=division; AM=area; BM/FO=branch.',
+      'Every tool call is automatically scope-filtered. You do not need to add scope filters yourself.',
+      '',
+      '## Units',
+      'All monetary columns (regular_demand, regular_collection, npa_act_amt, disb_amount) are stored in **rupees** (raw integers, NOT lakhs). When formatting: divide by 1,00,000 for L; by 1,00,00,000 for Cr.',
+      'Count columns (regular_demand, regular_collection when used as account counts, npa_cases, npa_act_acc, npa_clo_acc, disb_count, KYC counts, DPD/FTOD counts) are plain counts. Never format count columns as ₹, L, or Cr.',
+      '',
+      '## Tools available — CALL THESE for any specifics not in the at-a-glance JSON',
+      '- find_employee, employee_performance, find_branch, period_performance, top_performers, disbursement_query, list_hierarchy, npa_summary, daily_reports_query, sql_describe',
+      '',
+      '## How to answer (text channel — render Markdown, not voice)',
+      '- Use rich Markdown: bold key numbers, use bullet lists, headings (##/###) for sections, tables for comparisons.',
+      '- Lead with the headline number, then 2-4 supporting bullets or a small table.',
+      '- Indian number format: lakh comma pattern. Prefer "₹X.XX Cr" or "₹X.XX L".',
+      '- Label count metrics as counts/accounts/cases.',
+      '- For comparisons, output a Markdown table.',
+      '- For ambiguous lookups, list options and ask which one.',
+      '- Never invent numbers. If JSON doesn\'t have it, call a tool.',
+      '- Never say "snapshot", "JSON", "provided data".',
+      '',
+      '## Internal context block (DO NOT mention this in your reply)',
+      ctxJson,
+    ].join('\n');
+  } catch (e) {
+    console.error('AI stream scope fetch error:', e.message);
+  }
+
+  const incomingSystem = (messages.find(m => m.role === 'system') || {}).content || '';
+  const mergedSystem = (incomingSystem || '') + (scopedSystemText || '');
+  const nonSystem = messages.filter(m => m.role !== 'system');
+  const mergedMessages = mergedSystem
+    ? [{ role: 'system', content: mergedSystem }, ...nonSystem]
+    : nonSystem;
+
+  send('open', { provider: 'mistral', model: MISTRAL_MODEL });
+
+  const onProgress = (ev) => {
+    if (closed) return;
+    if (ev.type === 'thinking') send('thinking', { round: ev.round });
+    else if (ev.type === 'tools') send('tools', { names: ev.names });
+  };
+
+  let result = await runMistralWithTools(mergedMessages, session, undefined, onProgress);
+  let usedFallback = false;
+  if (!result.ok || !result.text) {
+    console.error('Stream: mistral failed, trying gemini:', result.error);
+    send('fallback', { from: 'mistral', to: 'gemini' });
+    result = await callGeminiAi(mergedMessages);
+    usedFallback = true;
+  }
+
+  if (closed) return;
+
+  if (!result.ok || !result.text) {
+    send('error', { message: 'AI is briefly busy. Please retry in a moment.' });
+    return res.end();
+  }
+
+  const fullText = result.text;
+  // Stream in small chunks. Word-grained for natural typing feel.
+  const tokens = fullText.match(/\S+\s*|\s+/g) || [fullText];
+  for (const tok of tokens) {
+    if (closed) return;
+    send('delta', { text: tok });
+    // Tiny pacing — total ~30 tokens/sec feel without blocking too long.
+    await new Promise(r => setTimeout(r, 12));
+  }
+  send('done', {
+    provider: usedFallback ? 'gemini' : 'mistral',
+    model: usedFallback ? (result.model || 'gemini') : MISTRAL_MODEL,
+    fallback: usedFallback,
+  });
+  res.end();
 });
 
 
