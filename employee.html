@@ -7034,6 +7034,17 @@ body.emp-dark .ai-bubble .ai-bq { border-left-color: #374151; color: #9CA3AF; }
         })
         .catch(function(e) {
           if (finalized) return; // post-done network error — turn already succeeded.
+          // If the model's reply already painted, treat a late stream truncation
+          // (e.g. ERR_INCOMPLETE_CHUNKED_ENCODING after the audio chunk) as a
+          // soft finish — keep the bubble + tables instead of swapping in an
+          // error toast.
+          if (replyBuf && replyBuf.length > 0) {
+            finalized = true;
+            setMeta('Done. Tap orb again or hold Space.');
+            _voSetState('idle');
+            _voSetHint('Click orb or hold Space to continue');
+            return;
+          }
           // User-initiated cancel/close → silent. Don't paint error state.
           if (e && (e.name === 'AbortError' || /aborted/i.test(String(e.message || '')))) return;
           if (!alive()) return;

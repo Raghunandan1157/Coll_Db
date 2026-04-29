@@ -6758,6 +6758,12 @@ app.post('/api/voice-stream', aiLimiter, voiceUpload.single('audio'), async (req
         '',
         '## Language',
         '- Detect the language of the transcript and REPLY IN THE SAME LANGUAGE (English or Kannada / ಕನ್ನಡ).',
+        '- **DATABASE IS ENGLISH-ONLY.** All identifiers — employee names, branch names, regions, divisions, areas, products — are stored in English (Latin script). Whenever the user speaks a name in Kannada, you MUST transliterate it to English BEFORE passing it to any tool. Examples:',
+        '  - ರಘುನಂದನ್ → "Raghunandan"  (find_employee query)',
+        '  - ದಾವಣಗೆರೆ → "Davanagere"     (find_branch query)',
+        '  - ಬೆಂಗಳೂರು → "Bangalore"      (find_branch query)',
+        '  - ಕಲಬುರಗಿ → "Kalaburagi"      (region_name)',
+        'Searching the DB with Kannada script will return ZERO rows. Always transliterate the entity name to English before the tool call. The reply text itself stays in Kannada.',
         '- Numbers in Indian format ("12.34 Cr" / "5.6 L" in English; "12.34 ಕೋಟಿ" / "5.6 ಲಕ್ಷ" in Kannada).',
         '',
         '## Voice mode rules',
@@ -6859,6 +6865,11 @@ app.post('/api/voice-stream', aiLimiter, voiceUpload.single('audio'), async (req
     if (audioB64) send('audio', { mime: 'audio/mp3', data: audioB64 });
 
     send('done', { provider: usedProvider });
+    // Audio events can be 100-300 KB. Give the kernel TCP buffer a tick to
+    // flush before res.end() writes the chunked-encoding terminator —
+    // otherwise the browser sometimes raises ERR_INCOMPLETE_CHUNKED_ENCODING
+    // even though the application-level done event was emitted cleanly.
+    await new Promise(r => setTimeout(r, 150));
     finish();
   } catch (e) {
     console.error('voice-stream error:', e.message);
@@ -7229,6 +7240,7 @@ app.post("/api/ai-chat", aiLimiter, async (req, res) => {
       '- Detect the language of the latest user message and REPLY IN THE SAME LANGUAGE.',
       '- If the user wrote in Kannada (ಕನ್ನಡ script), reply in Kannada. If in English, reply in English.',
       '- If the user mixed both, follow the dominant language.',
+      '- **DATABASE IS ENGLISH-ONLY.** All identifiers (employee names, branch names, regions) are stored in Latin script. When the user names an entity in Kannada, transliterate it to English BEFORE calling any tool: ರಘುನಂದನ್ → "Raghunandan", ದಾವಣಗೆರೆ → "Davanagere", ಬೆಂಗಳೂರು → "Bangalore", ಕಲಬುರಗಿ → "Kalaburagi". Searching the DB with Kannada script returns 0 rows. The reply text stays in Kannada.',
       '- Numbers in Indian format ("12.34 Cr" / "₹5.6 L" in English; "12.34 ಕೋಟಿ" / "5.6 ಲಕ್ಷ" in Kannada).',
       '- Technical column names (regular_demand, FTOD, NPA, etc.) stay in English even in Kannada replies.',
       '',
@@ -7461,6 +7473,7 @@ app.post("/api/ai-chat-stream", aiLimiter, async (req, res) => {
       '- Detect the language of the latest user message and REPLY IN THE SAME LANGUAGE.',
       '- If the user wrote in Kannada (ಕನ್ನಡ script), reply in Kannada. If in English, reply in English.',
       '- If the user mixed both, follow the dominant language.',
+      '- **DATABASE IS ENGLISH-ONLY.** All identifiers (employee names, branch names, regions) are stored in Latin script. When the user names an entity in Kannada, transliterate it to English BEFORE calling any tool: ರಘುನಂದನ್ → "Raghunandan", ದಾವಣಗೆರೆ → "Davanagere", ಬೆಂಗಳೂರು → "Bangalore", ಕಲಬುರಗಿ → "Kalaburagi". Searching the DB with Kannada script returns 0 rows. The reply text stays in Kannada.',
       '- Numbers in Indian format ("12.34 Cr" / "₹5.6 L" in English; "12.34 ಕೋಟಿ" / "5.6 ಲಕ್ಷ" in Kannada).',
       '- Technical column names (regular_demand, FTOD, NPA, etc.) stay in English even in Kannada replies.',
       '',
