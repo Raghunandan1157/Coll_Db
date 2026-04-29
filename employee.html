@@ -195,11 +195,11 @@
         </span>
         <span class="desktop-sidebar-label">Hourly</span>
       </a>
-      <a href="javascript:void(0)" class="desktop-sidebar-item comparison-nav-item" data-dtab="comparison" onclick="switchEmpTab('comparison')">
+      <a href="javascript:void(0)" class="desktop-sidebar-item" data-dtab="aiassistant" onclick="window._aiOpen && window._aiOpen()">
         <span class="desktop-sidebar-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="3" y1="20" x2="21" y2="20"/><polyline points="6 8 12 3 18 8"/></svg>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         </span>
-        <span class="desktop-sidebar-label">Comparison</span>
+        <span class="desktop-sidebar-label">AI Assistant</span>
       </a>
       <a href="javascript:void(0)" class="desktop-sidebar-item" data-dtab="analytical" onclick="switchEmpTab('analytical')">
         <span class="desktop-sidebar-icon">
@@ -207,11 +207,11 @@
         </span>
         <span class="desktop-sidebar-label">Analytical Tool</span>
       </a>
-      <a href="javascript:void(0)" class="desktop-sidebar-item npa-nav-item" data-dtab="npaactivation" onclick="switchEmpTab('npaactivation')" style="display:none">
+      <a href="javascript:void(0)" class="desktop-sidebar-item feedback-nav-item" data-dtab="feedback" onclick="switchEmpTab('feedback')">
         <span class="desktop-sidebar-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
         </span>
-        <span class="desktop-sidebar-label">NPA Activation</span>
+        <span class="desktop-sidebar-label">Feedback</span>
       </a>
       <a href="javascript:void(0)" class="desktop-sidebar-item" onclick="window._aiOpen()">
         <span class="desktop-sidebar-icon">
@@ -375,6 +375,358 @@
 
       <div class="emp-tab-content" id="npaactivationTab">
         <div id="npaactivationContent"></div>
+      </div>
+
+      <div class="emp-tab-content" id="feedbackTab">
+        <style>
+          #feedbackTab { padding: 24px 16px; }
+          #feedbackTab .fb-wrap { max-width: 920px; margin: 0 auto; }
+          #feedbackTab .fb-head { margin-bottom: 18px; }
+          #feedbackTab .fb-head h2 { font-size: 20px; font-weight: 700; color: #1E293B; margin: 0 0 4px; letter-spacing: -.01em; }
+          #feedbackTab .fb-head p  { font-size: 13px; color: #64748B; margin: 0; line-height: 1.5; }
+
+          #feedbackTab .fb-card {
+            background: #fff; border: 1px solid #E2E8F0; border-radius: 14px;
+            box-shadow: 0 2px 8px rgba(15,23,42,.04); padding: 18px; margin-bottom: 18px;
+          }
+          #feedbackTab .fb-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+          @media (max-width: 700px) { #feedbackTab .fb-row { grid-template-columns: 1fr; } }
+          #feedbackTab .fb-field label {
+            display: block; font-size: 11px; font-weight: 700; color: #475569;
+            text-transform: uppercase; letter-spacing: .4px; margin-bottom: 5px;
+          }
+          #feedbackTab .fb-field input,
+          #feedbackTab .fb-field textarea {
+            width: 100%; padding: 9px 11px; border: 1px solid #E2E8F0; border-radius: 8px;
+            font-size: 13.5px; outline: none; font-family: inherit; background: #F8FAFC; color: #0F172A;
+            transition: border-color .12s, box-shadow .12s, background .12s;
+          }
+          #feedbackTab .fb-field input:focus,
+          #feedbackTab .fb-field textarea:focus {
+            border-color: #059669; box-shadow: 0 0 0 3px rgba(5,150,105,.12); background: #fff;
+          }
+          #feedbackTab .fb-field input[readonly] { background: #F1F5F9; color: #475569; cursor: not-allowed; }
+          #feedbackTab .fb-field textarea { min-height: 120px; resize: vertical; }
+          #feedbackTab .fb-meta {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-top: 4px; font-size: 11px; color: #94A3B8;
+          }
+          #feedbackTab .fb-meta .fb-count.warn { color: #B45309; }
+          #feedbackTab .fb-meta .fb-count.over { color: #DC2626; font-weight: 700; }
+
+          #feedbackTab .fb-actions { display: flex; gap: 8px; align-items: center; justify-content: flex-end; margin-top: 8px; }
+          #feedbackTab .fb-btn {
+            padding: 9px 18px; border-radius: 10px; border: 1px solid #E2E8F0; background: #fff;
+            font-size: 13px; font-weight: 600; cursor: pointer; color: #0F172A;
+            transition: background .12s, transform .12s;
+          }
+          #feedbackTab .fb-btn:hover { background: #F8FAFC; }
+          #feedbackTab .fb-btn.primary { background: #059669; color: #fff; border-color: #059669; }
+          #feedbackTab .fb-btn.primary:hover { background: #047857; }
+          #feedbackTab .fb-btn:disabled { opacity: .55; cursor: not-allowed; }
+
+          /* Toast */
+          #feedbackTab .fb-toast {
+            position: fixed; left: 50%; top: 24px; transform: translate(-50%, -16px);
+            background: #065F46; color: #fff; padding: 10px 16px; border-radius: 999px;
+            font-size: 13px; font-weight: 600; box-shadow: 0 10px 24px rgba(15,23,42,.18);
+            opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 10000;
+          }
+          #feedbackTab .fb-toast.show { opacity: 1; transform: translate(-50%, 0); }
+          #feedbackTab .fb-toast.error { background: #B91C1C; }
+
+          /* List card */
+          #feedbackTab .fb-list-head { display:flex; justify-content:space-between; align-items:baseline; margin-bottom: 10px; }
+          #feedbackTab .fb-list-title { font-size: 15px; font-weight: 700; color: #1E293B; }
+          #feedbackTab .fb-list-sub { font-size: 12px; color: #64748B; }
+          #feedbackTab .fb-refresh {
+            background: transparent; border: 1px solid #E2E8F0; border-radius: 999px;
+            padding: 5px 11px; font-size: 12px; font-weight: 600; color: #475569; cursor: pointer;
+          }
+          #feedbackTab .fb-refresh:hover { background: #F1F5F9; }
+
+          #feedbackTab .fb-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+          #feedbackTab table.fb-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+          #feedbackTab table.fb-table th,
+          #feedbackTab table.fb-table td {
+            padding: 10px 12px; text-align: left; border-bottom: 1px solid #F1F5F9; vertical-align: top;
+          }
+          #feedbackTab table.fb-table th {
+            font-size: 11px; font-weight: 700; color: #94A3B8;
+            text-transform: uppercase; letter-spacing: .5px; background: #F8FAFC;
+            position: sticky; top: 0;
+          }
+          #feedbackTab table.fb-table tr:hover td { background: #FAFBFC; }
+          #feedbackTab .fb-cell-name { font-weight: 600; color: #0F172A; }
+          #feedbackTab .fb-cell-id { font-size: 11px; color: #94A3B8; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+          #feedbackTab .fb-cell-msg { color: #1E293B; white-space: pre-wrap; word-break: break-word; max-width: 480px; }
+          #feedbackTab .fb-cell-when { color: #64748B; white-space: nowrap; font-variant-numeric: tabular-nums; }
+          #feedbackTab .fb-pill {
+            display: inline-block; padding: 2px 8px; border-radius: 999px;
+            font-size: 11px; font-weight: 700; background: #F1F5F9; color: #475569;
+          }
+          #feedbackTab .fb-empty {
+            text-align: center; padding: 28px 16px; color: #64748B; font-size: 13px;
+          }
+          #feedbackTab .fb-empty svg { opacity: .5; margin-bottom: 6px; }
+        </style>
+
+        <div class="fb-wrap">
+          <div class="fb-head">
+            <h2>Feedback</h2>
+            <p id="fbHeadSub">Share what's working and what isn't. Leadership reviews every entry.</p>
+          </div>
+
+          <!-- Submit form -->
+          <div class="fb-card" id="fbFormCard">
+            <div class="fb-row">
+              <div class="fb-field">
+                <label for="fbEmpId">Employee ID</label>
+                <input type="text" id="fbEmpId" placeholder="—" readonly />
+              </div>
+              <div class="fb-field">
+                <label for="fbEmpName">Name</label>
+                <input type="text" id="fbEmpName" placeholder="—" readonly />
+              </div>
+            </div>
+            <div class="fb-row" style="grid-template-columns: 1fr 1fr;">
+              <div class="fb-field">
+                <label for="fbRole">Role</label>
+                <input type="text" id="fbRole" readonly />
+              </div>
+              <div class="fb-field">
+                <label for="fbBranch">Branch / Location</label>
+                <input type="text" id="fbBranch" placeholder="—" />
+              </div>
+            </div>
+            <div class="fb-field">
+              <label for="fbMessage">Your feedback</label>
+              <textarea id="fbMessage" placeholder="What would make this better? Bug, idea, complaint — all welcome." maxlength="4000"></textarea>
+              <div class="fb-meta">
+                <span>Be specific — examples and screenshots help.</span>
+                <span class="fb-count" id="fbCount">0 / 4000</span>
+              </div>
+            </div>
+            <div class="fb-actions">
+              <button type="button" class="fb-btn" id="fbClear">Clear</button>
+              <button type="button" class="fb-btn primary" id="fbSubmit">Submit feedback</button>
+            </div>
+          </div>
+
+          <!-- Feedback list -->
+          <div class="fb-card">
+            <div class="fb-list-head">
+              <div>
+                <div class="fb-list-title" id="fbListTitle">Recent feedback</div>
+                <div class="fb-list-sub" id="fbListSub">Loading…</div>
+              </div>
+              <button type="button" class="fb-refresh" id="fbRefresh" title="Refresh">↻ Refresh</button>
+            </div>
+            <div class="fb-table-wrap">
+              <table class="fb-table" id="fbTable">
+                <thead>
+                  <tr>
+                    <th>From</th>
+                    <th>Role</th>
+                    <th>Branch</th>
+                    <th>Message</th>
+                    <th>When</th>
+                  </tr>
+                </thead>
+                <tbody id="fbTableBody">
+                  <tr><td colspan="5" class="fb-empty">Loading feedback…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="fb-toast" id="fbToast" role="status" aria-live="polite"></div>
+
+        <script>
+        (function(){
+          if (window._fbInited) return;
+          window._fbInited = true;
+
+          var $ = function(id){ return document.getElementById(id); };
+          function escFb(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+            return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+          }); }
+
+          function relTimeFb(s){
+            if (!s) return '';
+            var t = new Date(s); if (isNaN(t.getTime())) return '';
+            var d = (Date.now() - t.getTime()) / 1000;
+            if (d < 60) return 'just now';
+            if (d < 3600) return Math.floor(d/60) + ' min ago';
+            if (d < 86400) return Math.floor(d/3600) + ' h ago';
+            if (d < 86400*7) return Math.floor(d/86400) + ' d ago';
+            return t.toLocaleDateString([], { day:'2-digit', month:'short', year:'numeric' });
+          }
+          function fullTimeFb(s){
+            if (!s) return '';
+            var d = new Date(s); if (isNaN(d.getTime())) return '';
+            return d.toLocaleString([], { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+          }
+
+          function getSession(){
+            try { return (typeof getEmployeeSession === 'function') ? getEmployeeSession() : {}; } catch(e){ return {}; }
+          }
+          function fillIdentity(){
+            var s = getSession();
+            var empId = s.id || localStorage.getItem('employeeId') || '';
+            var empName = s.name || localStorage.getItem('employeeName') || localStorage.getItem('roleLocation') || '';
+            var role = s.role || localStorage.getItem('roleName') || '';
+            var branch = localStorage.getItem('roleLocation') || s.location || '';
+            $('fbEmpId').value = empId || '(role login)';
+            $('fbEmpName').value = empName || '';
+            $('fbRole').value = role || 'FO';
+            // Branch is editable so users on role-logins (CEO/RM/DM/AM) can name a specific branch.
+            if (!$('fbBranch').value) $('fbBranch').value = branch || '';
+            return { empId: empId, empName: empName, role: role };
+          }
+
+          var toastTimer = null;
+          function toast(msg, isError){
+            var t = $('fbToast'); if (!t) return;
+            t.textContent = msg;
+            t.classList.toggle('error', !!isError);
+            t.classList.add('show');
+            if (toastTimer) clearTimeout(toastTimer);
+            toastTimer = setTimeout(function(){ t.classList.remove('show'); }, 3200);
+          }
+
+          function updateCount(){
+            var ta = $('fbMessage'); var c = $('fbCount'); if (!ta || !c) return;
+            var n = ta.value.length;
+            c.textContent = n + ' / 4000';
+            c.classList.toggle('warn', n > 3500 && n <= 4000);
+            c.classList.toggle('over', n > 4000);
+          }
+
+          function rowHtml(item){
+            var when = relTimeFb(item.created_at);
+            var full = fullTimeFb(item.created_at);
+            return '<tr>' +
+              '<td><div class="fb-cell-name">' + escFb(item.emp_name || '—') + '</div>' +
+                '<div class="fb-cell-id">' + escFb(item.emp_id || '') + '</div></td>' +
+              '<td><span class="fb-pill">' + escFb(item.role || '—') + '</span></td>' +
+              '<td>' + escFb(item.branch || '—') + '</td>' +
+              '<td class="fb-cell-msg">' + escFb(item.message || '') + '</td>' +
+              '<td class="fb-cell-when" title="' + escFb(full) + '">' + escFb(when) + '</td>' +
+            '</tr>';
+          }
+
+          function renderList(items){
+            var body = $('fbTableBody'); if (!body) return;
+            if (!items || !items.length) {
+              body.innerHTML = '<tr><td colspan="5" class="fb-empty">'
+                + '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>'
+                + '<div>No feedback yet. Be the first.</div></td></tr>';
+              return;
+            }
+            body.innerHTML = items.map(rowHtml).join('');
+          }
+
+          function fetchList(){
+            var role = ($('fbRole').value || '').trim().toUpperCase();
+            var sub = $('fbListSub'); if (sub) sub.textContent = 'Loading…';
+            var params;
+            if (role === 'CEO') {
+              params = 'role=CEO&limit=200';
+              $('fbListTitle').textContent = 'All feedback (CEO view)';
+            } else {
+              var empId = $('fbEmpId').value;
+              if (!empId || empId === '(role login)') {
+                // No emp_id (role login other than CEO) — backend default with no
+                // role/emp_id returns all; gate that behind a role filter so the
+                // user sees a sensible scope. Falls back to no-filter if role blank.
+                params = role ? ('role=' + encodeURIComponent(role) + '&limit=100') : 'limit=100';
+                $('fbListTitle').textContent = role ? ('Feedback from your role') : 'Recent feedback';
+              } else {
+                // Per backend contract: own-only requires BOTH role + emp_id.
+                params = 'role=' + encodeURIComponent(role || 'FO')
+                       + '&emp_id=' + encodeURIComponent(empId) + '&limit=100';
+                $('fbListTitle').textContent = 'Your feedback';
+              }
+            }
+            return fetch('/api/feedback?' + params)
+              .then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+              .then(function(j){
+                var items = (j && j.items) || [];
+                renderList(items);
+                if (sub) sub.textContent = (j && typeof j.count === 'number' ? j.count : items.length) + ' total';
+              })
+              .catch(function(e){
+                renderList([]);
+                if (sub) sub.textContent = 'Couldn\'t load (' + (e.message || 'error') + ').';
+              });
+          }
+
+          function submit(){
+            var btn = $('fbSubmit'); if (btn.disabled) return;
+            var msg = ($('fbMessage').value || '').trim();
+            if (!msg) { toast('Type your feedback first.', true); $('fbMessage').focus(); return; }
+            if (msg.length > 4000) { toast('Message is too long (max 4000 chars).', true); return; }
+            var ids = fillIdentity();
+            var payload = {
+              emp_id: ids.empId || null,
+              emp_name: ids.empName || '',
+              role: ($('fbRole').value || '').trim(),
+              branch: ($('fbBranch').value || '').trim(),
+              message: msg
+            };
+            btn.disabled = true; var origText = btn.textContent; btn.textContent = 'Sending…';
+            fetch('/api/feedback', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            }).then(function(r){
+              if (!r.ok) return r.text().then(function(t){ throw new Error(t || ('HTTP ' + r.status)); });
+              return r.json();
+            }).then(function(j){
+              btn.disabled = false; btn.textContent = origText;
+              $('fbMessage').value = ''; updateCount();
+              toast('Feedback sent. Thank you.');
+              fetchList();
+            }).catch(function(e){
+              btn.disabled = false; btn.textContent = origText;
+              toast('Send failed: ' + (e.message || 'unknown'), true);
+            });
+          }
+
+          // Wire events
+          $('fbMessage').addEventListener('input', updateCount);
+          $('fbSubmit').addEventListener('click', submit);
+          $('fbClear').addEventListener('click', function(){
+            $('fbMessage').value = ''; updateCount(); $('fbMessage').focus();
+          });
+          $('fbRefresh').addEventListener('click', fetchList);
+
+          // Initialise on first activation. switchEmpTab('feedback') flips the .active class.
+          function bootIfActive(){
+            var t = $('feedbackTab');
+            if (!t) return;
+            if (!t.classList.contains('active')) return;
+            fillIdentity();
+            updateCount();
+            fetchList();
+          }
+          // Hook into switchEmpTab so tab activation re-runs identity/list refresh.
+          var orig = window.switchEmpTab;
+          window.switchEmpTab = function(tab){
+            var ret = (typeof orig === 'function') ? orig.apply(this, arguments) : undefined;
+            if (tab === 'feedback') {
+              fillIdentity();
+              updateCount();
+              fetchList();
+            }
+            return ret;
+          };
+          // First paint pass.
+          bootIfActive();
+        })();
+        </script>
       </div>
 
       <div class="emp-tab-content" id="settingsTab">
@@ -4172,23 +4524,7 @@
   </div>
 </div>
 
-<!-- Desktop: floating search-style bar at bottom center -->
-<div id="aiFloatingBar" onclick="window._aiOpen()" title="Ask the NLPL AI Assistant about your data" aria-label="Open AI Assistant">
-  <div class="ai-bar-icon">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4"/><circle cx="12" cy="12" r="4"/></svg>
-  </div>
-  <span class="ai-bar-label">Ask AI Assistant</span>
-  <span class="ai-bar-hint">Type a question about your data</span>
-  <div class="ai-bar-badge">
-    <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style="margin-right:4px;vertical-align:-1px;"><path d="M12 2l2.4 6.6L21 11l-6.6 2.4L12 20l-2.4-6.6L3 11l6.6-2.4z"/></svg>
-    AI
-  </div>
-</div>
-
-<!-- Mobile: floating circle FAB at bottom right -->
-<div id="aiFab" onclick="window._aiOpen()">
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-</div>
+<!-- AI Assistant entry now lives in the sidebar; floating bar + FAB removed. -->
 
 <style>
 /* ===== Bottom padding (desktop: no floating bar, minimal padding) ===== */
@@ -4485,17 +4821,17 @@ body.emp-dark .ai-bar-icon { background: rgba(99,102,241,0.15); color: #A5B4FC; 
         <span class="sidebar-nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
         <span class="sidebar-nav-label">Hourly</span>
       </a>
-      <a href="javascript:void(0)" class="sidebar-nav-item comparison-nav-item" data-sidebar-tab="comparison" onclick="closeSidebar(); switchEmpTab('comparison');">
-        <span class="sidebar-nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="3" y1="20" x2="21" y2="20"/><polyline points="6 8 12 3 18 8"/></svg></span>
-        <span class="sidebar-nav-label">Comparison</span>
+      <a href="javascript:void(0)" class="sidebar-nav-item" data-sidebar-tab="aiassistant" onclick="closeSidebar(); window._aiOpen && window._aiOpen();">
+        <span class="sidebar-nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+        <span class="sidebar-nav-label">AI Assistant</span>
       </a>
       <a href="javascript:void(0)" class="sidebar-nav-item" data-sidebar-tab="analytical" onclick="closeSidebar(); switchEmpTab('analytical');">
         <span class="sidebar-nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>
         <span class="sidebar-nav-label">Analytical Tool</span>
       </a>
-      <a href="javascript:void(0)" class="sidebar-nav-item npa-mob-nav" data-sidebar-tab="npaactivation" onclick="closeSidebar(); switchEmpTab('npaactivation');" style="display:none">
-        <span class="sidebar-nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span>
-        <span class="sidebar-nav-label">NPA Activation</span>
+      <a href="javascript:void(0)" class="sidebar-nav-item feedback-mob-nav" data-sidebar-tab="feedback" onclick="closeSidebar(); switchEmpTab('feedback');">
+        <span class="sidebar-nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></span>
+        <span class="sidebar-nav-label">Feedback</span>
       </a>
       <a href="contacts.html" class="sidebar-nav-item">
         <span class="sidebar-nav-icon">&#128199;</span>
@@ -7362,7 +7698,7 @@ document.addEventListener('keydown', function(e) {
 (function() {
   // Hash-based tab routing — e.g. employee.html#dailyreports opens the embedded DR tab
   var hash = (window.location.hash || '').replace('#', '').toLowerCase();
-  var validTabs = ['collection','portfolio','disbursement','hourly','comparison','dailyreports','livetracking','chat','settings'];
+  var validTabs = ['collection','portfolio','disbursement','hourly','comparison','dailyreports','livetracking','chat','feedback','settings'];
   var openHash = function() {
     if (hash === 'ai') {
       if (typeof window._aiOpen === 'function') window._aiOpen();

@@ -5007,9 +5007,14 @@ async function buildDataContext(session) {
   ctx.now = yyyyMmDd(now);
   ctx.fyStart = fyStartYear + '-04-01';
 
-  // Latest dates available
+  // Latest dates available — coerce Date object to ISO YYYY-MM-DD.
   const dates = await safeQuery("SELECT MAX(report_date) as latest FROM daily_performance", [], 1);
-  ctx.latestDate = (Array.isArray(dates) && dates[0]?.latest) || 'unknown';
+  const _latestRaw = (Array.isArray(dates) && dates[0]?.latest) || null;
+  ctx.latestDate = _latestRaw
+    ? (_latestRaw instanceof Date
+        ? _latestRaw.toISOString().slice(0, 10)
+        : String(_latestRaw).slice(0, 10))
+    : 'unknown';
 
   // Build a branch-name IN clause via employee_master — single source of truth
   let branchFilter = '';
@@ -5247,11 +5252,387 @@ async function buildDataContext(session) {
      LIMIT 100`, params, 100);
   if (!Array.isArray(ctx.branchDetail)) ctx.branchDetail = [];
 
+  // ---------- Daily plan + achievement (last 14 days, scope-respecting) ----
+  // Aggregates `daily_reports` (PLAN) and `daily_reports_achievements` (ACTUAL)
+  // per date over the user's scope. Filters on branch_name via the same
+  // employee_master/emCol pattern used elsewhere. CEO sees all branches.
+  // Result: ctx.dailyPlan (array DESC) + ctx.latest (single most-recent row)
+  // + ctx.latestByBranch (top branches for the latest date — for parity with
+  // the online tool's "top 5 branches" answer pattern).
+  {
+    let drBranchFilter = '';
+    let drParams = [];
+    if (!isCeo && emCol) {
+      drBranchFilter = `AND UPPER(branch_name) IN (
+        SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(${emCol}) ILIKE TRIM($1)
+      )`;
+      drParams = [loc];
+    }
+    const planSql = `
+      SELECT date,
+             SUM(COALESCE(ftod_plan, 0))::bigint AS ftod_plan,
+             SUM(COALESCE(dpd_1_30_plan, 0))::bigint AS dpd_1_30_plan,
+             SUM(COALESCE(dpd_31_60_plan, 0))::bigint AS dpd_31_60_plan,
+             SUM(COALESCE(dpd_61_90_plan, 0))::bigint AS dpd_61_90_plan,
+             SUM(COALESCE(fy_non_start_plan, 0))::bigint AS fy_non_start_plan
+        FROM daily_reports
+       WHERE date >= (CURRENT_DATE - INTERVAL '14 days')
+         ${drBranchFilter}
+       GROUP BY date`;
+    const actSql = `
+      SELECT date,
+             SUM(COALESCE(ftod_actual, 0))::bigint AS ftod_actual,
+             SUM(COALESCE(dpd_1_30_actual, 0))::bigint AS dpd_1_30_actual,
+             SUM(COALESCE(dpd_31_60_actual, 0))::bigint AS dpd_31_60_actual,
+             SUM(COALESCE(dpd_61_90_actual, 0))::bigint AS dpd_61_90_actual,
+             SUM(COALESCE(fy_non_start_acc, 0))::bigint AS fy_non_start_acc,
+             SUM(COALESCE(npa_activation, 0))::bigint AS npa_activation,
+             SUM(COALESCE(npa_closure, 0))::bigint AS npa_closure,
+             SUM(COALESCE(disb_igl_acc, 0))::bigint AS disb_igl_acc,
+             SUM(COALESCE(disb_igl_amt, 0))::numeric AS disb_igl_amt,
+             SUM(COALESCE(disb_fig_acc, 0))::bigint AS disb_fig_acc,
+             SUM(COALESCE(disb_fig_amt, 0))::numeric AS disb_fig_amt,
+             SUM(COALESCE(disb_il_acc, 0))::bigint AS disb_il_acc,
+             SUM(COALESCE(disb_il_amt, 0))::numeric AS disb_il_amt,
+             SUM(COALESCE(kyc_igl, 0))::bigint AS kyc_igl,
+             SUM(COALESCE(kyc_fig, 0))::bigint AS kyc_fig,
+             SUM(COALESCE(kyc_il, 0))::bigint AS kyc_il
+        FROM daily_reports_achievements
+       WHERE date >= (CURRENT_DATE - INTERVAL '14 days')
+         ${drBranchFilter}
+       GROUP BY date`;
+    const planRows = await safeQuery(planSql, drParams, 14);
+    const actRows = await safeQuery(actSql, drParams, 14);
+    const planByDate = new Map();
+    const actByDate = new Map();
+    // pg returns DATE columns as JS Date objects — convert to ISO YYYY-MM-DD.
+    const _toIsoDate = (d) => {
+      if (!d) return '';
+      if (d instanceof Date) return d.toISOString().slice(0, 10);
+      const s = String(d);
+      // Already ISO?
+      if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+      const parsed = new Date(s);
+      return isNaN(parsed.getTime()) ? s.slice(0, 10) : parsed.toISOString().slice(0, 10);
+    };
+    if (Array.isArray(planRows)) for (const r of planRows) planByDate.set(_toIsoDate(r.date), r);
+    if (Array.isArray(actRows)) for (const r of actRows) actByDate.set(_toIsoDate(r.date), r);
+    const allDates = Array.from(new Set([...planByDate.keys(), ...actByDate.keys()]))
+      .filter(Boolean)
+      .sort()
+      .reverse();
+    ctx.dailyPlan = allDates.slice(0, 14).map((d) => {
+      const p = planByDate.get(d) || {};
+      const a = actByDate.get(d) || {};
+      return {
+        date: d,
+        ftod_plan: Number(p.ftod_plan) || 0,
+        ftod_actual: Number(a.ftod_actual) || 0,
+        dpd_1_30_plan: Number(p.dpd_1_30_plan) || 0,
+        dpd_1_30_actual: Number(a.dpd_1_30_actual) || 0,
+        dpd_31_60_plan: Number(p.dpd_31_60_plan) || 0,
+        dpd_31_60_actual: Number(a.dpd_31_60_actual) || 0,
+        dpd_61_90_plan: Number(p.dpd_61_90_plan) || 0,
+        dpd_61_90_actual: Number(a.dpd_61_90_actual) || 0,
+        fy_non_start_plan: Number(p.fy_non_start_plan) || 0,
+        fy_non_start_acc: Number(a.fy_non_start_acc) || 0,
+        npa_activation: Number(a.npa_activation) || 0,
+        npa_closure: Number(a.npa_closure) || 0,
+        disb_igl_acc: Number(a.disb_igl_acc) || 0,
+        disb_igl_amt: Number(a.disb_igl_amt) || 0,
+        disb_fig_acc: Number(a.disb_fig_acc) || 0,
+        disb_fig_amt: Number(a.disb_fig_amt) || 0,
+        disb_il_acc: Number(a.disb_il_acc) || 0,
+        disb_il_amt: Number(a.disb_il_amt) || 0,
+        kyc_igl: Number(a.kyc_igl) || 0,
+        kyc_fig: Number(a.kyc_fig) || 0,
+        kyc_il: Number(a.kyc_il) || 0,
+      };
+    });
+    ctx.latest = ctx.dailyPlan[0] || null;
+
+    // Per-branch breakdown for the latest date that has achievement data
+    // (today's row may exist on the plan side but be empty on actuals).
+    // Supports "top 5 branches by FTOD/DPD/etc" answers without a server
+    // roundtrip. Capped at 30 rows.
+    const latestAchDateSql = `
+      SELECT MAX(date)::text AS d
+        FROM daily_reports_achievements
+       WHERE COALESCE(ftod_actual, 0) > 0
+         ${drBranchFilter}`;
+    const latestAchDateRes = await safeQuery(latestAchDateSql, drParams, 1);
+    const lbbDate =
+      Array.isArray(latestAchDateRes) && latestAchDateRes[0]?.d
+        ? String(latestAchDateRes[0].d).slice(0, 10)
+        : null;
+    if (lbbDate) {
+      const byBranchSql = `
+        SELECT branch_name,
+               SUM(COALESCE(ftod_actual, 0))::bigint AS ftod_actual,
+               SUM(COALESCE(ftod_plan, 0))::bigint AS ftod_plan,
+               SUM(COALESCE(dpd_1_30_actual, 0))::bigint AS dpd_1_30_actual,
+               SUM(COALESCE(dpd_1_30_plan, 0))::bigint AS dpd_1_30_plan,
+               SUM(COALESCE(dpd_31_60_actual, 0))::bigint AS dpd_31_60_actual,
+               SUM(COALESCE(dpd_31_60_plan, 0))::bigint AS dpd_31_60_plan,
+               SUM(COALESCE(dpd_61_90_actual, 0))::bigint AS dpd_61_90_actual,
+               SUM(COALESCE(dpd_61_90_plan, 0))::bigint AS dpd_61_90_plan,
+               SUM(COALESCE(npa_activation, 0))::bigint AS npa_activation,
+               SUM(COALESCE(disb_igl_acc, 0)
+                 + COALESCE(disb_fig_acc, 0)
+                 + COALESCE(disb_il_acc, 0))::bigint AS disb_total_acc
+          FROM daily_reports_achievements
+         WHERE date = $${drParams.length + 1}
+           ${drBranchFilter}
+         GROUP BY branch_name
+         ORDER BY ftod_actual DESC NULLS LAST
+         LIMIT 30`;
+      const lbb = await safeQuery(byBranchSql, [...drParams, lbbDate], 30);
+      ctx.latestByBranch = Array.isArray(lbb) ? lbb : [];
+      ctx.latestByBranchDate = lbbDate;
+    } else {
+      ctx.latestByBranch = [];
+      ctx.latestByBranchDate = null;
+    }
+  }
+
+  // ---------- Per-array truncation flags ---------------------------------
+  // Lets the model know when a list was capped so it can say "showing top N"
+  // instead of pretending the full set is here.
+  ctx.truncated = {
+    branches: Array.isArray(ctx.branches) && ctx.branches.length >= 20,
+    branchDetail: Array.isArray(ctx.branchDetail) && ctx.branchDetail.length >= 100,
+    employees: !!ctx.employeesTruncated,
+    employeePerformance: Array.isArray(ctx.employeePerformance) && ctx.employeePerformance.length >= 50,
+    monthly: false, // 12-month cap; rarely truncated.
+    dailyLast30: false, // 30-day cap; matches intent.
+    npaTrend: false,
+    disbursement: false,
+    disbursementMonthly: false,
+    dailyPlan: false, // 14-day cap; matches intent.
+    latestByBranch: Array.isArray(ctx.latestByBranch) && ctx.latestByBranch.length >= 30,
+    scopeMembers:
+      !!ctx.scopeMembers &&
+      Array.isArray(ctx.scopeMembers.branches) &&
+      ctx.scopeMembers.branches.length >= 50,
+  };
+
+  // ---------- generated_at (model-visible temporal anchor) ---------------
+  ctx.generated_at = new Date().toISOString();
+
+  // ---------- Pre-rendered summary_text (mobile prompt drop-in) -----------
+  // The mobile on-device prompt has a tight char budget. summary_text is the
+  // server's best one-paragraph summary of the snapshot — mobile uses it
+  // verbatim instead of trying to JSON-stringify the whole ctx.
+  ctx.summary_text = renderSnapshotSummary(ctx);
+
   return ctx;
+}
+
+// Pre-renders the snapshot for the mobile on-device prompt. Format mirrors
+// the parity bar set by the online Mistral path (today total + 7-day trend +
+// top-N branches per metric) so offline answers match online ones.
+// Markdown sections; ~2-3 KB; well under the 6 KB on-device budget.
+function renderSnapshotSummary(ctx) {
+  const fmt = (n) => {
+    const v = Number(n) || 0;
+    if (Math.abs(v) >= 1e7) return (v / 1e7).toFixed(2) + ' Cr';
+    if (Math.abs(v) >= 1e5) return (v / 1e5).toFixed(2) + ' L';
+    return v.toLocaleString('en-IN');
+  };
+  const fmtAmt = (n) => '₹' + fmt(n);
+  const pct = (a, p) => {
+    const av = Number(a) || 0;
+    const pv = Number(p) || 0;
+    if (pv <= 0) return null;
+    return Number(((av / pv) * 100).toFixed(1));
+  };
+  const md = [];
+  const scope = ctx.scope || 'all';
+  md.push(`DATA AS OF ${ctx.latestDate || ctx.now} (SCOPE: ${scope})`);
+  if (ctx.generated_at) md.push(`Snapshot generated: ${ctx.generated_at}`);
+  if (ctx.scopeMembers) {
+    md.push(
+      `Coverage: ${ctx.scopeMembers.branchCount} branch(es), ${ctx.scopeMembers.employeeCount} active employee(s).`
+    );
+  }
+
+  // ---------- FTOD ----------
+  const dp = Array.isArray(ctx.dailyPlan) ? ctx.dailyPlan : [];
+  const lbb = Array.isArray(ctx.latestByBranch) ? ctx.latestByBranch : [];
+  if (ctx.latest) {
+    const L = ctx.latest;
+    md.push('');
+    md.push(
+      `FTOD: today ${L.date} plan ${fmt(L.ftod_plan)}, actual ${fmt(L.ftod_actual)}` +
+        (pct(L.ftod_actual, L.ftod_plan) != null ? ` (${pct(L.ftod_actual, L.ftod_plan)}%)` : '') +
+        '.'
+    );
+    if (dp.length > 1) {
+      const trend = dp
+        .slice(0, 7)
+        .reverse()
+        .map((r) => `${(r.date || '').slice(5)}: ${r.ftod_actual}`)
+        .join(', ');
+      md.push(`FTOD 7-day trend [${trend}].`);
+    }
+    if (lbb.length) {
+      const top = lbb
+        .slice()
+        .sort((x, y) => Number(y.ftod_actual) - Number(x.ftod_actual))
+        .slice(0, 5)
+        .map((r) => `${r.branch_name} ${fmt(r.ftod_actual)}`)
+        .join(', ');
+      md.push(`FTOD top branches today: ${top}.`);
+    }
+
+    // ---------- DPD bands ----------
+    md.push('');
+    md.push(
+      `DPD 1-30: today plan ${fmt(L.dpd_1_30_plan)}, actual ${fmt(L.dpd_1_30_actual)}` +
+        (pct(L.dpd_1_30_actual, L.dpd_1_30_plan) != null
+          ? ` (${pct(L.dpd_1_30_actual, L.dpd_1_30_plan)}%)`
+          : '') +
+        '.'
+    );
+    if (lbb.length) {
+      const top = lbb
+        .slice()
+        .sort((x, y) => Number(y.dpd_1_30_actual) - Number(x.dpd_1_30_actual))
+        .slice(0, 5)
+        .map((r) => `${r.branch_name} ${fmt(r.dpd_1_30_actual)}`)
+        .join(', ');
+      md.push(`DPD 1-30 top branches today: ${top}.`);
+    }
+    md.push(
+      `DPD 31-60: today plan ${fmt(L.dpd_31_60_plan)}, actual ${fmt(L.dpd_31_60_actual)}` +
+        (pct(L.dpd_31_60_actual, L.dpd_31_60_plan) != null
+          ? ` (${pct(L.dpd_31_60_actual, L.dpd_31_60_plan)}%)`
+          : '') +
+        '.'
+    );
+    if (lbb.length) {
+      const top = lbb
+        .slice()
+        .sort((x, y) => Number(y.dpd_31_60_actual) - Number(x.dpd_31_60_actual))
+        .slice(0, 5)
+        .map((r) => `${r.branch_name} ${fmt(r.dpd_31_60_actual)}`)
+        .join(', ');
+      md.push(`DPD 31-60 top branches today: ${top}.`);
+    }
+    md.push(
+      `DPD 61-90: today plan ${fmt(L.dpd_61_90_plan)}, actual ${fmt(L.dpd_61_90_actual)}` +
+        (pct(L.dpd_61_90_actual, L.dpd_61_90_plan) != null
+          ? ` (${pct(L.dpd_61_90_actual, L.dpd_61_90_plan)}%)`
+          : '') +
+        '.'
+    );
+    if (lbb.length) {
+      const top = lbb
+        .slice()
+        .sort((x, y) => Number(y.dpd_61_90_actual) - Number(x.dpd_61_90_actual))
+        .slice(0, 5)
+        .map((r) => `${r.branch_name} ${fmt(r.dpd_61_90_actual)}`)
+        .join(', ');
+      md.push(`DPD 61-90 top branches today: ${top}.`);
+    }
+  }
+
+  // ---------- Collection (rolling + monthly) ----------
+  if (ctx.summary && Object.keys(ctx.summary).length) {
+    md.push('');
+    const s = ctx.summary;
+    const rd = Number(s.total_rd) || 0;
+    const rc = Number(s.total_rc) || 0;
+    const collPct = pct(rc, rd);
+    md.push(
+      `COLLECTION rolling totals: Demand ${fmtAmt(rd)}, Collection ${fmtAmt(rc)}` +
+        (collPct != null ? ` (${collPct}%)` : '') +
+        `. NPA cases ${fmt(s.npa_cases)}, NPA activated ${fmt(s.npa_act)}.`
+    );
+  }
+  if (Array.isArray(ctx.monthly) && ctx.monthly.length) {
+    const recent = ctx.monthly.slice(0, 4);
+    const monthLine = recent
+      .map(
+        (m) =>
+          `${m.month}: collection ${fmtAmt(m.total_collection)}/demand ${fmtAmt(
+            m.total_demand
+          )} (${m.collection_pct}%)`
+      )
+      .join('; ');
+    md.push(`Recent months — ${monthLine}.`);
+    if (ctx.monthly.length >= 2) {
+      const cur = Number(ctx.monthly[0].total_collection) || 0;
+      const prev = Number(ctx.monthly[1].total_collection) || 0;
+      const delta = cur - prev;
+      const pctDelta = prev > 0 ? Number(((delta / prev) * 100).toFixed(1)) : null;
+      md.push(
+        `MoM collection delta (${ctx.monthly[1].month} → ${ctx.monthly[0].month}): ${
+          delta >= 0 ? '+' : ''
+        }${fmtAmt(delta)}` + (pctDelta != null ? ` (${pctDelta >= 0 ? '+' : ''}${pctDelta}%)` : '') + '.'
+      );
+    }
+  }
+
+  // ---------- Disbursement ----------
+  if (ctx.latest) {
+    const L = ctx.latest;
+    md.push('');
+    md.push(
+      `DISBURSEMENT today ${L.date}: IGL ${fmt(L.disb_igl_acc)} accs / ${fmtAmt(L.disb_igl_amt)}, ` +
+        `FIG ${fmt(L.disb_fig_acc)} accs / ${fmtAmt(L.disb_fig_amt)}, ` +
+        `IL ${fmt(L.disb_il_acc)} accs / ${fmtAmt(L.disb_il_amt)}.` +
+        ` KYC today: IGL ${fmt(L.kyc_igl)}, FIG ${fmt(L.kyc_fig)}, IL ${fmt(L.kyc_il)}.`
+    );
+  }
+  if (Array.isArray(ctx.disbursementMonthly) && ctx.disbursementMonthly.length) {
+    const d = ctx.disbursementMonthly.slice(0, 3);
+    const line = d
+      .map((m) => `${m.month}: ${fmt(m.count)} accs / ${fmtAmt(m.amount)}`)
+      .join('; ');
+    md.push(`Recent disb months — ${line}.`);
+  }
+
+  // ---------- Employees (top performers) ----------
+  if (Array.isArray(ctx.employeePerformance) && ctx.employeePerformance.length) {
+    md.push('');
+    const top = ctx.employeePerformance
+      .slice()
+      .sort((a, b) => (Number(b.total_collection) || 0) - (Number(a.total_collection) || 0))
+      .slice(0, 5)
+      .map(
+        (e) =>
+          `${e.name || e.emp_id} (${e.branch || '-'}) ${fmtAmt(e.total_collection)} / ${fmtAmt(
+            e.total_demand
+          )} (${e.collection_pct}%)`
+      )
+      .join('; ');
+    md.push(`EMPLOYEES top 5 by FY-to-date collection: ${top}.`);
+  }
+
+  // ---------- Truncation notice ----------
+  if (ctx.truncated) {
+    const t = ctx.truncated;
+    const flagged = Object.keys(t).filter((k) => t[k]);
+    if (flagged.length) {
+      md.push('');
+      md.push(
+        `NOTE: the following lists were capped (full set has more rows): ${flagged.join(
+          ', '
+        )}. Say "showing top N" rather than implying you see every row.`
+      );
+    }
+  }
+
+  return md.join('\n');
 }
 
 // Compact reference of the underlying schema. Used by /api/ai-snapshot so
 // offline mobile clients carry the same DB cheatsheet as the AI prompt.
+// Pruned to tables actually populated in ctx — tables the snapshot does NOT
+// surface (hourly_performance, npa_activation_runs, employee_locations,
+// chat_*) were dropped to stop the model expecting them and hallucinating
+// values. See offline-ai-trace audit P1 #4.
 const AI_SCHEMA_CHEATSHEET = {
   branches: 'branch_id, branch_name, district_id',
   employees: 'emp_id, full_name, role, branch_id',
@@ -5260,16 +5641,11 @@ const AI_SCHEMA_CHEATSHEET = {
   daily_performance: 'emp_id, report_date, same metric columns as employee_performance (historical daily snapshots)',
   disbursement: 'db_month, region_name, district_name, branch_name, emp_id, officer_name, product_name, disb_count, disb_amount (monthly aggregate)',
   disbursement_daily: 'disb_date, region_name, district_name, branch_name, emp_id, officer_name, product_name, disb_count, disb_amount (daily — UNIONed via DISB_CTE for months not yet rolled into disbursement)',
-  daily_reports: 'branch-level plan + achievement entries',
-  npa_activation_runs: 'run_id, source_filename, report_date, row_count, npa_count',
-  hourly_performance: 'intra-day collection snapshots',
-  employee_locations: 'emp_id, lat, lng, accuracy, battery_pct, recorded_at (live tracking pings)',
-  chat_messages: 'id, sender_emp_id, thread_key, body, sent_at, read_by_json',
-  chat_groups: 'id, name, kind (auto|custom), scope_type, scope_value, created_by_emp_id',
-  chat_group_members: 'group_id, emp_id (FK to chat_groups)'
+  daily_reports: 'branch_name, date, region, district, dm_name, ftod_plan, dpd_1_30_plan, dpd_31_60_plan, dpd_61_90_plan, fy_non_start_plan, ... (PLAN side of daily reports)',
+  daily_reports_achievements: 'branch_name, date, region, district, dm_name, ftod_actual, dpd_1_30_actual, dpd_31_60_actual, dpd_61_90_actual, npa_activation, npa_closure, fy_non_start_acc, disb_igl_acc/amt, disb_fig_acc/amt, disb_il_acc/amt, kyc_igl, kyc_fig, kyc_il (ACTUAL side of daily reports)'
 };
 
-const AI_SNAPSHOT_VERSION = 1;
+const AI_SNAPSHOT_VERSION = 2;
 
 // Bump when AI prompt or tool surface changes — invalidates aiReplyCache keys.
 const AI_REPLY_CACHE_VERSION = 'v6-ambiguous-entity-lookup';
@@ -5874,12 +6250,17 @@ app.post("/api/ai-snapshot", async (req, res) => {
       location: body.location || (body.session && body.session.location) || '',
     };
     const ctx = await buildDataContext(session);
+    // Surface summary_text + latest + truncated at the top level too — mobile
+    // can pull them without traversing into ctx.* (smaller deserialise).
     res.json({
       version: AI_SNAPSHOT_VERSION,
-      generated_at: new Date().toISOString(),
+      generated_at: ctx.generated_at || new Date().toISOString(),
       emp_id: body.emp_id || null,
       session,
       schema: AI_SCHEMA_CHEATSHEET,
+      summary_text: ctx.summary_text || '',
+      latest: ctx.latest || null,
+      truncated: ctx.truncated || {},
       ctx,
     });
   } catch (e) {
@@ -6593,6 +6974,87 @@ setInterval(async () => {
     console.log('chat init skipped:', err.message);
   }
 })();
+
+// ====================================================================
+//  FEEDBACK — employees submit feature requests / complaints; admin reads
+// ====================================================================
+
+(async function initFeedbackTable() {
+  try {
+    await pool.query(`CREATE TABLE IF NOT EXISTS employee_feedback (
+      id BIGSERIAL PRIMARY KEY,
+      emp_id TEXT,
+      emp_name TEXT,
+      role TEXT,
+      branch TEXT,
+      message TEXT NOT NULL,
+      status TEXT DEFAULT 'open',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )`);
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_feedback_created ON employee_feedback(created_at DESC)");
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_feedback_emp ON employee_feedback(emp_id)");
+    console.log('employee_feedback table ready');
+  } catch (err) {
+    console.log('feedback init skipped:', err.message);
+  }
+})();
+
+app.post("/api/feedback", async (req, res) => {
+  try {
+    const body = req.body || {};
+    const message = String(body.message || '').trim();
+    if (!message) return res.status(400).json({ error: 'message required' });
+    if (message.length > 4000) return res.status(400).json({ error: 'message too long (max 4000 chars)' });
+    const empId = body.emp_id ? String(body.emp_id).slice(0, 32) : null;
+    const empName = body.emp_name ? String(body.emp_name).slice(0, 200) : null;
+    const role = body.role ? String(body.role).slice(0, 32) : null;
+    const branch = body.branch ? String(body.branch).slice(0, 200) : null;
+    const r = await pool.query(
+      `INSERT INTO employee_feedback (emp_id, emp_name, role, branch, message)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id, created_at`,
+      [empId, empName, role, branch, message]
+    );
+    res.status(201).json({ id: r.rows[0].id, created_at: r.rows[0].created_at });
+  } catch (e) {
+    console.error('feedback POST error:', e.message);
+    res.status(500).json({ error: 'failed' });
+  }
+});
+
+app.get("/api/feedback", async (req, res) => {
+  try {
+    const lim = Math.min(Math.max(parseInt(req.query.limit, 10) || 200, 1), 500);
+    const role = String(req.query.role || '').toUpperCase();
+    const empId = req.query.emp_id ? String(req.query.emp_id) : null;
+    let sql, params;
+    if (role === 'CEO' || role === '') {
+      sql = `SELECT id, emp_id, emp_name, role, branch, message, status, created_at
+               FROM employee_feedback
+              ORDER BY created_at DESC
+              LIMIT ${lim}`;
+      params = [];
+    } else if (empId) {
+      sql = `SELECT id, emp_id, emp_name, role, branch, message, status, created_at
+               FROM employee_feedback
+              WHERE emp_id = $1
+              ORDER BY created_at DESC
+              LIMIT ${lim}`;
+      params = [empId];
+    } else {
+      sql = `SELECT id, emp_id, emp_name, role, branch, message, status, created_at
+               FROM employee_feedback
+              ORDER BY created_at DESC
+              LIMIT ${lim}`;
+      params = [];
+    }
+    const r = await pool.query(sql, params);
+    res.json({ count: r.rows.length, items: r.rows });
+  } catch (e) {
+    console.error('feedback GET error:', e.message);
+    res.status(500).json({ error: 'failed' });
+  }
+});
 
 // ----- Helpers: hierarchy + thread membership ------------------------
 
