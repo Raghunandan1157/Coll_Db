@@ -5776,7 +5776,7 @@ const AI_TOOLS_SPEC = [
     type: 'function',
     function: {
       name: 'list_hierarchy',
-      description: 'List children of a hierarchy node from employee_master. Examples: list_hierarchy(level="branch", parent_level="area", parent_name="X") → branches under area X. list_hierarchy(level="region") → all regions in scope.',
+      description: 'List children of a hierarchy node from employee_master. Examples: list_hierarchy(level="branch", parent_level="area", parent_name="X") → branches under area X. list_hierarchy(level="region") → all regions in scope. Default limit is 500 — there are ~129 branches and ~8 regions, so the default returns everything. NEVER quote the row count of this tool as a metric value.',
       parameters: {
         type: 'object',
         properties: {
@@ -5786,6 +5786,23 @@ const AI_TOOLS_SPEC = [
           limit: { type: 'integer' }
         },
         required: ['level']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'headcount',
+      description: 'Total Working employees in scope, optionally broken down by role / region / division / area / branch. Examples: headcount() → {total: 1285}. headcount(group_by="role") → [{role:"FO",count:791}, …]. headcount(role="BM") → [{role:"BM", count:122}].',
+      parameters: {
+        type: 'object',
+        properties: {
+          group_by: { type: 'string', enum: ['role', 'region', 'division', 'area', 'branch'] },
+          role: { type: 'string', description: 'Filter by exact role (BM, FO, AM, RM, DM, etc.)' },
+          region_name: { type: 'string' },
+          branch_name: { type: 'string' },
+          limit: { type: 'integer' }
+        }
       }
     }
   },
@@ -6176,6 +6193,41 @@ async function dispatchAiTool(name, args, session) {
     return await safeQuery(sql, params, lim);
   }
 
+  if (name === 'headcount') {
+    const groupBy = ['role', 'region', 'division', 'area', 'branch'].includes(args.group_by) ? args.group_by : null;
+    const params = [];
+    let where = `status = 'Working'`;
+    if (args.role) { params.push(args.role); where += ` AND role ILIKE $${params.length}`; }
+    if (args.region_name) { params.push(args.region_name); where += ` AND region_name ILIKE $${params.length}`; }
+    if (args.branch_name) { params.push(args.branch_name); where += ` AND branch_name ILIKE $${params.length}`; }
+    const scopeClause = _scopeWhere(session, 'branch_name', params);
+    if (groupBy) {
+      const col = groupBy === 'role' ? 'role'
+        : groupBy === 'region' ? 'region_name'
+        : groupBy === 'division' ? 'division_name'
+        : groupBy === 'area' ? 'area_name'
+        : 'branch_name';
+      const sql = `
+        SELECT ${col} AS bucket, COUNT(*)::int AS count
+          FROM employee_master
+         WHERE ${where}
+           ${scopeClause}
+           AND ${col} IS NOT NULL AND ${col} <> ''
+         GROUP BY ${col}
+         ORDER BY count DESC, ${col}
+         LIMIT ${Math.max(lim, 50)}`;
+      return await safeQuery(sql, params, Math.max(lim, 50));
+    }
+    const sql = `
+      SELECT COUNT(*)::int AS total
+        FROM employee_master
+       WHERE ${where}
+         ${scopeClause}`;
+    const r = await safeQuery(sql, params, 1);
+    if (Array.isArray(r) && r[0]) return { total: r[0].total };
+    return r;
+  }
+
   if (name === 'list_hierarchy') {
     const level = ['region', 'division', 'area', 'branch'].includes(args.level) ? args.level : 'branch';
     const parentLevel = ['region', 'division', 'area'].includes(args.parent_level) ? args.parent_level : null;
@@ -6188,6 +6240,10 @@ async function dispatchAiTool(name, args, session) {
     }
     const scopeClause = _scopeWhere(session, 'branch_name', params);
     const col = level + '_name';
+    // Hierarchy is finite (~129 branches, ~8 regions). Bump default limit to
+    // 500 so callers don't accidentally truncate. The shared `lim` param
+    // defaults to 25 which was way too small here.
+    const hLim = Math.max(parseInt(args.limit, 10) || 500, 50);
     const sql = `
       SELECT ${col} AS name,
              COUNT(*)::int AS employee_count,
@@ -6198,8 +6254,8 @@ async function dispatchAiTool(name, args, session) {
          AND ${col} IS NOT NULL AND ${col} <> ''
        GROUP BY ${col}
        ORDER BY ${col}
-       LIMIT ${lim}`;
-    return await safeQuery(sql, params, lim);
+       LIMIT ${hLim}`;
+    return await safeQuery(sql, params, hLim);
   }
 
   if (name === 'daily_reports_query') {
@@ -6772,7 +6828,13 @@ app.post('/api/voice-stream', aiLimiter, voiceUpload.single('audio'), async (req
         '- The companion screen shows the raw rows you fetch — you do not need to dictate every value, just the highlight + interpretation.',
         '',
         '## Tools available — CALL THESE for any specifics',
-        '- find_employee, employee_performance, find_branch, period_performance, top_performers, disbursement_query, list_hierarchy, npa_summary, daily_reports_query, sql_describe',
+        '- find_employee, employee_performance, find_branch, period_performance, top_performers, disbursement_query, list_hierarchy, headcount, npa_summary, daily_reports_query, sql_describe',
+        '',
+        '## Critical tool routing',
+        '- "How many employees / staff / BMs / FOs / agents in <scope>?" → call `headcount(group_by=\'role\')` for a role breakdown, or `headcount(role=\'BM\')` for a single role count, or `headcount()` for the overall total. NEVER quote a hierarchy row count or list_hierarchy result count as "number of employees".',
+        '- "Daily collection / collection trend / day-by-day collection" → call `period_performance(group_by=\'day\', start_date, end_date)`. The result has one row per day with demand + collection columns. Average = SUM(collection) / COUNT(days).',
+        '- "Daily disbursement" → call `disbursement_query(group_by=\'day\', start_date, end_date)`.',
+        '- For list_hierarchy: NEVER report its row count as a money or collection metric. Its rows are entity names with employee_count + branch_count metadata only.',
         '',
         '## Tool guidance',
         '- **CANONICALISE NAMES FIRST.** Voice transcription mishears branch / employee / region names ("Davangere" vs "Davanagere", "Belgaum" vs "Belagavi"). If the user names a specific branch/employee, your FIRST tool call MUST be `find_branch(query=<spoken name>)` or `find_employee(query=<spoken name>)`. Use the canonical `branch_name` / `emp_id` from the result in every subsequent tool call. Never pass the raw spoken name into disbursement_query / period_performance / daily_reports_query / top_performers — always pass the canonical value find_branch/find_employee returned.',
@@ -7499,7 +7561,13 @@ app.post("/api/ai-chat-stream", aiLimiter, async (req, res) => {
       'Collection % = regular_collection / regular_demand × 100 (count ratio, dimensionless).',
       '',
       '## Tools available — CALL THESE for any specifics not in the at-a-glance JSON',
-      '- find_employee, employee_performance, find_branch, period_performance, top_performers, disbursement_query, list_hierarchy, npa_summary, daily_reports_query, sql_describe',
+      '- find_employee, employee_performance, find_branch, period_performance, top_performers, disbursement_query, list_hierarchy, headcount, npa_summary, daily_reports_query, sql_describe',
+      '',
+      '## Critical tool routing',
+      '- "How many employees / staff / BMs / FOs / agents in <scope>?" → call `headcount(group_by=\'role\')` for a role breakdown, or `headcount(role=\'BM\')` for a single role count, or `headcount()` for the overall total. NEVER quote a hierarchy row count or list_hierarchy result count as "number of employees".',
+      '- "Daily collection / collection trend / day-by-day collection" → call `period_performance(group_by=\'day\', start_date, end_date)`. One row per day with demand + collection. Average = SUM(collection) / COUNT(days).',
+      '- "Daily disbursement" → call `disbursement_query(group_by=\'day\', start_date, end_date)`.',
+      '- list_hierarchy returns entity names + headcount metadata only — NEVER report its row count as a money/collection metric.',
       '',
       '## How to answer (text channel — render Markdown, not voice)',
       '- Use rich Markdown: bold key numbers, use bullet lists, headings (##/###) for sections, tables for comparisons.',
