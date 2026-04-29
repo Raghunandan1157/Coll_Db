@@ -6334,7 +6334,7 @@ const voiceUpload = multer({
   limits: { fileSize: 12 * 1024 * 1024 },
 });
 
-function _openaiSttCall(audioBuffer, mimetype, originalName, model) {
+function _openaiSttCall(audioBuffer, mimetype, originalName, model, biasPrompt) {
   return new Promise((resolve, reject) => {
     const boundary = '----nlplboundary' + Date.now();
     // Pick a sane filename + extension based on the mime so OpenAI can
@@ -6353,9 +6353,18 @@ function _openaiSttCall(audioBuffer, mimetype, originalName, model) {
     const head = Buffer.from(
       `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${filename}"\r\nContent-Type: ${ctype}\r\n\r\n`
     );
-    const tailFile = Buffer.from(
-      `\r\n--${boundary}\r\nContent-Disposition: form-data; name="model"\r\n\r\n${model}\r\n--${boundary}--\r\n`
-    );
+    // Optional `prompt` field biases Whisper / gpt-4o-mini-transcribe toward
+    // domain vocabulary (Indian branch names, employee names). Hard limit
+    // 224 tokens per OpenAI docs — we cap at 900 chars to stay safely under.
+    let trailer = `\r\n--${boundary}\r\nContent-Disposition: form-data; name="model"\r\n\r\n${model}`;
+    if (biasPrompt && typeof biasPrompt === 'string') {
+      const trimmed = biasPrompt.length > 900 ? biasPrompt.slice(0, 900) : biasPrompt;
+      if (trimmed.trim()) {
+        trailer += `\r\n--${boundary}\r\nContent-Disposition: form-data; name="prompt"\r\n\r\n${trimmed}`;
+      }
+    }
+    trailer += `\r\n--${boundary}--\r\n`;
+    const tailFile = Buffer.from(trailer);
     const body = Buffer.concat([head, audioBuffer, tailFile]);
     const req = https.request({
       hostname: 'api.openai.com',
@@ -6391,16 +6400,99 @@ function _openaiSttCall(audioBuffer, mimetype, originalName, model) {
 // "audio file might be corrupted" signal (gpt-4o-mini-transcribe does
 // this for a lot of valid browser webm), retry with whisper-1 which is
 // the most permissive model OpenAI offers.
-async function openaiStt(audioBuffer, mimetype, originalName) {
+async function openaiStt(audioBuffer, mimetype, originalName, biasPrompt) {
   try {
-    return await _openaiSttCall(audioBuffer, mimetype, originalName, OPENAI_STT);
+    return await _openaiSttCall(audioBuffer, mimetype, originalName, OPENAI_STT, biasPrompt);
   } catch (e) {
     const isAudioReject = e && e.statusCode === 400 && /corrupt|unsupport|invalid/i.test(String(e.body || ''));
     if (isAudioReject && OPENAI_STT !== 'whisper-1') {
       console.warn('STT primary (' + OPENAI_STT + ') rejected audio, retrying with whisper-1');
-      return await _openaiSttCall(audioBuffer, mimetype, originalName, 'whisper-1');
+      return await _openaiSttCall(audioBuffer, mimetype, originalName, 'whisper-1', biasPrompt);
     }
     throw e;
+  }
+}
+
+// ── STT bias prompt cache ──────────────────────────────────────────────────
+// Whisper / gpt-4o-mini-transcribe accept an optional `prompt` field that
+// biases recognition toward domain vocabulary. We feed it branch names
+// (and later employee first names) so "Davanagere" stops becoming
+// "Davangere", etc. Cache per scope for 30 min — branch list changes
+// rarely and rebuilding it on every voice request is wasteful.
+const sttBiasCache = new Map(); // key: "ROLE|location" → { prompt, ts }
+const STT_BIAS_TTL_MS = 30 * 60 * 1000;
+const STT_BIAS_MAX = 50;
+const STT_BIAS_BUDGET_CHARS = 880;
+
+async function getSttBiasPrompt(session) {
+  try {
+    const role = String((session && session.role) || '').toUpperCase();
+    const loc = String((session && session.location) || '').trim();
+    const key = role + '|' + loc;
+    const now = Date.now();
+    const cached = sttBiasCache.get(key);
+    if (cached && now - cached.ts < STT_BIAS_TTL_MS) return cached.prompt;
+
+    let emCol = null;
+    if (role === 'RM' || role === 'SM') emCol = 'region_name';
+    else if (role === 'DM' || role === 'DVM') emCol = 'division_name';
+    else if (role === 'AM') emCol = 'area_name';
+    else if (role === 'BM' || role === 'FO') emCol = 'branch_name';
+
+    const inScope = (emCol && loc)
+      ? await safeQuery(
+          `SELECT branch_name, COUNT(*)::int AS n
+             FROM employee_master
+            WHERE status='Working' AND TRIM(${emCol}) ILIKE TRIM($1)
+            GROUP BY branch_name
+            ORDER BY n DESC`, [loc], 200)
+      : [];
+    const global = await safeQuery(
+      `SELECT branch_name, COUNT(*)::int AS n
+         FROM employee_master
+        WHERE status='Working'
+        GROUP BY branch_name
+        ORDER BY n DESC
+        LIMIT 200`, [], 200);
+
+    // In-scope branches first (highest signal), then fill with global by
+    // headcount desc. Dedupe case-insensitively.
+    const seen = new Set();
+    const ordered = [];
+    const push = (rows) => {
+      for (const r of (Array.isArray(rows) ? rows : [])) {
+        const n = String(r.branch_name || '').trim();
+        if (!n) continue;
+        const k = n.toUpperCase();
+        if (seen.has(k)) continue;
+        seen.add(k);
+        ordered.push(n);
+      }
+    };
+    push(inScope);
+    push(global);
+
+    // Greedy pack under STT_BIAS_BUDGET_CHARS (≈ 220 tokens, safely under
+    // the 224-token Whisper prompt limit).
+    const parts = [];
+    let len = 0;
+    for (const name of ordered) {
+      const add = (parts.length === 0 ? name.length : name.length + 2);
+      if (len + add > STT_BIAS_BUDGET_CHARS) break;
+      parts.push(name);
+      len += add;
+    }
+    const prompt = parts.join(', ');
+
+    sttBiasCache.set(key, { prompt, ts: now });
+    if (sttBiasCache.size > STT_BIAS_MAX) {
+      const oldest = sttBiasCache.keys().next().value;
+      if (oldest !== undefined) sttBiasCache.delete(oldest);
+    }
+    return prompt;
+  } catch (e) {
+    console.error('getSttBiasPrompt error:', e.message);
+    return '';
   }
 }
 
@@ -6494,13 +6586,16 @@ app.post('/api/voice', voiceUpload.single('audio'), async (req, res) => {
     return res.status(400).json({ error: 'audio_file_required' });
   }
   try {
-    const transcript = await openaiStt(req.file.buffer, req.file.mimetype, req.file.originalname);
-    if (!transcript) {
-      return res.json({ transcript: '', reply: '', audio_b64: null, note: 'no_speech_detected' });
-    }
     const role = String(req.body.role || '').trim();
     const location = String(req.body.location || '').trim();
     const session = (role && location) ? { role, location } : {};
+    // Bias Whisper toward in-scope branch names so Indian place names
+    // ("Davanagere", "Channagiri") stop getting Anglicised mid-pipeline.
+    const biasPrompt = await getSttBiasPrompt(session);
+    const transcript = await openaiStt(req.file.buffer, req.file.mimetype, req.file.originalname, biasPrompt);
+    if (!transcript) {
+      return res.json({ transcript: '', reply: '', audio_b64: null, note: 'no_speech_detected' });
+    }
     let systemText = `You are the NLPL Dashboard AI Assistant. LANGUAGE: detect the language the user spoke in (English or Kannada) and reply in the SAME language. If the user spoke Kannada, reply in Kannada (ಕನ್ನಡ script). If the user spoke English, reply in English. If mixed, follow the dominant language. Reply in under 50 words, conversational tone (this will be spoken aloud). Use Indian number format with the words "crore" / "lakh" in English ("12 crore 34 lakh") or "ಕೋಟಿ" / "ಲಕ್ಷ" in Kannada ("12 ಕೋಟಿ 34 ಲಕ್ಷ"). Quote numbers only from the data below; if missing say "data not available" / "ಲಭ್ಯವಿಲ್ಲ". Never mention the words "snapshot" or "data block".`;
     try {
       const ctx = await buildDataContext(session);
@@ -6584,17 +6679,20 @@ app.post('/api/voice-stream', aiLimiter, voiceUpload.single('audio'), async (req
     send('open', {});
     send('stage', { stage: 'stt' });
 
-    const transcript = await openaiStt(req.file.buffer, req.file.mimetype, req.file.originalname);
+    // Parse session up-front so the STT call can be biased toward in-scope
+    // branch names. getSttBiasPrompt is cached + safe to call every request.
+    const role = String(req.body.role || '').trim();
+    const location = String(req.body.location || '').trim();
+    const session = (role && location) ? { role, location } : {};
+    const biasPrompt = await getSttBiasPrompt(session);
+
+    const transcript = await openaiStt(req.file.buffer, req.file.mimetype, req.file.originalname, biasPrompt);
     if (!transcript) {
       send('error', { message: 'No speech detected. Try again.' });
       return finish();
     }
     send('transcript', { text: transcript });
     send('stage', { stage: 'thinking' });
-
-    const role = String(req.body.role || '').trim();
-    const location = String(req.body.location || '').trim();
-    const session = (role && location) ? { role, location } : {};
 
     // Build the same rich tool-aware prompt as the text streaming endpoint,
     // but add a voice-mode rule so the spoken reply stays brief.
