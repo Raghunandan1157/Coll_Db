@@ -6514,6 +6514,9 @@ app.post('/api/voice-stream', voiceUpload.single('audio'), async (req, res) => {
   res.setHeader('Connection', 'keep-alive');
   res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders && res.flushHeaders();
+  // Disable Nagle on the underlying socket so tiny SSE writes (events +
+  // heartbeats) are sent immediately instead of being coalesced.
+  try { req.socket.setNoDelay(true); } catch (_) {}
 
   let closed = false;
   let heartbeat = null;
@@ -6525,19 +6528,25 @@ app.post('/api/voice-stream', voiceUpload.single('audio'), async (req, res) => {
     stopHeartbeat();
     try { res.end(); } catch (_) {}
   };
-  req.on('close', () => { closed = true; stopHeartbeat(); });
-  res.on('close', stopHeartbeat);
+  // NOTE: do NOT listen on req.on('close') — for multipart uploads, the
+  // request stream emits 'close' as soon as multer finishes parsing the
+  // body, well before the response is finalised. That would mis-flag the
+  // connection as closed and silence every subsequent SSE write.
+  // res.on('close') is the correct "client disconnected" signal here.
+  res.on('close', () => { closed = true; stopHeartbeat(); });
 
   const send = (event, data) => {
     if (closed || res.writableEnded) return;
     try { res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`); } catch (_) {}
   };
-  // Apache mod_proxy_http buffers responses by default. Heartbeat comments
-  // every 250 ms force flushes through to the client even during long
-  // awaits (STT, tool round-trips, TTS).
+  // Heartbeat comments every 250 ms keep the connection alive and push
+  // events through Apache mod_proxy_http even during long await steps
+  // (STT, tool round-trips, TTS). Padded so the chunk is large enough to
+  // cross any small intermediate buffers.
+  const HB_PAD = ': ' + 'x'.repeat(2048) + '\n\n';
   heartbeat = setInterval(() => {
     if (closed || res.writableEnded) { stopHeartbeat(); return; }
-    try { res.write(': hb\n\n'); } catch (_) { stopHeartbeat(); }
+    try { res.write(HB_PAD); } catch (_) { stopHeartbeat(); }
   }, 250);
 
   try {
@@ -7184,6 +7193,9 @@ app.post("/api/ai-chat-stream", aiLimiter, async (req, res) => {
   res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders && res.flushHeaders();
 
+  // Disable Nagle so tiny writes flush immediately.
+  try { req.socket.setNoDelay(true); } catch (_) {}
+
   let closed = false;
   let heartbeat = null;
   const stopHeartbeat = () => {
@@ -7194,8 +7206,12 @@ app.post("/api/ai-chat-stream", aiLimiter, async (req, res) => {
     stopHeartbeat();
     try { res.end(); } catch (_) {}
   };
-  req.on('close', () => { closed = true; stopHeartbeat(); });
-  res.on('close', stopHeartbeat);
+  // NOTE: do NOT listen on req.on('close') — for multipart uploads, the
+  // request stream emits 'close' as soon as multer finishes parsing the
+  // body, well before the response is finalised. That would mis-flag the
+  // connection as closed and silence every subsequent SSE write.
+  // res.on('close') is the correct "client disconnected" signal here.
+  res.on('close', () => { closed = true; stopHeartbeat(); });
 
   const send = (event, data) => {
     if (closed || res.writableEnded) return;
@@ -7203,10 +7219,11 @@ app.post("/api/ai-chat-stream", aiLimiter, async (req, res) => {
       res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
     } catch (_) {}
   };
-  // Heartbeat — keep Apache from buffering long pauses between events.
+  // Padded heartbeat to defeat intermediate buffers (Apache, browser).
+  const HB_PAD = ': ' + 'x'.repeat(2048) + '\n\n';
   heartbeat = setInterval(() => {
     if (closed || res.writableEnded) { stopHeartbeat(); return; }
-    try { res.write(': hb\n\n'); } catch (_) { stopHeartbeat(); }
+    try { res.write(HB_PAD); } catch (_) { stopHeartbeat(); }
   }, 250);
 
   const session = (role && location) ? { role, location } : {};
