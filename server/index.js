@@ -6101,12 +6101,17 @@ async function dispatchAiTool(name, args, session) {
       selectCols = `d.officer_name AS bucket, d.emp_id`;
       groupCols = `d.officer_name, d.emp_id`;
     }
+    // db_month is stored as 'Mon-YY' (e.g. 'Mar-26'). Compare via to_date,
+    // not naive string range — the previous YYYY-MM string compare always
+    // returned 0 rows because formats didn't match.
     const sql = `${DISB_CTE}
       SELECT ${selectCols},
              SUM(d.disb_count)::int AS count,
              SUM(d.disb_amount)::numeric AS amount
         FROM d
-       WHERE d.db_month BETWEEN to_char($1::date, 'YYYY-MM') AND to_char($2::date, 'YYYY-MM')
+       WHERE to_date(d.db_month, 'Mon-YY')
+             BETWEEN date_trunc('month', $1::date)::date
+                 AND date_trunc('month', $2::date)::date
          ${extra}
          ${scopeClause}
        GROUP BY ${groupCols}
@@ -6595,6 +6600,7 @@ app.post('/api/voice-stream', voiceUpload.single('audio'), async (req, res) => {
         '- For FTOD specifically: also fetch demand and collection so the user sees demand + collection + FTOD together (FTOD = demand - collection).',
         '- For comparison questions (vs last month, top N, etc.) → call period_performance or top_performers.',
         '- "this month" → first of current month → today. "last month" → prior calendar month full range.',
+        '- If a tool returns 0 rows for the requested period, IMMEDIATELY retry with the previous month, then the previous quarter, until you find data. Then tell the user "no data for {requested period}; latest available is {found period}". Do NOT just say "no data" without trying nearby periods.',
         '- If the at-a-glance JSON below has the answer for a trivial single number, you may quote it directly. For everything else, CALL A TOOL.',
         '- Never say "data not available" without first calling the relevant tool.',
         '',
