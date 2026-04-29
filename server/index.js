@@ -5928,6 +5928,8 @@ async function dispatchAiTool(name, args, session) {
     const fy = now.getMonth() + 1 >= 4 ? now.getFullYear() : now.getFullYear() - 1;
     const startDate = args.start_date || `${fy}-04-01`;
     const endDate = args.end_date || now.toISOString().slice(0, 10);
+    const params = [empId, startDate, endDate];
+    const scopeClause = _scopeWhere(session, 'em.branch_name', params);
     const sql = `
       SELECT em.emp_id, em.full_name AS name, em.role, em.branch_name AS branch,
              em.area_name AS area, em.division_name AS division,
@@ -5942,17 +5944,19 @@ async function dispatchAiTool(name, args, session) {
           ON dp.emp_id = em.emp_id
          AND dp.report_date BETWEEN $2 AND $3
        WHERE em.emp_id = $1
+         ${scopeClause}
        GROUP BY em.emp_id, em.full_name, em.role, em.branch_name,
                 em.area_name, em.division_name, em.region_name, em.mobile, em.status`;
-    return await safeQuery(sql, [empId, startDate, endDate], 1);
+    return await safeQuery(sql, params, 1);
   }
 
   if (name === 'find_branch') {
     const q = String(args.query || '').trim();
     if (!q) return { error: 'query required' };
-    const params = [`%${q}%`];
-    const scopeClause = _scopeWhere(session, 'em.branch_name', params);
-    const sql = `
+
+    // Build the perf + agg SQL parameterised on a candidate branch list
+    // so we can run the same shape for ILIKE then for trigram-fuzzy.
+    const buildSql = (whereClause, scopeParams) => `
       WITH em_agg AS (
         SELECT em.branch_name,
                MAX(em.region_name) AS region,
@@ -5960,8 +5964,8 @@ async function dispatchAiTool(name, args, session) {
                MAX(em.area_name) AS area,
                COUNT(*) FILTER (WHERE em.status='Working')::int AS employee_count
           FROM employee_master em
-         WHERE em.branch_name ILIKE $1
-           ${scopeClause}
+         WHERE ${whereClause}
+           ${_scopeWhere(session, 'em.branch_name', scopeParams)}
          GROUP BY em.branch_name
       ),
       perf AS (
@@ -5972,7 +5976,7 @@ async function dispatchAiTool(name, args, session) {
           FROM employee_performance ep
           JOIN employees e ON ep.emp_id = e.emp_id
           JOIN branches b ON e.branch_id = b.branch_id
-         WHERE b.branch_name ILIKE $1
+         WHERE UPPER(b.branch_name) IN (SELECT UPPER(branch_name) FROM em_agg)
          GROUP BY b.branch_name
       )
       SELECT em_agg.branch_name, em_agg.region, em_agg.division, em_agg.area,
@@ -5984,13 +5988,25 @@ async function dispatchAiTool(name, args, session) {
         LEFT JOIN perf ON UPPER(em_agg.branch_name) = UPPER(perf.branch_name)
        ORDER BY em_agg.branch_name
        LIMIT ${lim}`;
-    const rows = await safeQuery(sql, params, lim);
+
+    // Pass 1: substring ILIKE — handles exact and partial matches.
+    let params = [`%${q}%`];
+    let rows = await safeQuery(buildSql('em.branch_name ILIKE $1', params), params, lim);
+
+    // Pass 2: trigram similarity fallback — handles voice typos
+    // ("Davangere" → "Davanagere", "Belgaum" → "Belagavi"). Threshold 0.3
+    // is permissive but rejects truly random matches.
+    if (Array.isArray(rows) && rows.length === 0) {
+      params = [q];
+      rows = await safeQuery(buildSql(`similarity(em.branch_name, $1) > 0.3`, params), params, lim);
+    }
+
     if (!Array.isArray(rows)) return rows;
     if (rows.length > 1) {
       return {
         ambiguous: true,
         count: rows.length,
-        instruction: 'Multiple branches match this lookup. List the matching branches with region, division, area, and employee_count, then ask which branch the user means. Do not answer as if only one branch matched.',
+        instruction: 'Multiple branches match this lookup (some via fuzzy spelling match — voice transcription often mishears branch names). List the matching branches with region, division, area, and employee_count, then ask which branch the user means. Do not answer as if only one branch matched.',
         matches: rows
       };
     }
@@ -6176,8 +6192,18 @@ async function dispatchAiTool(name, args, session) {
       const params = [start, end];
       let extra = '';
       if (args.branch_name) { params.push(args.branch_name); extra += ` AND branch_name ILIKE $${params.length}`; }
-      if (args.region_name) { params.push(args.region_name); extra += ` AND region ILIKE $${params.length}`; }
-      if (args.district_name) { params.push(args.district_name); extra += ` AND district ILIKE $${params.length}`; }
+      // Don't filter on dr.region / dr.district — those columns drift in
+      // value (e.g. KALABURAGI vs KALBURGI in same table). Resolve the
+      // requested region/district to a canonical branch list via
+      // employee_master, which is the source of truth, then match by branch.
+      if (args.region_name) {
+        params.push(args.region_name);
+        extra += ` AND UPPER(branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE region_name ILIKE $${params.length})`;
+      }
+      if (args.district_name) {
+        params.push(args.district_name);
+        extra += ` AND UPPER(branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE division_name ILIKE $${params.length} OR area_name ILIKE $${params.length})`;
+      }
       const scopeClause = _scopeWhere(session, 'branch_name', params);
       const sql = `SELECT date, branch_name, region, district, dm_name, ${projectCols.join(', ')}
                      FROM ${t}
@@ -6605,7 +6631,10 @@ app.post('/api/voice-stream', aiLimiter, voiceUpload.single('audio'), async (req
         '- find_employee, employee_performance, find_branch, period_performance, top_performers, disbursement_query, list_hierarchy, npa_summary, daily_reports_query, sql_describe',
         '',
         '## Tool guidance',
-        '- ANY question with the words disbursement / disb / disbursed / loan disbursed → call disbursement_query with the appropriate date range and group_by.',
+        '- **CANONICALISE NAMES FIRST.** Voice transcription mishears branch / employee / region names ("Davangere" vs "Davanagere", "Belgaum" vs "Belagavi"). If the user names a specific branch/employee, your FIRST tool call MUST be `find_branch(query=<spoken name>)` or `find_employee(query=<spoken name>)`. Use the canonical `branch_name` / `emp_id` from the result in every subsequent tool call. Never pass the raw spoken name into disbursement_query / period_performance / daily_reports_query / top_performers — always pass the canonical value find_branch/find_employee returned.',
+        '- find_branch now does substring + trigram-fuzzy match, so "Davangere" still resolves to "Davanagere". Trust the result.',
+        '- If find_branch / find_employee returns `ambiguous: true`, ask the user to confirm (list 2-4 candidates with region/branch). Do NOT pick silently.',
+        '- ANY question with the words disbursement / disb / disbursed / loan disbursed → call disbursement_query with the appropriate date range, group_by, and (if a branch was named) the canonical branch_name from find_branch.',
         '- ANY question about FTOD / DPD / KYC / NPA closure / daily plan → call daily_reports_query.',
         '- For collection/demand metrics → call period_performance.',
         '- For FTOD specifically: also fetch demand and collection so the user sees demand + collection + FTOD together (FTOD = demand - collection).',
