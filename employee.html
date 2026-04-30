@@ -4623,6 +4623,98 @@
   </div>
 </div>
 
+<!-- ===== Mobile Voice Cockpit (≤767px) ===== -->
+<div id="voMobile" class="vom state-empty" aria-hidden="true">
+  <header class="vom-header">
+    <div class="vom-brand">
+      <span class="vom-brand-dot"></span>
+      <span class="vom-brand-name">NLPL Assistant</span>
+    </div>
+    <button class="vom-icon-btn" id="vomClose" aria-label="Close">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </header>
+
+  <main class="vom-main" id="vomMain">
+    <!-- Orb (sized + positioned via state class on root) -->
+    <div class="vom-orb-wrap">
+      <div class="vom-orb" id="vomOrb">
+        <div class="vom-bars"><span></span><span></span><span></span><span></span></div>
+      </div>
+    </div>
+
+    <!-- Empty state -->
+    <section class="vom-empty">
+      <div class="vom-hint">Tap mic to ask anything about your data.</div>
+      <div class="vom-recent">
+        <div class="vom-recent-title">Recent questions</div>
+        <div class="vom-recent-list" id="vomRecentList">
+          <div class="vom-recent-empty">No questions yet — your past asks will show up here.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Chat state -->
+    <section class="vom-chat">
+      <div class="vom-status" id="vomStatus"></div>
+      <div class="vom-bubble vom-bubble-user" id="vomTranscript"></div>
+      <div class="vom-bubble vom-bubble-bot" id="vomReply"></div>
+      <div class="vom-data-cards" id="vomDataCards"></div>
+      <div class="vom-chip-row" id="vomChipRow">
+        <button class="vom-chip" id="vomSqlChip" hidden onclick="window._vomOpenSql && window._vomOpenSql()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg>
+          <span>SQL trace</span>
+          <span class="vom-chip-count" id="vomSqlCount">0</span>
+        </button>
+      </div>
+      <div class="vom-error" id="vomError"></div>
+    </section>
+  </main>
+
+  <!-- Bottom bar -->
+  <footer class="vom-bottom">
+    <button class="vom-bottom-btn" id="vomKeyboard" aria-label="Type instead">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><line x1="6" y1="10" x2="6.01" y2="10"/><line x1="10" y1="10" x2="10.01" y2="10"/><line x1="14" y1="10" x2="14.01" y2="10"/><line x1="18" y1="10" x2="18.01" y2="10"/><line x1="6" y1="14" x2="6.01" y2="14"/><line x1="18" y1="14" x2="18.01" y2="14"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
+    </button>
+    <button class="vom-mic" id="vomMic" aria-label="Tap to talk">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a4 4 0 0 0-4 4v6a4 4 0 0 0 8 0V5a4 4 0 0 0-4-4z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
+    </button>
+    <button class="vom-bottom-btn" id="vomNewChat" aria-label="New chat">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+  </footer>
+
+  <!-- Keyboard input panel (slides up) -->
+  <div class="vom-kb-panel" id="vomKbPanel" aria-hidden="true">
+    <textarea class="vom-kb-input" id="vomKbInput" placeholder="Type your question…" rows="2" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();window._vomKbSend&&window._vomKbSend();}"></textarea>
+    <div class="vom-kb-row">
+      <button class="vom-kb-cancel" onclick="window._vomKbClose&&window._vomKbClose()">Cancel</button>
+      <button class="vom-kb-send" onclick="window._vomKbSend&&window._vomKbSend()">Send</button>
+    </div>
+  </div>
+
+  <!-- Fullscreen sheets -->
+  <div class="vom-sheet" id="vomSheetSql" aria-hidden="true">
+    <header class="vom-sheet-header">
+      <button class="vom-icon-btn" onclick="window._vomCloseSheet&&window._vomCloseSheet('sql')" aria-label="Back">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+      </button>
+      <div class="vom-sheet-title">SQL trace</div>
+    </header>
+    <div class="vom-sheet-body" id="vomSheetSqlBody"></div>
+  </div>
+
+  <div class="vom-sheet" id="vomSheetTable" aria-hidden="true">
+    <header class="vom-sheet-header">
+      <button class="vom-icon-btn" onclick="window._vomCloseSheet&&window._vomCloseSheet('table')" aria-label="Back">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+      </button>
+      <div class="vom-sheet-title" id="vomSheetTableTitle">Data</div>
+    </header>
+    <div class="vom-sheet-body" id="vomSheetTableBody"></div>
+  </div>
+</div>
+
 <style>
 /* ===== Bottom padding (desktop: no floating bar, minimal padding) ===== */
 @media (min-width: 768px) {
@@ -5524,6 +5616,326 @@ body.emp-dark .ai-bubble .ai-bq { border-left-color: #374151; color: #9CA3AF; }
   #voiceOverlay .vo-orb { width: 120px; height: 120px; }
   #voiceOverlay.state-recording .vo-orb { width: 220px; height: 120px; }
   #voiceOverlay .vo-topbar-meta { display: none; }
+}
+
+/* ===== Mobile Voice Cockpit (≤767px only) ============================== */
+#voMobile { display: none; }
+@media (max-width: 767px) {
+  /* Hide desktop cockpit entirely on mobile */
+  #voiceOverlay { display: none !important; }
+
+  #voMobile {
+    position: fixed; inset: 0;
+    z-index: 11000;
+    background: #0a0a0a; color: #f5f5f5;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  #voMobile.open { display: flex; }
+  #voMobile * { box-sizing: border-box; }
+
+  /* Header */
+  .vom-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(255,255,255,.06);
+    background: rgba(0,0,0,.6);
+    backdrop-filter: blur(8px);
+    flex-shrink: 0;
+    position: relative; z-index: 5;
+  }
+  .vom-brand { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; }
+  .vom-brand-dot { width: 8px; height: 8px; border-radius: 50%; background: #34D399; box-shadow: 0 0 0 4px rgba(52,211,153,.18); animation: vomPulseDot 2s ease-in-out infinite; }
+  @keyframes vomPulseDot { 0%,100% { box-shadow: 0 0 0 4px rgba(52,211,153,.18); } 50% { box-shadow: 0 0 0 6px rgba(52,211,153,.06); } }
+  .vom-icon-btn {
+    width: 36px; height: 36px; border-radius: 50%;
+    border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.04);
+    color: rgba(255,255,255,.78); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .vom-icon-btn:active { background: rgba(255,255,255,.10); }
+
+  /* Main scroll area */
+  .vom-main {
+    flex: 1; min-height: 0; overflow-y: auto;
+    padding: 16px 16px 100px; /* leave room for bottom bar */
+    display: flex; flex-direction: column;
+  }
+
+  /* Orb */
+  .vom-orb-wrap {
+    display: flex; align-items: center; justify-content: center;
+    transition: all .35s ease;
+    flex-shrink: 0;
+  }
+  .vom-orb {
+    width: 160px; height: 160px; border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, #ffffff 0%, #d4d4d4 60%, #6b6b6b 100%);
+    border: 1px solid rgba(255,255,255,.18);
+    box-shadow: inset 0 0 40px rgba(0,0,0,.20), 0 12px 40px rgba(255,255,255,.06);
+    transition: width .35s, height .35s, border-radius .35s, transform .25s;
+    position: relative; display: flex; align-items: center; justify-content: center;
+  }
+  #voMobile.state-empty .vom-orb-wrap { margin: 28px 0 14px; }
+  #voMobile.state-empty .vom-orb { animation: vomBreathe 3s ease-in-out infinite; }
+  #voMobile.state-recording .vom-orb {
+    width: 240px; height: 130px; border-radius: 28px;
+    background: linear-gradient(180deg,#1f1f1f 0%,#141414 100%);
+  }
+  #voMobile.state-processing .vom-orb { animation: vomPulse 1s ease-in-out infinite; }
+  #voMobile.state-chat .vom-orb-wrap {
+    position: fixed; top: 60px; left: 14px; margin: 0; z-index: 4;
+  }
+  #voMobile.state-chat .vom-orb {
+    width: 44px; height: 44px;
+    box-shadow: inset 0 0 14px rgba(0,0,0,.20), 0 4px 12px rgba(0,0,0,.5);
+  }
+  @keyframes vomBreathe { 0%,100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+  @keyframes vomPulse   { 0%,100% { transform: scale(1); } 50% { transform: scale(1.07); } }
+  .vom-bars { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 10px; opacity: 0; transition: opacity .25s; }
+  .vom-bars span { width: 14px; height: 24px; border-radius: 8px; background: #f5f5f5; box-shadow: 0 0 10px rgba(255,255,255,.25); transition: height 80ms ease-out; }
+  #voMobile.state-recording .vom-bars { opacity: 1; }
+
+  /* Empty-state */
+  .vom-empty { display: none; padding-top: 6px; }
+  #voMobile.state-empty .vom-empty { display: block; }
+  .vom-hint { text-align: center; font-size: 13px; color: rgba(255,255,255,.55); margin-bottom: 22px; padding: 0 12px; }
+  .vom-recent-title {
+    font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+    color: rgba(255,255,255,.45); margin: 6px 4px 10px;
+  }
+  .vom-recent-list { display: flex; flex-direction: column; gap: 8px; }
+  .vom-recent-empty { font-size: 12.5px; color: rgba(255,255,255,.32); font-style: italic; padding: 16px 12px; text-align: center; }
+  .vom-recent-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 14px;
+    background: rgba(255,255,255,.04);
+    border: 1px solid rgba(255,255,255,.06);
+    border-radius: 12px;
+    color: #f5f5f5; font-size: 14px;
+    cursor: pointer; text-align: left; font-family: inherit; width: 100%;
+    line-height: 1.4;
+  }
+  .vom-recent-item:active { background: rgba(255,255,255,.08); }
+  .vom-recent-item-arrow { margin-left: auto; flex-shrink: 0; opacity: .4; }
+
+  /* Chat-state */
+  .vom-chat { display: none; padding-top: 6px; }
+  #voMobile.state-chat .vom-chat,
+  #voMobile.state-recording .vom-chat,
+  #voMobile.state-processing .vom-chat { display: block; }
+  #voMobile.state-chat .vom-orb-wrap,
+  #voMobile.state-empty .vom-chat { /* hide chat in empty, hide orb-center in chat */ }
+
+  .vom-status {
+    display: none; align-items: center; gap: 8px;
+    font-size: 12.5px; color: rgba(255,255,255,.6);
+    margin-bottom: 12px; padding: 4px 0;
+    font-weight: 500;
+  }
+  .vom-status.show { display: inline-flex; }
+  .vom-status::before {
+    content: ''; width: 12px; height: 12px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,.2); border-top-color: #34D399;
+    animation: vomSpin .8s linear infinite;
+  }
+  @keyframes vomSpin { to { transform: rotate(360deg); } }
+
+  .vom-bubble {
+    border-radius: 14px; padding: 12px 14px; font-size: 14.5px; line-height: 1.55;
+    margin-bottom: 12px; word-break: break-word; overflow-wrap: anywhere;
+    white-space: pre-wrap;
+  }
+  .vom-bubble:empty { display: none; }
+  .vom-bubble-user {
+    background: rgba(255,255,255,.06); color: #f5f5f5;
+    border: 1px solid rgba(255,255,255,.08);
+  }
+  .vom-bubble-bot {
+    background: rgba(52,211,153,.10); color: #f9fafb;
+    border: 1px solid rgba(52,211,153,.22);
+    font-weight: 500;
+  }
+
+  .vom-data-cards { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+  .vom-data-card {
+    background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.07);
+    border-radius: 12px; padding: 12px 14px;
+    animation: vomSlideIn .25s ease-out;
+  }
+  @keyframes vomSlideIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  .vom-data-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .vom-data-title { font-size: 12.5px; font-weight: 600; color: #F3F4F6; }
+  .vom-data-args  { font-size: 10.5px; color: rgba(255,255,255,.45); font-family: 'JetBrains Mono', ui-monospace, monospace; max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .vom-mini-table {
+    width: 100%; border-collapse: collapse; font-size: 12.5px; color: #E5E7EB;
+    margin-top: 4px;
+  }
+  .vom-mini-table th, .vom-mini-table td {
+    padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,.05);
+    text-align: left; vertical-align: top;
+  }
+  .vom-mini-table th { background: rgba(255,255,255,.04); font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: rgba(255,255,255,.5); }
+  .vom-mini-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .vom-mini-table td.wrap { white-space: normal; word-break: break-word; }
+
+  .vom-expand-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    margin-top: 10px; padding: 6px 12px;
+    background: rgba(52,211,153,.12); border: 1px solid rgba(52,211,153,.25);
+    color: #34D399; font-size: 12px; font-weight: 600;
+    border-radius: 999px; cursor: pointer;
+    font-family: inherit;
+  }
+  .vom-expand-chip:active { background: rgba(52,211,153,.22); }
+
+  .vom-kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }
+  .vom-kpi { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.06); border-radius: 8px; padding: 8px 10px; }
+  .vom-kpi-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: rgba(255,255,255,.45); margin-bottom: 2px; }
+  .vom-kpi-value { font-size: 15px; font-weight: 600; color: #F9FAFB; font-variant-numeric: tabular-nums; }
+
+  .vom-chip-row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .vom-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 12px;
+    background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.10);
+    color: rgba(255,255,255,.78);
+    font-size: 12px; font-weight: 500;
+    border-radius: 999px; cursor: pointer;
+    font-family: inherit;
+  }
+  .vom-chip:active { background: rgba(255,255,255,.10); }
+  .vom-chip-count { background: rgba(52,211,153,.20); color: #34D399; padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+
+  .vom-error {
+    display: none;
+    margin-top: 14px; padding: 12px 14px;
+    border-radius: 12px;
+    background: rgba(220,38,38,.12); border: 1px solid rgba(248,113,113,.45);
+    color: #FCA5A5; font-size: 13.5px;
+  }
+  #voMobile.state-error .vom-error { display: block; }
+
+  /* Bottom bar */
+  .vom-bottom {
+    position: fixed; left: 0; right: 0; bottom: 0;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 24px;
+    background: rgba(10,10,10,.92);
+    backdrop-filter: blur(8px);
+    border-top: 1px solid rgba(255,255,255,.06);
+    z-index: 6;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  }
+  .vom-bottom-btn {
+    width: 44px; height: 44px; border-radius: 50%;
+    border: 1px solid rgba(255,255,255,.10);
+    background: rgba(255,255,255,.04);
+    color: rgba(255,255,255,.78); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .vom-bottom-btn:active { background: rgba(255,255,255,.10); transform: scale(.95); }
+  .vom-mic {
+    width: 64px; height: 64px; border-radius: 50%;
+    border: none; background: linear-gradient(135deg, #34D399, #10A37F);
+    color: #fff; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 6px 20px rgba(16,163,127,.4);
+    transition: transform .15s, box-shadow .15s, background .25s;
+  }
+  .vom-mic:active { transform: scale(.94); }
+  #voMobile.state-recording .vom-mic {
+    background: linear-gradient(135deg, #F87171, #DC2626);
+    box-shadow: 0 6px 20px rgba(220,38,38,.5);
+    animation: vomMicPulse 1.4s ease-in-out infinite;
+  }
+  @keyframes vomMicPulse { 0%,100% { box-shadow: 0 6px 20px rgba(220,38,38,.5), 0 0 0 0 rgba(220,38,38,.55); } 60% { box-shadow: 0 6px 20px rgba(220,38,38,.5), 0 0 0 18px rgba(220,38,38,0); } }
+  #voMobile.state-processing .vom-mic { background: rgba(255,255,255,.10); cursor: wait; }
+
+  /* Keyboard panel */
+  .vom-kb-panel {
+    position: fixed; left: 0; right: 0; bottom: 0;
+    transform: translateY(100%);
+    background: #0a0a0a; border-top: 1px solid rgba(255,255,255,.10);
+    padding: 14px 16px calc(14px + env(safe-area-inset-bottom));
+    z-index: 7;
+    transition: transform .25s ease;
+  }
+  .vom-kb-panel.open { transform: translateY(0); }
+  .vom-kb-input {
+    width: 100%; min-height: 60px; max-height: 140px; resize: none;
+    background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.12);
+    border-radius: 10px; padding: 10px 12px;
+    color: #f5f5f5; font-size: 14px; font-family: inherit;
+    outline: none;
+  }
+  .vom-kb-input:focus { border-color: #34D399; }
+  .vom-kb-row { display: flex; gap: 10px; justify-content: flex-end; margin-top: 10px; }
+  .vom-kb-cancel, .vom-kb-send {
+    padding: 10px 18px; border-radius: 10px;
+    font-size: 13.5px; font-weight: 600; font-family: inherit;
+    cursor: pointer; border: 1px solid transparent;
+  }
+  .vom-kb-cancel { background: rgba(255,255,255,.06); color: rgba(255,255,255,.78); border-color: rgba(255,255,255,.12); }
+  .vom-kb-send   { background: linear-gradient(135deg, #34D399, #10A37F); color: #fff; }
+
+  /* Fullscreen sheets */
+  .vom-sheet {
+    position: fixed; inset: 0;
+    background: #0a0a0a; color: #f5f5f5;
+    z-index: 8;
+    transform: translateY(100%);
+    transition: transform .28s ease;
+    display: flex; flex-direction: column;
+  }
+  .vom-sheet.open { transform: translateY(0); }
+  .vom-sheet-header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(255,255,255,.06);
+    flex-shrink: 0;
+  }
+  .vom-sheet-title { font-size: 15px; font-weight: 600; }
+  .vom-sheet-body {
+    flex: 1; overflow-y: auto;
+    padding: 14px 16px calc(40px + env(safe-area-inset-bottom));
+  }
+  .vom-sheet-body .vom-sql-card,
+  .vom-sheet-body .vom-data-card { margin-bottom: 12px; }
+  .vom-sql-card {
+    background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.07);
+    border-radius: 10px; padding: 11px 13px;
+  }
+  .vom-sql-tool { display: flex; justify-content: space-between; margin-bottom: 6px; }
+  .vom-sql-toolname { font-size: 11.5px; font-weight: 600; color: #34D399; font-family: 'JetBrains Mono', ui-monospace, monospace; }
+  .vom-sql-meta { font-size: 10.5px; color: rgba(255,255,255,.4); font-family: 'JetBrains Mono', ui-monospace, monospace; }
+  .vom-sql-text {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11px; line-height: 1.5;
+    color: rgba(255,255,255,.78);
+    background: rgba(0,0,0,.4); border: 1px solid rgba(255,255,255,.05);
+    border-radius: 6px; padding: 8px 10px;
+    white-space: pre-wrap; word-break: break-word;
+    max-height: 320px; overflow-y: auto;
+    scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.18) transparent;
+  }
+  .vom-full-table { width: 100%; border-collapse: collapse; font-size: 12.5px; color: #E5E7EB; }
+  .vom-full-table th, .vom-full-table td { padding: 7px 10px; border-bottom: 1px solid rgba(255,255,255,.05); text-align: left; vertical-align: top; }
+  .vom-full-table th { background: rgba(255,255,255,.04); font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: rgba(255,255,255,.5); position: sticky; top: 0; }
+  .vom-full-table td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .vom-full-table td.wrap { white-space: normal; word-break: break-word; }
+
+  @media (prefers-reduced-motion: reduce) {
+    #voMobile.state-empty .vom-orb,
+    #voMobile.state-processing .vom-orb,
+    #voMobile.state-recording .vom-mic { animation: none !important; }
+  }
 }
 .ai-panel-footer {
   margin-top: 8px;
@@ -7343,6 +7755,586 @@ body.emp-dark .ai-bubble .ai-bq { border-left-color: #374151; color: #9CA3AF; }
     });
 
     // Focus ring handled by CSS :focus-within on .ai-panel-input-wrap
+
+    // ============================================================================
+    // ===== Mobile Voice Cockpit (≤767px) ========================================
+    // Single-screen voice-first surface. Tap mic to record, tap to stop, then
+    // streaming reply renders in-line, orb shrinks to top-left. SQL trace +
+    // full data tables open as fullscreen sheets via chips. Keyboard icon is a
+    // text fallback. Recent questions persisted to localStorage.
+    // ============================================================================
+    var VOM_RECENT_KEY = 'nlpl_ai_recent_v1';
+    var VOM_RECENT_MAX = 8;
+    var _vomState = {
+      sqlCards: [],     // accumulated SQL events for the current turn
+      dataCards: [],    // {toolName, args, result} for fullscreen expand
+      finalized: false,
+      replyBuf: '',
+      transcript: '',
+      audio: null,
+      ctrl: null,
+      gen: 0,
+      activeSheet: null, // 'sql' | 'table' | null
+      kbOpen: false,
+    };
+
+    function _vomIsMobile() {
+      try { return window.matchMedia('(max-width: 767px)').matches; }
+      catch (_) { return window.innerWidth <= 767; }
+    }
+    function _vomEl(id) { return document.getElementById(id); }
+    function _vomSetState(s) {
+      var root = _vomEl('voMobile');
+      if (!root) return;
+      root.classList.remove('state-empty', 'state-recording', 'state-processing', 'state-chat', 'state-error');
+      root.classList.add('state-' + s);
+    }
+    function _vomLoadRecent() {
+      try { return JSON.parse(localStorage.getItem(VOM_RECENT_KEY) || '[]') || []; }
+      catch (_) { return []; }
+    }
+    function _vomSaveRecent(q) {
+      try {
+        var s = String(q || '').trim();
+        if (!s) return;
+        var list = _vomLoadRecent().filter(function (x) { return x !== s; });
+        list.unshift(s);
+        if (list.length > VOM_RECENT_MAX) list.length = VOM_RECENT_MAX;
+        localStorage.setItem(VOM_RECENT_KEY, JSON.stringify(list));
+      } catch (_) {}
+    }
+    function _vomRenderRecent() {
+      var box = _vomEl('vomRecentList');
+      if (!box) return;
+      var list = _vomLoadRecent();
+      if (!list.length) {
+        box.innerHTML = '<div class="vom-recent-empty">No questions yet — your past asks will show up here.</div>';
+        return;
+      }
+      box.innerHTML = list.map(function (q) {
+        return '<button class="vom-recent-item" data-q="' + esc(q) + '">'
+          + '<span>' + esc(q) + '</span>'
+          + '<svg class="vom-recent-item-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>'
+          + '</button>';
+      }).join('');
+      Array.prototype.forEach.call(box.querySelectorAll('.vom-recent-item'), function (btn) {
+        btn.addEventListener('click', function () {
+          var q = btn.getAttribute('data-q') || '';
+          if (q) _vomSendText(q);
+        });
+      });
+    }
+
+    // ── Open / close ───────────────────────────────────────────────────
+    window._vomOpen = function () {
+      var root = _vomEl('voMobile');
+      if (!root) return;
+      root.classList.add('open');
+      root.setAttribute('aria-hidden', 'false');
+      _vomSetState('empty');
+      _vomResetCockpit();
+      _vomRenderRecent();
+    };
+    window._vomClose = function () {
+      _vomState.gen++;
+      try { if (_vomState.ctrl) _vomState.ctrl.abort(); } catch (_) {}
+      _vomState.ctrl = null;
+      try { if (_vomState.audio) _vomState.audio.pause(); } catch (_) {}
+      _vomState.audio = null;
+      // Tear down recording machinery (reuse desktop's _vo).
+      try { _voStopRecording(true); } catch (_) {}
+      var root = _vomEl('voMobile');
+      if (root) {
+        root.classList.remove('open');
+        root.setAttribute('aria-hidden', 'true');
+      }
+      _vomCloseSheet('sql'); _vomCloseSheet('table');
+      _vomKbClose();
+    };
+    function _vomResetCockpit() {
+      _vomState.sqlCards = [];
+      _vomState.dataCards = [];
+      _vomState.finalized = false;
+      _vomState.replyBuf = '';
+      _vomState.transcript = '';
+      var t = _vomEl('vomTranscript'); if (t) t.textContent = '';
+      var r = _vomEl('vomReply');      if (r) r.textContent = '';
+      var dc = _vomEl('vomDataCards'); if (dc) dc.innerHTML = '';
+      var st = _vomEl('vomStatus');    if (st) { st.classList.remove('show'); st.textContent = ''; }
+      var err = _vomEl('vomError');    if (err) err.textContent = '';
+      var chip = _vomEl('vomSqlChip'); if (chip) chip.hidden = true;
+      var cnt = _vomEl('vomSqlCount'); if (cnt) cnt.textContent = '0';
+    }
+
+    // ── Recording (re-uses desktop _vo plumbing) ─────────────────────────
+    window._vomMicTap = function () {
+      var root = _vomEl('voMobile');
+      if (!root) return;
+      var state = (root.className.match(/state-(\w+)/) || [, ''])[1];
+      if (state === 'empty' || state === 'chat' || state === 'error') {
+        _vomStartRecording();
+      } else if (state === 'recording') {
+        try { _vo.rec.stop(); } catch (_) {} // triggers _vom recording-finished branch via onstop
+      }
+      // processing: ignore tap
+    };
+    async function _vomStartRecording() {
+      _vomResetCockpit();
+      _vomSetState('recording');
+      _vo.mobile = true; // route the SSE consumer below
+      // Mirror desktop _voStartRecording but skip its DOM setup. Inline mic
+      // capture so we don't depend on the desktop overlay being open.
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        return _vomFatal('Microphone not supported in this browser.');
+      }
+      try {
+        _vo.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (e) {
+        return _vomFatal('Mic access denied: ' + (e.message || e));
+      }
+      try {
+        _vo.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        var src = _vo.audioCtx.createMediaStreamSource(_vo.stream);
+        _vo.analyser = _vo.audioCtx.createAnalyser();
+        _vo.analyser.fftSize = 64;
+        src.connect(_vo.analyser);
+      } catch (_) { _vo.analyser = null; }
+      var mime = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm'
+               : MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : '';
+      _vo.rec = new MediaRecorder(_vo.stream, mime ? { mimeType: mime } : undefined);
+      _vo.chunks = [];
+      _vo.rec.ondataavailable = function (e) { if (e.data && e.data.size) _vo.chunks.push(e.data); };
+      _vo.rec.onstop = function () {
+        var blob = new Blob(_vo.chunks, { type: mime || 'audio/webm' });
+        _vomSendVoice(blob);
+      };
+      _vo.rec.start();
+      _vomTickBars();
+    }
+    function _vomTickBars() {
+      var root = _vomEl('voMobile');
+      if (!root || !root.classList.contains('state-recording') || !_vo.analyser) return;
+      var bars = root.querySelectorAll('.vom-bars span');
+      var n = _vo.analyser.frequencyBinCount;
+      var data = new Uint8Array(n);
+      _vo.analyser.getByteFrequencyData(data);
+      var per = Math.max(1, Math.floor(n / 4));
+      for (var b = 0; b < 4; b++) {
+        var sum = 0;
+        for (var i = b * per; i < (b + 1) * per; i++) sum += data[i] || 0;
+        var lvl = sum / per / 255;
+        if (bars[b]) bars[b].style.height = (24 + lvl * 60) + 'px';
+      }
+      requestAnimationFrame(_vomTickBars);
+    }
+
+    function _vomFatal(msg) {
+      _vomSetState('error');
+      var err = _vomEl('vomError'); if (err) err.textContent = msg;
+    }
+
+    function _vomSendVoice(blob) {
+      // Tear down audio capture; switch to processing state.
+      if (_vo.stream) { _vo.stream.getTracks().forEach(function (t) { try { t.stop(); } catch (_) {} }); _vo.stream = null; }
+      if (_vo.audioCtx) { try { _vo.audioCtx.close(); } catch (_) {} _vo.audioCtx = null; }
+      _vo.analyser = null;
+      _vomSetState('processing');
+      _vomShowStatus('Transcribing audio…');
+
+      var session = (typeof getEmployeeSession === 'function') ? getEmployeeSession() : {};
+      var fd = new FormData();
+      fd.append('audio', blob, 'rec.webm');
+      if (session.role) fd.append('role', session.role);
+      if (session.location) fd.append('location', session.location);
+
+      _vomState.gen++;
+      var myGen = _vomState.gen;
+      var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+      _vomState.ctrl = ctrl;
+
+      fetch('/api/voice-stream', { method: 'POST', body: fd, signal: ctrl ? ctrl.signal : undefined })
+        .then(function (r) {
+          if (!r.ok || !r.body) return r.text().then(function (t) { throw new Error(t || ('HTTP ' + r.status)); });
+          return _vomConsumeSse(r, myGen);
+        })
+        .catch(function (e) { _vomCatch(e, myGen); });
+    }
+
+    function _vomSendText(msg) {
+      msg = String(msg || '').trim();
+      if (!msg) return;
+      _vomResetCockpit();
+      _vomSetState('processing');
+      _vomShowStatus('Thinking…');
+      _vomState.transcript = msg;
+      var t = _vomEl('vomTranscript'); if (t) t.textContent = msg;
+
+      var session = (typeof getEmployeeSession === 'function') ? getEmployeeSession() : {};
+      _vomState.gen++;
+      var myGen = _vomState.gen;
+      var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+      _vomState.ctrl = ctrl;
+
+      fetch('/api/ai-chat-stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: [{ role: 'user', content: msg }], role: session.role || '', location: session.location || '' }),
+        signal: ctrl ? ctrl.signal : undefined
+      })
+        .then(function (r) {
+          if (!r.ok || !r.body) return r.text().then(function (t) { throw new Error(t || ('HTTP ' + r.status)); });
+          return _vomConsumeSse(r, myGen);
+        })
+        .catch(function (e) { _vomCatch(e, myGen); });
+
+      // Save question to recent (regardless of outcome — they asked it).
+      _vomSaveRecent(msg);
+    }
+
+    function _vomConsumeSse(r, myGen) {
+      var reader = r.body.getReader();
+      var decoder = new TextDecoder();
+      var pending = '';
+      function alive() { return myGen === _vomState.gen; }
+      function pump() {
+        return reader.read().then(function (rd) {
+          if (rd.done) {
+            if (!_vomState.finalized && alive()) {
+              if (_vomState.replyBuf) {
+                _vomState.finalized = true;
+                _vomEnterChatState();
+              } else {
+                _vomFatal('Stream ended unexpectedly. Tap mic to retry.');
+              }
+            }
+            return;
+          }
+          pending += decoder.decode(rd.value, { stream: true });
+          var parts = pending.split('\n\n');
+          pending = parts.pop();
+          parts.forEach(function (chunk) {
+            var ev = 'message', data = '';
+            chunk.split('\n').forEach(function (line) {
+              if (line.indexOf('event:') === 0) ev = line.slice(6).trim();
+              else if (line.indexOf('data:') === 0) data += line.slice(5).trim();
+            });
+            if (alive()) _vomApply(ev, data);
+          });
+          return pump();
+        });
+      }
+      return pump();
+    }
+
+    function _vomCatch(e, myGen) {
+      if (myGen !== _vomState.gen) return;
+      if (_vomState.finalized) return;
+      if (_vomState.replyBuf && _vomState.replyBuf.length > 0) {
+        _vomState.finalized = true;
+        _vomEnterChatState();
+        return;
+      }
+      if (e && (e.name === 'AbortError' || /aborted/i.test(String(e.message || '')))) return;
+      _vomFatal('Voice failed: ' + (e.message || 'network error') + '. Tap mic to retry.');
+    }
+
+    function _vomApply(event, dataStr) {
+      var data = {};
+      try { data = JSON.parse(dataStr); } catch (_) {}
+      if (event === 'open' || event === 'thinking') {
+        _vomShowStatus('Thinking…');
+      } else if (event === 'stage') {
+        if (data.stage === 'stt') _vomShowStatus('Transcribing audio…');
+        else if (data.stage === 'thinking') _vomShowStatus('Reasoning + planning DB queries…');
+        else if (data.stage === 'tts') _vomShowStatus('Synthesising voice…');
+      } else if (event === 'transcript') {
+        _vomState.transcript = data.text || '';
+        var t = _vomEl('vomTranscript'); if (t) t.textContent = _vomState.transcript;
+        if (_vomState.transcript) _vomSaveRecent(_vomState.transcript);
+      } else if (event === 'tools') {
+        _vomShowStatus('Querying ' + (data.names || []).join(', ') + '…');
+      } else if (event === 'tool_result') {
+        _vomState.sqlCards.push({ name: data.name, queries: data.queries || [] });
+        _vomState.dataCards.push({ name: data.name, args: data.args || {}, result: data.result });
+        _vomRefreshSqlChip();
+        _vomAppendDataCard(data.name, data.args || {}, data.result);
+      } else if (event === 'fallback') {
+        _vomShowStatus('Switching providers…');
+      } else if (event === 'reply') {
+        _vomState.replyBuf = data.text || '';
+        var rb = _vomEl('vomReply'); if (rb) rb.textContent = _vomState.replyBuf;
+        _vomEnterChatState();
+      } else if (event === 'delta') {
+        _vomState.replyBuf += (data.text || '');
+        var rb2 = _vomEl('vomReply'); if (rb2) rb2.textContent = _vomState.replyBuf;
+        _vomEnterChatState();
+      } else if (event === 'audio') {
+        try {
+          _vomState.audio = new Audio('data:' + (data.mime || 'audio/mp3') + ';base64,' + data.data);
+          _vomState.audio.play().catch(function () {});
+        } catch (_) {}
+      } else if (event === 'done') {
+        _vomState.finalized = true;
+        _vomShowStatus('');
+        _vomEnterChatState();
+      } else if (event === 'error') {
+        if (_vomState.finalized) return;
+        _vomFatal(data.message || 'Voice failed.');
+      }
+    }
+
+    function _vomEnterChatState() {
+      _vomSetState('chat');
+      _vomShowStatus('');
+    }
+    function _vomShowStatus(text) {
+      var st = _vomEl('vomStatus');
+      if (!st) return;
+      if (!text) { st.classList.remove('show'); st.textContent = ''; return; }
+      st.textContent = text; st.classList.add('show');
+    }
+    function _vomRefreshSqlChip() {
+      var chip = _vomEl('vomSqlChip');
+      var cnt = _vomEl('vomSqlCount');
+      var total = _vomState.sqlCards.reduce(function (s, c) { return s + (c.queries ? c.queries.length : 0); }, 0);
+      if (chip) chip.hidden = total === 0;
+      if (cnt) cnt.textContent = String(total);
+    }
+
+    // ── Data card rendering (mobile) ─────────────────────────────────────
+    function _vomAppendDataCard(toolName, args, result) {
+      var box = _vomEl('vomDataCards'); if (!box) return;
+      var card = document.createElement('div');
+      card.className = 'vom-data-card';
+      var argSummary = '';
+      try {
+        var compact = {};
+        Object.keys(args || {}).forEach(function (k) { if (args[k] != null && args[k] !== '') compact[k] = args[k]; });
+        argSummary = Object.keys(compact).length ? JSON.stringify(compact) : '';
+      } catch (_) {}
+      var head = '<div class="vom-data-head">'
+        + '<span class="vom-data-title">' + esc(toolName) + '</span>'
+        + (argSummary ? '<span class="vom-data-args">' + esc(argSummary) + '</span>' : '')
+        + '</div>';
+
+      var body = _vomRenderResult(result, /*compact*/ true);
+      var fullCount = _vomCountRows(result);
+      var expand = (fullCount > 3)
+        ? '<button class="vom-expand-chip" data-idx="' + (_vomState.dataCards.length - 1) + '">'
+          + '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>'
+          + 'Expand all ' + fullCount + ' rows'
+          + '</button>'
+        : '';
+      card.innerHTML = head + body + expand;
+      box.appendChild(card);
+      var btn = card.querySelector('.vom-expand-chip');
+      if (btn) btn.addEventListener('click', function () {
+        var idx = parseInt(btn.getAttribute('data-idx'), 10);
+        var entry = _vomState.dataCards[idx];
+        if (entry) _vomOpenTable(entry);
+      });
+    }
+
+    function _vomCountRows(result) {
+      if (Array.isArray(result)) return result.length;
+      if (result && typeof result === 'object' && Array.isArray(result.matches)) return result.matches.length;
+      if (Array.isArray(result) && result[0] && (result[0].rows || result[0].source)) {
+        return result.reduce(function (s, b) { return s + ((b.rows || []).length); }, 0);
+      }
+      return 0;
+    }
+
+    function _vomRenderResult(result, compact) {
+      if (result == null) return '<div class="vom-recent-empty" style="padding:8px">No data.</div>';
+      if (typeof result === 'object' && result.error && !result.matches) {
+        return '<div class="vom-recent-empty" style="color:#fca5a5;padding:8px">' + esc(result.error) + '</div>';
+      }
+      if (typeof result === 'object' && Array.isArray(result.matches)) {
+        var note = result.ambiguous
+          ? '<div style="font-size:11px;color:#fbbf24;margin-bottom:6px">Ambiguous — ' + (result.count || result.matches.length) + ' candidates.</div>'
+          : '';
+        var rows = compact ? result.matches.slice(0, 3) : result.matches;
+        return note + _vomRenderTable(rows);
+      }
+      if (Array.isArray(result)) {
+        if (!result.length) return '<div class="vom-recent-empty" style="padding:8px">No rows.</div>';
+        // structured (e.g. daily_reports_query) — flatten labelled blocks
+        if (result[0] && typeof result[0] === 'object' && (result[0].source || result[0].rows)) {
+          return result.map(function (b) {
+            var rs = compact ? (b.rows || []).slice(0, 3) : (b.rows || []);
+            return '<div style="font-size:11px;color:rgba(255,255,255,.5);margin:6px 0 4px">' + esc(b.source || '') + ' · ' + (b.rows || []).length + ' rows</div>'
+              + _vomRenderTable(rs);
+          }).join('');
+        }
+        return _vomRenderTable(compact ? result.slice(0, 3) : result);
+      }
+      if (typeof result === 'object') {
+        return _vomRenderObject(result);
+      }
+      return '<div>' + esc(String(result)) + '</div>';
+    }
+
+    function _vomRenderTable(rows) {
+      if (!Array.isArray(rows) || !rows.length) return '<div class="vom-recent-empty" style="padding:8px">No rows.</div>';
+      var keys = Object.keys(rows[0]).filter(function (k) { return k !== 'mobile' || rows.length === 1; });
+      // drop empty cols
+      keys = keys.filter(function (k) {
+        return rows.some(function (r) { return r[k] != null && r[k] !== ''; });
+      });
+      if (!keys.length) keys = Object.keys(rows[0]);
+      var wrapKeys = ['name', 'full_name', 'address', 'remarks', 'note', 'reason', 'description', 'designation'];
+      var numericKeys = {};
+      keys.forEach(function (k) {
+        numericKeys[k] = rows.every(function (r) {
+          var v = r[k];
+          return v == null || typeof v === 'number' || /^-?\d+(?:\.\d+)?$/.test(String(v));
+        });
+      });
+      var head = '<tr>' + keys.map(function (k) {
+        return '<th class="' + (numericKeys[k] ? 'num' : '') + '">' + esc(k) + '</th>';
+      }).join('') + '</tr>';
+      var body = rows.map(function (row) {
+        return '<tr>' + keys.map(function (k) {
+          var cls = (numericKeys[k] ? 'num' : '') + ' ' + (wrapKeys.indexOf(k) >= 0 ? 'wrap' : '');
+          return '<td class="' + cls.trim() + '">' + _vomCell(k, row[k]) + '</td>';
+        }).join('') + '</tr>';
+      }).join('');
+      return '<table class="vom-mini-table"><thead>' + head + '</thead><tbody>' + body + '</tbody></table>';
+    }
+
+    function _vomRenderObject(obj) {
+      var simple = {}, nestedArr = [], nestedObj = [];
+      Object.keys(obj).forEach(function (k) {
+        var v = obj[k];
+        if (Array.isArray(v) && v.length && typeof v[0] === 'object') nestedArr.push({ k: k, v: v });
+        else if (v && typeof v === 'object') nestedObj.push({ k: k, v: v });
+        else if (v != null) simple[k] = v;
+      });
+      var html = '';
+      if (Object.keys(simple).length) {
+        html += '<div class="vom-kpi-grid">';
+        Object.keys(simple).forEach(function (k) {
+          html += '<div class="vom-kpi"><div class="vom-kpi-label">' + esc(k) + '</div><div class="vom-kpi-value">' + _vomCell(k, simple[k]) + '</div></div>';
+        });
+        html += '</div>';
+      }
+      nestedObj.forEach(function (n) {
+        html += '<div style="margin-top:10px;font-size:11px;color:rgba(255,255,255,.5);font-weight:600;text-transform:uppercase;letter-spacing:.06em">' + esc(n.k) + '</div>';
+        html += _vomRenderObject(n.v);
+      });
+      nestedArr.forEach(function (n) {
+        html += '<div style="margin:10px 0 4px;font-size:11px;color:rgba(255,255,255,.5)">' + esc(n.k) + ' · ' + n.v.length + ' rows</div>';
+        html += _vomRenderTable(n.v.slice(0, 3));
+      });
+      return html;
+    }
+
+    function _vomIsMoneyKey(k) {
+      if (!k) return false;
+      var s = String(k).toLowerCase();
+      if (/_amt$/.test(s)) return true;
+      return ['disb_amount', 'npa_act_amt', 'npa_amount', 'npa_clo_amt', 'total_amount'].indexOf(s) >= 0;
+    }
+    function _vomCell(key, val) {
+      if (val == null) return '<span style="color:rgba(255,255,255,.3)">—</span>';
+      if (typeof val === 'number' || /^-?\d+(?:\.\d+)?$/.test(String(val))) {
+        var num = Number(val);
+        if (_vomIsMoneyKey(key)) {
+          if (Math.abs(num) >= 1e7) return '₹' + (num / 1e7).toFixed(2) + ' Cr';
+          if (Math.abs(num) >= 1e5) return '₹' + (num / 1e5).toFixed(2) + ' L';
+          return '₹' + num.toLocaleString('en-IN');
+        }
+        return num.toLocaleString('en-IN');
+      }
+      var s = String(val);
+      if (s.length > 60) s = s.slice(0, 57) + '…';
+      return esc(s);
+    }
+
+    // ── Fullscreen sheets ────────────────────────────────────────────────
+    window._vomOpenSql = function () {
+      var body = _vomEl('vomSheetSqlBody'); if (!body) return;
+      var n = 0;
+      body.innerHTML = _vomState.sqlCards.map(function (card) {
+        return (card.queries || []).map(function (q) {
+          n++;
+          var sqlText = String(q.sql || '').replace(/\$(\d+)/g, function (_m, num) {
+            var p = (q.params || [])[(+num) - 1];
+            if (p == null) return 'NULL';
+            if (typeof p === 'number') return String(p);
+            return "'" + String(p).replace(/'/g, "''") + "'";
+          });
+          var meta = (q.error ? 'ERR · ' : (q.rowCount != null ? q.rowCount + ' rows · ' : '')) + (q.ms != null ? q.ms + ' ms' : '');
+          return '<div class="vom-sql-card">'
+            + '<div class="vom-sql-tool"><span class="vom-sql-toolname">#' + n + ' ' + esc(card.name || 'tool') + '</span><span class="vom-sql-meta">' + esc(meta) + '</span></div>'
+            + '<div class="vom-sql-text">' + esc(sqlText) + '</div>'
+            + '</div>';
+        }).join('');
+      }).join('');
+      _vomOpenSheet('sql');
+    };
+    function _vomOpenTable(entry) {
+      var titleEl = _vomEl('vomSheetTableTitle');
+      var body = _vomEl('vomSheetTableBody');
+      if (!body) return;
+      if (titleEl) titleEl.textContent = entry.name + (entry.args && Object.keys(entry.args).length ? ' · ' + JSON.stringify(entry.args) : '');
+      body.innerHTML = '<div class="vom-data-card">' + _vomRenderResult(entry.result, /*compact*/ false) + '</div>';
+      // promote to full-table look inside sheet
+      var minis = body.querySelectorAll('.vom-mini-table');
+      Array.prototype.forEach.call(minis, function (t) { t.classList.remove('vom-mini-table'); t.classList.add('vom-full-table'); });
+      _vomOpenSheet('table');
+    }
+    function _vomOpenSheet(kind) {
+      var sheet = _vomEl('vomSheet' + (kind === 'sql' ? 'Sql' : 'Table'));
+      if (sheet) { sheet.classList.add('open'); sheet.setAttribute('aria-hidden', 'false'); }
+      _vomState.activeSheet = kind;
+    }
+    function _vomCloseSheet(kind) {
+      var sheet = _vomEl('vomSheet' + (kind === 'sql' ? 'Sql' : 'Table'));
+      if (sheet) { sheet.classList.remove('open'); sheet.setAttribute('aria-hidden', 'true'); }
+      if (_vomState.activeSheet === kind) _vomState.activeSheet = null;
+    }
+    window._vomCloseSheet = _vomCloseSheet;
+
+    // ── Keyboard fallback ────────────────────────────────────────────────
+    window._vomKbOpen = function () {
+      _vomEl('vomKbPanel').classList.add('open');
+      _vomState.kbOpen = true;
+      setTimeout(function () { var i = _vomEl('vomKbInput'); if (i) i.focus(); }, 60);
+    };
+    function _vomKbClose() {
+      _vomEl('vomKbPanel').classList.remove('open');
+      _vomState.kbOpen = false;
+    }
+    window._vomKbClose = _vomKbClose;
+    window._vomKbSend = function () {
+      var i = _vomEl('vomKbInput'); if (!i) return;
+      var msg = i.value.trim();
+      if (!msg) return;
+      i.value = '';
+      _vomKbClose();
+      _vomSendText(msg);
+    };
+
+    // ── Wire bottom-bar buttons + close + new-chat ───────────────────────
+    document.addEventListener('DOMContentLoaded', function () {
+      var mic = _vomEl('vomMic');           if (mic) mic.addEventListener('click', function () { window._vomMicTap(); });
+      var kb  = _vomEl('vomKeyboard');      if (kb)  kb.addEventListener('click', function () { window._vomKbOpen(); });
+      var nc  = _vomEl('vomNewChat');       if (nc)  nc.addEventListener('click', function () { _vomSetState('empty'); _vomResetCockpit(); _vomRenderRecent(); });
+      var cl  = _vomEl('vomClose');         if (cl)  cl.addEventListener('click', function () { window._vomClose(); });
+    });
+
+    // ── Override desktop entry points to route mobile users to the new UI ──
+    var _origAiOpen = window._aiOpen;
+    var _origAiTalk = window._aiTalk;
+    window._aiOpen = function () {
+      if (_vomIsMobile()) return window._vomOpen();
+      if (typeof _origAiOpen === 'function') return _origAiOpen.apply(this, arguments);
+    };
+    window._aiTalk = function () {
+      if (_vomIsMobile()) return window._vomOpen();
+      if (typeof _origAiTalk === 'function') return _origAiTalk.apply(this, arguments);
+    };
   })();
   </script>
   <style>
