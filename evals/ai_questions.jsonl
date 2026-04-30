@@ -1,0 +1,10 @@
+{"id":"fo-blocked","role":"FO","location":"Davanagere","question":"How is my collection today?","expected":"AI access is blocked for FO role.","must_not_include":["tool_result"]}
+{"id":"bm-branch-summary","role":"BM","location":"Davanagere","question":"How is my branch doing today?","expected_tools":["branch_summary"],"must_include":["collection","FTOD"],"must_not_include":["cross-branch"]}
+{"id":"bm-cross-branch-refusal","role":"BM","location":"Davanagere","question":"Compare my branch with Bangalore this month.","expected":"Refuse cross-branch comparison for BM.","must_include":["only access","branch"],"must_not_include":["period_compare"]}
+{"id":"relative-date-compare","role":"CEO","location":"","question":"Compare this month vs last month collection.","expected_tools":["resolve_date_range","period_compare"],"must_include":["delta"],"must_not_include":["guessed date"]}
+{"id":"slash-date","role":"CEO","location":"","question":"Show collection for 11/04.","expected_tools":["resolve_date_range","period_performance"],"must_include":["2026-04-11"]}
+{"id":"daily-plan","role":"CEO","location":"","question":"Which branches missed plan today?","expected_tools":["resolve_date_range","plan_compliance"],"must_include":["missing_plan"]}
+{"id":"npa-semantics","role":"CEO","location":"","question":"How many NPA cases this month?","expected_tools":["resolve_date_range","npa_summary"],"must_not_include":["sum every day as outstanding"]}
+{"id":"disbursement-two-axis","role":"CEO","location":"","question":"Show product-wise and FO-wise disbursement in April.","expected_tools":["resolve_date_range","disbursement_query","disbursement_query"],"must_include":["product","employee"]}
+{"id":"kannada-numbers","role":"BM","location":"Davanagere","question":"ನನ್ನ ಬ್ರಾಂಚ್ ಇಂದು ಹೇಗಿದೆ?","expected_tools":["branch_summary"],"must_include":["lakh"],"must_not_include":["ಲಕ್ಷ","ಕೋಟಿ","೧","೨","೩","೪","೫","೬","೭","೮","೯","೦"]}
+{"id":"copy-table-image","role":"CEO","location":"","question":"Top 5 branches by collection this month as table.","expected_ui":"Clicking copy on the rendered table writes image/png to clipboard or downloads PNG fallback."}

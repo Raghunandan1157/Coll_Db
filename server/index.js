@@ -5691,7 +5691,7 @@ const AI_SCHEMA_CHEATSHEET = {
 const AI_SNAPSHOT_VERSION = 2;
 
 // Bump when AI prompt or tool surface changes — invalidates aiReplyCache keys.
-const AI_REPLY_CACHE_VERSION = 'v6-ambiguous-entity-lookup';
+const AI_REPLY_CACHE_VERSION = 'v7-date-canonical-kannada-numbers';
 
 // Mistral function-calling tool definitions. The model picks which to call
 // when the bundled ctx isn't enough. Every tool maps to a parameterised SQL
@@ -5985,6 +5985,22 @@ const AI_TOOLS_SPEC = [
   {
     type: 'function',
     function: {
+      name: 'resolve_date_range',
+      description: 'Deterministically converts relative or ambiguous date expressions into ISO YYYY-MM-DD ranges using Asia/Kolkata. Use before any data tool when the user says today, yesterday, this month, last month, this week, last week, FYTD, a bare month, or a spoken/slash date like 11/04.',
+      parameters: {
+        type: 'object',
+        properties: {
+          expression: { type: 'string', description: 'Date phrase to resolve, e.g. today, yesterday, this month, last month, April 11, 11/04, FYTD.' },
+          comparison_expression: { type: 'string', description: 'Optional second phrase for comparisons, e.g. last month.' },
+          anchor_date: { type: 'string', description: 'Optional YYYY-MM-DD override for today. Defaults to current Asia/Kolkata date.' }
+        },
+        required: ['expression']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
       name: 'sql_describe',
       description: 'Returns the schema cheatsheet of all tables/columns the AI can query.',
       parameters: { type: 'object', properties: {} }
@@ -6030,6 +6046,54 @@ function _scopeWhere(session, alias, params) {
   return ` AND UPPER(${alias}) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(${emCol}) ILIKE TRIM($${params.length}))`;
 }
 
+async function resolveCanonicalBranchName(input, session) {
+  const q = String(input || '').trim();
+  if (!q) return { error: 'branch_name required' };
+
+  async function run(whereClause, params) {
+    const scoped = _scopeWhere(session, 'branch_name', params);
+    return safeQuery(
+      `SELECT branch_name,
+              MAX(region_name) AS region,
+              MAX(division_name) AS division,
+              MAX(area_name) AS area,
+              COUNT(*) FILTER (WHERE status='Working')::int AS employee_count
+         FROM employee_master
+        WHERE ${whereClause}
+          ${scoped}
+        GROUP BY branch_name
+        ORDER BY branch_name
+        LIMIT 10`,
+      params,
+      10
+    );
+  }
+
+  let params = [`%${q}%`];
+  let rows = await run('branch_name ILIKE $1', params);
+  if (Array.isArray(rows) && rows.length === 0 && q.length >= 4) {
+    params = [q];
+    rows = await run('similarity(branch_name, $1) > 0.5', params);
+  }
+  if (!Array.isArray(rows)) return rows;
+  if (!rows.length) {
+    const role = String((session && session.role) || '').toUpperCase();
+    const loc = String((session && session.location) || '').trim();
+    if ((role === 'BM' || role === 'ABM' || role === 'BOE') && loc) {
+      return { error: 'scope_violation', message: `${role} can only access ${loc} branch. Asking about "${q}" is not allowed.` };
+    }
+    return { error: 'branch_not_found', message: `No branch matched "${q}". Call find_branch or ask the user to confirm the branch name.` };
+  }
+  const exact = rows.filter((r) => normalizeLookupValue(r.branch_name) === normalizeLookupValue(q));
+  if (exact.length === 1) return { ok: true, branch_name: exact[0].branch_name };
+  if (rows.length === 1) return { ok: true, branch_name: rows[0].branch_name };
+  return {
+    error: 'ambiguous_branch',
+    message: `Multiple branches matched "${q}". Ask the user which branch they mean before querying performance data.`,
+    matches: rows
+  };
+}
+
 function normalizeLookupValue(value) {
   return String(value || '').trim().toLowerCase();
 }
@@ -6049,11 +6113,212 @@ function isExactNameMatch(value, query) {
   return normalizeLookupValue(value) === normalizeLookupValue(query);
 }
 
+function containsKannadaScript(value) {
+  return /[\u0C80-\u0CFF]/.test(String(value || ''));
+}
+
+function normalizeKannadaNumbersForAi(value) {
+  let out = String(value == null ? '' : value);
+  const digitMap = {
+    '೦': '0', '೧': '1', '೨': '2', '೩': '3', '೪': '4',
+    '೫': '5', '೬': '6', '೭': '7', '೮': '8', '೯': '9'
+  };
+  out = out.replace(/[೦-೯]/g, (d) => digitMap[d] || d);
+  if (!containsKannadaScript(out)) return out;
+
+  const replacements = [
+    ['ಕೋಟಿಗಳು', 'crore'], ['ಕೋಟಿ', 'crore'],
+    ['ಲಕ್ಷಗಳು', 'lakh'], ['ಲಕ್ಷ', 'lakh'],
+    ['ಸಾವಿರಗಳು', 'thousand'], ['ಸಾವಿರ', 'thousand'],
+    ['ನೂರು', 'hundred'],
+    ['ರೂಪಾಯಿಗಳು', 'rupees'], ['ರೂಪಾಯಿ', 'rupees'], ['ರೂ.', 'rupees'],
+    ['ಪ್ರತಿಶತ', 'percent'], ['ಶೇಕಡಾ', 'percent'],
+    ['ಶೂನ್ಯ', 'zero'], ['ಒಂದು', 'one'], ['ಎರಡು', 'two'], ['ಮೂರು', 'three'],
+    ['ನಾಲ್ಕು', 'four'], ['ಐದು', 'five'], ['ಆರು', 'six'], ['ಏಳು', 'seven'],
+    ['ಎಂಟು', 'eight'], ['ಒಂಬತ್ತು', 'nine'], ['ಹತ್ತು', 'ten'],
+    ['ಹನ್ನೊಂದು', 'eleven'], ['ಹನ್ನೆರಡು', 'twelve'], ['ಹದಿಮೂರು', 'thirteen'],
+    ['ಹದಿನಾಲ್ಕು', 'fourteen'], ['ಹದಿನೈದು', 'fifteen'], ['ಹದಿನಾರು', 'sixteen'],
+    ['ಹದಿನೇಳು', 'seventeen'], ['ಹದಿನೆಂಟು', 'eighteen'], ['ಹತ್ತೊಂಬತ್ತು', 'nineteen'],
+    ['ಇಪ್ಪತ್ತು', 'twenty'], ['ಮೂವತ್ತು', 'thirty'], ['ನಲವತ್ತು', 'forty'],
+    ['ಐವತ್ತು', 'fifty'], ['ಅರವತ್ತು', 'sixty'], ['ಎಪ್ಪತ್ತು', 'seventy'],
+    ['ಎಂಭತ್ತು', 'eighty'], ['ತೊಂಬತ್ತು', 'ninety']
+  ];
+
+  for (const [kn, en] of replacements) {
+    const escaped = kn.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    out = out.replace(new RegExp('(^|[^\\u0C80-\\u0CFF])' + escaped + '(?=$|[^\\u0C80-\\u0CFF])', 'g'), '$1' + en);
+  }
+  return out;
+}
+
+function makeUtcDate(y, m, d) {
+  return new Date(Date.UTC(y, m - 1, d));
+}
+
+function isoDate(d) {
+  return d.toISOString().slice(0, 10);
+}
+
+function addDays(d, n) {
+  return makeUtcDate(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate() + n);
+}
+
+function monthRange(y, m) {
+  return {
+    start: makeUtcDate(y, m, 1),
+    end: makeUtcDate(y, m + 1, 0),
+  };
+}
+
+function indiaTodayDate(anchorDate) {
+  if (anchorDate && /^\d{4}-\d{2}-\d{2}$/.test(String(anchorDate))) {
+    const [y, m, d] = String(anchorDate).split('-').map(Number);
+    return makeUtcDate(y, m, d);
+  }
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(new Date()).reduce((acc, p) => {
+    if (p.type !== 'literal') acc[p.type] = p.value;
+    return acc;
+  }, {});
+  return makeUtcDate(Number(parts.year), Number(parts.month), Number(parts.day));
+}
+
+function resolveDateRangeExpression(expression, anchorDate) {
+  const today = indiaTodayDate(anchorDate);
+  const fyStartYear = today.getUTCMonth() + 1 >= 4 ? today.getUTCFullYear() : today.getUTCFullYear() - 1;
+  let raw = String(expression || '').trim();
+  let expr = raw.toLowerCase()
+    .replace(/,/g, ' ')
+    .replace(/\b(\d{1,2})(st|nd|rd|th)\b/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!expr) expr = 'today';
+
+  const monthNames = {
+    jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3,
+    apr: 4, april: 4, may: 5, jun: 6, june: 6, jul: 7, july: 7,
+    aug: 8, august: 8, sep: 9, sept: 9, september: 9,
+    oct: 10, october: 10, nov: 11, november: 11, dec: 12, december: 12
+  };
+  const pack = (start, end, label) => ({
+    start_date: isoDate(start),
+    end_date: isoDate(end),
+    label,
+    anchor_date: isoDate(today),
+    timezone: 'Asia/Kolkata'
+  });
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(expr)) {
+    const [y, m, d] = expr.split('-').map(Number);
+    const dt = makeUtcDate(y, m, d);
+    return pack(dt, dt, raw || expr);
+  }
+  if (expr === 'today') return pack(today, today, 'today');
+  if (expr === 'yesterday') {
+    const d = addDays(today, -1);
+    return pack(d, d, 'yesterday');
+  }
+  if (expr === 'this month' || expr === 'current month' || expr === 'mtd') {
+    return pack(makeUtcDate(today.getUTCFullYear(), today.getUTCMonth() + 1, 1), today, 'this month');
+  }
+  if (expr === 'last month' || expr === 'previous month') {
+    const r = monthRange(today.getUTCFullYear(), today.getUTCMonth());
+    return pack(r.start, r.end, 'last month');
+  }
+  if (expr === 'fytd' || expr === 'fy to date' || expr === 'this fy' || expr === 'current fy' || expr === 'this year') {
+    return pack(makeUtcDate(fyStartYear, 4, 1), today, 'FY-to-date');
+  }
+  if (expr === 'this week' || expr === 'current week') {
+    const day = today.getUTCDay() || 7;
+    return pack(addDays(today, 1 - day), today, 'this week');
+  }
+  if (expr === 'last week' || expr === 'previous week') {
+    const day = today.getUTCDay() || 7;
+    const end = addDays(today, -day);
+    return pack(addDays(end, -6), end, 'last week');
+  }
+
+  const slash = expr.match(/^(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?$/);
+  if (slash) {
+    const dd = Number(slash[1]);
+    const mm = Number(slash[2]);
+    let yy = slash[3] ? Number(slash[3]) : (mm >= 4 ? fyStartYear : fyStartYear + 1);
+    if (yy < 100) yy += 2000;
+    const dt = makeUtcDate(yy, mm, dd);
+    return pack(dt, dt, raw);
+  }
+
+  const monthDay = expr.match(/\b([a-z]+)\s+(\d{1,2})\b/) || expr.match(/\b(\d{1,2})\s+([a-z]+)\b/);
+  if (monthDay) {
+    const firstIsMonth = monthNames[monthDay[1]];
+    const mm = firstIsMonth || monthNames[monthDay[2]];
+    const dd = Number(firstIsMonth ? monthDay[2] : monthDay[1]);
+    if (mm && dd) {
+      const yy = mm >= 4 ? fyStartYear : fyStartYear + 1;
+      const dt = makeUtcDate(yy, mm, dd);
+      return pack(dt, dt, raw);
+    }
+  }
+
+  const monthOnly = monthNames[expr];
+  if (monthOnly) {
+    const yy = monthOnly >= 4 ? fyStartYear : fyStartYear + 1;
+    const r = monthRange(yy, monthOnly);
+    return pack(r.start, r.end, raw);
+  }
+
+  return {
+    error: 'unresolved_date_expression',
+    message: `Could not resolve "${raw}". Ask for a concrete date or period.`,
+    anchor_date: isoDate(today),
+    timezone: 'Asia/Kolkata'
+  };
+}
+
 async function dispatchAiTool(name, args, session) {
   args = args || {};
   const lim = Math.min(Math.max(parseInt(args.limit, 10) || 25, 1), 200);
 
   if (name === 'sql_describe') return AI_SCHEMA_CHEATSHEET;
+
+  if (name === 'resolve_date_range') {
+    let expression = String(args.expression || 'today').trim();
+    let comparisonExpression = String(args.comparison_expression || '').trim();
+    if (!comparisonExpression && /\b(vs|versus)\b/i.test(expression)) {
+      const parts = expression.split(/\b(?:vs|versus)\b/i).map((s) => s.trim()).filter(Boolean);
+      if (parts.length >= 2) {
+        expression = parts[0];
+        comparisonExpression = parts.slice(1).join(' ');
+      }
+    }
+    const primary = resolveDateRangeExpression(expression, args.anchor_date);
+    if (comparisonExpression && !primary.error) {
+      const comparison = resolveDateRangeExpression(comparisonExpression, args.anchor_date);
+      if (!comparison.error) {
+        primary.comparison_start_date = comparison.start_date;
+        primary.comparison_end_date = comparison.end_date;
+        primary.comparison_label = comparison.label;
+      } else {
+        primary.comparison_error = comparison;
+      }
+    }
+    return primary;
+  }
+
+  if (args.branch_name && name !== 'find_branch') {
+    const resolved = await resolveCanonicalBranchName(args.branch_name, session);
+    if (!resolved || resolved.error) return resolved;
+    args = { ...args, branch_name: resolved.branch_name };
+  }
+  if (name === 'period_compare' && String(args.scope || '').toLowerCase() === 'branch' && args.scope_value) {
+    const resolved = await resolveCanonicalBranchName(args.scope_value, session);
+    if (!resolved || resolved.error) return resolved;
+    args = { ...args, scope_value: resolved.branch_name };
+  }
 
   // Hard scope guard — BM/ABM/BOE may only query their own branch.
   // Block before any DB call so the model sees a clear refusal it can relay.
@@ -7534,13 +7799,13 @@ app.post('/api/voice', voiceUpload.single('audio'), requireAiAccess, async (req,
     if (!transcript) {
       return res.json({ transcript: '', reply: '', audio_b64: null, note: 'no_speech_detected' });
     }
-    let systemText = `You are the NLPL Dashboard AI Assistant. LANGUAGE: detect the language the user spoke in (English or Kannada) and reply in the SAME language. If the user spoke Kannada, reply in Kannada (ಕನ್ನಡ script). If the user spoke English, reply in English. If mixed, follow the dominant language. Reply in under 50 words, conversational tone (this will be spoken aloud). Use Indian number format with the words "crore" / "lakh" in English ("12 crore 34 lakh") or "ಕೋಟಿ" / "ಲಕ್ಷ" in Kannada ("12 ಕೋಟಿ 34 ಲಕ್ಷ"). Quote numbers only from the data below; if missing say "data not available" / "ಲಭ್ಯವಿಲ್ಲ". Never mention the words "snapshot" or "data block".`;
+    let systemText = `You are the NLPL Dashboard AI Assistant. LANGUAGE: detect the language the user spoke in (English or Kannada) and reply in the SAME language. If the user spoke Kannada, reply in Kannada (ಕನ್ನಡ script). If the user spoke English, reply in English. If mixed, follow the dominant language. Reply in under 50 words, conversational tone (this will be spoken aloud). In Kannada replies, ALL numbers, percentages, dates, currency values, and number unit words must stay in English digits/English words: "12.34 crore", "5.6 lakh", "45%", "2026-05-01". Do not use Kannada digits or Kannada number words. Quote numbers only from the data below; if missing say "data not available" / "ಲಭ್ಯವಿಲ್ಲ". Never mention the words "snapshot" or "data block".`;
     try {
       const ctx = await buildDataContext(session);
       const summary = ctx.summary_text || JSON.stringify(ctx).slice(0, 6000);
       systemText += `\n\nToday: ${ctx.now}. Scope: ${role && location ? `${role} ${location}` : 'CEO (all)'}.\n\nDATA:\n${summary}`;
     } catch (_) {}
-    const reply = await openaiChat(systemText, transcript);
+    const reply = normalizeKannadaNumbersForAi(await openaiChat(systemText, transcript));
     let audioB64 = null;
     try {
       const buf = await openaiTts(reply);
@@ -7662,7 +7927,7 @@ app.post('/api/voice-stream', aiLimiter, voiceUpload.single('audio'), requireAiA
         '  - ಬೆಂಗಳೂರು → "Bangalore"      (find_branch query)',
         '  - ಕಲಬುರಗಿ → "Kalaburagi"      (region_name)',
         'Searching the DB with Kannada script will return ZERO rows. Always transliterate the entity name to English before the tool call. The reply text itself stays in Kannada.',
-        '- Numbers in Indian format ("12.34 Cr" / "5.6 L" in English; "12.34 ಕೋಟಿ" / "5.6 ಲಕ್ಷ" in Kannada).',
+        '- In Kannada replies, ALL numbers, percentages, dates, currency values, and number unit words stay in English digits/English words: "12.34 crore", "5.6 lakh", "45%", "2026-05-01". Do not use Kannada digits or Kannada number words.',
         '',
         '## Voice mode rules',
         '- This reply will be spoken aloud. Keep it under 60 words, conversational, no markdown.',
@@ -7670,7 +7935,7 @@ app.post('/api/voice-stream', aiLimiter, voiceUpload.single('audio'), requireAiA
         '- The companion screen shows the raw rows you fetch — you do not need to dictate every value, just the highlight + interpretation.',
         '',
         '## Tools available — CALL THESE for any specifics',
-        '- find_employee, employee_performance, find_branch, period_performance, top_performers, disbursement_query, list_hierarchy, list_employees, headcount, npa_summary, daily_reports_query, branch_summary, hourly_collection, collection_drilldown, period_compare, plan_compliance, sql_describe',
+        '- resolve_date_range, find_employee, employee_performance, find_branch, period_performance, top_performers, disbursement_query, list_hierarchy, list_employees, headcount, npa_summary, daily_reports_query, branch_summary, hourly_collection, collection_drilldown, period_compare, plan_compliance, sql_describe',
         '',
         '## Critical tool routing',
         '- "How is my branch doing today / how is <branch> doing / branch health / give me a summary of <branch> / end-of-day rollup" → call `branch_summary()` (BM/ABM/BOE pass NO args — auto-resolves; CEO/RM/DM/AM pass branch_name). Returns headcount + collection (today/MTD/FYTD) + NPA + disbursement + FTOD + DPD plan-vs-actual in ONE call. Don\'t chain 5 separate tools for this.',
@@ -7699,6 +7964,7 @@ app.post('/api/voice-stream', aiLimiter, voiceUpload.single('audio'), requireAiA
         '- For collection/demand metrics → call period_performance.',
         '- For FTOD specifically: also fetch demand and collection so the user sees demand + collection + FTOD together (FTOD = demand - collection).',
         '- For comparison questions (vs last month, top N, etc.) → call period_performance or top_performers.',
+        '- For any relative, spoken, slash-format, or comparison date phrase ("today", "yesterday", "11/04", "April 11", "this month", "last month"), call `resolve_date_range` first and pass its ISO dates to data tools.',
         '- "this month" → first of current month → today. "last month" → prior calendar month full range.',
         '- If a tool returns 0 rows for the requested period, IMMEDIATELY retry with the previous month, then the previous quarter, until you find data. Then tell the user "no data for {requested period}; latest available is {found period}". Do NOT just say "no data" without trying nearby periods.',
         '- If the at-a-glance JSON below has the answer for a trivial single number, you may quote it directly. For everything else, CALL A TOOL.',
@@ -7798,7 +8064,7 @@ app.post('/api/voice-stream', aiLimiter, voiceUpload.single('audio'), requireAiA
       return finish();
     }
 
-    const reply = result.text;
+    const reply = normalizeKannadaNumbersForAi(result.text);
     send('reply', { text: reply });
 
     // Emit `done` BEFORE TTS so the cockpit unblocks immediately — user
@@ -7941,7 +8207,7 @@ async function runMistralWithTools(messages, session, maxRounds, onProgress) {
     const calls = Array.isArray(msg.tool_calls) ? msg.tool_calls : null;
     if (!calls || !calls.length) {
       console.log(`[ai-tools] round ${round + 1}/${max} done (text len ${(msg.content || '').length})`);
-      return { ok: true, text: msg.content || '' };
+      return { ok: true, text: normalizeKannadaNumbersForAi(msg.content || '') };
     }
     console.log(`[ai-tools] round ${round + 1}/${max} calling ${calls.length} tool(s): ${calls.map(c => c?.function?.name).join(', ')}`);
     if (emit) emit({ type: 'tools', names: calls.map(c => c?.function?.name).filter(Boolean) });
@@ -8052,7 +8318,7 @@ async function runOpenAiWithTools(messages, session, maxRounds, onProgress) {
     const calls = Array.isArray(msg.tool_calls) ? msg.tool_calls : null;
     if (!calls || !calls.length) {
       console.log(`[openai-tools] round ${round + 1}/${max} done (text len ${(msg.content || '').length})`);
-      return { ok: true, text: msg.content || '' };
+      return { ok: true, text: normalizeKannadaNumbersForAi(msg.content || '') };
     }
     console.log(`[openai-tools] round ${round + 1}/${max} calling ${calls.length} tool(s): ${calls.map(c => c?.function?.name).join(', ')}`);
     if (emit) emit({ type: 'tools', names: calls.map(c => c?.function?.name).filter(Boolean) });
@@ -8137,7 +8403,7 @@ async function callGeminiAi(messages) {
         r.end();
       });
       const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (text) return { ok: true, text, model };
+      if (text) return { ok: true, text: normalizeKannadaNumbersForAi(text), model };
       console.error('Gemini model ' + model + ' empty response:', JSON.stringify(result).slice(0, 200));
     } catch (e) {
       console.error('Gemini model ' + model + ' failed:', e.message);
@@ -8206,7 +8472,7 @@ app.post("/api/ai-chat", aiLimiter, requireAiAccess, async (req, res) => {
       '- If the user wrote in Kannada (ಕನ್ನಡ script), reply in Kannada. If in English, reply in English.',
       '- If the user mixed both, follow the dominant language.',
       '- **DATABASE IS ENGLISH-ONLY.** All identifiers (employee names, branch names, regions) are stored in Latin script. When the user names an entity in Kannada, transliterate it to English BEFORE calling any tool: ರಘುನಂದನ್ → "Raghunandan", ದಾವಣಗೆರೆ → "Davanagere", ಬೆಂಗಳೂರು → "Bangalore", ಕಲಬುರಗಿ → "Kalaburagi". Searching the DB with Kannada script returns 0 rows. The reply text stays in Kannada.',
-      '- Numbers in Indian format ("12.34 Cr" / "₹5.6 L" in English; "12.34 ಕೋಟಿ" / "5.6 ಲಕ್ಷ" in Kannada).',
+      '- In Kannada replies, ALL numbers, percentages, dates, currency values, and number unit words stay in English digits/English words: "12.34 crore", "5.6 lakh", "45%", "2026-05-01". Do not use Kannada digits or Kannada number words.',
       '- Technical column names (regular_demand, FTOD, NPA, etc.) stay in English even in Kannada replies.',
       '',
       '## Database tables you can query (via tools below)',
@@ -8231,6 +8497,7 @@ app.post("/api/ai-chat", aiLimiter, requireAiAccess, async (req, res) => {
       'Collection % = regular_collection / regular_demand × 100 (count ratio, dimensionless).',
       '',
       '## Tools available — CALL THESE for any specifics not in the at-a-glance JSON',
+      '- resolve_date_range(expression, comparison_expression?, anchor_date?) — converts relative/spoken/slash dates to ISO YYYY-MM-DD using Asia/Kolkata. Use before data tools for today/yesterday/this month/last month/FYTD/11/04/April 11/comparison dates.',
       '- find_employee(query, limit?) — name/mobile/emp_id substring lookup.',
       '- employee_performance(emp_id, start_date?, end_date?) — one employee\'s totals over a period (default = FY-to-date).',
       '- find_branch(query, limit?) — branch name lookup with hierarchy + headcount + perf.',
@@ -8248,6 +8515,7 @@ app.post("/api/ai-chat", aiLimiter, requireAiAccess, async (req, res) => {
       '- sql_describe() — schema cheatsheet refresher.',
       '',
       '## Date range guidance',
+      '- For any relative, spoken, slash-format, or comparison date phrase, call `resolve_date_range` first. Then pass only its ISO start_date/end_date values to downstream tools.',
       `- "today" → ${ctx.now}.`,
       `- "this month" → first of current month → ${ctx.now}.`,
       '- "last month" → first to last of prior month.',
@@ -8282,7 +8550,7 @@ app.post("/api/ai-chat", aiLimiter, requireAiAccess, async (req, res) => {
       '- **top_performers ranks EMPLOYEES, not branches.** For "top N branches by collection / demand / disbursement / NPA", call `period_performance(group_by=\'branch\', start_date, end_date)` and sort/pick top N yourself. NEVER label disbursement_query rows as collection (or vice versa).',
       '- **Never relabel one tool\'s output as a different metric.** If the user asked for collection and you only fetched disbursement, fetch collection — do not rename columns.',
       '- **Never fabricate totals.** When summarising tool rows, your reply must either (a) sum ALL returned rows accurately, or (b) explicitly say "showing first N of M — total is X" using the actual sum. Never invent a total that doesn\'t match the rows shown.',
-      '- **find_branch / find_employee FIRST when user names an entity.** Use the canonical branch_name / emp_id from the result in every downstream tool. Never pass spoken/typed name straight into disbursement_query / period_performance / daily_reports_query.',
+      '- **find_branch / find_employee FIRST when user names an entity.** Use the canonical branch_name / emp_id from the result in every downstream tool. The server also canonicalizes branch_name, but you must still resolve ambiguous branches before answering.',
       '- **BM/ABM/BOE cross-branch compare = REFUSE.** If a Branch Manager / Assistant BM / Branch Ops Exec asks to compare their branch with ANY other named branch ("compare my branch to Bangalore"), REFUSE BEFORE calling period_compare. Reply: "You can only access <own branch>. Cross-branch comparisons require RM or CEO access." NEVER call period_compare with own-branch as scope_value for both windows — that silently produces a fake-parity comparison.',
       '- **regular_demand / regular_collection are COUNTS, not money.** Even when narrating branch_summary or period_compare results, format these as plain Indian-comma numbers (e.g. "1,335 collection accounts"), NOT ₹ / L / Cr. Only columns ending in `_amt` and {disb_amount, npa_act_amt, npa_amount, npa_clo_amt} are money.',
       '- **Multi-employee period queries: ONE call, not N.** When the user asks for a LIST or TABLE of multiple employees with their performance over a period (e.g. "every FO in <branch> with their April collection", "show all my staff and their collection"), call `top_performers(metric=\'collection\', branch_name=<scope>, role=<role-if-named>, start_date, end_date, limit=200)` ONCE — top_performers ALSO accepts role/branch/area/division/region filters and returns the full leaderboard. Or `period_performance(group_by=\'employee\', branch_name=<scope>, start_date, end_date)` if no role filter. NEVER call `list_employees` then loop `employee_performance(emp_id=...)` per person — that anti-pattern wastes round-trips and fragments the output. Reserve `employee_performance` for a SINGLE named individual. Multi-axis requests (per-emp × per-day × per-product × per-DPD-bucket) — pick ONE primary axis, call once, and tell the user the secondary axis needs a follow-up question.',
@@ -8453,7 +8721,7 @@ app.post("/api/ai-chat-stream", aiLimiter, requireAiAccess, async (req, res) => 
       '- If the user wrote in Kannada (ಕನ್ನಡ script), reply in Kannada. If in English, reply in English.',
       '- If the user mixed both, follow the dominant language.',
       '- **DATABASE IS ENGLISH-ONLY.** All identifiers (employee names, branch names, regions) are stored in Latin script. When the user names an entity in Kannada, transliterate it to English BEFORE calling any tool: ರಘುನಂದನ್ → "Raghunandan", ದಾವಣಗೆರೆ → "Davanagere", ಬೆಂಗಳೂರು → "Bangalore", ಕಲಬುರಗಿ → "Kalaburagi". Searching the DB with Kannada script returns 0 rows. The reply text stays in Kannada.',
-      '- Numbers in Indian format ("12.34 Cr" / "₹5.6 L" in English; "12.34 ಕೋಟಿ" / "5.6 ಲಕ್ಷ" in Kannada).',
+      '- In Kannada replies, ALL numbers, percentages, dates, currency values, and number unit words stay in English digits/English words: "12.34 crore", "5.6 lakh", "45%", "2026-05-01". Do not use Kannada digits or Kannada number words.',
       '- Technical column names (regular_demand, FTOD, NPA, etc.) stay in English even in Kannada replies.',
       '',
       '## Database tables you can query (via tools below)',
@@ -8471,6 +8739,7 @@ app.post("/api/ai-chat-stream", aiLimiter, requireAiAccess, async (req, res) => 
       '',
       '## Date format — REQUIRED',
       `- Today is ${ctx.now}. FY started ${ctx.fyStart}.`,
+      '- For any relative, spoken, slash-format, or comparison date phrase, call `resolve_date_range` first. Then pass only its ISO start_date/end_date values to downstream tools.',
       '- ALL date arguments to tools MUST be ISO YYYY-MM-DD. Tools reject "April", "this month", "11/04" etc. with "invalid date format" — convert before the call.',
       `- "today" → ${ctx.now}. "yesterday" → ${ctx.now} minus 1.`,
       `- "this month" → first-of-current-month → ${ctx.now}. "last month" → first-to-last of prior calendar month.`,
@@ -8487,7 +8756,7 @@ app.post("/api/ai-chat-stream", aiLimiter, requireAiAccess, async (req, res) => 
       'Collection % = regular_collection / regular_demand × 100 (count ratio, dimensionless).',
       '',
       '## Tools available — CALL THESE for any specifics not in the at-a-glance JSON',
-      '- find_employee, employee_performance, find_branch, period_performance, top_performers, disbursement_query, list_hierarchy, list_employees, headcount, npa_summary, daily_reports_query, branch_summary, hourly_collection, collection_drilldown, period_compare, plan_compliance, sql_describe',
+      '- resolve_date_range, find_employee, employee_performance, find_branch, period_performance, top_performers, disbursement_query, list_hierarchy, list_employees, headcount, npa_summary, daily_reports_query, branch_summary, hourly_collection, collection_drilldown, period_compare, plan_compliance, sql_describe',
       '',
       '## Critical tool routing',
       '- "How is my branch doing today / branch summary / branch health / give me a summary of <branch> / end-of-day rollup" → call `branch_summary()` — ONE tool returns headcount + collection (today/MTD/FYTD) + NPA + disbursement + FTOD + DPD plan-vs-actual. BM/ABM/BOE pass NO args (auto-resolves); CEO/RM/DM/AM MUST pass branch_name. Don\'t chain 5+ separate tool calls for this.',
@@ -8516,7 +8785,7 @@ app.post("/api/ai-chat-stream", aiLimiter, requireAiAccess, async (req, res) => 
       '## How to answer (text channel — render Markdown, not voice)',
       '- Use rich Markdown: bold key numbers, use bullet lists, headings (##/###) for sections, tables for comparisons.',
       '- Lead with the headline number, then 2-4 supporting bullets or a small table.',
-      '- Indian number format: lakh comma pattern. Prefer "₹X.XX Cr" or "₹X.XX L".',
+      '- Indian number format: lakh comma pattern. Prefer "₹X.XX Cr" or "₹X.XX L". In Kannada replies, keep number units in English words, for example "12.34 crore" and "5.6 lakh".',
       '- Label count metrics as counts/accounts/cases.',
       '- For comparisons, output a Markdown table.',
       '- For ambiguous lookups, list options and ask which one.',
@@ -8611,7 +8880,7 @@ app.post("/api/ai-chat-stream", aiLimiter, requireAiAccess, async (req, res) => 
     return finish();
   }
 
-  const fullText = result.text;
+  const fullText = normalizeKannadaNumbersForAi(result.text);
   // Stream in small chunks. Word-grained for natural typing feel.
   const tokens = fullText.match(/\S+\s*|\s+/g) || [fullText];
   for (const tok of tokens) {

@@ -1,0 +1,18 @@
+.vo-data-action.copied,
+.ai-action-btn.copied {
+  background: #059669 !important;
+  border-color: #059669 !important;
+  color: #fff !important;
+}
+
+.ai-table-wrap,
+.vo-data-table-wrap {
+  background: #fff;
+}
+
+.ai-table th,
+.ai-table td,
+.vo-data-table th,
+.vo-data-table td {
+  -webkit-font-smoothing: antialiased;
+}
