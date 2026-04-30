@@ -5230,7 +5230,13 @@ body.emp-dark .ai-bubble .ai-bq { border-left-color: #374151; color: #9CA3AF; }
   margin-top: 6px;
   white-space: pre-wrap; word-break: break-word;
   max-height: 180px; overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,.18) transparent;
 }
+#voiceOverlay .vo-sql-text::-webkit-scrollbar { width: 6px; height: 6px; }
+#voiceOverlay .vo-sql-text::-webkit-scrollbar-track { background: transparent; }
+#voiceOverlay .vo-sql-text::-webkit-scrollbar-thumb { background: rgba(255,255,255,.14); border-radius: 3px; }
+#voiceOverlay .vo-sql-text::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.28); }
 #voiceOverlay .vo-sql-params {
   font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace;
   font-size: 10.5px; color: rgba(96, 165, 250, .85);
@@ -5276,6 +5282,11 @@ body.emp-dark .ai-bubble .ai-bq { border-left-color: #374151; color: #9CA3AF; }
   border-bottom: 1px solid rgba(255,255,255,.05);
   text-align: left;
   white-space: nowrap;
+}
+#voiceOverlay .vo-data-table td.wrap {
+  white-space: normal;
+  word-break: break-word;
+  max-width: 220px;
 }
 #voiceOverlay .vo-data-table th {
   background: rgba(255,255,255,.04);
@@ -6757,7 +6768,17 @@ body.emp-dark .ai-bubble .ai-bq { border-left-color: #374151; color: #9CA3AF; }
       });
     }
     function _voIsMoneyCol(k) {
-      return /amount|amt|demand|collection|disb_amount|principal|outstanding/.test(k);
+      // STRICT: only true ₹-amount columns. `demand` / `collection` are COUNT
+      // columns despite the name — never treat them as money. Money columns
+      // either end in `_amt` or are one of the explicit names below.
+      if (!k) return false;
+      var s = String(k).toLowerCase();
+      if (/_amt$/.test(s)) return true;
+      return s === 'disb_amount'
+          || s === 'npa_act_amt'
+          || s === 'npa_amount'
+          || s === 'npa_clo_amt'
+          || s === 'total_amount';
     }
     function _voIsCountCol(k) {
       return /count|cases|acc|accounts|days|rows|kyc/.test(k);
@@ -6799,22 +6820,52 @@ body.emp-dark .ai-bubble .ai-bq { border-left-color: #374151; color: #9CA3AF; }
     }
     function _voRenderTable(rows) {
       if (!Array.isArray(rows) || !rows.length) return '<div class="vo-pane-empty">No rows.</div>';
-      var keys = Object.keys(rows[0]);
-      // Drop fields that are usually noise in an audit table.
+      // Union of keys across the visible window — first row alone misses sparse cols.
+      var seen = {};
+      var keys = [];
+      rows.slice(0, 200).forEach(function(r){
+        Object.keys(r || {}).forEach(function(k){
+          if (!seen[k]) { seen[k] = 1; keys.push(k); }
+        });
+      });
+      // Drop fields that are usually noise in an audit table (preserve the
+      // existing emp_id exception precedence — load-bearing).
       keys = keys.filter(function(k){ return k !== 'mobile' && !/_id$/.test(k) || k === 'emp_id'; });
+      if (!keys.length) keys = Object.keys(rows[0]);
+      // Drop columns whose every value is null/empty (e.g. blank `designation`).
+      keys = keys.filter(function(k){
+        for (var i = 0; i < rows.length; i++) {
+          var v = rows[i][k];
+          if (v != null && String(v).trim() !== '') return true;
+        }
+        return false;
+      });
       if (!keys.length) keys = Object.keys(rows[0]);
       var numericKeys = {};
       keys.forEach(function(k){ numericKeys[k] = _voIsNumericCol(rows, k); });
+      // Long-text columns (names/addresses/remarks) wrap; everything else stays nowrap.
+      var wrapKeys = {};
+      keys.forEach(function(k){ wrapKeys[k] = /name|address|remarks|note|reason|description/i.test(k); });
       var head = '<tr>' + keys.map(function(k){
         return '<th class="' + (numericKeys[k] ? 'num' : '') + '">' + _voEsc(k) + '</th>';
       }).join('') + '</tr>';
-      var body = rows.slice(0, 50).map(function(row){
+      var maxShow = 50;
+      var totalRows = rows.length;
+      var shownCount = Math.min(totalRows, maxShow);
+      var body = rows.slice(0, maxShow).map(function(row){
         return '<tr>' + keys.map(function(k){
-          var cls = numericKeys[k] ? 'num' : '';
-          return '<td class="' + cls + '">' + _voCellRender(k, row[k]) + '</td>';
+          var cls = (numericKeys[k] ? 'num' : '') + (wrapKeys[k] ? ' wrap' : '');
+          cls = cls.replace(/^\s+|\s+$/g, '');
+          return '<td' + (cls ? ' class="' + cls + '"' : '') + '>' + _voCellRender(k, row[k]) + '</td>';
         }).join('') + '</tr>';
       }).join('');
-      return '<div class="vo-data-table-wrap"><table class="vo-data-table"><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>';
+      var badge = '';
+      if (totalRows > maxShow) {
+        badge = '<div class="vo-data-count" style="margin:0 0 8px;color:#fbbf24">Showing ' + shownCount + ' of ' + totalRows + ' rows (truncated)</div>';
+      } else if (totalRows > 1) {
+        badge = '<div class="vo-data-count" style="margin:0 0 8px;color:rgba(255,255,255,.5)">' + totalRows + ' rows</div>';
+      }
+      return badge + '<div class="vo-data-table-wrap"><table class="vo-data-table"><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>';
     }
     function _voRenderKpi(obj) {
       var keys = Object.keys(obj).filter(function(k){
@@ -6882,7 +6933,16 @@ body.emp-dark .ai-bubble .ai-bq { border-left-color: #374151; color: #9CA3AF; }
         + (argSummary ? '<span class="vo-data-count" style="font-size:10.5px">' + _voEsc(argSummary) + '</span>' : '')
         + '</div>';
 
-      function renderBlock(rows, label) {
+      // Empty-result hint: surface the args so BMs see why a query came back
+      // empty (most often a too-narrow date filter or branch lock).
+      function _emptyHint(prefixText) {
+        var hint = (prefixText || 'No rows') + '.';
+        if (argSummary) hint += ' for ' + argSummary + '. Try widening the date range or removing the branch filter.';
+        return '<div class="vo-pane-empty">' + _voEsc(hint) + '</div>';
+      }
+
+      function renderBlock(rows, label, depth) {
+        depth = depth || 0;
         if (rows && typeof rows === 'object' && rows.error && !rows.matches) {
           return '<div class="vo-pane-empty" style="color:#fca5a5">'
             + (label ? '<strong>' + _voEsc(label) + ':</strong> ' : '')
@@ -6895,32 +6955,48 @@ body.emp-dark .ai-bubble .ai-bq { border-left-color: #374151; color: #9CA3AF; }
           var note = rows.ambiguous
             ? '<div class="vo-data-count" style="margin:0 0 8px;color:#fbbf24">Ambiguous — ' + (rows.count || rows.matches.length) + ' candidates. Pick one in your next question.</div>'
             : '';
-          if (!rows.matches.length) return note + '<div class="vo-pane-empty">No candidates.</div>';
+          if (!rows.matches.length) return note + _emptyHint('No candidates');
           return note + _voRenderTable(rows.matches);
         }
         if (Array.isArray(rows)) {
-          if (!rows.length) return '<div class="vo-pane-empty">' + (label ? '<strong>' + _voEsc(label) + '</strong> — ' : '') + 'No rows.</div>';
+          if (!rows.length) return _emptyHint(label ? 'No rows for ' + label : 'No rows');
           var prefix = label ? '<div class="vo-data-count" style="margin:6px 0 8px;color:rgba(255,255,255,.5)">' + _voEsc(label) + ' · ' + rows.length + ' rows</div>' : '';
           return prefix + _voRenderTable(rows);
         }
         if (rows && typeof rows === 'object') {
-          // Single result object — KPI grid, but skip nested arrays/objects
-          // (they leak as "[object Object]"); render those as nested tables.
+          // Bucket fields: simple scalars → KPI grid, sub-arrays → small tables,
+          // nested objects → labelled sub-section (recurse, bounded depth 2).
           var simple = {};
-          var nested = [];
+          var nestedArrays = [];
+          var nestedObjects = [];
           Object.keys(rows).forEach(function(k){
             var v = rows[k];
-            if (Array.isArray(v) && v.length && typeof v[0] === 'object') {
-              nested.push({ label: k, rows: v });
-            } else if (v != null && typeof v !== 'object') {
+            if (Array.isArray(v)) {
+              if (v.length && typeof v[0] === 'object') nestedArrays.push({ label: k, rows: v });
+              else if (!v.length) { /* skip empty list */ }
+              else simple[k] = v.join(', ');
+            } else if (v && typeof v === 'object') {
+              nestedObjects.push({ label: k, obj: v });
+            } else if (v != null) {
               simple[k] = v;
             }
           });
           var html = Object.keys(simple).length ? _voRenderKpi(simple) : '';
-          nested.forEach(function(n){
+          if (depth < 2) {
+            nestedObjects.forEach(function(no){
+              html += '<div class="vo-data-count" style="margin:10px 0 6px;color:rgba(255,255,255,.5)">' + _voEsc(no.label) + '</div>'
+                   + renderBlock(no.obj, '', depth + 1);
+            });
+          } else if (nestedObjects.length) {
+            // Hit recursion cap — collapse remaining objects to a summary line.
+            nestedObjects.forEach(function(no){
+              html += '<div class="vo-data-count" style="margin:6px 0;color:rgba(255,255,255,.4)">' + _voEsc(no.label) + ' (nested object — open in JSON view)</div>';
+            });
+          }
+          nestedArrays.forEach(function(n){
             html += '<div class="vo-data-count" style="margin:10px 0 6px;color:rgba(255,255,255,.5)">' + _voEsc(n.label) + ' · ' + n.rows.length + ' rows</div>' + _voRenderTable(n.rows);
           });
-          return html || '<div class="vo-pane-empty">Empty result.</div>';
+          return html || _emptyHint('Empty result');
         }
         return '<div class="vo-pane-empty">' + _voEsc(String(rows)) + '</div>';
       }
