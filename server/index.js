@@ -5821,6 +5821,25 @@ const AI_TOOLS_SPEC = [
   {
     type: 'function',
     function: {
+      name: 'list_employees',
+      description: 'Roster query — list employees by branch / area / division / region / role. Use for "list everyone in <branch>", "show all FOs in <region>", "who works in <branch>". Returns name, emp_id, role, branch, area, division, region, mobile, status. Use this NOT find_employee for "list all" queries — find_employee is for searching a single named person.',
+      parameters: {
+        type: 'object',
+        properties: {
+          branch_name: { type: 'string' },
+          area_name: { type: 'string' },
+          division_name: { type: 'string' },
+          region_name: { type: 'string' },
+          role: { type: 'string', description: 'Filter by exact role (BM, FO, AM, etc.)' },
+          status: { type: 'string', enum: ['Working', 'Resigned', 'all'], description: 'Default Working.' },
+          limit: { type: 'integer', description: 'Default 100, max 500.' }
+        }
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
       name: 'headcount',
       description: 'Total Working employees in scope, optionally broken down by role / region / division / area / branch. Examples: headcount() → {total: 1285}. headcount(group_by="role") → [{role:"FO",count:791}, …]. headcount(role="BM") → [{role:"BM", count:122}].',
       parameters: {
@@ -6283,6 +6302,31 @@ async function dispatchAiTool(name, args, session) {
        ORDER BY ${orderCol}
        LIMIT ${lim}`;
     return await safeQuery(sql, params, lim);
+  }
+
+  if (name === 'list_employees') {
+    const params = [];
+    let where = `1=1`;
+    const status = ['Working', 'Resigned', 'all'].includes(args.status) ? args.status : 'Working';
+    if (status !== 'all') { params.push(status); where += ` AND status = $${params.length}`; }
+    if (args.branch_name)   { params.push(args.branch_name);   where += ` AND branch_name ILIKE $${params.length}`; }
+    if (args.area_name)     { params.push(args.area_name);     where += ` AND area_name ILIKE $${params.length}`; }
+    if (args.division_name) { params.push(args.division_name); where += ` AND division_name ILIKE $${params.length}`; }
+    if (args.region_name)   { params.push(args.region_name);   where += ` AND region_name ILIKE $${params.length}`; }
+    if (args.role)          { params.push(args.role);          where += ` AND role ILIKE $${params.length}`; }
+    const scopeClause = _scopeWhere(session, 'branch_name', params);
+    const eLim = Math.min(Math.max(parseInt(args.limit, 10) || 100, 1), 500);
+    const sql = `
+      SELECT emp_id, full_name AS name, role, designation,
+             branch_name AS branch, area_name AS area,
+             division_name AS division, region_name AS region,
+             mobile, status
+        FROM employee_master
+       WHERE ${where}
+         ${scopeClause}
+       ORDER BY role, full_name
+       LIMIT ${eLim}`;
+    return await safeQuery(sql, params, eLim);
   }
 
   if (name === 'headcount') {
@@ -6920,10 +6964,12 @@ app.post('/api/voice-stream', aiLimiter, voiceUpload.single('audio'), requireAiA
         '- The companion screen shows the raw rows you fetch — you do not need to dictate every value, just the highlight + interpretation.',
         '',
         '## Tools available — CALL THESE for any specifics',
-        '- find_employee, employee_performance, find_branch, period_performance, top_performers, disbursement_query, list_hierarchy, headcount, npa_summary, daily_reports_query, sql_describe',
+        '- find_employee, employee_performance, find_branch, period_performance, top_performers, disbursement_query, list_hierarchy, list_employees, headcount, npa_summary, daily_reports_query, sql_describe',
         '',
         '## Critical tool routing',
         '- "How many employees / staff / BMs / FOs / agents in <scope>?" → call `headcount(group_by=\'role\')` for a role breakdown, or `headcount(role=\'BM\')` for a single role count, or `headcount()` for the overall total. NEVER quote a hierarchy row count or list_hierarchy result count as "number of employees".',
+      '- "List all employees / give me everyone / phone numbers of staff in <branch>" / "show roster" → call `list_employees(branch_name=...)`. NOT find_employee — that\'s for searching ONE named person. list_employees returns the full roster (name + role + branch + mobile).',
+      '- "Who is the BM of <branch>" / "who is the manager" → `list_employees(branch_name=X, role=\'BM\')`.',
         '- "Daily collection / collection trend / day-by-day collection" → call `period_performance(group_by=\'day\', start_date, end_date)`. The result has one row per day with demand + collection columns. Average = SUM(collection) / COUNT(days).',
         '- "Daily disbursement" → call `disbursement_query(group_by=\'day\', start_date, end_date)`.',
         '- For list_hierarchy: NEVER report its row count as a money or collection metric. Its rows are entity names with employee_count + branch_count metadata only.',
@@ -7655,10 +7701,12 @@ app.post("/api/ai-chat-stream", aiLimiter, requireAiAccess, async (req, res) => 
       'Collection % = regular_collection / regular_demand × 100 (count ratio, dimensionless).',
       '',
       '## Tools available — CALL THESE for any specifics not in the at-a-glance JSON',
-      '- find_employee, employee_performance, find_branch, period_performance, top_performers, disbursement_query, list_hierarchy, headcount, npa_summary, daily_reports_query, sql_describe',
+      '- find_employee, employee_performance, find_branch, period_performance, top_performers, disbursement_query, list_hierarchy, list_employees, headcount, npa_summary, daily_reports_query, sql_describe',
       '',
       '## Critical tool routing',
       '- "How many employees / staff / BMs / FOs / agents in <scope>?" → call `headcount(group_by=\'role\')` for a role breakdown, or `headcount(role=\'BM\')` for a single role count, or `headcount()` for the overall total. NEVER quote a hierarchy row count or list_hierarchy result count as "number of employees".',
+      '- "List all employees / give me everyone / phone numbers of staff in <branch>" / "show roster" → call `list_employees(branch_name=...)`. NOT find_employee — that\'s for searching ONE named person. list_employees returns the full roster (name + role + branch + mobile).',
+      '- "Who is the BM of <branch>" / "who is the manager" → `list_employees(branch_name=X, role=\'BM\')`.',
       '- "Daily collection / collection trend / day-by-day collection" → call `period_performance(group_by=\'day\', start_date, end_date)`. One row per day with demand + collection. Average = SUM(collection) / COUNT(days).',
       '- "Daily disbursement" → call `disbursement_query(group_by=\'day\', start_date, end_date)`.',
       '- list_hierarchy returns entity names + headcount metadata only — NEVER report its row count as a money/collection metric.',
