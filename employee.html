@@ -7612,7 +7612,8 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         var rendered = (typeof v === 'number' || /^-?\d+(?:\.\d+)?$/.test(String(v)))
           ? (_voIsMoneyCol(k) ? _voFmtIN(v) : _voFmtCount(v))
           : _voEsc(String(v));
-        html += '<div class="vo-kpi"><div class="vo-kpi-label">' + _voEsc(k) + '</div><div class="vo-kpi-value">' + rendered + '</div></div>';
+        var lbl = (typeof window !== 'undefined' && window._aiFieldLabel) ? window._aiFieldLabel(k) : k;
+        html += '<div class="vo-kpi"><div class="vo-kpi-label">' + _voEsc(lbl) + '</div><div class="vo-kpi-value">' + rendered + '</div></div>';
       });
       html += '</div>';
       return html;
@@ -7642,6 +7643,148 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       list.scrollTop = list.scrollHeight;
       if (counter) counter.textContent = _vo.sqlNum + (_vo.sqlNum === 1 ? ' query' : ' queries');
     }
+    // Friendly title + subtitle for each tool result so users see what
+    // each table actually represents instead of raw tool names like
+    // "disbursement_query" or "collection_drilldown".
+    var _AI_TOOL_TITLES = {
+      'find_branch':         { title: 'Branch lookup',          sub: function(a){ return a && a.query ? '"' + a.query + '"' : ''; } },
+      'find_employee':       { title: 'Employee lookup',        sub: function(a){ return a && a.query ? '"' + a.query + '"' : ''; } },
+      'list_employees':      { title: 'Employee roster',        sub: function(a){ return _aiArgsSubtitle(a, ['branch_name','area_name','region_name','role']); } },
+      'employee_performance':{ title: 'Employee performance',   sub: function(a){ return _aiArgsSubtitle(a, ['emp_id']); } },
+      'period_performance':  { title: 'Period performance',     sub: function(a){ return _aiPeriodSub(a); } },
+      'top_performers':      { title: 'Top performers',         sub: function(a){ return _aiPeriodSub(a) + (a&&a.metric ? ' · by ' + a.metric : ''); } },
+      'disbursement_query':  { title: 'Disbursement',           sub: function(a){ var b = _aiPeriodSub(a); var g = a && a.group_by ? ' · by ' + a.group_by : ''; return b + g; } },
+      'list_hierarchy':      { title: 'Hierarchy',              sub: function(a){ return a && a.level ? a.level + (a.parent_name ? ' · under ' + a.parent_name : '') : ''; } },
+      'headcount':           { title: 'Headcount',              sub: function(a){ return _aiArgsSubtitle(a, ['group_by','role','region_name','branch_name']); } },
+      'npa_summary':         { title: 'NPA summary',            sub: function(a){ return _aiPeriodSub(a); } },
+      'daily_reports_query': { title: 'Daily plan',             sub: function(a){ return _aiPeriodSub(a); } },
+      'branch_summary':      { title: 'Branch summary',         sub: function(a){ return _aiArgsSubtitle(a, ['branch_name','date']); } },
+      'hourly_collection':   { title: 'Hourly collection (live)',sub: function(a){ return _aiArgsSubtitle(a, ['branch_name','region_name','group_by']); } },
+      'collection_drilldown':{ title: 'Branch drill-down',      sub: function(a){ return _aiArgsSubtitle(a, ['branch_name','date']); } },
+      'period_compare':      { title: 'Period compare',         sub: function(a){ if(!a) return ''; var ms=a.metric||'value'; var sc=a.scope_value?(' · '+a.scope_value):''; return ms + sc; } },
+      'plan_compliance':     { title: 'Plan compliance',        sub: function(a){ return _aiArgsSubtitle(a, ['date','scope_value']); } },
+      'sql_describe':        { title: 'Schema cheatsheet',      sub: function(){ return ''; } }
+    };
+    function _aiArgsSubtitle(args, keys) {
+      if (!args) return '';
+      var bits = [];
+      keys.forEach(function (k) { if (args[k] != null && args[k] !== '') bits.push(args[k]); });
+      return bits.join(' · ');
+    }
+    function _aiPeriodSub(args) {
+      if (!args) return '';
+      var s = args.start_date || '';
+      var e = args.end_date || '';
+      if (s && e) return s === e ? s : (s + ' → ' + e);
+      return '';
+    }
+    function _aiToolTitle(toolName) {
+      var def = _AI_TOOL_TITLES[toolName];
+      return def ? def.title : (toolName || 'Result').replace(/_/g, ' ');
+    }
+    function _aiToolSubtitle(toolName, args) {
+      var def = _AI_TOOL_TITLES[toolName];
+      try { return def && def.sub ? def.sub(args) : ''; } catch (_) { return ''; }
+    }
+    // Friendly labels for nested-object keys inside a result (e.g. inside
+    // branch_summary or collection_drilldown). Falls back to the raw key
+    // if no mapping is registered.
+    var _AI_FIELD_LABELS = {
+      // ── shared / scope identifiers ───────────────────────────────────
+      branch_name: 'Branch',
+      area_name: 'Area',
+      region_name: 'Region',
+      division_name: 'Division',
+      date: 'Date',
+      as_of: 'As of',
+      scope: 'Scope',
+      scope_value: 'Scope value',
+      metric: 'Metric',
+      group_by: 'Grouped by',
+      grouped_by: 'Grouped by',
+      total: 'Total',
+      count: 'Count',
+      role: 'Role',
+      bucket: 'Bucket',
+      source: 'Source',
+      rows: 'Rows',
+      snapshot: 'Snapshot',
+      // ── branch_summary / collection_drilldown ────────────────────────
+      collection_today: 'Today',
+      collection_mtd: 'Month to date',
+      collection_fytd: 'FY to date',
+      disbursement_today: 'Disbursement · today',
+      disbursement_mtd: 'Disbursement · MTD',
+      headcount: 'Headcount',
+      by_role: 'Headcount by role',
+      npa: 'NPA snapshot',
+      npa_today: 'NPA snapshot today',
+      ftod_today: 'FTOD plan vs actual today',
+      ftod_gap_today: 'FTOD plan vs actual today',
+      dpd_today: 'DPD buckets today',
+      dpd_buckets: 'DPD buckets',
+      dpd_1_30: '1–30 days',
+      dpd_31_60: '31–60 days',
+      dpd_61_90: '61–90 days',
+      dpd_91_180: '91–180 days',
+      dpd_180_plus: '180+ days',
+      top_3_underperformers: 'Worst 3 (lowest collection %)',
+      bottom_3_underperformers: 'Best 3 (highest collection %)',
+      // ── period_compare ───────────────────────────────────────────────
+      period_a: 'Window A',
+      period_b: 'Window B',
+      period_a_start: 'Window A · start',
+      period_a_end:   'Window A · end',
+      period_b_start: 'Window B · start',
+      period_b_end:   'Window B · end',
+      value_a: 'Value (Window A)',
+      value_b: 'Value (Window B)',
+      delta_abs: 'Absolute change',
+      delta_pct: '% change',
+      // ── plan_compliance ──────────────────────────────────────────────
+      expected_count: 'Expected branches (count)',
+      filed_plan_count: 'Filed plan (count)',
+      filed_achievement_count: 'Filed achievement (count)',
+      missing_plan_count: 'Missing plan (count)',
+      missing_achievement_count: 'Missing achievement (count)',
+      missing_plan: 'Branches that did NOT file plan',
+      missing_achievement: 'Branches that did NOT file achievement',
+      filed_plan: 'Branches that filed plan',
+      filed_achievement: 'Branches that filed achievement',
+      expected_branches: 'Expected branches',
+      // ── hourly_collection ────────────────────────────────────────────
+      // 'snapshot' / 'as_of' / 'grouped_by' / 'rows' covered above.
+      // ── headcount ────────────────────────────────────────────────────
+      // 'total' / 'by_role' / 'role' / 'count' / 'bucket' covered above.
+      // ── npa_summary ──────────────────────────────────────────────────
+      npa_cases: 'NPA cases',
+      npa_activated: 'NPA activated',
+      npa_amount: 'NPA amount',
+      npa_act_amt: 'NPA activation amount',
+      npa_clo_amt: 'NPA closure amount',
+      // ── employee_performance / period_performance / top_performers ──
+      emp_id: 'Employee ID',
+      full_name: 'Name',
+      designation: 'Designation',
+      collection_pct: 'Collection %',
+      regular_demand: 'Regular demand (count)',
+      regular_collection: 'Regular collection (count)',
+      total_demand: 'Total demand (count)',
+      total_collection: 'Total collection (count)',
+      // ── disbursement_query ───────────────────────────────────────────
+      disb_count: 'Disbursement (count)',
+      disb_amount: 'Disbursement amount',
+      product_type: 'Product',
+      // ── ftod ─────────────────────────────────────────────────────────
+      ftod_plan: 'FTOD plan',
+      ftod_actual: 'FTOD actual',
+      ftod_gap: 'FTOD gap'
+    };
+    function _aiFieldLabel(k) { return _AI_FIELD_LABELS[k] || k; }
+    window._aiToolTitle = _aiToolTitle;
+    window._aiToolSubtitle = _aiToolSubtitle;
+    window._aiFieldLabel = _aiFieldLabel;
+
     function _voAppendDataCard(toolName, args, result) {
       var list = document.getElementById('voDataList');
       var counter = document.getElementById('voDataCount');
@@ -7655,6 +7798,8 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       //     → render each source as its own subsection.
       var card = document.createElement('div');
       card.className = 'vo-data-card';
+      var title = _aiToolTitle(toolName);
+      var subtitle = _aiToolSubtitle(toolName, args);
       var argSummary = '';
       try {
         var compact = {};
@@ -7666,8 +7811,10 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       var rowCountForExport = (window._aiTableExports && window._aiTableExports.count(result)) || 0;
       var actionsHtml = (window._aiTableExports && window._aiTableExports.html(toolName, rowCountForExport)) || '';
       var inner = '<div class="vo-data-head">'
-        + '<span class="vo-data-title">' + _voEsc(toolName) + '</span>'
-        + (argSummary ? '<span class="vo-data-count" style="font-size:10.5px">' + _voEsc(argSummary) + '</span>' : '')
+        + '<div style="display:flex;flex-direction:column;gap:2px;min-width:0;flex:1;">'
+        +   '<span class="vo-data-title">' + _voEsc(title) + '</span>'
+        +   (subtitle ? '<span class="vo-data-count" style="font-size:11px;color:rgba(255,255,255,.55)">' + _voEsc(subtitle) + '</span>' : '')
+        + '</div>'
         + actionsHtml
         + '</div>';
 
@@ -7722,17 +7869,17 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
           var html = Object.keys(simple).length ? _voRenderKpi(simple) : '';
           if (depth < 2) {
             nestedObjects.forEach(function(no){
-              html += '<div class="vo-data-count" style="margin:10px 0 6px;color:rgba(255,255,255,.5)">' + _voEsc(no.label) + '</div>'
+              html += '<div class="vo-data-count" style="margin:10px 0 6px;color:rgba(255,255,255,.5)">' + _voEsc(_aiFieldLabel(no.label)) + '</div>'
                    + renderBlock(no.obj, '', depth + 1);
             });
           } else if (nestedObjects.length) {
             // Hit recursion cap — collapse remaining objects to a summary line.
             nestedObjects.forEach(function(no){
-              html += '<div class="vo-data-count" style="margin:6px 0;color:rgba(255,255,255,.4)">' + _voEsc(no.label) + ' (nested object — open in JSON view)</div>';
+              html += '<div class="vo-data-count" style="margin:6px 0;color:rgba(255,255,255,.4)">' + _voEsc(_aiFieldLabel(no.label)) + ' (nested object — open in JSON view)</div>';
             });
           }
           nestedArrays.forEach(function(n){
-            html += '<div class="vo-data-count" style="margin:10px 0 6px;color:rgba(255,255,255,.5)">' + _voEsc(n.label) + ' · ' + n.rows.length + ' rows</div>' + _voRenderTable(n.rows);
+            html += '<div class="vo-data-count" style="margin:10px 0 6px;color:rgba(255,255,255,.5)">' + _voEsc(_aiFieldLabel(n.label)) + ' · ' + n.rows.length + ' rows</div>' + _voRenderTable(n.rows);
           });
           return html || _emptyHint('Empty result');
         }
@@ -8436,17 +8583,15 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       var box = _vomEl('vomDataCards'); if (!box) return;
       var card = document.createElement('div');
       card.className = 'vom-data-card';
-      var argSummary = '';
-      try {
-        var compact = {};
-        Object.keys(args || {}).forEach(function (k) { if (args[k] != null && args[k] !== '') compact[k] = args[k]; });
-        argSummary = Object.keys(compact).length ? JSON.stringify(compact) : '';
-      } catch (_) {}
+      var title = (window._aiToolTitle && window._aiToolTitle(toolName)) || toolName;
+      var subtitle = (window._aiToolSubtitle && window._aiToolSubtitle(toolName, args)) || '';
       var rowCountForExport = (window._aiTableExports && window._aiTableExports.count(result)) || 0;
       var actionsHtml = (window._aiTableExports && window._aiTableExports.html(toolName, rowCountForExport)) || '';
       var head = '<div class="vom-data-head">'
-        + '<span class="vom-data-title">' + esc(toolName) + '</span>'
-        + (argSummary ? '<span class="vom-data-args">' + esc(argSummary) + '</span>' : '')
+        + '<div style="display:flex;flex-direction:column;gap:2px;min-width:0;flex:1;">'
+        +   '<span class="vom-data-title">' + esc(title) + '</span>'
+        +   (subtitle ? '<span class="vom-data-args">' + esc(subtitle) + '</span>' : '')
+        + '</div>'
         + (actionsHtml ? actionsHtml.replace(/vo-data-actions/g, 'vom-data-actions').replace(/vo-data-action/g, 'vom-data-action') : '')
         + '</div>';
 
@@ -8544,20 +8689,21 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         else if (v && typeof v === 'object') nestedObj.push({ k: k, v: v });
         else if (v != null) simple[k] = v;
       });
+      var fLbl = function (k) { return (window._aiFieldLabel && window._aiFieldLabel(k)) || k; };
       var html = '';
       if (Object.keys(simple).length) {
         html += '<div class="vom-kpi-grid">';
         Object.keys(simple).forEach(function (k) {
-          html += '<div class="vom-kpi"><div class="vom-kpi-label">' + esc(k) + '</div><div class="vom-kpi-value">' + _vomCell(k, simple[k]) + '</div></div>';
+          html += '<div class="vom-kpi"><div class="vom-kpi-label">' + esc(fLbl(k)) + '</div><div class="vom-kpi-value">' + _vomCell(k, simple[k]) + '</div></div>';
         });
         html += '</div>';
       }
       nestedObj.forEach(function (n) {
-        html += '<div style="margin-top:10px;font-size:11px;color:rgba(255,255,255,.5);font-weight:600;text-transform:uppercase;letter-spacing:.06em">' + esc(n.k) + '</div>';
+        html += '<div style="margin-top:10px;font-size:11px;color:rgba(255,255,255,.5);font-weight:600;text-transform:uppercase;letter-spacing:.06em">' + esc(fLbl(n.k)) + '</div>';
         html += _vomRenderObject(n.v);
       });
       nestedArr.forEach(function (n) {
-        html += '<div style="margin:10px 0 4px;font-size:11px;color:rgba(255,255,255,.5)">' + esc(n.k) + ' · ' + n.v.length + ' rows</div>';
+        html += '<div style="margin:10px 0 4px;font-size:11px;color:rgba(255,255,255,.5)">' + esc(fLbl(n.k)) + ' · ' + n.v.length + ' rows</div>';
         html += _vomRenderTable(n.v.slice(0, 3));
       });
       return html;
@@ -8611,7 +8757,11 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       var titleEl = _vomEl('vomSheetTableTitle');
       var body = _vomEl('vomSheetTableBody');
       if (!body) return;
-      if (titleEl) titleEl.textContent = entry.name + (entry.args && Object.keys(entry.args).length ? ' · ' + JSON.stringify(entry.args) : '');
+      if (titleEl) {
+        var sheetTitle = (window._aiToolTitle && window._aiToolTitle(entry.name)) || entry.name;
+        var sheetSub = (window._aiToolSubtitle && window._aiToolSubtitle(entry.name, entry.args || {})) || '';
+        titleEl.textContent = sheetTitle + (sheetSub ? ' · ' + sheetSub : '');
+      }
       body.innerHTML = '<div class="vom-data-card">' + _vomRenderResult(entry.result, /*compact*/ false) + '</div>';
       // promote to full-table look inside sheet
       var minis = body.querySelectorAll('.vom-mini-table');
