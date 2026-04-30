@@ -4512,24 +4512,7 @@
       </div>
       <div class="ai-empty-title">How can I help today?</div>
       <div class="ai-empty-sub">Ask about collection, portfolio, branches, employees, or daily plans.</div>
-      <div id="aiSuggestionChips" class="ai-chips">
-        <button class="ai-chip" onclick="window._aiAskSuggestion('What is my collection % this month vs last month?')">
-          <span class="ai-chip-icon">📊</span>
-          <span><strong>Collection trend</strong><span class="ai-chip-sub">This month vs last month</span></span>
-        </button>
-        <button class="ai-chip" onclick="window._aiAskSuggestion('Top 5 branches by collection FY-to-date.')">
-          <span class="ai-chip-icon">🏆</span>
-          <span><strong>Top branches</strong><span class="ai-chip-sub">By collection FY-to-date</span></span>
-        </button>
-        <button class="ai-chip" onclick="window._aiAskSuggestion('Show my NPA cases and activation amount.')">
-          <span class="ai-chip-icon">⚠️</span>
-          <span><strong>NPA snapshot</strong><span class="ai-chip-sub">Cases + activation amount</span></span>
-        </button>
-        <button class="ai-chip" onclick="window._aiAskSuggestion('Disbursement summary for last 3 months by product.')">
-          <span class="ai-chip-icon">💰</span>
-          <span><strong>Disbursement</strong><span class="ai-chip-sub">Last 3 months by product</span></span>
-        </button>
-      </div>
+      <div id="aiSuggestionChips" class="ai-chips"><!-- populated dynamically by _aiRenderStarterChips() --></div>
     </div>
   </div>
   <div class="ai-panel-input-area">
@@ -4550,6 +4533,43 @@
 </div>
 
 <!-- AI Assistant entry now lives in the sidebar; floating bar + FAB removed. -->
+
+<!-- ===== Provider chooser (shows on every _aiOpen, before chat / cockpit) ===== -->
+<div id="aiProviderChooser" aria-hidden="true">
+  <div class="aipc-bg" data-aipc-cancel></div>
+  <div class="aipc-modal" role="dialog" aria-label="Choose AI provider">
+    <header class="aipc-header">
+      <div class="aipc-title">
+        <span>Pick your AI</span>
+        <button type="button" class="aipc-help" id="aipcHelp" aria-label="Difference between providers" title="Reliable vs faster — pick whichever you feel like today.">?</button>
+      </div>
+      <button type="button" class="aipc-close" id="aipcClose" aria-label="Cancel">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </header>
+    <p class="aipc-sub" id="aipcSub">Two engines on tap. Same tools, different speed/style.</p>
+    <div class="aipc-cards">
+      <button type="button" class="aipc-card aipc-openai" data-provider="openai">
+        <div class="aipc-card-head">
+          <span class="aipc-dot aipc-dot-openai"></span>
+          <span class="aipc-card-name">OpenAI</span>
+          <span class="aipc-card-status" data-status>Ready</span>
+        </div>
+        <div class="aipc-card-model">Powered by OpenAI · gpt-4o-mini</div>
+        <div class="aipc-card-tag">Reliable, slower</div>
+      </button>
+      <button type="button" class="aipc-card aipc-mistral" data-provider="mistral">
+        <div class="aipc-card-head">
+          <span class="aipc-dot aipc-dot-mistral"></span>
+          <span class="aipc-card-name">Mistral</span>
+          <span class="aipc-card-status" data-status>Ready</span>
+        </div>
+        <div class="aipc-card-model">Powered by Mistral · large</div>
+        <div class="aipc-card-tag">Faster, edgier</div>
+      </button>
+    </div>
+  </div>
+</div>
 
 <!-- ===== Voice Interaction Overlay (idle → recording → processing) ===== -->
 <div id="voiceOverlay" aria-hidden="true">
@@ -6071,6 +6091,146 @@ body.emp-dark .ai-bubble .ai-table td { background: #fff !important; color: #1F2
   #aiPanel.open ~ #aiOverlay,
   #aiOverlay.open { display: none !important; }
 }
+
+/* ===== Provider chooser ===== */
+#aiProviderChooser { display: none; position: fixed; inset: 0; z-index: 12000; }
+#aiProviderChooser.open { display: block; }
+#aiProviderChooser .aipc-bg {
+  position: absolute; inset: 0;
+  background: rgba(8, 10, 16, .72);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+}
+#aiProviderChooser .aipc-modal {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: min(560px, calc(100vw - 28px));
+  background: #fff; color: #111827;
+  border-radius: 18px;
+  box-shadow: 0 24px 64px rgba(0,0,0,.32);
+  padding: 22px 22px 20px;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+body.emp-dark #aiProviderChooser .aipc-modal { background: #0F172A; color: #E5E7EB; }
+#aiProviderChooser .aipc-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 4px;
+}
+#aiProviderChooser .aipc-title {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 17px; font-weight: 700; letter-spacing: -.005em;
+}
+#aiProviderChooser .aipc-help {
+  width: 20px; height: 20px; border-radius: 50%;
+  border: 1px solid #CBD5E1; background: transparent;
+  color: #64748B; font-size: 12px; font-weight: 700;
+  cursor: help; line-height: 1;
+}
+#aiProviderChooser .aipc-help:hover { background: #F1F5F9; color: #0F172A; }
+body.emp-dark #aiProviderChooser .aipc-help { border-color: rgba(255,255,255,.18); color: rgba(255,255,255,.55); }
+#aiProviderChooser .aipc-close {
+  width: 28px; height: 28px; border-radius: 8px;
+  border: 1px solid #E5E7EB; background: transparent;
+  color: #6B7280; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+#aiProviderChooser .aipc-close:hover { background: #F3F4F6; }
+body.emp-dark #aiProviderChooser .aipc-close { border-color: rgba(255,255,255,.14); color: rgba(255,255,255,.6); }
+#aiProviderChooser .aipc-sub {
+  margin: 2px 0 16px; font-size: 13px; color: #6B7280;
+}
+body.emp-dark #aiProviderChooser .aipc-sub { color: rgba(255,255,255,.55); }
+#aiProviderChooser .aipc-cards {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+}
+#aiProviderChooser .aipc-card {
+  position: relative; text-align: left;
+  padding: 16px 16px 14px;
+  border: 1.5px solid #E5E7EB; border-radius: 14px;
+  background: #fff; cursor: pointer;
+  font-family: inherit; color: inherit;
+  transition: border-color .15s, transform .12s, box-shadow .15s, background .15s;
+}
+body.emp-dark #aiProviderChooser .aipc-card { background: #1E293B; border-color: rgba(255,255,255,.08); }
+#aiProviderChooser .aipc-card:hover:not([disabled]) { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(0,0,0,.08); }
+#aiProviderChooser .aipc-card.aipc-openai:hover:not([disabled])  { border-color: #10A37F; }
+#aiProviderChooser .aipc-card.aipc-mistral:hover:not([disabled]) { border-color: #FF7000; }
+#aiProviderChooser .aipc-card[disabled] { opacity: .42; cursor: not-allowed; }
+#aiProviderChooser .aipc-card-head {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+}
+#aiProviderChooser .aipc-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+#aiProviderChooser .aipc-dot-openai  { background: #10A37F; box-shadow: 0 0 8px rgba(16,163,127,.45); }
+#aiProviderChooser .aipc-dot-mistral { background: #FF7000; box-shadow: 0 0 8px rgba(255,112,0,.45); }
+#aiProviderChooser .aipc-card-name { font-size: 15px; font-weight: 700; }
+#aiProviderChooser .aipc-card-status {
+  margin-left: auto;
+  font-size: 10.5px; font-weight: 600;
+  padding: 2px 8px; border-radius: 999px;
+  background: #ECFDF5; color: #047857; letter-spacing: .04em; text-transform: uppercase;
+}
+body.emp-dark #aiProviderChooser .aipc-card-status { background: rgba(16,163,127,.16); color: #6EE7B7; }
+#aiProviderChooser .aipc-card[disabled] .aipc-card-status {
+  background: #FEE2E2; color: #B91C1C;
+}
+body.emp-dark #aiProviderChooser .aipc-card[disabled] .aipc-card-status { background: rgba(220,38,38,.18); color: #FCA5A5; }
+#aiProviderChooser .aipc-card-model { font-size: 12px; color: #6B7280; margin-bottom: 10px; }
+body.emp-dark #aiProviderChooser .aipc-card-model { color: rgba(255,255,255,.6); }
+#aiProviderChooser .aipc-card-tag { font-size: 13px; font-weight: 500; color: #111827; }
+body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
+@media (max-width: 560px) {
+  #aiProviderChooser .aipc-modal { top: 0; left: 0; transform: none; width: 100vw; height: 100vh; max-width: 100vw; border-radius: 0; padding: 18px 16px; display: flex; flex-direction: column; }
+  #aiProviderChooser .aipc-cards { grid-template-columns: 1fr; gap: 10px; }
+}
+
+/* ===== Copy / Export icon strip on data cards (desktop cockpit + mobile) ===== */
+#voiceOverlay .vo-data-actions,
+.vom-data-actions {
+  display: inline-flex; gap: 4px; align-items: center; margin-left: auto;
+}
+#voiceOverlay .vo-data-action,
+.vom-data-action {
+  width: 26px; height: 26px; border-radius: 6px;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.10);
+  color: rgba(255,255,255,.72);
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer; padding: 0;
+  transition: background .12s, border-color .12s, transform .12s;
+}
+#voiceOverlay .vo-data-action:hover:not([disabled]),
+.vom-data-action:hover:not([disabled]) {
+  background: rgba(255,255,255,.10);
+  border-color: rgba(255,255,255,.22);
+  color: #fff;
+}
+#voiceOverlay .vo-data-action:active:not([disabled]),
+.vom-data-action:active:not([disabled]) { transform: scale(.95); }
+#voiceOverlay .vo-data-action[disabled],
+.vom-data-action[disabled] { opacity: .35; cursor: not-allowed; }
+#voiceOverlay .vo-data-action.copied,
+.vom-data-action.copied { color: #34D399; border-color: rgba(52,211,153,.45); }
+
+/* ===== Smart error CTAs under #aiMessages error bubbles ===== */
+.ai-error-ctas {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin-top: 8px;
+}
+.ai-error-cta {
+  font-family: inherit;
+  font-size: 12.5px; font-weight: 500;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid #FCA5A5;
+  background: #FEF2F2; color: #991B1B;
+  cursor: pointer;
+  transition: background .12s, border-color .12s;
+}
+.ai-error-cta:hover { background: #FEE2E2; border-color: #F87171; }
+body.emp-dark .ai-error-cta {
+  background: rgba(220,38,38,.12); color: #FECACA;
+  border-color: rgba(248,113,113,.55);
+}
+body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-color: #FCA5A5; }
+.ai-bubble-error.ai-bubble-locked { /* role_not_allowed: drop retry button visual */ }
 </style>
 
 <script>
