@@ -5932,6 +5932,55 @@ const AI_TOOLS_SPEC = [
   {
     type: 'function',
     function: {
+      name: 'collection_drilldown',
+      description: 'Single-call answer to "why is collection low for my branch / drill down on collection". Returns 3 worst FOs (top_3_underperformers, sorted ascending by collection %), 3 best FOs (bottom_3_underperformers, sorted descending — naming preserved per spec), DPD bucket plan-vs-actual (1-30 / 31-60 / 61-90), NPA today (count + amount), and FTOD gap today (actual / plan / gap). Use AFTER branch_summary when the user asks "why" or "drill down". For BM/ABM/BOE branch_name auto-resolves from session; CEO/RM/DM/AM must pass branch_name.',
+      parameters: {
+        type: 'object',
+        properties: {
+          branch_name: { type: 'string', description: 'Optional for branch-bound roles. Required for CEO/RM/DM/AM.' },
+          date: { type: 'string', description: 'YYYY-MM-DD as-of date. Default = latest report_date with data for this branch.' }
+        }
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'period_compare',
+      description: 'Compute a SINGLE metric across two date windows and return both values + delta_abs + delta_pct. Use for "MoM / WoW / vs last month / this week vs last week / vs yesterday / vs same week last year". Server-side math eliminates the model\'s frequent count-vs-amount mix-ups and broken pct-of-pct arithmetic. metric ∈ {collection, demand, collection_pct, npa_amount, disb_amount, disb_count, ftod}. scope ∈ {all, branch, region, division, area}. scope_value required when scope != "all".',
+      parameters: {
+        type: 'object',
+        properties: {
+          metric: { type: 'string', enum: ['collection', 'demand', 'collection_pct', 'npa_amount', 'disb_amount', 'disb_count', 'ftod'] },
+          scope: { type: 'string', enum: ['all', 'branch', 'region', 'division', 'area'], description: 'Default "all".' },
+          scope_value: { type: 'string', description: 'Required when scope != "all". E.g. branch name, region name.' },
+          period_a_start: { type: 'string', description: 'YYYY-MM-DD' },
+          period_a_end:   { type: 'string', description: 'YYYY-MM-DD' },
+          period_b_start: { type: 'string', description: 'YYYY-MM-DD' },
+          period_b_end:   { type: 'string', description: 'YYYY-MM-DD' }
+        },
+        required: ['metric', 'period_a_start', 'period_a_end', 'period_b_start', 'period_b_end']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'plan_compliance',
+      description: 'Lists branches that did NOT file daily_reports (plan) and/or daily_reports_achievements (achievement) for the given date. Use for "which branches missed plan today / who didn\'t file / branches without daily report / plan compliance". Returns expected_branches (from employee_master), filed_plan, filed_achievement, missing_plan, missing_achievement. CEO sees all; RM/DM/AM see their scope; BM/ABM/BOE rejected (single-branch — compliance check is meaningless).',
+      parameters: {
+        type: 'object',
+        properties: {
+          date: { type: 'string', description: 'YYYY-MM-DD. Default = today.' },
+          scope: { type: 'string', enum: ['all', 'region', 'division', 'area'], description: 'Default "all".' },
+          scope_value: { type: 'string', description: 'Required when scope != "all".' }
+        }
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
       name: 'sql_describe',
       description: 'Returns the schema cheatsheet of all tables/columns the AI can query.',
       parameters: { type: 'object', properties: {} }
@@ -6805,6 +6854,347 @@ async function dispatchAiTool(name, args, session) {
     };
   }
 
+  if (name === 'collection_drilldown') {
+    let branchName = String(args.branch_name || '').trim();
+    const role = String((session && session.role) || '').toUpperCase();
+    const loc = String((session && session.location) || '').trim();
+    const branchBound = role === 'BM' || role === 'ABM' || role === 'BOE';
+    if (!branchName) {
+      if (branchBound && loc) branchName = loc;
+      else return { error: 'branch_name required', message: 'collection_drilldown is a single-branch tool. Pass branch_name (e.g. "Davanagere").' };
+    }
+
+    // Resolve as-of date — default to MAX(report_date) for this branch.
+    let asOfDate = null;
+    if (args.date && /^\d{4}-\d{2}-\d{2}$/.test(String(args.date).trim())) {
+      asOfDate = String(args.date).trim();
+    }
+    if (!asOfDate) {
+      const r = await safeQuery(
+        `SELECT MAX(dp.report_date) AS d
+           FROM daily_performance dp
+           JOIN employees e ON dp.emp_id = e.emp_id
+           JOIN branches b ON e.branch_id = b.branch_id
+          WHERE b.branch_name ILIKE $1`,
+        [branchName], 1
+      );
+      const d = (Array.isArray(r) && r[0] && r[0].d) || null;
+      asOfDate = d
+        ? ((d instanceof Date) ? d.toISOString().slice(0, 10) : String(d).slice(0, 10))
+        : new Date().toISOString().slice(0, 10);
+    }
+
+    // 1. Per-FO ranking on asOfDate (count cols).
+    //    top_3_underperformers = sorted ASC by pct (the 3 worst).
+    //    bottom_3_underperformers = sorted DESC by pct (the 3 best — naming
+    //    preserved per spec; the field name is intentionally awkward).
+    const empSql = `
+      SELECT em.emp_id, em.full_name AS name, em.role,
+             SUM(dp.regular_demand)::bigint     AS demand,
+             SUM(dp.regular_collection)::bigint AS collection
+        FROM daily_performance dp
+        JOIN employees e ON dp.emp_id = e.emp_id
+        JOIN branches b  ON e.branch_id = b.branch_id
+        JOIN employee_master em ON em.emp_id = dp.emp_id
+       WHERE b.branch_name ILIKE $1
+         AND dp.report_date = $2
+         AND em.role = 'FO'
+       GROUP BY em.emp_id, em.full_name, em.role
+      HAVING SUM(dp.regular_demand) > 0
+       ORDER BY (SUM(dp.regular_collection)::float / NULLIF(SUM(dp.regular_demand), 0)) ASC NULLS LAST
+       LIMIT 200`;
+    const empRows = await safeQuery(empSql, [branchName, asOfDate], 200);
+    const decorated = (Array.isArray(empRows) ? empRows : []).map(function (r) {
+      const dem = Number(r.demand || 0);
+      const col = Number(r.collection || 0);
+      return {
+        emp_id: r.emp_id,
+        name: r.name,
+        role: r.role,
+        demand: dem,
+        collection: col,
+        pct: dem > 0 ? Math.round((col / dem) * 1000) / 10 : null
+      };
+    });
+    const top3 = decorated.slice(0, 3);                       // 3 worst (lowest pct)
+    const bottom3 = decorated.slice().reverse().slice(0, 3);  // 3 best (highest pct)
+
+    // 2. DPD buckets + NPA + FTOD from daily_reports_achievements,
+    //    fallback to daily_reports if achievement not yet filed.
+    const drCols = `ftod_actual, ftod_plan,
+                    dpd_1_30_actual, dpd_1_30_plan,
+                    dpd_31_60_actual, dpd_31_60_plan,
+                    dpd_61_90_actual, dpd_61_90_plan,
+                    npa_activation, npa_closure`;
+    let drRows = await safeQuery(
+      `SELECT ${drCols} FROM daily_reports_achievements
+        WHERE branch_name ILIKE $1 AND date = $2 LIMIT 1`,
+      [branchName, asOfDate], 1
+    );
+    if (!Array.isArray(drRows) || drRows.length === 0) {
+      drRows = await safeQuery(
+        `SELECT ${drCols} FROM daily_reports
+          WHERE branch_name ILIKE $1 AND date = $2 LIMIT 1`,
+        [branchName, asOfDate], 1
+      );
+    }
+    const dr = (Array.isArray(drRows) && drRows[0]) || {};
+    const numOrNull = (v) => (v === null || v === undefined) ? null : Number(v);
+    const ftodActual = numOrNull(dr.ftod_actual);
+    const ftodPlan = numOrNull(dr.ftod_plan);
+
+    // 3. NPA today — outstanding case count + activation amount on asOfDate.
+    //    Use the single-day snapshot to avoid the rolling-snapshot inflation
+    //    that summing over a range would cause.
+    const npaRows = await safeQuery(
+      `SELECT COALESCE(SUM(dp.npa_cases), 0)::int AS cases,
+              COALESCE(SUM(dp.npa_act_amt), 0)::numeric AS amount
+         FROM daily_performance dp
+         JOIN employees e ON dp.emp_id = e.emp_id
+         JOIN branches b ON e.branch_id = b.branch_id
+        WHERE b.branch_name ILIKE $1
+          AND dp.report_date = $2`,
+      [branchName, asOfDate], 1
+    );
+    const np = (Array.isArray(npaRows) && npaRows[0]) || {};
+
+    return {
+      branch_name: branchName,
+      date: asOfDate,
+      top_3_underperformers: top3,
+      bottom_3_underperformers: bottom3,
+      dpd_buckets: {
+        dpd_1_30:  { actual: numOrNull(dr.dpd_1_30_actual),  plan: numOrNull(dr.dpd_1_30_plan)  },
+        dpd_31_60: { actual: numOrNull(dr.dpd_31_60_actual), plan: numOrNull(dr.dpd_31_60_plan) },
+        dpd_61_90: { actual: numOrNull(dr.dpd_61_90_actual), plan: numOrNull(dr.dpd_61_90_plan) }
+      },
+      npa_today: {
+        cases: Number(np.cases || 0),
+        amount: Number(np.amount || 0)
+      },
+      ftod_gap_today: {
+        actual: ftodActual,
+        plan: ftodPlan,
+        gap: (ftodActual !== null && ftodPlan !== null) ? (ftodActual - ftodPlan) : null
+      }
+    };
+  }
+
+  if (name === 'period_compare') {
+    const allowedMetrics = ['collection', 'demand', 'collection_pct', 'npa_amount', 'disb_amount', 'disb_count', 'ftod'];
+    const metric = allowedMetrics.includes(args.metric) ? args.metric : null;
+    if (!metric) return { error: 'metric required', message: 'metric must be one of: ' + allowedMetrics.join(', ') };
+    const allowedScopes = ['all', 'branch', 'region', 'division', 'area'];
+    const scope = allowedScopes.includes(args.scope) ? args.scope : 'all';
+    const scopeValue = String(args.scope_value || '').trim();
+    if (scope !== 'all' && !scopeValue) return { error: 'scope_value required', message: `scope_value required when scope="${scope}".` };
+    const aS = args.period_a_start, aE = args.period_a_end, bS = args.period_b_start, bE = args.period_b_end;
+    if (!aS || !aE || !bS || !bE) return { error: 'period_a_start, period_a_end, period_b_start, period_b_end all required' };
+    const isoOk = /^\d{4}-\d{2}-\d{2}$/;
+    if (!isoOk.test(aS) || !isoOk.test(aE) || !isoOk.test(bS) || !isoOk.test(bE)) {
+      return { error: 'invalid date format', message: 'All dates must be YYYY-MM-DD.' };
+    }
+
+    // BM/ABM/BOE may only compare their own branch.
+    const role = String((session && session.role) || '').toUpperCase();
+    const loc = String((session && session.location) || '').trim();
+    const branchBound = role === 'BM' || role === 'ABM' || role === 'BOE';
+    if (branchBound) {
+      if (scope !== 'branch' || scopeValue.toLowerCase() !== loc.toLowerCase()) {
+        return { error: 'scope_violation', message: `${role} can only compare their own branch (${loc}). Use scope="branch", scope_value="${loc}".` };
+      }
+    }
+
+    // Build the value computation for one (start, end). Returns a number.
+    async function valueFor(start, end) {
+      // Filter clause varies by scope.
+      // We always _scopeWhere on the appropriate alias as a safety net.
+      const params = [start, end];
+      let scopeFilter = '';
+      if (scope === 'branch') {
+        params.push(scopeValue);
+        scopeFilter = ` AND b.branch_name ILIKE $${params.length}`;
+      } else if (scope === 'region') {
+        params.push(scopeValue);
+        scopeFilter = ` AND UPPER(b.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE region_name ILIKE $${params.length})`;
+      } else if (scope === 'division') {
+        params.push(scopeValue);
+        scopeFilter = ` AND UPPER(b.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE division_name ILIKE $${params.length})`;
+      } else if (scope === 'area') {
+        params.push(scopeValue);
+        scopeFilter = ` AND UPPER(b.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE area_name ILIKE $${params.length})`;
+      }
+      const sessionScope = _scopeWhere(session, 'b.branch_name', params);
+
+      let sql, alias = 'b.branch_name';
+      if (metric === 'collection') {
+        sql = `SELECT COALESCE(SUM(dp.regular_collection), 0)::numeric AS v
+                 FROM daily_performance dp
+                 JOIN employees e ON dp.emp_id = e.emp_id
+                 JOIN branches b  ON e.branch_id = b.branch_id
+                WHERE dp.report_date BETWEEN $1 AND $2 ${scopeFilter} ${sessionScope}`;
+      } else if (metric === 'demand') {
+        sql = `SELECT COALESCE(SUM(dp.regular_demand), 0)::numeric AS v
+                 FROM daily_performance dp
+                 JOIN employees e ON dp.emp_id = e.emp_id
+                 JOIN branches b  ON e.branch_id = b.branch_id
+                WHERE dp.report_date BETWEEN $1 AND $2 ${scopeFilter} ${sessionScope}`;
+      } else if (metric === 'collection_pct') {
+        sql = `SELECT CASE WHEN SUM(dp.regular_demand) > 0
+                           THEN ROUND(SUM(dp.regular_collection)::numeric / SUM(dp.regular_demand) * 1000) / 10
+                           ELSE NULL END AS v
+                 FROM daily_performance dp
+                 JOIN employees e ON dp.emp_id = e.emp_id
+                 JOIN branches b  ON e.branch_id = b.branch_id
+                WHERE dp.report_date BETWEEN $1 AND $2 ${scopeFilter} ${sessionScope}`;
+      } else if (metric === 'npa_amount') {
+        sql = `SELECT COALESCE(SUM(dp.npa_act_amt), 0)::numeric AS v
+                 FROM daily_performance dp
+                 JOIN employees e ON dp.emp_id = e.emp_id
+                 JOIN branches b  ON e.branch_id = b.branch_id
+                WHERE dp.report_date BETWEEN $1 AND $2 ${scopeFilter} ${sessionScope}`;
+      } else if (metric === 'disb_amount') {
+        // disbursement_daily uses disb_date and a flat branch_name column.
+        // Replace b.branch_name alias with d.branch_name.
+        const dParams = [start, end];
+        let dFilter = '';
+        if (scope === 'branch') { dParams.push(scopeValue); dFilter = ` AND d.branch_name ILIKE $${dParams.length}`; }
+        else if (scope === 'region') { dParams.push(scopeValue); dFilter = ` AND UPPER(d.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE region_name ILIKE $${dParams.length})`; }
+        else if (scope === 'division') { dParams.push(scopeValue); dFilter = ` AND UPPER(d.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE division_name ILIKE $${dParams.length})`; }
+        else if (scope === 'area') { dParams.push(scopeValue); dFilter = ` AND UPPER(d.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE area_name ILIKE $${dParams.length})`; }
+        const dSession = _scopeWhere(session, 'd.branch_name', dParams);
+        sql = `SELECT COALESCE(SUM(d.disb_amount), 0)::numeric AS v
+                 FROM disbursement_daily d
+                WHERE d.disb_date BETWEEN $1 AND $2 ${dFilter} ${dSession}`;
+        const r = await safeQuery(sql, dParams, 1);
+        return (Array.isArray(r) && r[0] && r[0].v != null) ? Number(r[0].v) : 0;
+      } else if (metric === 'disb_count') {
+        const dParams = [start, end];
+        let dFilter = '';
+        if (scope === 'branch') { dParams.push(scopeValue); dFilter = ` AND d.branch_name ILIKE $${dParams.length}`; }
+        else if (scope === 'region') { dParams.push(scopeValue); dFilter = ` AND UPPER(d.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE region_name ILIKE $${dParams.length})`; }
+        else if (scope === 'division') { dParams.push(scopeValue); dFilter = ` AND UPPER(d.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE division_name ILIKE $${dParams.length})`; }
+        else if (scope === 'area') { dParams.push(scopeValue); dFilter = ` AND UPPER(d.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE area_name ILIKE $${dParams.length})`; }
+        const dSession = _scopeWhere(session, 'd.branch_name', dParams);
+        sql = `SELECT COALESCE(SUM(d.disb_count), 0)::numeric AS v
+                 FROM disbursement_daily d
+                WHERE d.disb_date BETWEEN $1 AND $2 ${dFilter} ${dSession}`;
+        const r = await safeQuery(sql, dParams, 1);
+        return (Array.isArray(r) && r[0] && r[0].v != null) ? Number(r[0].v) : 0;
+      } else if (metric === 'ftod') {
+        // daily_reports_achievements has flat branch_name — no JOIN.
+        const drParams = [start, end];
+        let drFilter = '';
+        if (scope === 'branch') { drParams.push(scopeValue); drFilter = ` AND branch_name ILIKE $${drParams.length}`; }
+        else if (scope === 'region') { drParams.push(scopeValue); drFilter = ` AND UPPER(branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE region_name ILIKE $${drParams.length})`; }
+        else if (scope === 'division') { drParams.push(scopeValue); drFilter = ` AND UPPER(branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE division_name ILIKE $${drParams.length})`; }
+        else if (scope === 'area') { drParams.push(scopeValue); drFilter = ` AND UPPER(branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE area_name ILIKE $${drParams.length})`; }
+        const drSession = _scopeWhere(session, 'branch_name', drParams);
+        sql = `SELECT COALESCE(SUM(ftod_actual), 0)::numeric AS v
+                 FROM daily_reports_achievements
+                WHERE date BETWEEN $1 AND $2 ${drFilter} ${drSession}`;
+        const r = await safeQuery(sql, drParams, 1);
+        return (Array.isArray(r) && r[0] && r[0].v != null) ? Number(r[0].v) : 0;
+      }
+      const r = await safeQuery(sql, params, 1);
+      return (Array.isArray(r) && r[0] && r[0].v != null) ? Number(r[0].v) : 0;
+    }
+
+    const aVal = await valueFor(aS, aE);
+    const bVal = await valueFor(bS, bE);
+    const deltaAbs = Number(aVal) - Number(bVal);
+    let deltaPct = null;
+    if (Number(bVal) !== 0) {
+      deltaPct = Math.round(((Number(aVal) - Number(bVal)) / Math.abs(Number(bVal))) * 1000) / 10;
+    }
+    return {
+      metric,
+      scope,
+      scope_value: scope === 'all' ? null : scopeValue,
+      period_a: { start: aS, end: aE, value: Number(aVal) },
+      period_b: { start: bS, end: bE, value: Number(bVal) },
+      delta_abs: deltaAbs,
+      delta_pct: deltaPct
+    };
+  }
+
+  if (name === 'plan_compliance') {
+    const role = String((session && session.role) || '').toUpperCase();
+    const loc = String((session && session.location) || '').trim();
+    const branchBound = role === 'BM' || role === 'ABM' || role === 'BOE';
+    if (branchBound) {
+      return { error: 'scope_violation', message: `plan_compliance is a multi-branch tool. ${role} only has one branch (${loc}) — use branch_summary or daily_reports_query instead.` };
+    }
+
+    const date = (args.date && /^\d{4}-\d{2}-\d{2}$/.test(String(args.date).trim()))
+      ? String(args.date).trim()
+      : new Date().toISOString().slice(0, 10);
+    const allowedScopes = ['all', 'region', 'division', 'area'];
+    const scope = allowedScopes.includes(args.scope) ? args.scope : 'all';
+    const scopeValue = String(args.scope_value || '').trim();
+    if (scope !== 'all' && !scopeValue) return { error: 'scope_value required', message: `scope_value required when scope="${scope}".` };
+
+    // Build the expected-branches filter (scope arg + session scope).
+    const expParams = [];
+    let expWhere = `status = 'Working' AND branch_name IS NOT NULL AND branch_name <> ''`;
+    if (scope === 'region') { expParams.push(scopeValue); expWhere += ` AND region_name ILIKE $${expParams.length}`; }
+    else if (scope === 'division') { expParams.push(scopeValue); expWhere += ` AND division_name ILIKE $${expParams.length}`; }
+    else if (scope === 'area') { expParams.push(scopeValue); expWhere += ` AND area_name ILIKE $${expParams.length}`; }
+    const expSession = _scopeWhere(session, 'branch_name', expParams);
+    const expRows = await safeQuery(
+      `SELECT DISTINCT branch_name
+         FROM employee_master
+        WHERE ${expWhere} ${expSession}
+        ORDER BY branch_name`,
+      expParams, 1000
+    );
+    const expected = (Array.isArray(expRows) ? expRows : [])
+      .map((r) => String(r.branch_name || '').trim())
+      .filter(Boolean);
+
+    // Filed for plan + achievement on `date` — restricted to expected set.
+    async function filedFor(table) {
+      const fParams = [date];
+      let fWhere = `date = $1`;
+      if (scope === 'region') { fParams.push(scopeValue); fWhere += ` AND UPPER(branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE region_name ILIKE $${fParams.length})`; }
+      else if (scope === 'division') { fParams.push(scopeValue); fWhere += ` AND UPPER(branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE division_name ILIKE $${fParams.length})`; }
+      else if (scope === 'area') { fParams.push(scopeValue); fWhere += ` AND UPPER(branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE area_name ILIKE $${fParams.length})`; }
+      const fSession = _scopeWhere(session, 'branch_name', fParams);
+      const rows = await safeQuery(
+        `SELECT DISTINCT branch_name FROM ${table} WHERE ${fWhere} ${fSession} ORDER BY branch_name`,
+        fParams, 1000
+      );
+      return (Array.isArray(rows) ? rows : [])
+        .map((r) => String(r.branch_name || '').trim())
+        .filter(Boolean);
+    }
+    const filedPlan = await filedFor('daily_reports');
+    const filedAch  = await filedFor('daily_reports_achievements');
+
+    // Set diff — case-insensitive match against expected.
+    const upper = (s) => String(s || '').toUpperCase();
+    const planSet = new Set(filedPlan.map(upper));
+    const achSet  = new Set(filedAch.map(upper));
+    const missingPlan = expected.filter((b) => !planSet.has(upper(b))).sort((a, b) => a.localeCompare(b));
+    const missingAch  = expected.filter((b) => !achSet.has(upper(b))).sort((a, b) => a.localeCompare(b));
+
+    return {
+      date,
+      scope,
+      scope_value: scope === 'all' ? null : scopeValue,
+      expected_count: expected.length,
+      filed_plan_count: filedPlan.length,
+      filed_achievement_count: filedAch.length,
+      missing_plan_count: missingPlan.length,
+      missing_achievement_count: missingAch.length,
+      expected_branches: expected,
+      filed_plan: filedPlan,
+      filed_achievement: filedAch,
+      missing_plan: missingPlan,
+      missing_achievement: missingAch
+    };
+  }
+
   return { error: 'unknown_tool: ' + name };
 }
 
@@ -7276,10 +7666,13 @@ app.post('/api/voice-stream', aiLimiter, voiceUpload.single('audio'), requireAiA
         '- The companion screen shows the raw rows you fetch — you do not need to dictate every value, just the highlight + interpretation.',
         '',
         '## Tools available — CALL THESE for any specifics',
-        '- find_employee, employee_performance, find_branch, period_performance, top_performers, disbursement_query, list_hierarchy, list_employees, headcount, npa_summary, daily_reports_query, branch_summary, hourly_collection, sql_describe',
+        '- find_employee, employee_performance, find_branch, period_performance, top_performers, disbursement_query, list_hierarchy, list_employees, headcount, npa_summary, daily_reports_query, branch_summary, hourly_collection, collection_drilldown, period_compare, plan_compliance, sql_describe',
         '',
         '## Critical tool routing',
         '- "How is my branch doing today / how is <branch> doing / branch health / give me a summary of <branch> / end-of-day rollup" → call `branch_summary()` (BM/ABM/BOE pass NO args — auto-resolves; CEO/RM/DM/AM pass branch_name). Returns headcount + collection (today/MTD/FYTD) + NPA + disbursement + FTOD + DPD plan-vs-actual in ONE call. Don\'t chain 5 separate tools for this.',
+        '- "Why is collection low / drill down on collection / who\'s underperforming / which FOs are dragging us down" → call `collection_drilldown()`. Returns 3 worst FOs + 3 best FOs + DPD buckets + NPA + FTOD gap in ONE call. Use AFTER branch_summary for the "why" follow-up.',
+        '- "MoM / WoW / vs last month / vs yesterday / this week vs last week / vs same period last year" → call `period_compare(metric, scope, scope_value?, period_a_start, period_a_end, period_b_start, period_b_end)`. Server computes delta_abs + delta_pct — DO NOT call period_performance twice and do the math yourself (you mix counts vs amounts and miscompute pct-of-pct).',
+        '- "Which branches missed plan today / who didn\'t file daily report / plan compliance / branches without daily report" → call `plan_compliance(date?, scope?, scope_value?)`. Returns missing_plan + missing_achievement lists. CEO/RM/DM/AM only — BM rejected (single branch).',
         '- "Collection right now / live collection / how much collected today so far / hourly trend / intra-day" → call `hourly_collection()`. Returns CURRENT live snapshot (counts + amounts + pct), not a time series.',
         '- "How many employees / staff / BMs / FOs / agents in <scope>?" → call `headcount(group_by=\'role\')` for a role breakdown, or `headcount(role=\'BM\')` for a single role count, or `headcount()` for the overall total. NEVER quote a hierarchy row count or list_hierarchy result count as "number of employees".',
       '- "List all employees / give me everyone / phone numbers of staff in <branch>" / "show roster" → call `list_employees(branch_name=...)`. NOT find_employee — that\'s for searching ONE named person. list_employees returns the full roster (name + role + branch + mobile).',
@@ -7347,10 +7740,28 @@ app.post('/api/voice-stream', aiLimiter, voiceUpload.single('audio'), requireAiA
     // Provider chain: prefer Mistral (best tool dispatch), then OpenAI.
     // Voice replies are short — cap at 6 tool rounds so a runaway loop
     // doesn't burn the TPM budget.
+    // If the client passed an explicit `provider` ('openai'|'mistral'),
+    // use ONLY that one — no fallback. Missing key for that provider
+    // is sent back as a 503-style SSE error so the UI can prompt the user.
     const VOICE_MAX_ROUNDS = 6;
+    const explicitProvider = String((req.body && req.body.provider) || '').toLowerCase().trim();
     const chain = [];
-    if (MISTRAL_KEY) chain.push({ name: 'mistral', run: () => runMistralWithTools(messages, session, VOICE_MAX_ROUNDS, onProgress) });
-    if (OPENAI_KEY)  chain.push({ name: 'openai',  run: () => runOpenAiWithTools(messages, session, VOICE_MAX_ROUNDS, onProgress) });
+    if (explicitProvider === 'mistral') {
+      if (!MISTRAL_KEY) {
+        send('error', { message: 'Mistral not configured on this server.', reason: 'provider_unavailable', provider: 'mistral' });
+        return finish();
+      }
+      chain.push({ name: 'mistral', run: () => runMistralWithTools(messages, session, VOICE_MAX_ROUNDS, onProgress) });
+    } else if (explicitProvider === 'openai') {
+      if (!OPENAI_KEY) {
+        send('error', { message: 'OpenAI not configured on this server.', reason: 'provider_unavailable', provider: 'openai' });
+        return finish();
+      }
+      chain.push({ name: 'openai', run: () => runOpenAiWithTools(messages, session, VOICE_MAX_ROUNDS, onProgress) });
+    } else {
+      if (MISTRAL_KEY) chain.push({ name: 'mistral', run: () => runMistralWithTools(messages, session, VOICE_MAX_ROUNDS, onProgress) });
+      if (OPENAI_KEY)  chain.push({ name: 'openai',  run: () => runOpenAiWithTools(messages, session, VOICE_MAX_ROUNDS, onProgress) });
+    }
 
     let result = { ok: false, error: 'no_providers' };
     let usedProvider = null;
@@ -7710,6 +8121,16 @@ async function callGeminiAi(messages) {
   return { ok: false, error: 'gemini_all_models_failed' };
 }
 
+// GET /api/ai-providers — frontend uses this to render provider chooser
+// cards and disable the ones whose env keys are not configured.
+app.get('/api/ai-providers', (_req, res) => {
+  const all = ['openai', 'mistral', 'gemini'];
+  const haveKey = { openai: !!OPENAI_KEY, mistral: !!MISTRAL_KEY, gemini: !!GEMINI_KEY };
+  const available = all.filter((p) => haveKey[p]);
+  const unavailable = all.filter((p) => !haveKey[p]);
+  res.json({ available, unavailable });
+});
+
 app.post("/api/ai-chat", aiLimiter, requireAiAccess, async (req, res) => {
   // Origin check: allow same-origin web traffic, plus mobile clients which
   // send no Origin/Referer but advertise themselves via x-app-origin.
@@ -7796,6 +8217,9 @@ app.post("/api/ai-chat", aiLimiter, requireAiAccess, async (req, res) => {
       '- daily_reports_query(start_date, end_date, branch_name?, region_name?, district_name?, table?, metrics?, limit?) — branch-level DAILY PLAN data: FTOD, DPD bucket 1-30/31-60/61-90, NPA activation/closure, disbursement plan vs actual (IGL/FIG/IL), KYC. ALWAYS use this for ANY question mentioning FTOD, DPD, KYC, NPA closure, or disbursement plan-vs-achievement on a specific date or branch.',
       '- branch_summary(branch_name?, date?) — ONE-SHOT branch dashboard: headcount + role mix, collection today/MTD/FYTD with %, NPA, disbursement today/MTD, FTOD plan-vs-actual, DPD bucket plan-vs-actual. Use for "how is my branch doing today / branch summary / health check / EOD rollup". BM/ABM/BOE pass NO args. CEO/RM/DM/AM MUST pass branch_name (single-branch only).',
       '- hourly_collection(branch_name?, region_name?, group_by?) — CURRENT live intra-day collection snapshot (counts + amounts + pct). hourly_performance has no time series, so this returns the latest live totals, NOT an hour-by-hour series.',
+      '- collection_drilldown(branch_name?, date?) — Single-branch root-cause drilldown for "why is collection low". Returns top_3_underperformers (3 worst FOs) + bottom_3_underperformers (3 best FOs) + DPD buckets + NPA + FTOD gap. Use after branch_summary.',
+      '- period_compare(metric, scope, scope_value?, period_a_start, period_a_end, period_b_start, period_b_end) — Two-window compare with server-computed delta_abs + delta_pct. metric ∈ {collection, demand, collection_pct, npa_amount, disb_amount, disb_count, ftod}. Use for any MoM / WoW / vs-last-month / vs-yesterday question.',
+      '- plan_compliance(date?, scope?, scope_value?) — Lists branches that did NOT file daily_reports / daily_reports_achievements for a given date. CEO/RM/DM/AM only.',
       '- sql_describe() — schema cheatsheet refresher.',
       '',
       '## Date range guidance',
@@ -7822,6 +8246,9 @@ app.post("/api/ai-chat", aiLimiter, requireAiAccess, async (req, res) => {
       '- Never use the words "snapshot" or "provided data" or "JSON below" in your replies — they leak internal plumbing. Just answer with the numbers and a short label.',
       '- If a question mentions FTOD, DPD, KYC, disbursement plan, NPA closure, or "daily plan" → MUST call daily_reports_query. Do NOT say "data not available" without calling the tool first.',
       '- If the user asks "how is my branch doing today / branch summary / give me a summary of <branch> / end-of-day rollup" → call `branch_summary()` (single tool, returns headcount + collection + NPA + disbursement + FTOD + DPD). Do NOT chain 5 separate tool calls.',
+      '- If the user asks "why is collection low / drill down / who\'s underperforming / which FOs are dragging us down" → call `collection_drilldown()`. Returns the 3 worst + 3 best FOs + DPD + NPA + FTOD gap in one call. Use AFTER branch_summary for the natural "why" follow-up.',
+      '- For any "MoM / WoW / vs last month / vs yesterday / this week vs last week" question → call `period_compare(metric, scope, scope_value?, period_a_start/end, period_b_start/end)`. The server computes delta_abs and delta_pct — DO NOT call period_performance twice and do the arithmetic yourself.',
+      '- For "which branches missed plan today / didn\'t file / plan compliance" → call `plan_compliance(date?, scope?, scope_value?)`. Returns missing_plan + missing_achievement.',
       '- If the user asks "collection right now / live / hourly / intra-day / how much collected today so far" → call `hourly_collection()`. It is a live snapshot, not a time series — answer with the current totals and don\'t pretend to break them down by hour.',
       '- "11th April" / "April 11" / "11/04" all mean the same date — convert to YYYY-MM-DD using the current FY year.',
       '- When a tool returns 0 rows for a specific date, ALWAYS retry the same tool with a wider window (the full month, then the full FY) to find the nearest available date(s). Then tell the user "no data for {requested date}; nearest available is {date} — here it is" and answer with that data. Do NOT just say "data not available" and stop.',
@@ -8022,10 +8449,13 @@ app.post("/api/ai-chat-stream", aiLimiter, requireAiAccess, async (req, res) => 
       'Collection % = regular_collection / regular_demand × 100 (count ratio, dimensionless).',
       '',
       '## Tools available — CALL THESE for any specifics not in the at-a-glance JSON',
-      '- find_employee, employee_performance, find_branch, period_performance, top_performers, disbursement_query, list_hierarchy, list_employees, headcount, npa_summary, daily_reports_query, branch_summary, hourly_collection, sql_describe',
+      '- find_employee, employee_performance, find_branch, period_performance, top_performers, disbursement_query, list_hierarchy, list_employees, headcount, npa_summary, daily_reports_query, branch_summary, hourly_collection, collection_drilldown, period_compare, plan_compliance, sql_describe',
       '',
       '## Critical tool routing',
       '- "How is my branch doing today / branch summary / branch health / give me a summary of <branch> / end-of-day rollup" → call `branch_summary()` — ONE tool returns headcount + collection (today/MTD/FYTD) + NPA + disbursement + FTOD + DPD plan-vs-actual. BM/ABM/BOE pass NO args (auto-resolves); CEO/RM/DM/AM MUST pass branch_name. Don\'t chain 5+ separate tool calls for this.',
+      '- "Why is collection low / drill down on collection / who\'s underperforming / which FOs are dragging us down" → call `collection_drilldown()`. Returns 3 worst FOs + 3 best FOs + DPD buckets + NPA + FTOD gap. Use AFTER branch_summary for the natural "why" follow-up.',
+      '- "MoM / WoW / vs last month / vs yesterday / this week vs last week / vs same period last year" → call `period_compare(metric, scope, scope_value?, period_a_start/end, period_b_start/end)`. Server computes delta_abs + delta_pct. NEVER call period_performance twice and do the arithmetic yourself — you mix counts vs amounts and miscompute pct deltas.',
+      '- "Which branches missed plan today / who didn\'t file / plan compliance / branches without daily report" → call `plan_compliance(date?, scope?, scope_value?)`. Returns missing_plan + missing_achievement lists. CEO/RM/DM/AM only.',
       '- "Collection right now / live / how much collected today so far / hourly / intra-day" → call `hourly_collection()`. Returns CURRENT live totals from hourly_performance — NOT a time series, NOT hour-by-hour buckets.',
       '- "How many employees / staff / BMs / FOs / agents in <scope>?" → call `headcount(group_by=\'role\')` for a role breakdown, or `headcount(role=\'BM\')` for a single role count, or `headcount()` for the overall total. NEVER quote a hierarchy row count or list_hierarchy result count as "number of employees".',
       '- "List all employees / give me everyone / phone numbers of staff in <branch>" / "show roster" → call `list_employees(branch_name=...)`. NOT find_employee — that\'s for searching ONE named person. list_employees returns the full roster (name + role + branch + mobile).',
@@ -8061,11 +8491,32 @@ app.post("/api/ai-chat-stream", aiLimiter, requireAiAccess, async (req, res) => 
     ? [{ role: 'system', content: mergedSystem }, ...nonSystem]
     : nonSystem;
 
-  // Pick first available provider as primary.
-  const primaryProv = MISTRAL_KEY ? 'mistral' : (GEMINI_KEY ? 'gemini' : 'openai');
+  // Honor explicit provider ('openai'|'mistral'|'gemini') from request body —
+  // when present, use ONLY that provider (no fallback). Missing key → 503-
+  // style SSE error so the UI can disable the card.
+  const explicitProvider = String((req.body && req.body.provider) || '').toLowerCase().trim();
+
+  // Pick the primary (for the 'open' event the UI displays before tokens).
+  let primaryProv;
+  if (explicitProvider === 'mistral' || explicitProvider === 'gemini' || explicitProvider === 'openai') {
+    primaryProv = explicitProvider;
+  } else {
+    primaryProv = MISTRAL_KEY ? 'mistral' : (GEMINI_KEY ? 'gemini' : 'openai');
+  }
   const primaryModel = primaryProv === 'mistral' ? MISTRAL_MODEL
     : primaryProv === 'openai' ? OPENAI_LLM
     : 'gemini';
+
+  // If explicit and that key is missing, fail fast with 503-style SSE.
+  if (explicitProvider) {
+    const haveKey = { mistral: !!MISTRAL_KEY, gemini: !!GEMINI_KEY, openai: !!OPENAI_KEY };
+    if (!haveKey[explicitProvider]) {
+      send('open', { provider: explicitProvider, model: primaryModel });
+      send('error', { message: explicitProvider + ' not configured on this server.', reason: 'provider_unavailable', provider: explicitProvider });
+      return finish();
+    }
+  }
+
   send('open', { provider: primaryProv, model: primaryModel });
 
   const onProgress = (ev) => {
@@ -8080,11 +8531,20 @@ app.post("/api/ai-chat-stream", aiLimiter, requireAiAccess, async (req, res) => 
     });
   };
 
-  // Try Mistral → Gemini → OpenAI in order, skipping unconfigured ones.
+  // Build chain. Explicit provider → single-element chain (no fallback).
+  // Auto → Mistral → Gemini → OpenAI in order, skipping unconfigured ones.
   const chain = [];
-  if (MISTRAL_KEY) chain.push({ name: 'mistral', run: () => runMistralWithTools(mergedMessages, session, undefined, onProgress) });
-  if (GEMINI_KEY)  chain.push({ name: 'gemini',  run: () => callGeminiAi(mergedMessages) });
-  if (OPENAI_KEY)  chain.push({ name: 'openai',  run: () => runOpenAiWithTools(mergedMessages, session, undefined, onProgress) });
+  if (explicitProvider === 'mistral') {
+    chain.push({ name: 'mistral', run: () => runMistralWithTools(mergedMessages, session, undefined, onProgress) });
+  } else if (explicitProvider === 'gemini') {
+    chain.push({ name: 'gemini',  run: () => callGeminiAi(mergedMessages) });
+  } else if (explicitProvider === 'openai') {
+    chain.push({ name: 'openai',  run: () => runOpenAiWithTools(mergedMessages, session, undefined, onProgress) });
+  } else {
+    if (MISTRAL_KEY) chain.push({ name: 'mistral', run: () => runMistralWithTools(mergedMessages, session, undefined, onProgress) });
+    if (GEMINI_KEY)  chain.push({ name: 'gemini',  run: () => callGeminiAi(mergedMessages) });
+    if (OPENAI_KEY)  chain.push({ name: 'openai',  run: () => runOpenAiWithTools(mergedMessages, session, undefined, onProgress) });
+  }
 
   let result = { ok: false, error: 'no_providers' };
   let usedProvider = null;
