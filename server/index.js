@@ -7785,22 +7785,30 @@ app.post('/api/voice-stream', aiLimiter, voiceUpload.single('audio'), requireAiA
 
     const reply = result.text;
     send('reply', { text: reply });
+
+    // Emit `done` BEFORE TTS so the cockpit unblocks immediately — user
+    // has the answer rendered; voice is bonus. Late `audio` event still
+    // plays if TTS completes within the 15s budget. Prevents the
+    // "Synthesising voice…" hang we saw in production when OpenAI TTS
+    // is slow on long Indian-English replies.
+    send('done', { provider: usedProvider });
     send('stage', { stage: 'tts' });
 
     let audioB64 = null;
     try {
-      const buf = await openaiTts(reply);
+      const ttsPromise = openaiTts(reply);
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('tts_budget_exceeded_15s')), 15000)
+      );
+      const buf = await Promise.race([ttsPromise, timeoutPromise]);
       audioB64 = buf.toString('base64');
     } catch (e) {
       console.error('voice-stream tts skipped:', e.message);
     }
-    if (audioB64) send('audio', { mime: 'audio/mp3', data: audioB64 });
+    if (audioB64 && !closed) send('audio', { mime: 'audio/mp3', data: audioB64 });
 
-    send('done', { provider: usedProvider });
-    // Audio events can be 100-300 KB. Give the kernel TCP buffer a tick to
-    // flush before res.end() writes the chunked-encoding terminator —
-    // otherwise the browser sometimes raises ERR_INCOMPLETE_CHUNKED_ENCODING
-    // even though the application-level done event was emitted cleanly.
+    // 150ms TCP-buffer flush before terminator (avoids
+    // ERR_INCOMPLETE_CHUNKED_ENCODING on big audio chunks).
     await new Promise(r => setTimeout(r, 150));
     finish();
   } catch (e) {
