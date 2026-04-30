@@ -6984,19 +6984,47 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       return row;
     }
 
-    function appendErrorBubble(box, errText, retryMsg) {
+    function appendErrorBubble(box, errText, retryMsg, errCode, lastUserMsg) {
       var row = document.createElement('div');
       row.className = 'ai-row ai-row-bot';
-      var retryBtn = retryMsg
+      // role_not_allowed is a hard block — drop the retry button.
+      var hardBlock = String(errCode || '').toLowerCase() === 'role_not_allowed';
+      var retryBtn = (retryMsg && !hardBlock)
         ? '<button class="ai-retry-btn" data-retry><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/></svg>Retry</button>'
         : '';
+      // Smart CTAs based on error code (server-emitted) + lightweight heuristics.
+      var ctas = [];
+      try { ctas = (window._aiErrorCtas && window._aiErrorCtas(errCode, errText, lastUserMsg)) || []; } catch (_) { ctas = []; }
+      var ctaHtml = '';
+      if (ctas.length) {
+        ctaHtml = '<div class="ai-error-ctas">'
+          + ctas.map(function(c, i){
+              return '<button type="button" class="ai-error-cta" data-cta-idx="' + i + '">' + esc(c.label) + '</button>';
+            }).join('')
+          + '</div>';
+      }
       row.innerHTML = botIcon + '<div class="ai-bot-col">'
-        + '<div class="ai-bubble ai-bubble-error">'
+        + '<div class="ai-bubble ai-bubble-error' + (hardBlock ? ' ai-bubble-locked' : '') + '">'
         +   '<svg class="ai-err-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'
         +   '<span>' + esc(errText) + '</span>'
         +   retryBtn
-        + '</div></div>';
+        + '</div>'
+        + ctaHtml
+        + '</div>';
       box.appendChild(row);
+      if (ctas.length) {
+        Array.prototype.forEach.call(row.querySelectorAll('[data-cta-idx]'), function(btn){
+          btn.addEventListener('click', function(){
+            var idx = parseInt(btn.getAttribute('data-cta-idx'), 10);
+            var c = ctas[idx];
+            if (!c) return;
+            if (c.prompt) {
+              row.remove();
+              sendStream(c.prompt, false);
+            }
+          });
+        });
+      }
       if (retryMsg) {
         var btn = row.querySelector('[data-retry]');
         if (btn) btn.addEventListener('click', function(){
@@ -7098,7 +7126,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         } else if (event === 'error') {
           setStatus('');
           row.remove();
-          appendErrorBubble(box, data.message || 'AI is briefly busy. Please retry.', msg);
+          appendErrorBubble(box, data.message || 'AI is briefly busy. Please retry.', msg, data.code || data.error || '', msg);
           _aiBusy = false;
         }
       }
@@ -7106,7 +7134,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       fetch('/api/ai-chat-stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream' },
-        body: JSON.stringify({ messages: msgs, role: session.role || '', location: session.location || '' })
+        body: JSON.stringify({ messages: msgs, role: session.role || '', location: session.location || '', provider: (window._aiPickedProvider && window._aiPickedProvider()) || 'openai' })
       }).then(function(resp){
         if (!resp.ok || !resp.body) throw new Error('http_' + resp.status);
         var reader = resp.body.getReader();
@@ -7599,9 +7627,12 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         });
         argSummary = Object.keys(compact).length ? JSON.stringify(compact) : '';
       } catch (_) {}
+      var rowCountForExport = (window._aiTableExports && window._aiTableExports.count(result)) || 0;
+      var actionsHtml = (window._aiTableExports && window._aiTableExports.html(toolName, rowCountForExport)) || '';
       var inner = '<div class="vo-data-head">'
         + '<span class="vo-data-title">' + _voEsc(toolName) + '</span>'
         + (argSummary ? '<span class="vo-data-count" style="font-size:10.5px">' + _voEsc(argSummary) + '</span>' : '')
+        + actionsHtml
         + '</div>';
 
       // Empty-result hint: surface the args so BMs see why a query came back
@@ -7684,6 +7715,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       }
       card.innerHTML = inner;
       list.appendChild(card);
+      try { window._aiTableExports && window._aiTableExports.bind(card, toolName, result); } catch (_) {}
       list.scrollTop = list.scrollHeight;
       _vo.dataNum++;
       if (counter) counter.textContent = _vo.dataNum + (_vo.dataNum === 1 ? ' result' : ' results');
@@ -7722,6 +7754,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       fd.append('audio', blob, 'rec.webm');
       if (session.role) fd.append('role', session.role);
       if (session.location) fd.append('location', session.location);
+      try { fd.append('provider', (window._aiPickedProvider && window._aiPickedProvider()) || 'openai'); } catch(_) {}
 
       var transcriptText = '';
       var replyBuf = '';
@@ -7869,6 +7902,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       fd.append('audio', blob, 'rec.webm');
       if (session.role) fd.append('role', session.role);
       if (session.location) fd.append('location', session.location);
+      try { fd.append('provider', (window._aiPickedProvider && window._aiPickedProvider()) || 'openai'); } catch(_) {}
 
       fetch('/api/voice', { method: 'POST', body: fd })
         .then(function(r) {
@@ -8205,6 +8239,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       fd.append('audio', blob, 'rec.webm');
       if (session.role) fd.append('role', session.role);
       if (session.location) fd.append('location', session.location);
+      try { fd.append('provider', (window._aiPickedProvider && window._aiPickedProvider()) || 'openai'); } catch(_) {}
 
       _vomState.gen++;
       var myGen = _vomState.gen;
@@ -8237,7 +8272,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       fetch('/api/ai-chat-stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: [{ role: 'user', content: msg }], role: session.role || '', location: session.location || '' }),
+        body: JSON.stringify({ messages: [{ role: 'user', content: msg }], role: session.role || '', location: session.location || '', provider: (window._aiPickedProvider && window._aiPickedProvider()) || 'openai' }),
         signal: ctrl ? ctrl.signal : undefined
       })
         .then(function (r) {
@@ -8371,9 +8406,12 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         Object.keys(args || {}).forEach(function (k) { if (args[k] != null && args[k] !== '') compact[k] = args[k]; });
         argSummary = Object.keys(compact).length ? JSON.stringify(compact) : '';
       } catch (_) {}
+      var rowCountForExport = (window._aiTableExports && window._aiTableExports.count(result)) || 0;
+      var actionsHtml = (window._aiTableExports && window._aiTableExports.html(toolName, rowCountForExport)) || '';
       var head = '<div class="vom-data-head">'
         + '<span class="vom-data-title">' + esc(toolName) + '</span>'
         + (argSummary ? '<span class="vom-data-args">' + esc(argSummary) + '</span>' : '')
+        + (actionsHtml ? actionsHtml.replace(/vo-data-actions/g, 'vom-data-actions').replace(/vo-data-action/g, 'vom-data-action') : '')
         + '</div>';
 
       var body = _vomRenderResult(result, /*compact*/ true);
@@ -8386,6 +8424,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         : '';
       card.innerHTML = head + body + expand;
       box.appendChild(card);
+      try { window._aiTableExports && window._aiTableExports.bind(card, toolName, result); } catch (_) {}
       var btn = card.querySelector('.vom-expand-chip');
       if (btn) btn.addEventListener('click', function () {
         var idx = parseInt(btn.getAttribute('data-idx'), 10);
@@ -8594,6 +8633,321 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       if (_vomIsMobile()) return window._vomOpen();
       if (typeof _origAiTalk === 'function') return _origAiTalk.apply(this, arguments);
     };
+
+    // ── Provider chooser + role-aware chips + error CTAs + table export ──
+    // Provider chooser shows on EVERY _aiOpen — not one-time. Localstorage
+    // only stores which provider to send in the request body; it does not
+    // gate the chooser's appearance. Read at fetch time so re-picking
+    // mid-session is honored on the next turn.
+    function _aiEsc(t) {
+      return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) {
+        return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+      });
+    }
+    function _aiSession() {
+      try { return (typeof getEmployeeSession === 'function') ? (getEmployeeSession() || {}) : {}; }
+      catch (_) { return {}; }
+    }
+    function _aiGate() {
+      var r = String((_aiSession().role) || '').trim().toUpperCase();
+      if (!r) return true; // unknown — let server decide
+      return r !== 'FO';
+    }
+
+    window._aiPickedProvider = function () {
+      try {
+        var v = String(localStorage.getItem('nlpl_ai_provider') || '').toLowerCase();
+        return (v === 'mistral') ? 'mistral' : 'openai';
+      } catch (_) { return 'openai'; }
+    };
+
+    // ── Role-aware starter chips ──
+    window.getStarterChips = function (role, location, hour) {
+      role = String(role || '').toUpperCase();
+      hour = (hour == null) ? new Date().getHours() : Number(hour);
+      var slot = (hour < 12) ? 'morning' : (hour < 17 ? 'afternoon' : 'evening');
+      var loc = location ? String(location) : '';
+      // BM/ABM/BOE — branch view
+      if (role === 'BM' || role === 'ABM' || role === 'BOE') {
+        var b = loc || 'my branch';
+        var m = (slot === 'morning')
+          ? [{ icon:'☀️', title:'Today\'s plan', sub:'Daily target vs yesterday', prompt:'What is my branch daily plan for today vs yesterday\'s achievement?' },
+             { icon:'⚠️', title:'NPA snapshot',  sub:'Cases + activation amount', prompt:'Show NPA cases and activation amount for ' + b + '.' },
+             { icon:'📊', title:'MTD collection', sub:'Branch MTD %',             prompt:'My branch collection % MTD vs target.' },
+             { icon:'👥', title:'My roster',      sub:'Active staff in branch',   prompt:'List all active staff in ' + b + '.' }]
+          : (slot === 'afternoon')
+          ? [{ icon:'📈', title:'EOD pacing',   sub:'On track for today?',       prompt:'Am I on track for today\'s collection target in ' + b + '?' },
+             { icon:'⚠️', title:'NPA snapshot', sub:'Cases + activation amount', prompt:'Show NPA cases and activation amount for ' + b + '.' },
+             { icon:'💰', title:'Disbursement', sub:'MTD by product',            prompt:'Disbursement MTD for ' + b + ' by product.' },
+             { icon:'🏆', title:'Top FOs',      sub:'Best collectors today',     prompt:'Top 5 field officers in ' + b + ' by today\'s collection.' }]
+          : [{ icon:'🌙', title:'EOD recap',   sub:'Final collection vs plan',   prompt:'End-of-day collection summary for ' + b + ' vs daily plan.' },
+             { icon:'📋', title:'Tomorrow plan', sub:'Suggested target',         prompt:'What should be tomorrow\'s plan for ' + b + ' based on this week?' },
+             { icon:'⚠️', title:'Pending NPAs',  sub:'Open cases',               prompt:'Pending NPA cases in ' + b + '.' },
+             { icon:'📊', title:'Week so far',   sub:'WTD collection %',         prompt:'Week-to-date collection % for ' + b + '.' }];
+        return m;
+      }
+      // AM — area
+      if (role === 'AM') {
+        return [
+          { icon:'🏆', title:'Top branches', sub:'In my area', prompt:'Top 5 branches in my area by collection MTD.' },
+          { icon:'📉', title:'Weak branches', sub:'Below 70% MTD', prompt:'Branches in my area below 70% collection MTD.' },
+          { icon:'⚠️', title:'NPA by branch', sub:'Activation amount', prompt:'NPA cases and activation amount by branch in my area.' },
+          { icon:'💰', title:'Disbursement', sub:'Area MTD by product', prompt:'Disbursement MTD in my area by product.' }
+        ];
+      }
+      // DM — division
+      if (role === 'DM') {
+        return [
+          { icon:'🏆', title:'Top areas', sub:'In my division', prompt:'Top 5 areas in my division by collection MTD.' },
+          { icon:'📉', title:'Lagging branches', sub:'Below 70% MTD', prompt:'Branches in my division below 70% collection MTD.' },
+          { icon:'⚠️', title:'NPA by area', sub:'Division view', prompt:'NPA snapshot by area in my division.' },
+          { icon:'📈', title:'MTD trend', sub:'Division collection %', prompt:'My division collection % MTD vs last month MTD.' }
+        ];
+      }
+      // RM / SM — region
+      if (role === 'RM' || role === 'SM') {
+        return [
+          { icon:'🏆', title:'Top divisions', sub:'In my region', prompt:'Top 3 divisions in my region by collection MTD.' },
+          { icon:'📉', title:'Weak branches', sub:'Below 70% MTD', prompt:'Branches in my region below 70% MTD collection.' },
+          { icon:'⚠️', title:'Region NPA',   sub:'Cases + activation', prompt:'NPA snapshot for my region.' },
+          { icon:'💰', title:'Disbursement', sub:'Region MTD by product', prompt:'Disbursement MTD in my region by product.' }
+        ];
+      }
+      // CEO / Director / default — all
+      return [
+        { icon:'📊', title:'Org collection', sub:'MTD vs last month', prompt:'Organization collection % MTD vs last month MTD.' },
+        { icon:'🏆', title:'Top regions',    sub:'By collection FYTD', prompt:'Top 5 regions by collection FY-to-date.' },
+        { icon:'⚠️', title:'NPA snapshot',   sub:'Cases + activation', prompt:'NPA cases and activation amount across the organization.' },
+        { icon:'💰', title:'Disbursement',   sub:'Last 3 months by product', prompt:'Disbursement last 3 months by product.' }
+      ];
+    };
+
+    window._aiRenderStarterChips = function () {
+      var box = document.getElementById('aiSuggestionChips');
+      if (!box) return;
+      var s = _aiSession();
+      var chips = window.getStarterChips(s.role || '', s.location || '', new Date().getHours());
+      box.innerHTML = chips.map(function (c) {
+        return '<button class="ai-chip" data-prompt="' + _aiEsc(c.prompt) + '">'
+          + '<span class="ai-chip-icon">' + c.icon + '</span>'
+          + '<span><strong>' + _aiEsc(c.title) + '</strong><span class="ai-chip-sub">' + _aiEsc(c.sub) + '</span></span>'
+          + '</button>';
+      }).join('');
+      Array.prototype.forEach.call(box.querySelectorAll('.ai-chip'), function (btn) {
+        btn.addEventListener('click', function () {
+          var p = btn.getAttribute('data-prompt');
+          if (window._aiAskSuggestion && p) window._aiAskSuggestion(p);
+        });
+      });
+    };
+
+    // Wrap _aiNewChat to re-render chips after the empty-state HTML is restored.
+    var _origAiNewChat = window._aiNewChat;
+    window._aiNewChat = function () {
+      if (typeof _origAiNewChat === 'function') _origAiNewChat.apply(this, arguments);
+      setTimeout(function () { try { window._aiRenderStarterChips && window._aiRenderStarterChips(); } catch (_) {} }, 30);
+    };
+
+    // ── Provider chooser ──
+    window._aiShowProviderChooser = function (onPick, onCancel) {
+      var el = document.getElementById('aiProviderChooser');
+      if (!el) { onPick && onPick(window._aiPickedProvider()); return; }
+      // Reset cards.
+      var cards = el.querySelectorAll('.aipc-card');
+      Array.prototype.forEach.call(cards, function (c) {
+        c.removeAttribute('disabled');
+        var st = c.querySelector('[data-status]'); if (st) st.textContent = 'Ready';
+      });
+      el.classList.add('open');
+      el.setAttribute('aria-hidden', 'false');
+      // Probe availability — best-effort. Both stay enabled on any failure.
+      fetch('/api/ai-providers', { method: 'GET' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) {
+          if (!j || typeof j !== 'object') return;
+          Array.prototype.forEach.call(cards, function (c) {
+            var prov = c.getAttribute('data-provider');
+            var ok = true;
+            // Defensive read across plausible response shapes:
+            //   { providers: { openai: { available: true }, mistral: { available: false } } }
+            //   { openai: true, mistral: false }
+            //   { openai: { available: true }, mistral: { available: false } }
+            if (j.providers && Object.prototype.hasOwnProperty.call(j.providers, prov)) {
+              var p1 = j.providers[prov];
+              ok = (typeof p1 === 'object') ? (p1.available !== false) : (p1 !== false);
+            } else if (Object.prototype.hasOwnProperty.call(j, prov)) {
+              var p2 = j[prov];
+              ok = (typeof p2 === 'object' && p2 !== null) ? (p2.available !== false) : (p2 !== false);
+            }
+            if (!ok) {
+              c.setAttribute('disabled', 'disabled');
+              c.title = 'Not configured on the server';
+              var st = c.querySelector('[data-status]'); if (st) st.textContent = 'N/A';
+            }
+          });
+        })
+        .catch(function () { /* keep both enabled */ });
+
+      function close() {
+        el.classList.remove('open');
+        el.setAttribute('aria-hidden', 'true');
+        // Strip listeners by re-cloning interactive elements.
+        Array.prototype.forEach.call(el.querySelectorAll('.aipc-card,#aipcClose,[data-aipc-cancel]'), function (n) {
+          n.replaceWith(n.cloneNode(true));
+        });
+      }
+      function cancel() { close(); if (typeof onCancel === 'function') onCancel(); }
+
+      Array.prototype.forEach.call(el.querySelectorAll('.aipc-card'), function (c) {
+        c.addEventListener('click', function () {
+          if (c.hasAttribute('disabled')) return;
+          var prov = c.getAttribute('data-provider');
+          try { localStorage.setItem('nlpl_ai_provider', prov); } catch (_) {}
+          close();
+          onPick && onPick(prov);
+        });
+      });
+      var closeEl = el.querySelector('#aipcClose'); if (closeEl) closeEl.addEventListener('click', cancel);
+      var bgEl = el.querySelector('[data-aipc-cancel]'); if (bgEl) bgEl.addEventListener('click', cancel);
+    };
+
+    // Wrap _aiOpen to show chooser FIRST. Gate before the chooser to avoid a
+    // wasted tap for FOs.
+    var _aiOpenPostChooser = window._aiOpen;
+    window._aiOpen = function () {
+      if (!_aiGate()) {
+        alert('AI Assistant is available for Branch Managers and above. Field Officers do not have access.');
+        return;
+      }
+      window._aiShowProviderChooser(function () {
+        _aiOpenPostChooser.apply(window, []);
+        // Re-render chips after the panel paints (covers desktop empty state).
+        setTimeout(function () { try { window._aiRenderStarterChips && window._aiRenderStarterChips(); } catch (_) {} }, 60);
+      });
+    };
+
+    // ── Smart error CTA mapping ──
+    window._aiErrorCtas = function (errCode, errMessage, lastUserMessage) {
+      var code = String(errCode || '').toLowerCase();
+      var msg  = String(errMessage || '');
+      var last = String(lastUserMessage || '');
+      if (code === 'role_not_allowed' || code === 'forbidden') return [];
+      var out = [];
+      if (code === 'scope_violation' || code === 'scope' || /scope/.test(code)) {
+        out.push({ label: 'Show my branch instead', prompt: 'For my branch only: ' + last });
+        return out;
+      }
+      if (/find[_-]?employee/.test(code) || /no[_-]?employee/.test(code) || /employee[_-]?not[_-]?found/.test(code)) {
+        out.push({ label: 'Search by mobile', prompt: 'Find employee by mobile number — context: ' + last });
+        out.push({ label: 'Try shorter name', prompt: 'Find employee using only the last name from: ' + last });
+        return out;
+      }
+      // Heuristic: server widened the date window and still got 0 rows.
+      if (/window[_-]?widened|empty[_-]?window|widen|no[_-]?rows[_-]?after/.test(code) ||
+          /widen|widened|no rows after/i.test(msg)) {
+        out.push({ label: 'Show previous month', prompt: last + ' — for previous month' });
+      }
+      return out;
+    };
+
+    // ── Table export helpers (TSV copy + CSV download) ──
+    window._aiTableExports = (function () {
+      function flatten(result) {
+        if (!result) return [];
+        if (Array.isArray(result)) {
+          if (result.length && result[0] && typeof result[0] === 'object' &&
+              (result[0].source || result[0].rows)) {
+            var out = [];
+            result.forEach(function (b) { (b.rows || []).forEach(function (r) { out.push(r); }); });
+            return out;
+          }
+          return result.filter(function (r) { return r && typeof r === 'object'; });
+        }
+        if (typeof result === 'object') {
+          if (Array.isArray(result.matches)) return result.matches;
+          // single-object KPI — export as a 1-row table of scalar fields.
+          var simple = {};
+          var has = false;
+          Object.keys(result).forEach(function (k) {
+            var v = result[k];
+            if (v != null && typeof v !== 'object') { simple[k] = v; has = true; }
+          });
+          return has ? [simple] : [];
+        }
+        return [];
+      }
+      function unionKeys(rows) {
+        var seen = {}, keys = [];
+        rows.slice(0, 500).forEach(function (r) {
+          Object.keys(r || {}).forEach(function (k) { if (!seen[k]) { seen[k] = 1; keys.push(k); } });
+        });
+        return keys;
+      }
+      function csvCell(v) {
+        if (v == null) return '';
+        var s = (typeof v === 'object') ? JSON.stringify(v) : String(v);
+        if (/[",\r\n]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
+        return s;
+      }
+      function tsvCell(v) {
+        if (v == null) return '';
+        var s = (typeof v === 'object') ? JSON.stringify(v) : String(v);
+        return s.replace(/[\t\r\n]/g, ' ');
+      }
+      function toCsv(rows) {
+        var keys = unionKeys(rows);
+        var head = keys.map(csvCell).join(',');
+        var body = rows.map(function (r) { return keys.map(function (k) { return csvCell(r[k]); }).join(','); }).join('\r\n');
+        return head + '\r\n' + body + (body ? '\r\n' : '');
+      }
+      function toTsv(rows) {
+        var keys = unionKeys(rows);
+        var head = keys.join('\t');
+        var body = rows.map(function (r) { return keys.map(function (k) { return tsvCell(r[k]); }).join('\t'); }).join('\n');
+        return head + '\n' + body + (body ? '\n' : '');
+      }
+      function html(toolName, rowCount) {
+        var disabled = (rowCount > 0) ? '' : ' disabled';
+        return '<span class="vo-data-actions">'
+          + '<button type="button" class="vo-data-action" data-act="copy"' + disabled + ' aria-label="Copy as TSV" title="Copy as TSV (paste into WhatsApp / Sheets)">'
+          +   '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>'
+          + '</button>'
+          + '<button type="button" class="vo-data-action" data-act="csv"' + disabled + ' aria-label="Download CSV" title="Download CSV">'
+          +   '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>'
+          + '</button>'
+          + '</span>';
+      }
+      function bind(card, toolName, result) {
+        var rows = flatten(result);
+        var copyBtn = card.querySelector('[data-act="copy"]');
+        var csvBtn  = card.querySelector('[data-act="csv"]');
+        if (copyBtn && !copyBtn.hasAttribute('disabled')) {
+          copyBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            try {
+              navigator.clipboard.writeText(toTsv(rows));
+              copyBtn.classList.add('copied');
+              setTimeout(function () { copyBtn.classList.remove('copied'); }, 1200);
+            } catch (_) {}
+          });
+        }
+        if (csvBtn && !csvBtn.hasAttribute('disabled')) {
+          csvBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            try {
+              var blob = new Blob([toCsv(rows)], { type: 'text/csv;charset=utf-8' });
+              var a = document.createElement('a');
+              a.href = URL.createObjectURL(blob);
+              a.download = (String(toolName || 'result').replace(/[^\w.\-]/g, '_')) + '.csv';
+              document.body.appendChild(a);
+              a.click();
+              setTimeout(function () { document.body.removeChild(a); URL.revokeObjectURL(a.href); }, 100);
+            } catch (_) {}
+          });
+        }
+      }
+      return { html: html, bind: bind, count: function (r) { return flatten(r).length; } };
+    })();
   })();
   </script>
   <style>
