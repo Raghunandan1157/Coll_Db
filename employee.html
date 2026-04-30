@@ -5618,6 +5618,105 @@ body.emp-dark .ai-bubble .ai-bq { border-left-color: #374151; color: #9CA3AF; }
   #voiceOverlay .vo-topbar-meta { display: none; }
 }
 
+/* =====================================================================
+   NLPL company report table theme — applied to every AI-rendered table
+   regardless of surface (chat panel, desktop voice cockpit, mobile
+   cockpit, fullscreen sheets). Matches the maroon-header peach-stripe
+   look people are already used to from the operations report.
+   ===================================================================== */
+.ai-bubble .ai-table-wrap,
+#voiceOverlay .vo-data-table-wrap,
+#voMobile .vom-mini-table,
+#voMobile .vom-full-table {
+  /* card the whole thing in white so dark surfaces don't bleed in */
+  background: #ffffff;
+  border: 1px solid #B8B8B8;
+  border-radius: 6px;
+  overflow-x: auto;
+}
+#voMobile .vom-mini-table,
+#voMobile .vom-full-table { display: table; min-width: 100%; }
+
+.ai-bubble .ai-table,
+#voiceOverlay .vo-data-table,
+#voMobile .vom-mini-table,
+#voMobile .vom-full-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #ffffff;
+  color: #1F2937;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 12.5px;
+}
+
+.ai-bubble .ai-table th,
+#voiceOverlay .vo-data-table th,
+#voMobile .vom-mini-table th,
+#voMobile .vom-full-table th {
+  background: #8B1A2D !important;
+  color: #ffffff !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: .04em !important;
+  text-transform: uppercase !important;
+  padding: 8px 10px !important;
+  border: 1px solid #6E1422 !important;
+  text-align: center !important;
+  white-space: nowrap !important;
+  position: static !important;
+}
+
+.ai-bubble .ai-table td,
+#voiceOverlay .vo-data-table td,
+#voMobile .vom-mini-table td,
+#voMobile .vom-full-table td {
+  background: #ffffff !important;
+  color: #1F2937 !important;
+  border: 1px solid #C9C9C9 !important;
+  padding: 6px 10px !important;
+}
+
+/* First column (entity name — region / branch / employee) — peach stripe */
+.ai-bubble .ai-table tbody tr td:first-child,
+#voiceOverlay .vo-data-table tbody tr td:first-child,
+#voMobile .vom-mini-table tbody tr td:first-child,
+#voMobile .vom-full-table tbody tr td:first-child {
+  background: #FAD9B8 !important;
+  font-weight: 600 !important;
+  color: #1F2937 !important;
+  text-align: left !important;
+}
+
+/* Numeric cells — right aligned, monospace digits */
+.ai-bubble .ai-table td.num,
+#voiceOverlay .vo-data-table td.num,
+#voMobile .vom-mini-table td.num,
+#voMobile .vom-full-table td.num {
+  text-align: right !important;
+  font-variant-numeric: tabular-nums !important;
+}
+
+.ai-bubble .ai-table tbody tr:hover td:not(:first-child),
+#voiceOverlay .vo-data-table tbody tr:hover td:not(:first-child),
+#voMobile .vom-mini-table tbody tr:hover td:not(:first-child),
+#voMobile .vom-full-table tbody tr:hover td:not(:first-child) {
+  background: #FFF5EB !important;
+}
+
+/* Last/grand-total row, if marked with class .total-row */
+.ai-bubble .ai-table tr.total-row td,
+#voiceOverlay .vo-data-table tr.total-row td,
+#voMobile .vom-mini-table tr.total-row td,
+#voMobile .vom-full-table tr.total-row td {
+  background: #FAD9B8 !important;
+  font-weight: 700 !important;
+  border-top: 2px solid #6E1422 !important;
+}
+
+/* Dark-surface containers — neutralise so the white card pops */
+body.emp-dark .ai-bubble .ai-table th { background: #8B1A2D !important; color: #fff !important; border-color: #6E1422 !important; }
+body.emp-dark .ai-bubble .ai-table td { background: #fff !important; color: #1F2937 !important; }
+
 /* ===== Mobile Voice Cockpit (≤767px only) ============================== */
 #voMobile { display: none; }
 @media (max-width: 767px) {
