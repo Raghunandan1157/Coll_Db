@@ -4968,6 +4968,25 @@ body.emp-dark .ai-ctx-chip-strip .ai-ctx-clear:hover { background: rgba(255,255,
 .vo-data-table tr.vo-row-clickable:focus,
 .vom-mini-table tr.vom-row-clickable:focus { outline: 2px solid rgba(251,191,36,0.55); outline-offset: -2px; }
 
+/* ── Title banner as set-selector (tap = pin whole table) ───────────── */
+.vo-data-title-wrap.vo-banner-selectable,
+.vom-data-title-wrap.vom-banner-selectable {
+  cursor: pointer;
+  transition: background-color 140ms ease, box-shadow 140ms ease;
+  border-radius: 6px;
+}
+.vo-data-title-wrap.vo-banner-selectable:hover,
+.vom-data-title-wrap.vom-banner-selectable:hover { background-color: rgba(251,191,36,0.10); }
+.vo-data-title-wrap.vo-banner-selectable:focus-visible,
+.vom-data-title-wrap.vom-banner-selectable:focus-visible {
+  outline: 2px solid rgba(251,191,36,0.55); outline-offset: 2px;
+}
+.vo-banner-pick, .vom-banner-pick {
+  margin-left: 6px; opacity: 0.55; vertical-align: middle; flex-shrink: 0;
+}
+.vo-data-title-wrap.vo-banner-selectable:hover .vo-banner-pick,
+.vom-data-title-wrap.vom-banner-selectable:hover .vom-banner-pick { opacity: 0.95; }
+
 /* Messages region */
 .ai-panel-messages {
   flex: 1; overflow-y: auto;
@@ -7112,6 +7131,14 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         return bits.join(' · ');
       }
       if (o.type === 'branch') return o.branch_name ? ('Branch: ' + o.branch_name) : 'Branch';
+      if (o.type === 'set') {
+        var n = (o.items && o.items.length) || 0;
+        var word = o.kind === 'branch'
+          ? (n === 1 ? 'branch' : 'branches')
+          : (n === 1 ? 'employee' : 'employees');
+        var fromBit = o.common_branch ? (' from ' + o.common_branch) : '';
+        return n + ' ' + word + fromBit + ' · tap × to clear';
+      }
       return '';
     }
     function preamble(o) {
@@ -7124,7 +7151,71 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       if (o.type === 'branch') {
         return '[Active filter: branch ' + (o.branch_name || '') + '. Apply this filter to all tool calls unless user explicitly overrides.]';
       }
+      if (o.type === 'set') {
+        var items = o.items || [];
+        if (o.kind === 'employee') {
+          var ids = items.map(function(it){ return it.emp_id; }).filter(Boolean);
+          var n = ids.length;
+          var bn = o.common_branch || '';
+          var loc2 = bn ? (' in ' + bn + ' branch') : '';
+          if (n > 25) {
+            return '[Active filter: all employees' + loc2 + '. Apply this filter to all tool calls unless user explicitly overrides.]';
+          }
+          return '[Active filter: ' + n + ' employees' + loc2 + ' — emp_ids: ' + ids.join(', ') + '.]';
+        }
+        if (o.kind === 'branch') {
+          var bnames = items.map(function(it){ return it.branch_name; }).filter(Boolean);
+          var nb = bnames.length;
+          if (nb > 25) {
+            return '[Active filter: ' + nb + ' branches. Apply this filter to all tool calls unless user explicitly overrides.]';
+          }
+          return '[Active filter: ' + nb + ' branches — names: ' + bnames.join(', ') + '.]';
+        }
+      }
       return '';
+    }
+    // Pull a uniform {kind, items[], common_branch?} from any tool result that
+    // has employee or branch rows. Returns null if the result has nothing
+    // selectable. Used by the title-banner click handler — banner pins the
+    // whole table as a SET context.
+    function itemsFromResult(result) {
+      if (!result) return null;
+      function pickArr(r) {
+        if (Array.isArray(r)) return r;
+        if (r && typeof r === 'object') {
+          if (Array.isArray(r.matches)) return r.matches;
+          if (Array.isArray(r.rows)) return r.rows;
+          for (var k in r) {
+            if (Array.isArray(r[k]) && r[k].length && typeof r[k][0] === 'object') return r[k];
+          }
+        }
+        return null;
+      }
+      var arr = pickArr(result);
+      if (!arr || !arr.length) return null;
+      var hasEmp = arr.some(function(r){ return r && (r.emp_id || r.employee_id); });
+      if (hasEmp) {
+        var items = arr.filter(function(r){ return r && (r.emp_id || r.employee_id); }).map(function(r){
+          return {
+            emp_id: String(r.emp_id || r.employee_id || ''),
+            name: String(r.name || r.full_name || r.officer_name || ''),
+            branch: String(r.branch || r.branch_name || '')
+          };
+        });
+        if (!items.length) return null;
+        var branches = {};
+        items.forEach(function(it){ if (it.branch) branches[it.branch] = (branches[it.branch] || 0) + 1; });
+        var bkeys = Object.keys(branches);
+        var common = (bkeys.length === 1) ? bkeys[0] : null;
+        return { kind: 'employee', items: items, common_branch: common };
+      }
+      var allBranch = arr.every(function(r){ return r && (r.branch_name || r.branch) && !(r.emp_id || r.employee_id); });
+      if (allBranch) {
+        var bitems = arr.map(function(r){ return { branch_name: String(r.branch_name || r.branch || '') }; }).filter(function(it){ return it.branch_name; });
+        if (!bitems.length) return null;
+        return { kind: 'branch', items: bitems };
+      }
+      return null;
     }
     function applyPreamble(msg) {
       var ctx = safeGet();
@@ -7172,23 +7263,52 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       }
       return null;
     }
+    // Banner-click → SET context. Look up the stash by data-set-uid stamped
+    // on the title-wrap when the card was rendered (see _voAppendDataCard
+    // and _vomAppendDataCard).
+    function ctxFromBanner(el) {
+      if (!el || !el.dataset || !el.dataset.setUid) return null;
+      var uid = el.dataset.setUid;
+      var stash = window._aiCtxStash || {};
+      var meta = stash[uid];
+      if (!meta || !meta.kind || !meta.items || !meta.items.length) return null;
+      return { type: 'set', kind: meta.kind, items: meta.items, common_branch: meta.common_branch || null };
+    }
     document.addEventListener('click', function(ev){
       var tr = ev.target && ev.target.closest && ev.target.closest('tr.vo-row-clickable, tr.vom-row-clickable');
-      if (!tr) return;
-      var ctx = fromRowEl(tr);
-      if (!ctx) return;
-      ev.preventDefault();
-      ev.stopPropagation();
-      set(ctx);
+      if (tr) {
+        var rowCtx = fromRowEl(tr);
+        if (rowCtx) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          set(rowCtx);
+          return;
+        }
+      }
+      var banner = ev.target && ev.target.closest && ev.target.closest('.vo-banner-selectable, .vom-banner-selectable');
+      if (banner) {
+        // Don't hijack clicks on copy/export buttons inside the head.
+        if (ev.target.closest('button, a, .vo-data-actions, .vom-data-actions')) return;
+        var setCtx = ctxFromBanner(banner);
+        if (setCtx) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          set(setCtx);
+        }
+      }
     }, true);
     document.addEventListener('keydown', function(ev){
       if (ev.key !== 'Enter' && ev.key !== ' ') return;
       var tr = ev.target && ev.target.closest && ev.target.closest('tr.vo-row-clickable, tr.vom-row-clickable');
-      if (!tr) return;
-      var ctx = fromRowEl(tr);
-      if (!ctx) return;
-      ev.preventDefault();
-      set(ctx);
+      if (tr) {
+        var rowCtx = fromRowEl(tr);
+        if (rowCtx) { ev.preventDefault(); set(rowCtx); return; }
+      }
+      var banner = ev.target && ev.target.closest && ev.target.closest('.vo-banner-selectable, .vom-banner-selectable');
+      if (banner) {
+        var setCtx = ctxFromBanner(banner);
+        if (setCtx) { ev.preventDefault(); set(setCtx); }
+      }
     });
     window.addEventListener('storage', function(e){ if (e.key === KEY) paint(); });
     if (document.readyState !== 'loading') paint();
@@ -7201,6 +7321,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
     window._aiCtxPreamble = preamble;
     window._aiCtxApply = applyPreamble;
     window._aiCtxRepaint = paint;
+    window._aiCtxItemsFromResult = itemsFromResult;
   })();
 
   // AI Chat — browser calls server /api/ai-chat-stream (SSE, Mistral large + tools)
@@ -8146,11 +8267,31 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         ? ((subtitle ? ' · ' : '') + rowCountForExport + (rowCountForExport === 1 ? ' row' : ' rows'))
         : '';
       var bannerSub = (subtitle || '') + rowsSuffix;
+      // Banner-as-set selector (task #15): if the result has selectable rows,
+      // mark the title-wrap clickable + stash the items by uid for the click
+      // handler to resolve. Tap banner = pin the WHOLE table as set context.
+      var _voSetMeta = (window._aiCtxItemsFromResult && window._aiCtxItemsFromResult(result)) || null;
+      var _voSetUid = '';
+      if (_voSetMeta && _voSetMeta.items && _voSetMeta.items.length > 1) {
+        _voSetUid = '_set_' + Math.random().toString(36).slice(2);
+        window._aiCtxStash = window._aiCtxStash || {};
+        window._aiCtxStash[_voSetUid] = _voSetMeta;
+      } else {
+        _voSetMeta = null; // single-row tables → row-click handles it
+      }
+      var _voTitleClass = 'vo-data-title-wrap' + (_voSetMeta ? ' vo-banner-selectable' : '');
+      var _voTitleAttrs = _voSetMeta
+        ? (' tabindex="0" role="button" data-set-uid="' + _voSetUid + '" title="Pin all ' + _voSetMeta.items.length + ' as filter"')
+        : '';
+      var _voSetIcon = _voSetMeta
+        ? '<svg class="vo-banner-pick" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>'
+        : '';
       var inner = '<div class="vo-data-head">'
         + '<span aria-hidden="true"></span>'
-        + '<div class="vo-data-title-wrap">'
+        + '<div class="' + _voTitleClass + '"' + _voTitleAttrs + '>'
         +   '<span class="vo-data-title">' + _voEsc(title) + '</span>'
         +   (bannerSub ? '<span class="vo-data-subtitle">' + _voEsc(bannerSub) + '</span>' : '')
+        +   _voSetIcon
         + '</div>'
         + actionsHtml
         + '</div>'
@@ -8939,11 +9080,29 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         ? ((subtitle ? ' · ' : '') + rowCountForExport + (rowCountForExport === 1 ? ' row' : ' rows'))
         : '';
       var bannerSub = (subtitle || '') + rowsSuffix;
+      // Banner-as-set selector (task #15) — same pattern as desktop cockpit.
+      var _vomSetMeta = (window._aiCtxItemsFromResult && window._aiCtxItemsFromResult(result)) || null;
+      var _vomSetUid = '';
+      if (_vomSetMeta && _vomSetMeta.items && _vomSetMeta.items.length > 1) {
+        _vomSetUid = '_set_' + Math.random().toString(36).slice(2);
+        window._aiCtxStash = window._aiCtxStash || {};
+        window._aiCtxStash[_vomSetUid] = _vomSetMeta;
+      } else {
+        _vomSetMeta = null;
+      }
+      var _vomTitleClass = 'vom-data-title-wrap' + (_vomSetMeta ? ' vom-banner-selectable' : '');
+      var _vomTitleAttrs = _vomSetMeta
+        ? (' tabindex="0" role="button" data-set-uid="' + _vomSetUid + '" title="Pin all ' + _vomSetMeta.items.length + ' as filter"')
+        : '';
+      var _vomSetIcon = _vomSetMeta
+        ? '<svg class="vom-banner-pick" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>'
+        : '';
       var head = '<div class="vom-data-head">'
         + '<span aria-hidden="true"></span>'
-        + '<div class="vom-data-title-wrap">'
+        + '<div class="' + _vomTitleClass + '"' + _vomTitleAttrs + '>'
         +   '<span class="vom-data-title">' + esc(title) + '</span>'
         +   (bannerSub ? '<span class="vom-data-subtitle">' + esc(bannerSub) + '</span>' : '')
+        +   _vomSetIcon
         + '</div>'
         + (actionsHtml ? actionsHtml.replace(/vo-data-actions/g, 'vom-data-actions').replace(/vo-data-action/g, 'vom-data-action') : '')
         + '</div>';
