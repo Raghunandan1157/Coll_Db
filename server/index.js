@@ -22,6 +22,34 @@ app.use(express.json({limit: '10mb'}));
 const uploadLimiter = rateLimit({ windowMs: 60 * 1000, max: 5, message: { error: 'Too many uploads. Try again in a minute.' } });
 const aiLimiter = rateLimit({ windowMs: 60 * 1000, max: 20, message: { error: 'Too many AI requests. Slow down.' } });
 
+// AI access gate. FO is the only role excluded — directors / area / branch
+// managers / ops execs all keep access. Override via env var if the policy
+// changes (comma-separated, case-insensitive).
+const AI_BLOCKED_ROLES = new Set(
+  String(process.env.AI_BLOCKED_ROLES || 'FO')
+    .split(',')
+    .map((s) => s.trim().toUpperCase())
+    .filter(Boolean)
+);
+function _readAiSessionRole(req) {
+  // Voice paths use multipart, chat paths use JSON. role lives in body
+  // for both, plus a couple of legacy headers from the mobile client.
+  const fromBody = req.body && (req.body.role || req.body.session && req.body.session.role);
+  const fromHdr = req.headers['x-nlpl-role'];
+  return String(fromBody || fromHdr || '').trim().toUpperCase();
+}
+function requireAiAccess(req, res, next) {
+  const role = _readAiSessionRole(req);
+  if (role && AI_BLOCKED_ROLES.has(role)) {
+    return res.status(403).json({
+      error: 'role_not_allowed',
+      message: 'AI Assistant is available for Branch Managers and above. Field Officers do not have access.',
+      role,
+    });
+  }
+  next();
+}
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 },
@@ -5859,6 +5887,28 @@ const AI_TOOLS_SPEC = [
 
 // Build " AND UPPER(<alias>) IN (SELECT ... FROM employee_master WHERE ...)"
 // for the current session. Mutates `params` to append $loc. CEO/empty session → ''.
+// Hard scope guard at the dispatch layer. _scopeWhere already adds an
+// intersection filter to every SQL query, but a Branch Manager asking
+// about another branch silently gets 0 rows — confusing. Detect that
+// upfront and return an explicit error so the model can tell the user
+// "you can only access your own branch".
+function _scopeViolation(session, args) {
+  const role = String((session && session.role) || '').toUpperCase();
+  const loc = String((session && session.location) || '').trim();
+  if (!role || role === 'CEO' || role === 'DIRECTOR' || !loc) return null;
+  const norm = (s) => String(s || '').trim().toLowerCase();
+  if (role === 'BM' || role === 'ABM' || role === 'BOE') {
+    // Branch-bound roles can only see their own branch.
+    if (args.branch_name && norm(args.branch_name) !== norm(loc)) {
+      return `${role} can only access ${loc} branch. Asking about ${args.branch_name} is not allowed.`;
+    }
+    if (args.region_name || args.area_name || args.division_name) {
+      return `${role} can only access their own branch (${loc}). Region/division/area filters are not allowed for this role.`;
+    }
+  }
+  return null;
+}
+
 function _scopeWhere(session, alias, params) {
   const role = String((session && session.role) || '').toUpperCase();
   const loc = String((session && session.location) || '').trim();
@@ -5897,6 +5947,13 @@ async function dispatchAiTool(name, args, session) {
   const lim = Math.min(Math.max(parseInt(args.limit, 10) || 25, 1), 200);
 
   if (name === 'sql_describe') return AI_SCHEMA_CHEATSHEET;
+
+  // Hard scope guard — BM/ABM/BOE may only query their own branch.
+  // Block before any DB call so the model sees a clear refusal it can relay.
+  const violation = _scopeViolation(session, args);
+  if (violation) {
+    return { error: 'scope_violation', message: violation };
+  }
 
   if (name === 'find_employee') {
     const q = String(args.query || '').trim();
@@ -6702,7 +6759,7 @@ function openaiTts(text) {
 
 // POST /api/voice — multipart upload field "audio". Optional fields: role,
 // location. Returns { transcript, reply, audio_b64 (mp3 base64) }.
-app.post('/api/voice', voiceUpload.single('audio'), async (req, res) => {
+app.post('/api/voice', voiceUpload.single('audio'), requireAiAccess, async (req, res) => {
   const origin = req.headers.origin || req.headers.referer || '';
   const mobileOrigin = String(req.headers['x-app-origin'] || '').toLowerCase();
   if (origin) {
@@ -6751,7 +6808,7 @@ app.post('/api/voice', voiceUpload.single('audio'), async (req, res) => {
 // POST /api/voice-stream — SSE-style. Same multipart audio input as /api/voice
 // but streams: transcript → tool_result events (with SQL + rows) → reply →
 // audio. Used by the new voice cockpit overlay so SQL/data appear live.
-app.post('/api/voice-stream', aiLimiter, voiceUpload.single('audio'), async (req, res) => {
+app.post('/api/voice-stream', aiLimiter, voiceUpload.single('audio'), requireAiAccess, async (req, res) => {
   const origin = req.headers.origin || req.headers.referer || '';
   const mobileOrigin = String(req.headers['x-app-origin'] || '').toLowerCase();
   if (origin) {
@@ -7290,7 +7347,7 @@ async function callGeminiAi(messages) {
   return { ok: false, error: 'gemini_all_models_failed' };
 }
 
-app.post("/api/ai-chat", aiLimiter, async (req, res) => {
+app.post("/api/ai-chat", aiLimiter, requireAiAccess, async (req, res) => {
   // Origin check: allow same-origin web traffic, plus mobile clients which
   // send no Origin/Referer but advertise themselves via x-app-origin.
   const origin = req.headers.origin || req.headers.referer || '';
@@ -7353,8 +7410,8 @@ app.post("/api/ai-chat", aiLimiter, async (req, res) => {
       '- hourly_performance — intra-day collection snapshots.',
       '',
       '## Scope',
-      'Data is scoped to the user\'s role: CEO=all branches; RM/SM=region; DM/DvM=division; AM=area; BM/FO=branch.',
-      'Every tool call is automatically scope-filtered. You do not need to add scope filters yourself.',
+      'Data is scoped to the user\'s role: CEO=all branches; RM/SM=region; DM/DvM=division; AM=area; BM/ABM/BOE=their own branch only.',
+      'Every tool call is automatically scope-filtered. **Do NOT add branch_name / region_name / area_name / division_name filters when the user asks about their own scope** — the server adds them automatically. For Branch Managers, never pass branch_name to tools (they have only one branch). If a tool returns `error: "scope_violation"`, relay the message verbatim to the user — do not retry.',
       '',
       '## Units — READ CAREFULLY',
       '**COUNT columns (integers, NOT money — never format as ₹/L/Cr):**',
@@ -7483,7 +7540,7 @@ app.post("/api/ai-chat", aiLimiter, async (req, res) => {
 // Emits progress events while tools run, then streams the final reply text
 // in word-sized chunks for a typing-style UX. Same auth/origin checks as
 // /api/ai-chat. Falls back to Gemini if Mistral fails.
-app.post("/api/ai-chat-stream", aiLimiter, async (req, res) => {
+app.post("/api/ai-chat-stream", aiLimiter, requireAiAccess, async (req, res) => {
   const origin = req.headers.origin || req.headers.referer || '';
   const mobileOrigin = String(req.headers['x-app-origin'] || '').toLowerCase();
   if (origin) {
@@ -7586,8 +7643,8 @@ app.post("/api/ai-chat-stream", aiLimiter, async (req, res) => {
       '- hourly_performance — intra-day collection snapshots.',
       '',
       '## Scope',
-      'Data is scoped to the user\'s role: CEO=all branches; RM/SM=region; DM/DvM=division; AM=area; BM/FO=branch.',
-      'Every tool call is automatically scope-filtered. You do not need to add scope filters yourself.',
+      'Data is scoped to the user\'s role: CEO=all branches; RM/SM=region; DM/DvM=division; AM=area; BM/ABM/BOE=their own branch only.',
+      'Every tool call is automatically scope-filtered. **Do NOT add branch_name / region_name / area_name / division_name filters when the user asks about their own scope** — the server adds them automatically. For Branch Managers, never pass branch_name to tools (they have only one branch). If a tool returns `error: "scope_violation"`, relay the message verbatim to the user — do not retry.',
       '',
       '## Units — READ CAREFULLY',
       '**COUNT columns (integers, NOT money — never format as ₹/L/Cr):**',

@@ -195,7 +195,7 @@
         </span>
         <span class="desktop-sidebar-label">Hourly</span>
       </a>
-      <a href="javascript:void(0)" class="desktop-sidebar-item" data-dtab="aiassistant" onclick="window._aiOpen && window._aiOpen()">
+      <a href="javascript:void(0)" class="desktop-sidebar-item ai-only" data-dtab="aiassistant" onclick="window._aiOpen && window._aiOpen()">
         <span class="desktop-sidebar-icon">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         </span>
@@ -213,7 +213,7 @@
         </span>
         <span class="desktop-sidebar-label">Feedback</span>
       </a>
-      <a href="javascript:void(0)" class="desktop-sidebar-item" onclick="window._aiOpen()">
+      <a href="javascript:void(0)" class="desktop-sidebar-item ai-only" onclick="window._aiOpen()">
         <span class="desktop-sidebar-icon">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         </span>
@@ -5553,7 +5553,38 @@ body.emp-dark .ai-bubble .ai-bq { border-left-color: #374151; color: #9CA3AF; }
 
 <script>
 (function(){
+  // Role gate — hide AI Assistant nav entries for blocked roles (FO).
+  // Uses the same blacklist semantics as the server's requireAiAccess.
+  var AI_BLOCKED_ROLES = ['FO'];
+  function _aiSessionRole() {
+    try {
+      var s = (typeof getEmployeeSession === 'function') ? getEmployeeSession() : null;
+      return String((s && s.role) || '').trim().toUpperCase();
+    } catch (_) { return ''; }
+  }
+  function _aiAccessAllowed() {
+    var r = _aiSessionRole();
+    if (!r) return true; // unknown — let server enforce
+    return AI_BLOCKED_ROLES.indexOf(r) === -1;
+  }
+  function _applyAiGate() {
+    if (_aiAccessAllowed()) return;
+    document.querySelectorAll('.ai-only').forEach(function(el){ el.style.display = 'none'; });
+    var fab = document.getElementById('aiFab');
+    if (fab) fab.style.display = 'none';
+    var bar = document.getElementById('aiFloatingBar');
+    if (bar) bar.style.display = 'none';
+  }
+  document.addEventListener('DOMContentLoaded', _applyAiGate);
+  // Re-run after session resolves (login flow may set it after DOMContentLoaded).
+  setTimeout(_applyAiGate, 200);
+  setTimeout(_applyAiGate, 1500);
+
   window._aiOpen = function() {
+    if (!_aiAccessAllowed()) {
+      alert('AI Assistant is available for Branch Managers and above. Field Officers do not have access.');
+      return;
+    }
     document.getElementById('aiOverlay').classList.add('open');
     document.getElementById('aiPanel').classList.add('open');
     var bar = document.getElementById('aiFloatingBar');
@@ -5619,7 +5650,7 @@ body.emp-dark .ai-bubble .ai-bq { border-left-color: #374151; color: #9CA3AF; }
         <span class="sidebar-nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
         <span class="sidebar-nav-label">Hourly</span>
       </a>
-      <a href="javascript:void(0)" class="sidebar-nav-item" data-sidebar-tab="aiassistant" onclick="closeSidebar(); window._aiOpen && window._aiOpen();">
+      <a href="javascript:void(0)" class="sidebar-nav-item ai-only" data-sidebar-tab="aiassistant" onclick="closeSidebar(); window._aiOpen && window._aiOpen();">
         <span class="sidebar-nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
         <span class="sidebar-nav-label">AI Assistant</span>
       </a>
