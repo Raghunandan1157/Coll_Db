@@ -5791,13 +5791,17 @@ const AI_TOOLS_SPEC = [
     type: 'function',
     function: {
       name: 'disbursement_query',
-      description: 'Disbursement count + amount over a date range. Group by month, branch, product, or employee. Optional filters: branch_name / region_name.',
+      description: 'Disbursement count + amount over a date range. group_by determines the row breakdown — pick it from the user\'s words: "product wise / by product" → product; "branch wise" → branch; "day by day / Apr 7 vs 8" → day; "monthly trend" → month; "by FO / by employee / per officer" → employee. If the user asks for TWO breakdowns ("FO wise AND product wise"), CALL THIS TOOL TWICE with different group_by values and present both. Optional filters: branch_name / region_name.',
       parameters: {
         type: 'object',
         properties: {
-          start_date: { type: 'string', description: 'YYYY-MM-DD; reduced to month boundary.' },
+          start_date: { type: 'string', description: 'YYYY-MM-DD.' },
           end_date: { type: 'string' },
-          group_by: { type: 'string', enum: ['day', 'month', 'branch', 'product', 'employee'], description: 'Use "day" for date-precise queries (e.g. "April 7th vs 8th"). "month" for monthly trends.' },
+          group_by: {
+            type: 'string',
+            enum: ['day', 'month', 'branch', 'product', 'employee'],
+            description: 'PICK FROM USER WORDS: product-wise → "product", branch-wise → "branch", day-by-day → "day", monthly → "month", by FO/employee → "employee". When user asks for multiple, call the tool once per breakdown.'
+          },
           branch_name: { type: 'string' },
           region_name: { type: 'string' },
           limit: { type: 'integer' }
@@ -7690,7 +7694,7 @@ app.post('/api/voice-stream', aiLimiter, voiceUpload.single('audio'), requireAiA
         '- find_branch + find_employee both do substring + trigram + word-similarity match — misspellings and mishearings still resolve. Trust the result.',
         '- If find_branch / find_employee returns `ambiguous: true`, ask the user to confirm (list 2-4 candidates with region/branch). Do NOT pick silently.',
         '- If find_employee returns 0 rows for a named person, DO NOT fall back to overall company numbers. Tell the user "no employee matched that name" and ask them to repeat the name or provide an emp_id / mobile / branch hint.',
-        '- ANY question with the words disbursement / disb / disbursed / loan disbursed → call disbursement_query with the appropriate date range, group_by, and (if a branch was named) the canonical branch_name from find_branch.',
+        '- ANY question with the words disbursement / disb / disbursed / loan disbursed → call disbursement_query. **READ THE USER\'S WORDS to pick group_by**: "product wise / by product / break by product / split by product" → group_by="product". "branch wise / per branch" → group_by="branch". "day by day / daily / on Apr 7 vs 8" → group_by="day". "month by month / monthly trend" → group_by="month". "by employee / by FO / per officer" → group_by="employee". If user combines (e.g. "FO wise AND product wise"), call disbursement_query TWICE — once with group_by="employee" and once with group_by="product" — and present both. Pass the canonical branch_name from find_branch when a branch was named.',
         '- ANY question about FTOD / DPD / KYC / NPA closure / daily plan → call daily_reports_query.',
         '- For collection/demand metrics → call period_performance.',
         '- For FTOD specifically: also fetch demand and collection so the user sees demand + collection + FTOD together (FTOD = demand - collection).',
