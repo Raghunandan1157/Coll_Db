@@ -4547,25 +4547,56 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </header>
-    <p class="aipc-sub" id="aipcSub">Two engines on tap. Same tools, different speed/style.</p>
+    <p class="aipc-sub" id="aipcSub">Pick how you want to ask — talk or type.</p>
     <div class="aipc-cards">
-      <button type="button" class="aipc-card aipc-openai" data-provider="openai">
-        <div class="aipc-card-head">
-          <span class="aipc-dot aipc-dot-openai"></span>
-          <span class="aipc-card-name">OpenAI</span>
-          <span class="aipc-card-status" data-status>Ready</span>
+      <button type="button" class="aipc-card aipc-openai" data-provider="openai" data-purpose="talk">
+        <div class="aipc-logo">
+          <!-- OpenAI knot mark -->
+          <svg viewBox="0 0 256 260" width="48" height="48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path fill="currentColor" d="M239.184 106.203a64.716 64.716 0 0 0-5.576-53.103C219.452 28.459 191 15.784 163.213 21.74A65.586 65.586 0 0 0 52.096 45.22a64.716 64.716 0 0 0-43.23 31.36c-14.31 24.602-11.061 55.634 8.033 76.74a64.665 64.665 0 0 0 5.525 53.102c14.174 24.65 42.644 37.324 70.446 31.36a64.72 64.72 0 0 0 48.754 21.744c28.481.025 53.714-18.361 62.414-45.481a64.767 64.767 0 0 0 43.229-31.36c14.137-24.558 10.875-55.423-8.083-76.483Zm-97.56 136.338a48.397 48.397 0 0 1-31.105-11.255l1.535-.87 51.67-29.825a8.595 8.595 0 0 0 4.247-7.367v-72.85l21.845 12.636c.218.111.37.32.409.563v60.367c-.056 26.818-21.783 48.554-48.601 48.601Zm-104.466-44.61a48.345 48.345 0 0 1-5.781-32.589l1.534.921 51.722 29.826a8.339 8.339 0 0 0 8.441 0l63.181-36.425v25.221a.87.87 0 0 1-.358.665l-52.335 30.184c-23.257 13.398-52.97 5.431-66.404-17.803ZM23.549 85.38a48.499 48.499 0 0 1 25.58-21.333v61.39a8.288 8.288 0 0 0 4.195 7.316l62.874 36.272-21.845 12.636a.819.819 0 0 1-.767 0L41.353 151.53c-23.211-13.454-31.171-43.144-17.804-66.405v.256Zm179.466 41.695-63.08-36.63L161.73 77.86a.819.819 0 0 1 .768 0l52.233 30.184a48.6 48.6 0 0 1-7.316 87.635v-61.391a8.544 8.544 0 0 0-4.4-7.213Zm21.742-32.69-1.535-.922-51.619-30.081a8.39 8.39 0 0 0-8.492 0L99.98 99.808V74.587a.716.716 0 0 1 .307-.665l52.233-30.133a48.652 48.652 0 0 1 72.236 50.391v.205ZM88.061 139.097l-21.845-12.585a.87.87 0 0 1-.41-.614V65.685a48.652 48.652 0 0 1 79.757-37.346l-1.535.87-51.67 29.825a8.595 8.595 0 0 0-4.246 7.367l-.05 72.697Zm11.868-25.58 28.138-16.217 28.188 16.218v32.434l-28.086 16.218-28.188-16.218-.052-32.434Z"/>
+          </svg>
         </div>
-        <div class="aipc-card-model">Powered by OpenAI · gpt-4o-mini</div>
-        <div class="aipc-card-tag">Reliable, slower</div>
+        <div class="aipc-card-name">ChatGPT</div>
+        <div class="aipc-card-model">Voice mode · talk to it</div>
+        <div class="aipc-card-tag">🎙️ Hold mic, ask out loud</div>
+        <div class="aipc-card-status" data-status>Ready</div>
       </button>
-      <button type="button" class="aipc-card aipc-mistral" data-provider="mistral">
-        <div class="aipc-card-head">
-          <span class="aipc-dot aipc-dot-mistral"></span>
-          <span class="aipc-card-name">Mistral</span>
-          <span class="aipc-card-status" data-status>Ready</span>
+      <button type="button" class="aipc-card aipc-mistral" data-provider="mistral" data-purpose="chat">
+        <div class="aipc-logo">
+          <!-- Mistral 5-stripe mark -->
+          <svg viewBox="0 0 256 224" width="64" height="56" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <rect x="0"   y="0"   width="48"  height="32" fill="#FFD800"/>
+            <rect x="48"  y="0"   width="48"  height="32" fill="#FFD800"/>
+            <rect x="0"   y="32"  width="32"  height="32" fill="#FFD800"/>
+            <rect x="32"  y="32"  width="48"  height="32" fill="#FFA500"/>
+            <rect x="80"  y="32"  width="48"  height="32" fill="#FFA500"/>
+            <rect x="128" y="32"  width="48"  height="32" fill="#FFA500"/>
+            <rect x="176" y="32"  width="48"  height="32" fill="#FFD800"/>
+            <rect x="224" y="32"  width="32"  height="32" fill="#FFD800"/>
+            <rect x="0"   y="64"  width="32"  height="32" fill="#FFD800"/>
+            <rect x="32"  y="64"  width="48"  height="32" fill="#FF8C00"/>
+            <rect x="128" y="64"  width="48"  height="32" fill="#FF8C00"/>
+            <rect x="224" y="64"  width="32"  height="32" fill="#FFD800"/>
+            <rect x="0"   y="96"  width="32"  height="32" fill="#FFD800"/>
+            <rect x="32"  y="96"  width="48"  height="32" fill="#FF6B35"/>
+            <rect x="80"  y="96"  width="48"  height="32" fill="#FF6B35"/>
+            <rect x="128" y="96"  width="48"  height="32" fill="#FF6B35"/>
+            <rect x="176" y="96"  width="48"  height="32" fill="#FF6B35"/>
+            <rect x="224" y="96"  width="32"  height="32" fill="#FFD800"/>
+            <rect x="0"   y="128" width="32"  height="32" fill="#FFD800"/>
+            <rect x="32"  y="128" width="48"  height="32" fill="#E8362C"/>
+            <rect x="128" y="128" width="48"  height="32" fill="#E8362C"/>
+            <rect x="224" y="128" width="32"  height="32" fill="#FFD800"/>
+            <rect x="0"   y="160" width="48"  height="32" fill="#FFD800"/>
+            <rect x="48"  y="160" width="48"  height="32" fill="#FFD800"/>
+            <rect x="160" y="160" width="48"  height="32" fill="#FFD800"/>
+            <rect x="208" y="160" width="48"  height="32" fill="#FFD800"/>
+          </svg>
         </div>
-        <div class="aipc-card-model">Powered by Mistral · large</div>
-        <div class="aipc-card-tag">Faster, edgier</div>
+        <div class="aipc-card-name">Mistral</div>
+        <div class="aipc-card-model">Chat mode · type to it</div>
+        <div class="aipc-card-tag">⌨️ Tap and write your question</div>
+        <div class="aipc-card-status" data-status>Ready</div>
       </button>
     </div>
   </div>
@@ -6142,27 +6173,32 @@ body.emp-dark #aiProviderChooser .aipc-sub { color: rgba(255,255,255,.55); }
   display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
 }
 #aiProviderChooser .aipc-card {
-  position: relative; text-align: left;
-  padding: 16px 16px 14px;
+  position: relative; text-align: center;
+  padding: 22px 16px 18px;
   border: 1.5px solid #E5E7EB; border-radius: 14px;
   background: #fff; cursor: pointer;
   font-family: inherit; color: inherit;
   transition: border-color .15s, transform .12s, box-shadow .15s, background .15s;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
 }
 body.emp-dark #aiProviderChooser .aipc-card { background: #1E293B; border-color: rgba(255,255,255,.08); }
 #aiProviderChooser .aipc-card:hover:not([disabled]) { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(0,0,0,.08); }
 #aiProviderChooser .aipc-card.aipc-openai:hover:not([disabled])  { border-color: #10A37F; }
 #aiProviderChooser .aipc-card.aipc-mistral:hover:not([disabled]) { border-color: #FF7000; }
 #aiProviderChooser .aipc-card[disabled] { opacity: .42; cursor: not-allowed; }
-#aiProviderChooser .aipc-card-head {
-  display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+
+#aiProviderChooser .aipc-logo {
+  width: 72px; height: 72px;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 4px;
 }
-#aiProviderChooser .aipc-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
-#aiProviderChooser .aipc-dot-openai  { background: #10A37F; box-shadow: 0 0 8px rgba(16,163,127,.45); }
-#aiProviderChooser .aipc-dot-mistral { background: #FF7000; box-shadow: 0 0 8px rgba(255,112,0,.45); }
-#aiProviderChooser .aipc-card-name { font-size: 15px; font-weight: 700; }
+#aiProviderChooser .aipc-card.aipc-openai .aipc-logo { color: #0F172A; }
+body.emp-dark #aiProviderChooser .aipc-card.aipc-openai .aipc-logo { color: #F9FAFB; }
+#aiProviderChooser .aipc-logo svg { display: block; }
+
+#aiProviderChooser .aipc-card-name { font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
 #aiProviderChooser .aipc-card-status {
-  margin-left: auto;
+  position: absolute; top: 12px; right: 12px;
   font-size: 10.5px; font-weight: 600;
   padding: 2px 8px; border-radius: 999px;
   background: #ECFDF5; color: #047857; letter-spacing: .04em; text-transform: uppercase;
@@ -6172,9 +6208,9 @@ body.emp-dark #aiProviderChooser .aipc-card-status { background: rgba(16,163,127
   background: #FEE2E2; color: #B91C1C;
 }
 body.emp-dark #aiProviderChooser .aipc-card[disabled] .aipc-card-status { background: rgba(220,38,38,.18); color: #FCA5A5; }
-#aiProviderChooser .aipc-card-model { font-size: 12px; color: #6B7280; margin-bottom: 10px; }
+#aiProviderChooser .aipc-card-model { font-size: 12.5px; color: #6B7280; margin-top: -2px; }
 body.emp-dark #aiProviderChooser .aipc-card-model { color: rgba(255,255,255,.6); }
-#aiProviderChooser .aipc-card-tag { font-size: 13px; font-weight: 500; color: #111827; }
+#aiProviderChooser .aipc-card-tag { font-size: 13px; font-weight: 500; color: #111827; margin-top: 2px; }
 body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
 @media (max-width: 560px) {
   #aiProviderChooser .aipc-modal { top: 0; left: 0; transform: none; width: 100vw; height: 100vh; max-width: 100vw; border-radius: 0; padding: 18px 16px; display: flex; flex-direction: column; }
@@ -8802,9 +8838,13 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         c.addEventListener('click', function () {
           if (c.hasAttribute('disabled')) return;
           var prov = c.getAttribute('data-provider');
-          try { localStorage.setItem('nlpl_ai_provider', prov); } catch (_) {}
+          var purpose = c.getAttribute('data-purpose') || 'chat';
+          try {
+            localStorage.setItem('nlpl_ai_provider', prov);
+            localStorage.setItem('nlpl_ai_purpose', purpose);
+          } catch (_) {}
           close();
-          onPick && onPick(prov);
+          onPick && onPick(prov, purpose);
         });
       });
       var closeEl = el.querySelector('#aipcClose'); if (closeEl) closeEl.addEventListener('click', cancel);
@@ -8819,10 +8859,25 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         alert('AI Assistant is available for Branch Managers and above. Field Officers do not have access.');
         return;
       }
-      window._aiShowProviderChooser(function () {
-        _aiOpenPostChooser.apply(window, []);
+      window._aiShowProviderChooser(function (prov, purpose) {
+        // Card pick decides the surface, not the original entry point:
+        //   purpose === 'talk' → open voice cockpit (mobile _vomOpen / desktop _aiTalk)
+        //   purpose === 'chat' → open text chat panel
+        if (purpose === 'talk') {
+          if (_vomIsMobile()) {
+            window._vomOpen && window._vomOpen();
+          } else if (typeof _origAiTalk === 'function') {
+            // Open chat panel first so the voice overlay has a host to live in.
+            _aiOpenPostChooser.apply(window, []);
+            setTimeout(function () { _origAiTalk.apply(window, []); }, 80);
+          } else {
+            _aiOpenPostChooser.apply(window, []);
+          }
+        } else {
+          _aiOpenPostChooser.apply(window, []);
+        }
         // Re-render chips after the panel paints (covers desktop empty state).
-        setTimeout(function () { try { window._aiRenderStarterChips && window._aiRenderStarterChips(); } catch (_) {} }, 60);
+        setTimeout(function () { try { window._aiRenderStarterChips && window._aiRenderStarterChips(); } catch (_) {} }, 80);
       });
     };
 
