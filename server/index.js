@@ -6619,9 +6619,9 @@ async function dispatchAiTool(name, args, session) {
          SUM(CASE WHEN dp.report_date BETWEEN $3 AND $2 THEN dp.regular_collection ELSE 0 END)::bigint AS mtd_collection,
          SUM(CASE WHEN dp.report_date BETWEEN $4 AND $2 THEN dp.regular_demand ELSE 0 END)::bigint     AS fytd_demand,
          SUM(CASE WHEN dp.report_date BETWEEN $4 AND $2 THEN dp.regular_collection ELSE 0 END)::bigint AS fytd_collection,
-         SUM(CASE WHEN dp.report_date BETWEEN $3 AND $2 THEN dp.npa_cases ELSE 0 END)::int        AS npa_cases,
-         SUM(CASE WHEN dp.report_date BETWEEN $3 AND $2 THEN dp.npa_act_amt ELSE 0 END)::numeric  AS npa_act_amount,
-         SUM(CASE WHEN dp.report_date BETWEEN $3 AND $2 THEN dp.npa_clo_amt ELSE 0 END)::numeric  AS npa_clo_amount
+         SUM(CASE WHEN dp.report_date = $2 THEN dp.npa_cases ELSE 0 END)::int        AS npa_cases,
+         SUM(CASE WHEN dp.report_date = $2 THEN dp.npa_act_amt ELSE 0 END)::numeric  AS npa_act_amount,
+         SUM(CASE WHEN dp.report_date = $2 THEN dp.npa_clo_amt ELSE 0 END)::numeric  AS npa_clo_amount
        FROM daily_performance dp
        JOIN employees e ON dp.emp_id = e.emp_id
        JOIN branches b ON e.branch_id = b.branch_id
