@@ -5900,19 +5900,32 @@ async function dispatchAiTool(name, args, session) {
   if (name === 'find_employee') {
     const q = String(args.query || '').trim();
     if (!q) return { error: 'query required' };
-    const params = [`%${q}%`, q];
-    const scopeClause = _scopeWhere(session, 'em.branch_name', params);
-    const sql = `
+
+    const buildSql = (whereClause, scopeParams) => `
       SELECT em.emp_id, em.full_name AS name, em.role, em.designation,
              em.branch_name AS branch, em.area_name AS area,
              em.division_name AS division, em.region_name AS region,
              em.mobile, em.status
         FROM employee_master em
-       WHERE (em.full_name ILIKE $1 OR em.mobile = $2 OR em.emp_id = $2)
-         ${scopeClause}
+       WHERE ${whereClause}
+         ${_scopeWhere(session, 'em.branch_name', scopeParams)}
        ORDER BY (em.status='Working') DESC, em.full_name
        LIMIT ${lim}`;
-    const rows = await safeQuery(sql, params, lim);
+
+    // Pass 1: substring ILIKE on name + exact mobile/emp_id.
+    let params = [`%${q}%`, q];
+    let rows = await safeQuery(buildSql(`(em.full_name ILIKE $1 OR em.mobile = $2 OR em.emp_id = $2)`, params), params, lim);
+
+    // Pass 2: trigram fuzzy on full_name when ILIKE returned nothing.
+    // Whisper drops letters / collapses initials ("AP Shivraj" vs the real
+    // "A P Shivaraj"). Threshold 0.4 — looser than branches because names
+    // have more variability (initials, middle names) but still rejects
+    // unrelated matches.
+    if (Array.isArray(rows) && rows.length === 0 && q.length >= 4) {
+      params = [q];
+      rows = await safeQuery(buildSql(`similarity(em.full_name, $1) > 0.4`, params), params, lim);
+    }
+
     if (!Array.isArray(rows)) return rows;
 
     const exactIdentifierMatches = rows.filter((r) => isExactEmployeeLookup(r, q));

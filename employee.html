@@ -6852,10 +6852,20 @@ body.emp-dark .ai-bubble .ai-bq { border-left-color: #374151; color: #9CA3AF; }
         + '</div>';
 
       function renderBlock(rows, label) {
-        if (rows && typeof rows === 'object' && rows.error) {
+        if (rows && typeof rows === 'object' && rows.error && !rows.matches) {
           return '<div class="vo-pane-empty" style="color:#fca5a5">'
             + (label ? '<strong>' + _voEsc(label) + ':</strong> ' : '')
             + _voEsc(rows.error) + '</div>';
+        }
+        // Ambiguous-lookup results from find_branch / find_employee carry
+        // their candidates inside `matches`; unwrap so the right pane shows
+        // the choice list as a table instead of "[object Object]".
+        if (rows && typeof rows === 'object' && Array.isArray(rows.matches)) {
+          var note = rows.ambiguous
+            ? '<div class="vo-data-count" style="margin:0 0 8px;color:#fbbf24">Ambiguous — ' + (rows.count || rows.matches.length) + ' candidates. Pick one in your next question.</div>'
+            : '';
+          if (!rows.matches.length) return note + '<div class="vo-pane-empty">No candidates.</div>';
+          return note + _voRenderTable(rows.matches);
         }
         if (Array.isArray(rows)) {
           if (!rows.length) return '<div class="vo-pane-empty">' + (label ? '<strong>' + _voEsc(label) + '</strong> — ' : '') + 'No rows.</div>';
@@ -6863,8 +6873,23 @@ body.emp-dark .ai-bubble .ai-bq { border-left-color: #374151; color: #9CA3AF; }
           return prefix + _voRenderTable(rows);
         }
         if (rows && typeof rows === 'object') {
-          // Single result object.
-          return _voRenderKpi(rows);
+          // Single result object — KPI grid, but skip nested arrays/objects
+          // (they leak as "[object Object]"); render those as nested tables.
+          var simple = {};
+          var nested = [];
+          Object.keys(rows).forEach(function(k){
+            var v = rows[k];
+            if (Array.isArray(v) && v.length && typeof v[0] === 'object') {
+              nested.push({ label: k, rows: v });
+            } else if (v != null && typeof v !== 'object') {
+              simple[k] = v;
+            }
+          });
+          var html = Object.keys(simple).length ? _voRenderKpi(simple) : '';
+          nested.forEach(function(n){
+            html += '<div class="vo-data-count" style="margin:10px 0 6px;color:rgba(255,255,255,.5)">' + _voEsc(n.label) + ' · ' + n.rows.length + ' rows</div>' + _voRenderTable(n.rows);
+          });
+          return html || '<div class="vo-pane-empty">Empty result.</div>';
         }
         return '<div class="vo-pane-empty">' + _voEsc(String(rows)) + '</div>';
       }
