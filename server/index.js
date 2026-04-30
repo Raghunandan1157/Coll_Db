@@ -5769,13 +5769,18 @@ const AI_TOOLS_SPEC = [
     type: 'function',
     function: {
       name: 'top_performers',
-      description: 'Leaderboard of employees by metric over a date range.',
+      description: 'Leaderboard of EMPLOYEES (not branches) by metric over a date range. For top branches, use period_performance(group_by="branch") instead. Filters: branch_name / area_name / division_name / region_name / role narrow the leaderboard to a sub-population.',
       parameters: {
         type: 'object',
         properties: {
           metric: { type: 'string', enum: ['collection', 'demand', 'npa_cases'] },
           start_date: { type: 'string' },
           end_date: { type: 'string' },
+          branch_name: { type: 'string' },
+          area_name: { type: 'string' },
+          division_name: { type: 'string' },
+          region_name: { type: 'string' },
+          role: { type: 'string', description: 'Filter by exact role (FO, BM, etc.)' },
           limit: { type: 'integer' }
         },
         required: ['metric', 'start_date', 'end_date']
@@ -5858,7 +5863,7 @@ const AI_TOOLS_SPEC = [
     type: 'function',
     function: {
       name: 'npa_summary',
-      description: 'NPA cases + activated count + amount over a date range. Group by month, branch, or employee. Optional filters: branch_name / region_name.',
+      description: 'NPA snapshot rollup over a date range. WARNING: npa_cases and npa_act_acc/amt come from daily_performance which stores ROLLING SNAPSHOTS (the same outstanding case is repeated every day). SUM over a multi-day range therefore inflates the total by ~days. **For outstanding NPA cases, pass start_date == end_date (latest report_date) — that returns the true snapshot count.** For NPA activation / closure RATES over a period, use daily_reports_query(table="achievements", metrics="npa") instead — daily_reports_achievements.npa_activation and .npa_closure are per-day DELTAS that sum correctly.',
       parameters: {
         type: 'object',
         properties: {
@@ -5891,6 +5896,36 @@ const AI_TOOLS_SPEC = [
           limit: { type: 'integer' }
         },
         required: ['start_date', 'end_date']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'branch_summary',
+      description: 'ONE-SHOT branch dashboard — combines headcount + role mix, collection (today + MTD + FYTD with %), NPA (cases / activation amount / closure amount), disbursement (today + MTD count + amount), FTOD plan-vs-actual, and DPD bucket (1-30 / 31-60) plan-vs-actual into a SINGLE result. Use for "how is my branch doing today", "branch health check", "give me a summary of <branch>", "end-of-day rollup". Replaces 5+ chained tool calls. For BM/ABM/BOE the branch is auto-resolved from their session — they should call branch_summary() with no args. For CEO/RM/DM/AM, branch_name is REQUIRED (this is a single-branch report, not a region rollup).',
+      parameters: {
+        type: 'object',
+        properties: {
+          branch_name: { type: 'string', description: 'Optional for branch-bound roles (auto-resolved from session). Required for CEO/RM/DM/AM.' },
+          date: { type: 'string', description: 'YYYY-MM-DD as-of date. Default = latest report_date with data for this branch.' }
+        }
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'hourly_collection',
+      description: 'Returns the CURRENT live snapshot — single point in time, NOT a historical series. For day-by-day trends use period_performance(group_by=\'day\'). hourly_performance is one live snapshot (no date, no hour buckets, no time series); UPSERTed by intra-day uploads, reset after EOD. Use this tool ONLY for "collection right now / live collection / how much collected today so far / intra-day / show top FOs right now". NEVER use it for "yesterday\'s hourly" or any historical question — that data does not exist. Returns current demand + collection (counts AND amounts) with collection %, optionally grouped by branch / region / employee. Branch-bound roles see only their own branch.',
+      parameters: {
+        type: 'object',
+        properties: {
+          branch_name: { type: 'string' },
+          region_name: { type: 'string' },
+          group_by: { type: 'string', enum: ['branch', 'region', 'employee', 'none'], description: 'Default: "branch" when caller has multi-branch scope; "none" (single aggregate) for branch-bound roles or when branch_name is passed. Use "employee" for "top FOs right now / live employee leaderboard".' },
+          limit: { type: 'integer' }
+        }
       }
     }
   },
@@ -6082,6 +6117,24 @@ async function dispatchAiTool(name, args, session) {
     const q = String(args.query || '').trim();
     if (!q) return { error: 'query required' };
 
+    // Hard scope check: BM/ABM/BOE looking up a branch other than their own.
+    // _scopeViolation only fires on explicit branch_name args; here the
+    // user passes the branch via `query`, so do an inline check.
+    const role = String((session && session.role) || '').toUpperCase();
+    const loc = String((session && session.location) || '').trim();
+    if ((role === 'BM' || role === 'ABM' || role === 'BOE') && loc) {
+      // Quick fuzzy compare — accept Davanagere/Davangere variants only via
+      // similarity check on the BM's actual branch name.
+      const lq = q.toLowerCase();
+      const lloc = loc.toLowerCase();
+      if (lq !== lloc && lloc.indexOf(lq) === -1 && lq.indexOf(lloc) === -1) {
+        return {
+          error: 'scope_violation',
+          message: `${role} can only access ${loc} branch. Looking up "${q}" is not allowed.`,
+        };
+      }
+    }
+
     // Build the perf + agg SQL parameterised on a candidate branch list
     // so we can run the same shape for ILIKE then for trigram-fuzzy.
     const buildSql = (whereClause, scopeParams) => `
@@ -6201,23 +6254,29 @@ async function dispatchAiTool(name, args, session) {
     const start = args.start_date, end = args.end_date;
     if (!start || !end) return { error: 'start_date and end_date required' };
     const params = [start, end];
-    const scopeClause = _scopeWhere(session, 'b.branch_name', params);
+    let extra = '';
+    if (args.branch_name)   { params.push(args.branch_name);   extra += ` AND em.branch_name ILIKE $${params.length}`; }
+    if (args.area_name)     { params.push(args.area_name);     extra += ` AND em.area_name ILIKE $${params.length}`; }
+    if (args.division_name) { params.push(args.division_name); extra += ` AND em.division_name ILIKE $${params.length}`; }
+    if (args.region_name)   { params.push(args.region_name);   extra += ` AND em.region_name ILIKE $${params.length}`; }
+    if (args.role)          { params.push(args.role);          extra += ` AND em.role ILIKE $${params.length}`; }
+    const scopeClause = _scopeWhere(session, 'em.branch_name', params);
     const orderCol = metric === 'collection' ? 'SUM(dp.regular_collection)' :
                      metric === 'demand'     ? 'SUM(dp.regular_demand)' :
                                                'SUM(dp.npa_cases)';
     const sql = `
-      SELECT em.emp_id, em.full_name AS name, em.branch_name AS branch,
+      SELECT em.emp_id, em.full_name AS name, em.role,
+             em.branch_name AS branch, em.area_name AS area,
              em.region_name AS region,
              SUM(dp.regular_demand)::bigint AS demand,
              SUM(dp.regular_collection)::bigint AS collection,
              SUM(dp.npa_cases)::int AS npa_cases
         FROM daily_performance dp
-        JOIN employees e ON dp.emp_id = e.emp_id
-        JOIN branches b ON e.branch_id = b.branch_id
         JOIN employee_master em ON em.emp_id = dp.emp_id
        WHERE dp.report_date BETWEEN $1 AND $2
+         ${extra}
          ${scopeClause}
-       GROUP BY em.emp_id, em.full_name, em.branch_name, em.region_name
+       GROUP BY em.emp_id, em.full_name, em.role, em.branch_name, em.area_name, em.region_name
        ORDER BY ${orderCol} DESC NULLS LAST
        LIMIT ${lim}`;
     return await safeQuery(sql, params, lim);
@@ -6437,14 +6496,18 @@ async function dispatchAiTool(name, args, session) {
         extra += ` AND UPPER(branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE division_name ILIKE $${params.length} OR area_name ILIKE $${params.length})`;
       }
       const scopeClause = _scopeWhere(session, 'branch_name', params);
+      // Daily-reports tables can have one row per branch per day. With ~129
+      // branches and a multi-week window, the default 25-row limit was
+      // silently truncating. Bump to 500.
+      const drLim = Math.min(Math.max(parseInt(args.limit, 10) || 500, 1), 1000);
       const sql = `SELECT date, branch_name, region, district, dm_name, ${projectCols.join(', ')}
                      FROM ${t}
                     WHERE date BETWEEN $1 AND $2
                       ${extra}
                       ${scopeClause}
                     ORDER BY date, branch_name
-                    LIMIT ${lim}`;
-      const rows = await safeQuery(sql, params, lim);
+                    LIMIT ${drLim}`;
+      const rows = await safeQuery(sql, params, drLim);
       if (Array.isArray(rows)) out.push({ source: label, count: rows.length, rows });
       else out.push({ source: label, error: rows.error || 'unknown' });
     }
@@ -6491,6 +6554,255 @@ async function dispatchAiTool(name, args, session) {
        ORDER BY 1
        LIMIT ${lim}`;
     return await safeQuery(sql, params, lim);
+  }
+
+  if (name === 'branch_summary') {
+    // Resolve target branch. Branch-bound roles fall back to session.location.
+    let branchName = String(args.branch_name || '').trim();
+    const role = String((session && session.role) || '').toUpperCase();
+    const loc = String((session && session.location) || '').trim();
+    const branchBound = role === 'BM' || role === 'ABM' || role === 'BOE';
+    if (!branchName) {
+      if (branchBound && loc) branchName = loc;
+      else return { error: 'branch_name required', message: 'branch_summary needs a single branch. Pass branch_name (e.g. "Davanagere"). For region-wide summaries use period_performance(group_by="branch", ...).' };
+    }
+
+    // Resolve as-of date: explicit arg, else latest report_date with data for this branch.
+    let asOfDate = null;
+    if (args.date && /^\d{4}-\d{2}-\d{2}$/.test(String(args.date).trim())) {
+      asOfDate = String(args.date).trim();
+    }
+    if (!asOfDate) {
+      const r = await safeQuery(
+        `SELECT MAX(dp.report_date) AS d
+           FROM daily_performance dp
+           JOIN employees e ON dp.emp_id = e.emp_id
+           JOIN branches b ON e.branch_id = b.branch_id
+          WHERE b.branch_name ILIKE $1`,
+        [branchName], 1
+      );
+      if (Array.isArray(r) && r[0] && r[0].d) {
+        const d = r[0].d;
+        asOfDate = (d instanceof Date) ? d.toISOString().slice(0, 10) : String(d).slice(0, 10);
+      } else {
+        asOfDate = new Date().toISOString().slice(0, 10);
+      }
+    }
+
+    // Month + FY anchors derived from asOfDate (FY = Apr 1 → Mar 31).
+    const [yy, mn] = asOfDate.split('-');
+    const monthStart = `${yy}-${mn}-01`;
+    const fyYear = parseInt(mn, 10) >= 4 ? parseInt(yy, 10) : parseInt(yy, 10) - 1;
+    const fyStart = `${fyYear}-04-01`;
+
+    // 1. Headcount + role breakdown (Working only).
+    const hcRows = await safeQuery(
+      `SELECT role, COUNT(*)::int AS count
+         FROM employee_master
+        WHERE branch_name ILIKE $1
+          AND status = 'Working'
+          AND role IS NOT NULL AND role <> ''
+        GROUP BY role
+        ORDER BY count DESC, role`,
+      [branchName], 50
+    );
+    const byRole = Array.isArray(hcRows) ? hcRows : [];
+    const totalHc = byRole.reduce((s, r) => s + Number(r.count || 0), 0);
+
+    // 2. Collection — today / MTD / FYTD (counts) + NPA (MTD aggregates).
+    //    daily_performance.regular_demand / regular_collection are COUNT columns.
+    const collRows = await safeQuery(
+      `SELECT
+         SUM(CASE WHEN dp.report_date = $2 THEN dp.regular_demand ELSE 0 END)::bigint     AS today_demand,
+         SUM(CASE WHEN dp.report_date = $2 THEN dp.regular_collection ELSE 0 END)::bigint AS today_collection,
+         SUM(CASE WHEN dp.report_date BETWEEN $3 AND $2 THEN dp.regular_demand ELSE 0 END)::bigint     AS mtd_demand,
+         SUM(CASE WHEN dp.report_date BETWEEN $3 AND $2 THEN dp.regular_collection ELSE 0 END)::bigint AS mtd_collection,
+         SUM(CASE WHEN dp.report_date BETWEEN $4 AND $2 THEN dp.regular_demand ELSE 0 END)::bigint     AS fytd_demand,
+         SUM(CASE WHEN dp.report_date BETWEEN $4 AND $2 THEN dp.regular_collection ELSE 0 END)::bigint AS fytd_collection,
+         SUM(CASE WHEN dp.report_date BETWEEN $3 AND $2 THEN dp.npa_cases ELSE 0 END)::int        AS npa_cases,
+         SUM(CASE WHEN dp.report_date BETWEEN $3 AND $2 THEN dp.npa_act_amt ELSE 0 END)::numeric  AS npa_act_amount,
+         SUM(CASE WHEN dp.report_date BETWEEN $3 AND $2 THEN dp.npa_clo_amt ELSE 0 END)::numeric  AS npa_clo_amount
+       FROM daily_performance dp
+       JOIN employees e ON dp.emp_id = e.emp_id
+       JOIN branches b ON e.branch_id = b.branch_id
+      WHERE b.branch_name ILIKE $1
+        AND dp.report_date BETWEEN $4 AND $2`,
+      [branchName, asOfDate, monthStart, fyStart], 1
+    );
+    const c = (Array.isArray(collRows) && collRows[0]) || {};
+    const pct = (col, dem) => {
+      const cn = Number(col || 0);
+      const dn = Number(dem || 0);
+      return dn > 0 ? Math.round((cn / dn) * 1000) / 10 : null;
+    };
+
+    // 3. Disbursement — today + MTD from disbursement_daily.
+    const disbRows = await safeQuery(
+      `SELECT
+         COALESCE(SUM(CASE WHEN disb_date = $2 THEN disb_count  ELSE 0 END), 0)::int     AS today_count,
+         COALESCE(SUM(CASE WHEN disb_date = $2 THEN disb_amount ELSE 0 END), 0)::numeric AS today_amount,
+         COALESCE(SUM(CASE WHEN disb_date BETWEEN $3 AND $2 THEN disb_count  ELSE 0 END), 0)::int     AS mtd_count,
+         COALESCE(SUM(CASE WHEN disb_date BETWEEN $3 AND $2 THEN disb_amount ELSE 0 END), 0)::numeric AS mtd_amount
+       FROM disbursement_daily
+      WHERE branch_name ILIKE $1
+        AND disb_date BETWEEN $3 AND $2`,
+      [branchName, asOfDate, monthStart], 1
+    );
+    const dd = (Array.isArray(disbRows) && disbRows[0]) || {};
+
+    // 4. FTOD + DPD bucket plan-vs-actual from daily_reports_achievements
+    //    (preferred — has both *_actual and *_plan). Fallback to daily_reports
+    //    so the BM's plan still surfaces before achievement is filed.
+    const drCols = `ftod_actual, ftod_plan,
+                    dpd_1_30_actual, dpd_1_30_plan,
+                    dpd_31_60_actual, dpd_31_60_plan`;
+    let drRows = await safeQuery(
+      `SELECT ${drCols} FROM daily_reports_achievements
+        WHERE branch_name ILIKE $1 AND date = $2 LIMIT 1`,
+      [branchName, asOfDate], 1
+    );
+    if (!Array.isArray(drRows) || drRows.length === 0) {
+      drRows = await safeQuery(
+        `SELECT ${drCols} FROM daily_reports
+          WHERE branch_name ILIKE $1 AND date = $2 LIMIT 1`,
+        [branchName, asOfDate], 1
+      );
+    }
+    const dr = (Array.isArray(drRows) && drRows[0]) || {};
+    const numOrNull = (v) => (v === null || v === undefined) ? null : Number(v);
+    const ftodActual = numOrNull(dr.ftod_actual);
+    const ftodPlan = numOrNull(dr.ftod_plan);
+
+    return {
+      branch_name: branchName,
+      date: asOfDate,
+      headcount: { total: totalHc, by_role: byRole },
+      collection_today: {
+        demand: Number(c.today_demand || 0),
+        collection: Number(c.today_collection || 0),
+        pct: pct(c.today_collection, c.today_demand)
+      },
+      collection_mtd: {
+        demand: Number(c.mtd_demand || 0),
+        collection: Number(c.mtd_collection || 0),
+        pct: pct(c.mtd_collection, c.mtd_demand)
+      },
+      collection_fytd: {
+        demand: Number(c.fytd_demand || 0),
+        collection: Number(c.fytd_collection || 0),
+        pct: pct(c.fytd_collection, c.fytd_demand)
+      },
+      npa: {
+        cases: Number(c.npa_cases || 0),
+        act_amount: Number(c.npa_act_amount || 0),
+        closure_amount: Number(c.npa_clo_amount || 0)
+      },
+      disbursement_today: {
+        count: Number(dd.today_count || 0),
+        amount: Number(dd.today_amount || 0)
+      },
+      disbursement_mtd: {
+        count: Number(dd.mtd_count || 0),
+        amount: Number(dd.mtd_amount || 0)
+      },
+      ftod_today: {
+        actual: ftodActual,
+        plan: ftodPlan,
+        gap: (ftodActual !== null && ftodPlan !== null) ? (ftodActual - ftodPlan) : null
+      },
+      dpd_today: {
+        dpd_1_30: { actual: numOrNull(dr.dpd_1_30_actual), plan: numOrNull(dr.dpd_1_30_plan) },
+        dpd_31_60: { actual: numOrNull(dr.dpd_31_60_actual), plan: numOrNull(dr.dpd_31_60_plan) }
+      }
+    };
+  }
+
+  if (name === 'hourly_collection') {
+    // hourly_performance is a SINGLE intra-day snapshot — no date column,
+    // no hour column. UPSERTed by intra-day uploads, reset after EOD upload.
+    // Time-series ("group by hour with cumulative + delta") is not possible
+    // against this schema today. We return the CURRENT live aggregate.
+    const groupByArg = ['branch', 'region', 'employee', 'none'].includes(args.group_by) ? args.group_by : null;
+    const role = String((session && session.role) || '').toUpperCase();
+    const branchBound = role === 'BM' || role === 'ABM' || role === 'BOE';
+    const params = [];
+    let extra = '';
+    if (args.branch_name) { params.push(args.branch_name); extra += ` AND b.branch_name ILIKE $${params.length}`; }
+    if (args.region_name) {
+      params.push(args.region_name);
+      extra += ` AND UPPER(b.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE region_name ILIKE $${params.length})`;
+    }
+    const scopeClause = _scopeWhere(session, 'b.branch_name', params);
+    // Default grouping: "none" if a single branch is in play (caller passed
+    // branch_name OR is branch-bound); else group by branch.
+    const effGroup = groupByArg || ((args.branch_name || branchBound) ? 'none' : 'branch');
+    let selectCols, groupCols, orderCols, joinEm = '';
+    if (effGroup === 'branch') {
+      selectCols = `b.branch_name AS bucket`;
+      groupCols = `b.branch_name`;
+      orderCols = `SUM(hp.regular_collection) DESC NULLS LAST`;
+    } else if (effGroup === 'region') {
+      selectCols = `r.region_name AS bucket`;
+      groupCols = `r.region_name`;
+      orderCols = `SUM(hp.regular_collection) DESC NULLS LAST`;
+    } else if (effGroup === 'employee') {
+      selectCols = `em.full_name AS bucket, hp.emp_id, em.role, b.branch_name AS branch`;
+      groupCols = `em.full_name, hp.emp_id, em.role, b.branch_name`;
+      orderCols = `SUM(hp.regular_collection) DESC NULLS LAST`;
+      joinEm = `LEFT JOIN employee_master em ON em.emp_id = hp.emp_id`;
+    } else {
+      selectCols = `'live' AS bucket`;
+      groupCols = `1`; // group by literal — single-row aggregate
+      orderCols = `1`;
+    }
+    const sql = `
+      SELECT ${selectCols},
+             SUM(hp.regular_demand)::bigint     AS demand_count,
+             SUM(hp.regular_collection)::bigint AS collection_count,
+             SUM(hp.regular_demand_amt)::numeric     AS demand_amount,
+             SUM(hp.regular_collection_amt)::numeric AS collection_amount
+        FROM hourly_performance hp
+        JOIN employees e  ON hp.emp_id = e.emp_id
+        JOIN branches b   ON e.branch_id = b.branch_id
+        JOIN districts d  ON b.district_id = d.district_id
+        JOIN regions r    ON d.region_id = r.region_id
+        ${joinEm}
+       WHERE 1=1
+         ${extra}
+         ${scopeClause}
+       GROUP BY ${groupCols}
+       ORDER BY ${orderCols}
+       LIMIT ${lim}`;
+    const rows = await safeQuery(sql, params, lim);
+    if (!Array.isArray(rows)) return rows;
+    const decorated = rows.map(function (r) {
+      const dem = Number(r.demand_count || 0);
+      const col = Number(r.collection_count || 0);
+      const p = dem > 0 ? Math.round((col / dem) * 1000) / 10 : null;
+      const out = {
+        bucket: r.bucket,
+        demand_count: dem,
+        collection_count: col,
+        demand_amount: Number(r.demand_amount || 0),
+        collection_amount: Number(r.collection_amount || 0),
+        pct: p
+      };
+      if (effGroup === 'employee') {
+        out.emp_id = r.emp_id;
+        out.role = r.role;
+        out.branch = r.branch;
+      }
+      return out;
+    });
+    // as_of: hourly_performance has no upload_time column, so this is the
+    // server's view-time. Live snapshot — approximate is fine.
+    return {
+      snapshot: 'live',
+      as_of: new Date().toISOString(),
+      note: 'CURRENT live snapshot — single point in time, NOT a historical series. hourly_performance is UPSERTed on each intra-day upload and reset after EOD. For day-by-day trends use period_performance(group_by="day").',
+      grouped_by: effGroup,
+      rows: decorated
+    };
   }
 
   return { error: 'unknown_tool: ' + name };
@@ -6964,11 +7276,16 @@ app.post('/api/voice-stream', aiLimiter, voiceUpload.single('audio'), requireAiA
         '- The companion screen shows the raw rows you fetch — you do not need to dictate every value, just the highlight + interpretation.',
         '',
         '## Tools available — CALL THESE for any specifics',
-        '- find_employee, employee_performance, find_branch, period_performance, top_performers, disbursement_query, list_hierarchy, list_employees, headcount, npa_summary, daily_reports_query, sql_describe',
+        '- find_employee, employee_performance, find_branch, period_performance, top_performers, disbursement_query, list_hierarchy, list_employees, headcount, npa_summary, daily_reports_query, branch_summary, hourly_collection, sql_describe',
         '',
         '## Critical tool routing',
+        '- "How is my branch doing today / how is <branch> doing / branch health / give me a summary of <branch> / end-of-day rollup" → call `branch_summary()` (BM/ABM/BOE pass NO args — auto-resolves; CEO/RM/DM/AM pass branch_name). Returns headcount + collection (today/MTD/FYTD) + NPA + disbursement + FTOD + DPD plan-vs-actual in ONE call. Don\'t chain 5 separate tools for this.',
+        '- "Collection right now / live collection / how much collected today so far / hourly trend / intra-day" → call `hourly_collection()`. Returns CURRENT live snapshot (counts + amounts + pct), not a time series.',
         '- "How many employees / staff / BMs / FOs / agents in <scope>?" → call `headcount(group_by=\'role\')` for a role breakdown, or `headcount(role=\'BM\')` for a single role count, or `headcount()` for the overall total. NEVER quote a hierarchy row count or list_hierarchy result count as "number of employees".',
       '- "List all employees / give me everyone / phone numbers of staff in <branch>" / "show roster" → call `list_employees(branch_name=...)`. NOT find_employee — that\'s for searching ONE named person. list_employees returns the full roster (name + role + branch + mobile).',
+        '- "Top N employees in <branch> by collection / demand" → call `top_performers(metric, start_date, end_date, branch_name=...)`. NEVER chain list_employees + employee_performance × N — that loses the ranking and produces wrong/zero rows.',
+        '- **NPA semantics matter.** `npa_cases` from daily_performance / employee_performance is a ROLLING SNAPSHOT (the same outstanding case is repeated every day). Never SUM npa_cases over a date range — that inflates by ~days. For outstanding cases, query the latest single date. For activation / closure RATES, use `daily_reports_query(table="achievements", metrics="npa")` and SUM npa_activation / npa_closure (those are per-day deltas).',
+        '- If today\'s daily_performance is empty (EOD lag — common before evening), retry against `daily_reports_query(table="achievements")` for today\'s achievement numbers before saying "no data".',
       '- "Who is the BM of <branch>" / "who is the manager" → `list_employees(branch_name=X, role=\'BM\')`.',
         '- "Daily collection / collection trend / day-by-day collection" → call `period_performance(group_by=\'day\', start_date, end_date)`. The result has one row per day with demand + collection columns. Average = SUM(collection) / COUNT(days).',
         '- "Daily disbursement" → call `disbursement_query(group_by=\'day\', start_date, end_date)`.',
@@ -7477,6 +7794,8 @@ app.post("/api/ai-chat", aiLimiter, requireAiAccess, async (req, res) => {
       '- list_hierarchy(level, parent_level?, parent_name?, limit?) — list region|division|area|branch entities, optionally under a parent.',
       '- npa_summary(start_date, end_date, group_by?, branch_name?, region_name?, limit?) — NPA cases + activation amount over range.',
       '- daily_reports_query(start_date, end_date, branch_name?, region_name?, district_name?, table?, metrics?, limit?) — branch-level DAILY PLAN data: FTOD, DPD bucket 1-30/31-60/61-90, NPA activation/closure, disbursement plan vs actual (IGL/FIG/IL), KYC. ALWAYS use this for ANY question mentioning FTOD, DPD, KYC, NPA closure, or disbursement plan-vs-achievement on a specific date or branch.',
+      '- branch_summary(branch_name?, date?) — ONE-SHOT branch dashboard: headcount + role mix, collection today/MTD/FYTD with %, NPA, disbursement today/MTD, FTOD plan-vs-actual, DPD bucket plan-vs-actual. Use for "how is my branch doing today / branch summary / health check / EOD rollup". BM/ABM/BOE pass NO args. CEO/RM/DM/AM MUST pass branch_name (single-branch only).',
+      '- hourly_collection(branch_name?, region_name?, group_by?) — CURRENT live intra-day collection snapshot (counts + amounts + pct). hourly_performance has no time series, so this returns the latest live totals, NOT an hour-by-hour series.',
       '- sql_describe() — schema cheatsheet refresher.',
       '',
       '## Date range guidance',
@@ -7502,6 +7821,8 @@ app.post("/api/ai-chat", aiLimiter, requireAiAccess, async (req, res) => {
       '- Never invent numbers. Quote what tools return.',
       '- Never use the words "snapshot" or "provided data" or "JSON below" in your replies — they leak internal plumbing. Just answer with the numbers and a short label.',
       '- If a question mentions FTOD, DPD, KYC, disbursement plan, NPA closure, or "daily plan" → MUST call daily_reports_query. Do NOT say "data not available" without calling the tool first.',
+      '- If the user asks "how is my branch doing today / branch summary / give me a summary of <branch> / end-of-day rollup" → call `branch_summary()` (single tool, returns headcount + collection + NPA + disbursement + FTOD + DPD). Do NOT chain 5 separate tool calls.',
+      '- If the user asks "collection right now / live / hourly / intra-day / how much collected today so far" → call `hourly_collection()`. It is a live snapshot, not a time series — answer with the current totals and don\'t pretend to break them down by hour.',
       '- "11th April" / "April 11" / "11/04" all mean the same date — convert to YYYY-MM-DD using the current FY year.',
       '- When a tool returns 0 rows for a specific date, ALWAYS retry the same tool with a wider window (the full month, then the full FY) to find the nearest available date(s). Then tell the user "no data for {requested date}; nearest available is {date} — here it is" and answer with that data. Do NOT just say "data not available" and stop.',
       '',
@@ -7701,11 +8022,16 @@ app.post("/api/ai-chat-stream", aiLimiter, requireAiAccess, async (req, res) => 
       'Collection % = regular_collection / regular_demand × 100 (count ratio, dimensionless).',
       '',
       '## Tools available — CALL THESE for any specifics not in the at-a-glance JSON',
-      '- find_employee, employee_performance, find_branch, period_performance, top_performers, disbursement_query, list_hierarchy, list_employees, headcount, npa_summary, daily_reports_query, sql_describe',
+      '- find_employee, employee_performance, find_branch, period_performance, top_performers, disbursement_query, list_hierarchy, list_employees, headcount, npa_summary, daily_reports_query, branch_summary, hourly_collection, sql_describe',
       '',
       '## Critical tool routing',
+      '- "How is my branch doing today / branch summary / branch health / give me a summary of <branch> / end-of-day rollup" → call `branch_summary()` — ONE tool returns headcount + collection (today/MTD/FYTD) + NPA + disbursement + FTOD + DPD plan-vs-actual. BM/ABM/BOE pass NO args (auto-resolves); CEO/RM/DM/AM MUST pass branch_name. Don\'t chain 5+ separate tool calls for this.',
+      '- "Collection right now / live / how much collected today so far / hourly / intra-day" → call `hourly_collection()`. Returns CURRENT live totals from hourly_performance — NOT a time series, NOT hour-by-hour buckets.',
       '- "How many employees / staff / BMs / FOs / agents in <scope>?" → call `headcount(group_by=\'role\')` for a role breakdown, or `headcount(role=\'BM\')` for a single role count, or `headcount()` for the overall total. NEVER quote a hierarchy row count or list_hierarchy result count as "number of employees".',
       '- "List all employees / give me everyone / phone numbers of staff in <branch>" / "show roster" → call `list_employees(branch_name=...)`. NOT find_employee — that\'s for searching ONE named person. list_employees returns the full roster (name + role + branch + mobile).',
+        '- "Top N employees in <branch> by collection / demand" → call `top_performers(metric, start_date, end_date, branch_name=...)`. NEVER chain list_employees + employee_performance × N — that loses the ranking and produces wrong/zero rows.',
+        '- **NPA semantics matter.** `npa_cases` from daily_performance / employee_performance is a ROLLING SNAPSHOT (the same outstanding case is repeated every day). Never SUM npa_cases over a date range — that inflates by ~days. For outstanding cases, query the latest single date. For activation / closure RATES, use `daily_reports_query(table="achievements", metrics="npa")` and SUM npa_activation / npa_closure (those are per-day deltas).',
+        '- If today\'s daily_performance is empty (EOD lag — common before evening), retry against `daily_reports_query(table="achievements")` for today\'s achievement numbers before saying "no data".',
       '- "Who is the BM of <branch>" / "who is the manager" → `list_employees(branch_name=X, role=\'BM\')`.',
       '- "Daily collection / collection trend / day-by-day collection" → call `period_performance(group_by=\'day\', start_date, end_date)`. One row per day with demand + collection. Average = SUM(collection) / COUNT(days).',
       '- "Daily disbursement" → call `disbursement_query(group_by=\'day\', start_date, end_date)`.',
