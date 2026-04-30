@@ -7427,6 +7427,16 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       if (msgs.length === 0 || msgs[msgs.length - 1].role !== 'user') {
         msgs.push({ role: 'user', content: msg });
       }
+      // Preamble injection (task #15): if a context filter is active, wrap
+      // the LAST user turn so the server sees the active employee/branch.
+      // History entries + visible bubble keep the original user text.
+      try {
+        if (window._aiCtxApply) {
+          var lastUserIdx = -1;
+          for (var i = msgs.length - 1; i >= 0; i--) { if (msgs[i].role === 'user') { lastUserIdx = i; break; } }
+          if (lastUserIdx >= 0) msgs[lastUserIdx] = { role: 'user', content: window._aiCtxApply(msgs[lastUserIdx].content) };
+        }
+      } catch (_) {}
 
       var buffer = '';
       var sawDelta = false;
@@ -7892,7 +7902,24 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       var totalRows = rows.length;
       var shownCount = Math.min(totalRows, maxShow);
       var body = rows.slice(0, maxShow).map(function(row){
-        return '<tr>' + keys.map(function(k){
+        // Row-level context attrs — tap to pin the active filter (task #15).
+        // Employee row when emp_id is present; branch row otherwise.
+        var rEmpId = row && (row.emp_id || row.employee_id);
+        var rName  = row && (row.name || row.full_name || row.officer_name);
+        var rBranch = row && (row.branch || row.branch_name);
+        var trAttrs = '';
+        if (rEmpId) {
+          trAttrs = ' class="vo-row-clickable" tabindex="0" role="button"'
+            + ' data-ctx-emp-id="' + _voEsc(rEmpId) + '"'
+            + (rName ? ' data-ctx-name="' + _voEsc(rName) + '"' : '')
+            + (rBranch ? ' data-ctx-branch="' + _voEsc(rBranch) + '"' : '')
+            + ' title="Click to pin this employee as active filter"';
+        } else if (rBranch) {
+          trAttrs = ' class="vo-row-clickable" tabindex="0" role="button"'
+            + ' data-ctx-branch="' + _voEsc(rBranch) + '"'
+            + ' title="Click to pin this branch as active filter"';
+        }
+        return '<tr' + trAttrs + '>' + keys.map(function(k){
           var cls = (numericKeys[k] ? 'num' : '') + (wrapKeys[k] ? ' wrap' : '');
           cls = cls.replace(/^\s+|\s+$/g, '');
           return '<td' + (cls ? ' class="' + cls + '"' : '') + '>' + _voCellRender(k, row[k]) + '</td>';
@@ -8250,6 +8277,8 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       if (session.role) fd.append('role', session.role);
       if (session.location) fd.append('location', session.location);
       try { fd.append('provider', (window._aiPickedProvider && window._aiPickedProvider()) || 'openai'); } catch(_) {}
+      // Active-context filter (task #15) — server prepends to transcript.
+      try { var _ctxP = window._aiCtxPreamble && window._aiCtxPreamble(window._aiCtxGet && window._aiCtxGet()); if (_ctxP) fd.append('context_preamble', _ctxP); } catch(_) {}
 
       var transcriptText = '';
       var replyBuf = '';
@@ -8398,6 +8427,8 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       if (session.role) fd.append('role', session.role);
       if (session.location) fd.append('location', session.location);
       try { fd.append('provider', (window._aiPickedProvider && window._aiPickedProvider()) || 'openai'); } catch(_) {}
+      // Active-context filter (task #15) — server prepends to transcript.
+      try { var _ctxP = window._aiCtxPreamble && window._aiCtxPreamble(window._aiCtxGet && window._aiCtxGet()); if (_ctxP) fd.append('context_preamble', _ctxP); } catch(_) {}
 
       fetch('/api/voice', { method: 'POST', body: fd })
         .then(function(r) {
@@ -8735,6 +8766,8 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       if (session.role) fd.append('role', session.role);
       if (session.location) fd.append('location', session.location);
       try { fd.append('provider', (window._aiPickedProvider && window._aiPickedProvider()) || 'openai'); } catch(_) {}
+      // Active-context filter (task #15) — server prepends to transcript.
+      try { var _ctxP = window._aiCtxPreamble && window._aiCtxPreamble(window._aiCtxGet && window._aiCtxGet()); if (_ctxP) fd.append('context_preamble', _ctxP); } catch(_) {}
 
       _vomState.gen++;
       var myGen = _vomState.gen;
@@ -8764,10 +8797,13 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
       _vomState.ctrl = ctrl;
 
+      // Preamble injection (task #15) — wraps the user message with the
+      // pinned employee/branch filter, server gets the combined string.
+      var _vomMsgPayload = (window._aiCtxApply ? window._aiCtxApply(msg) : msg);
       fetch('/api/ai-chat-stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: [{ role: 'user', content: msg }], role: session.role || '', location: session.location || '', provider: (window._aiPickedProvider && window._aiPickedProvider()) || 'openai' }),
+        body: JSON.stringify({ messages: [{ role: 'user', content: _vomMsgPayload }], role: session.role || '', location: session.location || '', provider: (window._aiPickedProvider && window._aiPickedProvider()) || 'openai' }),
         signal: ctrl ? ctrl.signal : undefined
       })
         .then(function (r) {
@@ -8990,7 +9026,21 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         return '<th class="' + (numericKeys[k] ? 'num' : '') + '">' + esc(k) + '</th>';
       }).join('') + '</tr>';
       var body = rows.map(function (row) {
-        return '<tr>' + keys.map(function (k) {
+        // Row-level context attrs — tap to pin filter (task #15).
+        var rEmpId = row && (row.emp_id || row.employee_id);
+        var rName  = row && (row.name || row.full_name || row.officer_name);
+        var rBranch = row && (row.branch || row.branch_name);
+        var trAttrs = '';
+        if (rEmpId) {
+          trAttrs = ' class="vom-row-clickable" tabindex="0" role="button"'
+            + ' data-ctx-emp-id="' + esc(rEmpId) + '"'
+            + (rName ? ' data-ctx-name="' + esc(rName) + '"' : '')
+            + (rBranch ? ' data-ctx-branch="' + esc(rBranch) + '"' : '');
+        } else if (rBranch) {
+          trAttrs = ' class="vom-row-clickable" tabindex="0" role="button"'
+            + ' data-ctx-branch="' + esc(rBranch) + '"';
+        }
+        return '<tr' + trAttrs + '>' + keys.map(function (k) {
           var cls = (numericKeys[k] ? 'num' : '') + ' ' + (wrapKeys.indexOf(k) >= 0 ? 'wrap' : '');
           return '<td class="' + cls.trim() + '">' + _vomCell(k, row[k]) + '</td>';
         }).join('') + '</tr>';

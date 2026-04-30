@@ -7728,9 +7728,18 @@ app.post('/api/voice-stream', aiLimiter, voiceUpload.single('audio'), requireAiA
       console.error('voice-stream context error:', e.message);
     }
 
+    // Active-context preamble (task #15) — frontend sends `context_preamble`
+    // as a form field for voice flows since we can't prepend to audio bytes.
+    // The system prompts already know how to parse `[Active filter: ...]`
+    // brackets at the start of the user message; just stitch them together.
+    const _ctxPreamble = String((req.body && req.body.context_preamble) || '').trim();
+    const userTurn = _ctxPreamble
+      ? (_ctxPreamble + '\n\nUser: ' + transcript)
+      : transcript;
+
     const messages = [
       { role: 'system', content: scopedSystemText },
-      { role: 'user', content: transcript },
+      { role: 'user', content: userTurn },
     ];
 
     const onProgress = (ev) => {
