@@ -5673,11 +5673,12 @@ const AI_TOOLS_SPEC = [
     type: 'function',
     function: {
       name: 'find_employee',
-      description: 'Look up employees by name, mobile, or emp_id. Returns matching rows from employee_master with role, branch, area, division, region, mobile, status. Use for "who is X" / "find Y" / "what is Z\'s mobile/branch/role". If multiple matches are returned for a name, do not choose one; list the matches and ask which employee the user means.',
+      description: 'Look up employees by name, mobile, or emp_id. Substring + trigram fuzzy + word-similarity fallback so misheard names ("AP Shivraj" / "EPI Shivraj" → "A P Shivaraj") still resolve. Returns role, branch, area, division, region, mobile, status. Pass location_hint when the user names a branch / area / district / region alongside the person — it narrows ambiguous matches. If multiple matches still come back, list them and ask which one the user means.',
       parameters: {
         type: 'object',
         properties: {
-          query: { type: 'string', description: 'Substring of full_name (ILIKE), or exact mobile, or exact emp_id.' },
+          query: { type: 'string', description: 'Name or mobile or emp_id. Misspellings tolerated via fuzzy match.' },
+          location_hint: { type: 'string', description: 'Optional: branch / area / district / region the user mentioned alongside the name. Used to disambiguate when multiple employees share a name (e.g. query="Shivraj", location_hint="Raichur").' },
           limit: { type: 'integer', description: 'Max rows. Default 25, max 200.' }
         },
         required: ['query']
@@ -5918,12 +5919,33 @@ async function dispatchAiTool(name, args, session) {
 
     // Pass 2: trigram fuzzy on full_name when ILIKE returned nothing.
     // Whisper drops letters / collapses initials ("AP Shivraj" vs the real
-    // "A P Shivaraj"). Threshold 0.4 — looser than branches because names
-    // have more variability (initials, middle names) but still rejects
-    // unrelated matches.
+    // "A P Shivaraj") and even mangles initials ("EPI Shivraj"). Use BOTH
+    // word_similarity (matches any embedded token, e.g. just "Shivraj"
+    // against "A P Shivaraj") and full-string similarity. word_similarity
+    // is the more useful metric for messy multi-word names — pulls every
+    // candidate that contains a near-match for any word in the query.
     if (Array.isArray(rows) && rows.length === 0 && q.length >= 4) {
       params = [q];
-      rows = await safeQuery(buildSql(`similarity(em.full_name, $1) > 0.4`, params), params, lim);
+      rows = await safeQuery(
+        buildSql(
+          `(word_similarity($1, em.full_name) > 0.4 OR similarity(em.full_name, $1) > 0.3)`,
+          params
+        ),
+        params, lim
+      );
+    }
+    // Pass 3: optional location hint. If the user provided a branch /
+    // area / division / region in the query (the LLM passes it in via
+    // the `location_hint` arg), use that to narrow ambiguous matches.
+    if (Array.isArray(rows) && rows.length > 1 && args.location_hint) {
+      const hint = String(args.location_hint).trim();
+      if (hint) {
+        const filtered = rows.filter(function (r) {
+          const fields = [r.branch, r.area, r.division, r.region].map(function (x) { return String(x || '').toLowerCase(); });
+          return fields.some(function (f) { return f.indexOf(hint.toLowerCase()) >= 0; });
+        });
+        if (filtered.length) rows = filtered;
+      }
     }
 
     if (!Array.isArray(rows)) return rows;
@@ -6850,9 +6872,11 @@ app.post('/api/voice-stream', aiLimiter, voiceUpload.single('audio'), async (req
         '- For list_hierarchy: NEVER report its row count as a money or collection metric. Its rows are entity names with employee_count + branch_count metadata only.',
         '',
         '## Tool guidance',
-        '- **CANONICALISE NAMES FIRST.** Voice transcription mishears branch / employee / region names ("Davangere" vs "Davanagere", "Belgaum" vs "Belagavi"). If the user names a specific branch/employee, your FIRST tool call MUST be `find_branch(query=<spoken name>)` or `find_employee(query=<spoken name>)`. Use the canonical `branch_name` / `emp_id` from the result in every subsequent tool call. Never pass the raw spoken name into disbursement_query / period_performance / daily_reports_query / top_performers — always pass the canonical value find_branch/find_employee returned.',
-        '- find_branch now does substring + trigram-fuzzy match, so "Davangere" still resolves to "Davanagere". Trust the result.',
+        '- **CANONICALISE NAMES FIRST.** Voice transcription mishears branch / employee / region names ("Davangere" vs "Davanagere", "AP Shivraj" / "EPI Shivraj" vs "A P Shivaraj"). If the user names a specific branch/employee, your FIRST tool call MUST be `find_branch(query=<spoken name>)` or `find_employee(query=<spoken name>)`. Use the canonical `branch_name` / `emp_id` from the result in every subsequent tool call. Never pass the raw spoken name into disbursement_query / period_performance / daily_reports_query / top_performers — always pass the canonical value find_branch/find_employee returned.',
+        '- **WHEN USER NAMES A PERSON + LOCATION** (e.g. "Shivraj from Raichur", "Karthik in Bangalore"), pass BOTH: `find_employee(query="Shivraj", location_hint="Raichur")`. The hint disambiguates common names down to one row.',
+        '- find_branch + find_employee both do substring + trigram + word-similarity match — misspellings and mishearings still resolve. Trust the result.',
         '- If find_branch / find_employee returns `ambiguous: true`, ask the user to confirm (list 2-4 candidates with region/branch). Do NOT pick silently.',
+        '- If find_employee returns 0 rows for a named person, DO NOT fall back to overall company numbers. Tell the user "no employee matched that name" and ask them to repeat the name or provide an emp_id / mobile / branch hint.',
         '- ANY question with the words disbursement / disb / disbursed / loan disbursed → call disbursement_query with the appropriate date range, group_by, and (if a branch was named) the canonical branch_name from find_branch.',
         '- ANY question about FTOD / DPD / KYC / NPA closure / daily plan → call daily_reports_query.',
         '- For collection/demand metrics → call period_performance.',
@@ -7370,7 +7394,7 @@ app.post("/api/ai-chat", aiLimiter, async (req, res) => {
       '- The at-a-glance JSON is fine for trivial single-number lookups in the current period. For everything else, call a tool.',
       '- If the JSON doesn\'t have it, call a tool. Do NOT refuse — the tools cover virtually any DB question in scope.',
       '- For ambiguous questions, ask ONE crisp clarifying question.',
-      '- For employee-name lookups: if find_employee returns more than one match or `ambiguous: true`, list the matching employees with emp_id + branch/role and ask which one the user means. Never pick one silently for common names like Karthik. Do not list phone numbers while disambiguating multiple people.',
+      '- For employee-name lookups: if the user mentioned a branch / area / district / region with the name ("Shivraj from Raichur"), pass it as location_hint to find_employee. If find_employee returns more than one match or `ambiguous: true`, list the matching employees with emp_id + branch/role and ask which one the user means. Never pick one silently for common names like Karthik. Do not list phone numbers while disambiguating multiple people. If find_employee returns 0 rows, do NOT fall back to overall company numbers — tell the user the name didn\'t match and ask them to repeat it.',
       '- For branch/entity lookups: if find_branch returns more than one match or `ambiguous: true`, list the matching branches with region/division/area and ask which one the user means. Never pick one silently for partial branch names.',
       '- Never invent numbers. Quote what tools return.',
       '- Never use the words "snapshot" or "provided data" or "JSON below" in your replies — they leak internal plumbing. Just answer with the numbers and a short label.',
