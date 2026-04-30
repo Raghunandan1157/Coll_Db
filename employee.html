@@ -4505,6 +4505,7 @@
       </button>
     </div>
   </div>
+  <div id="aiContextChipChat" class="ai-ctx-chip-strip" hidden></div>
   <div id="aiMessages" class="ai-panel-messages">
     <div class="ai-empty">
       <div class="ai-empty-orb">
@@ -4619,6 +4620,7 @@
     </button>
   </header>
 
+  <div id="aiContextChipVo" class="ai-ctx-chip-strip ai-ctx-chip-vo" hidden></div>
   <div class="vo-cockpit">
     <!-- LEFT: live SQL log -->
     <aside class="vo-pane vo-pane-left">
@@ -4686,6 +4688,7 @@
     </button>
   </header>
 
+  <div id="aiContextChipVom" class="ai-ctx-chip-strip ai-ctx-chip-vom" hidden></div>
   <main class="vom-main" id="vomMain">
     <!-- Orb (sized + positioned via state class on root) -->
     <div class="vom-orb-wrap">
@@ -4761,6 +4764,7 @@
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
       </button>
       <div class="vom-sheet-title" id="vomSheetTableTitle">Data</div>
+      <span class="vom-sheet-actions" id="vomSheetTableActions"></span>
     </header>
     <div class="vom-sheet-body" id="vomSheetTableBody"></div>
   </div>
@@ -4920,6 +4924,49 @@ body.emp-dark .ai-bar-icon { background: rgba(99,102,241,0.15); color: #A5B4FC; 
   transition: background .15s, color .15s;
 }
 .ai-icon-btn:hover { background: #F3F4F6; color: #111827; }
+
+/* ── Context chip strip (chat panel + voice cockpits) ──────────────────
+   Shows the active employee/branch filter pinned by tapping a row in any
+   table. Hidden until a context is set. */
+.ai-ctx-chip-strip {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 16px;
+  background: #FEF3C7;
+  border-bottom: 1px solid #FDE68A;
+  color: #78350F;
+  font-size: 13px; font-weight: 500;
+  flex-wrap: wrap;
+}
+body.emp-dark .ai-ctx-chip-strip { background: #422006; border-bottom-color: #78350F; color: #FBBF24; }
+.ai-ctx-chip-strip[hidden] { display: none; }
+.ai-ctx-chip-strip .ai-ctx-pin { font-size: 14px; }
+.ai-ctx-chip-strip .ai-ctx-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ai-ctx-chip-strip .ai-ctx-clear {
+  border: 0; background: rgba(0,0,0,0.08); color: inherit;
+  width: 22px; height: 22px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 16px; line-height: 1; padding: 0;
+}
+.ai-ctx-chip-strip .ai-ctx-clear:hover { background: rgba(0,0,0,0.18); }
+body.emp-dark .ai-ctx-chip-strip .ai-ctx-clear { background: rgba(255,255,255,0.10); }
+body.emp-dark .ai-ctx-chip-strip .ai-ctx-clear:hover { background: rgba(255,255,255,0.20); }
+/* Voice cockpit override — dark surface, lighter colours. */
+.ai-ctx-chip-vo, .ai-ctx-chip-vom {
+  background: rgba(251,191,36,0.16);
+  border-bottom-color: rgba(251,191,36,0.30);
+  color: #FCD34D;
+}
+.ai-ctx-chip-vo .ai-ctx-clear, .ai-ctx-chip-vom .ai-ctx-clear { background: rgba(255,255,255,0.10); }
+.ai-ctx-chip-vo .ai-ctx-clear:hover, .ai-ctx-chip-vom .ai-ctx-clear:hover { background: rgba(255,255,255,0.20); }
+
+/* ── Clickable rows in tool-result tables ──────────────────────────────
+   Applied via JS to <tr> elements that carry a data-ctx-* dataset. */
+.vo-data-table tr.vo-row-clickable,
+.vom-mini-table tr.vom-row-clickable { cursor: pointer; transition: background-color 120ms ease; }
+.vo-data-table tr.vo-row-clickable:hover { background-color: rgba(251,191,36,0.10); }
+.vom-mini-table tr.vom-row-clickable:hover { background-color: rgba(251,191,36,0.10); }
+.vo-data-table tr.vo-row-clickable:focus,
+.vom-mini-table tr.vom-row-clickable:focus { outline: 2px solid rgba(251,191,36,0.55); outline-offset: -2px; }
 
 /* Messages region */
 .ai-panel-messages {
@@ -5392,17 +5439,59 @@ body.emp-dark .ai-bubble .ai-bq { border-left-color: #374151; color: #9CA3AF; }
   background: rgba(255,255,255,.03);
   border: 1px solid rgba(255,255,255,.07);
   border-radius: 12px;
-  padding: 14px 16px;
+  padding: 0;
+  overflow: hidden;
   margin-bottom: 14px;
   animation: voSlideIn .3s ease-out;
 }
+/* Banner-style data-card head — operations report theme */
 #voiceOverlay .vo-data-head {
-  display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 10px;
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 12px 14px 10px;
+  background: #8B1A2D;
+  color: #fff;
+  border-bottom: 1px solid #6E1422;
+}
+#voiceOverlay .vo-data-title-wrap {
+  display: flex; flex-direction: column; gap: 2px;
+  align-items: center; text-align: center;
+  min-width: 0; grid-column: 2;
 }
 #voiceOverlay .vo-data-title {
-  font-size: 12.5px; font-weight: 600; color: #F3F4F6;
-  letter-spacing: .01em;
+  font-size: 13.5px; font-weight: 700; color: #fff;
+  letter-spacing: .06em; text-transform: uppercase;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  line-height: 1.25;
+}
+#voiceOverlay .vo-data-head .vo-data-subtitle {
+  font-size: 11px;
+  color: rgba(255,255,255,.82);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  line-height: 1.3;
+}
+#voiceOverlay .vo-data-head .vo-data-actions {
+  grid-column: 3;
+  margin-left: 0;
+}
+#voiceOverlay .vo-data-head .vo-data-action {
+  background: rgba(255,255,255,.12);
+  border-color: rgba(255,255,255,.32);
+  color: #fff;
+}
+#voiceOverlay .vo-data-head .vo-data-action:hover:not([disabled]) {
+  background: rgba(255,255,255,.22);
+  border-color: rgba(255,255,255,.6);
+  color: #fff;
+}
+#voiceOverlay .vo-data-head .vo-data-action.copied {
+  color: #BEF264; border-color: rgba(190,242,100,.6);
+}
+#voiceOverlay .vo-data-card-body {
+  padding: 14px 16px;
 }
 #voiceOverlay .vo-data-count {
   font-size: 11px; color: rgba(255,255,255,.45);
@@ -5912,15 +6001,53 @@ body.emp-dark .ai-bubble .ai-table td { background: #fff !important; color: #1F2
   .vom-data-cards { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
   .vom-data-card {
     background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.07);
-    border-radius: 12px; padding: 12px 14px;
+    border-radius: 12px; padding: 0; overflow: hidden;
     animation: vomSlideIn .25s ease-out;
   }
   @keyframes vomSlideIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  /* Banner-style head — operations report theme */
   .vom-data-head {
-    display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 8px;
+    display: grid;
+    grid-template-columns: 24px 1fr auto;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    padding: 10px 12px 9px;
+    background: #8B1A2D;
+    color: #fff;
+    border-bottom: 1px solid #6E1422;
   }
-  .vom-data-title { font-size: 12.5px; font-weight: 600; color: #F3F4F6; }
+  .vom-data-title-wrap {
+    display: flex; flex-direction: column; gap: 2px;
+    align-items: center; text-align: center;
+    min-width: 0; grid-column: 2;
+  }
+  .vom-data-title {
+    font-size: 12.5px; font-weight: 700; color: #fff;
+    letter-spacing: .06em; text-transform: uppercase;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    line-height: 1.25;
+  }
+  .vom-data-head .vom-data-subtitle {
+    font-size: 10.5px;
+    color: rgba(255,255,255,.82);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    line-height: 1.3;
+    max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .vom-data-head .vom-data-actions { grid-column: 3; margin-left: 0; }
+  .vom-data-head .vom-data-action {
+    background: rgba(255,255,255,.12);
+    border-color: rgba(255,255,255,.32);
+    color: #fff;
+  }
+  .vom-data-head .vom-data-action:hover:not([disabled]) {
+    background: rgba(255,255,255,.22);
+    border-color: rgba(255,255,255,.6);
+    color: #fff;
+  }
+  .vom-data-head .vom-data-action.copied { color: #BEF264; border-color: rgba(190,242,100,.6); }
+  .vom-data-card-body { padding: 12px 14px; }
   .vom-data-args  { font-size: 10.5px; color: rgba(255,255,255,.45); font-family: 'JetBrains Mono', ui-monospace, monospace; max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   .vom-mini-table {
@@ -6058,6 +6185,60 @@ body.emp-dark .ai-bubble .ai-table td { background: #fff !important; color: #1F2
   }
   .vom-sheet-body .vom-sql-card,
   .vom-sheet-body .vom-data-card { margin-bottom: 12px; }
+
+  /* Banner-style sheet header for the data table view (operations report theme).
+     Scoped to #vomSheetTable only — SQL sheet keeps the neutral header. */
+  #vomSheetTable .vom-sheet-header {
+    background: #8B1A2D;
+    color: #fff;
+    border-bottom: 1px solid #6E1422;
+    display: grid;
+    grid-template-columns: 32px 1fr auto;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 14px 11px;
+  }
+  #vomSheetTable .vom-sheet-header .vom-icon-btn {
+    color: #fff;
+    border-color: rgba(255,255,255,.32);
+    background: rgba(255,255,255,.08);
+    grid-column: 1;
+  }
+  #vomSheetTable .vom-sheet-header .vom-icon-btn:hover { background: rgba(255,255,255,.18); }
+  #vomSheetTable .vom-sheet-title {
+    grid-column: 2;
+    display: flex; flex-direction: column; gap: 2px;
+    align-items: center; text-align: center;
+    min-width: 0;
+  }
+  #vomSheetTable .vom-sheet-banner-title {
+    font-size: 14px; font-weight: 700; color: #fff;
+    letter-spacing: .06em; text-transform: uppercase;
+    line-height: 1.2;
+  }
+  #vomSheetTable .vom-sheet-banner-sub {
+    font-size: 11px; color: rgba(255,255,255,.82);
+    line-height: 1.3;
+    max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  #vomSheetTable .vom-sheet-actions { grid-column: 3; display: inline-flex; gap: 4px; }
+  #vomSheetTable .vom-sheet-actions .vom-data-action,
+  #vomSheetTable .vom-sheet-actions .vo-data-action {
+    width: 28px; height: 28px; border-radius: 6px;
+    background: rgba(255,255,255,.12);
+    border: 1px solid rgba(255,255,255,.32);
+    color: #fff;
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer; padding: 0;
+  }
+  #vomSheetTable .vom-sheet-actions .vom-data-action:hover:not([disabled]),
+  #vomSheetTable .vom-sheet-actions .vo-data-action:hover:not([disabled]) {
+    background: rgba(255,255,255,.22); border-color: rgba(255,255,255,.6);
+  }
+  #vomSheetTable .vom-sheet-actions .vom-data-action[disabled],
+  #vomSheetTable .vom-sheet-actions .vo-data-action[disabled] { opacity: .35; cursor: not-allowed; }
+  #vomSheetTable .vom-sheet-actions .vom-data-action.copied,
+  #vomSheetTable .vom-sheet-actions .vo-data-action.copied { color: #BEF264; border-color: rgba(190,242,100,.6); }
   .vom-sql-card {
     background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.07);
     border-radius: 10px; padding: 11px 13px;
@@ -6899,6 +7080,129 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
   <script src="js/contacts.js?v=2"></script>
   <script src="js/employee.js?v=52"></script>
   <script>
+  // ── Active-context store + chip UI + preamble injection (task #15) ──
+  // Tapping any employee/branch row in a tool-result table pins that entity
+  // as the active filter. Subsequent questions ride on the preamble below
+  // so the user doesn't re-type the name. Visible chip + manual dismiss.
+  (function(){
+    var KEY = 'nlpl_ai_context';
+    function escAttr(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){return '&#'+c.charCodeAt(0)+';';}); }
+    function safeGet() {
+      try {
+        var raw = localStorage.getItem(KEY);
+        if (!raw) return null;
+        var o = JSON.parse(raw);
+        if (!o || typeof o !== 'object' || !o.type) return null;
+        return o;
+      } catch (_) { return null; }
+    }
+    function safeSet(o) {
+      try {
+        if (!o) localStorage.removeItem(KEY);
+        else localStorage.setItem(KEY, JSON.stringify(o));
+      } catch (_) {}
+    }
+    function label(o) {
+      if (!o) return '';
+      if (o.type === 'employee') {
+        var bits = [];
+        if (o.name) bits.push(o.name);
+        if (o.emp_id) bits.push(o.emp_id);
+        if (o.branch_name) bits.push(o.branch_name);
+        return bits.join(' · ');
+      }
+      if (o.type === 'branch') return o.branch_name ? ('Branch: ' + o.branch_name) : 'Branch';
+      return '';
+    }
+    function preamble(o) {
+      if (!o) return '';
+      if (o.type === 'employee') {
+        var who = (o.emp_id ? o.emp_id : '') + (o.name ? ' (' + o.name + ')' : '');
+        var loc = o.branch_name ? (' at ' + o.branch_name + ' branch') : '';
+        return '[Active filter: employee ' + who.trim() + loc + '. Apply this filter to all tool calls unless user explicitly overrides.]';
+      }
+      if (o.type === 'branch') {
+        return '[Active filter: branch ' + (o.branch_name || '') + '. Apply this filter to all tool calls unless user explicitly overrides.]';
+      }
+      return '';
+    }
+    function applyPreamble(msg) {
+      var ctx = safeGet();
+      var p = preamble(ctx);
+      if (!p) return msg;
+      return p + '\n\nUser: ' + (msg || '');
+    }
+    function paintOne(el) {
+      if (!el) return;
+      var ctx = safeGet();
+      if (!ctx) { el.hidden = true; el.innerHTML = ''; return; }
+      el.hidden = false;
+      var lbl = label(ctx);
+      var typeWord = ctx.type === 'employee' ? 'employee' : 'branch';
+      el.innerHTML =
+        '<span class="ai-ctx-pin" aria-hidden="true">📌</span>'
+        + '<span class="ai-ctx-label" title="' + escAttr(lbl) + '">'
+        + '<span style="opacity:.65;margin-right:6px">Filter (' + escAttr(typeWord) + '):</span>'
+        + escAttr(lbl)
+        + '</span>'
+        + '<button type="button" class="ai-ctx-clear" aria-label="Clear active filter" title="Clear filter">×</button>';
+      var btn = el.querySelector('.ai-ctx-clear');
+      if (btn) btn.onclick = function(){ clear(); };
+    }
+    function paint() {
+      paintOne(document.getElementById('aiContextChipChat'));
+      paintOne(document.getElementById('aiContextChipVo'));
+      paintOne(document.getElementById('aiContextChipVom'));
+    }
+    function set(o) { safeSet(o); paint(); }
+    function clear() { safeSet(null); paint(); }
+    function fromRowEl(tr) {
+      if (!tr || !tr.dataset) return null;
+      var d = tr.dataset;
+      if (d.ctxEmpId) {
+        return {
+          type: 'employee',
+          emp_id: String(d.ctxEmpId || ''),
+          name: String(d.ctxName || ''),
+          branch_name: String(d.ctxBranch || '')
+        };
+      }
+      if (d.ctxBranch) {
+        return { type: 'branch', branch_name: String(d.ctxBranch || '') };
+      }
+      return null;
+    }
+    document.addEventListener('click', function(ev){
+      var tr = ev.target && ev.target.closest && ev.target.closest('tr.vo-row-clickable, tr.vom-row-clickable');
+      if (!tr) return;
+      var ctx = fromRowEl(tr);
+      if (!ctx) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      set(ctx);
+    }, true);
+    document.addEventListener('keydown', function(ev){
+      if (ev.key !== 'Enter' && ev.key !== ' ') return;
+      var tr = ev.target && ev.target.closest && ev.target.closest('tr.vo-row-clickable, tr.vom-row-clickable');
+      if (!tr) return;
+      var ctx = fromRowEl(tr);
+      if (!ctx) return;
+      ev.preventDefault();
+      set(ctx);
+    });
+    window.addEventListener('storage', function(e){ if (e.key === KEY) paint(); });
+    if (document.readyState !== 'loading') paint();
+    else document.addEventListener('DOMContentLoaded', paint);
+
+    window._aiCtxGet = safeGet;
+    window._aiCtxSet = set;
+    window._aiCtxClear = clear;
+    window._aiCtxLabel = label;
+    window._aiCtxPreamble = preamble;
+    window._aiCtxApply = applyPreamble;
+    window._aiCtxRepaint = paint;
+  })();
+
   // AI Chat — browser calls server /api/ai-chat-stream (SSE, Mistral large + tools)
   (function(){
     var _aiHistory = [];
@@ -7810,13 +8114,20 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       } catch (_) {}
       var rowCountForExport = (window._aiTableExports && window._aiTableExports.count(result)) || 0;
       var actionsHtml = (window._aiTableExports && window._aiTableExports.html(toolName, rowCountForExport)) || '';
+      // Banner subtitle = tool subtitle (if any) + " · N rows" (if any).
+      var rowsSuffix = rowCountForExport > 0
+        ? ((subtitle ? ' · ' : '') + rowCountForExport + (rowCountForExport === 1 ? ' row' : ' rows'))
+        : '';
+      var bannerSub = (subtitle || '') + rowsSuffix;
       var inner = '<div class="vo-data-head">'
-        + '<div style="display:flex;flex-direction:column;gap:2px;min-width:0;flex:1;">'
+        + '<span aria-hidden="true"></span>'
+        + '<div class="vo-data-title-wrap">'
         +   '<span class="vo-data-title">' + _voEsc(title) + '</span>'
-        +   (subtitle ? '<span class="vo-data-count" style="font-size:11px;color:rgba(255,255,255,.55)">' + _voEsc(subtitle) + '</span>' : '')
+        +   (bannerSub ? '<span class="vo-data-subtitle">' + _voEsc(bannerSub) + '</span>' : '')
         + '</div>'
         + actionsHtml
-        + '</div>';
+        + '</div>'
+        + '<div class="vo-data-card-body">';
 
       // Empty-result hint: surface the args so BMs see why a query came back
       // empty (most often a too-narrow date filter or branch lock).
@@ -7896,6 +8207,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       } else {
         inner += renderBlock(result, '');
       }
+      inner += '</div>'; // close .vo-data-card-body
       card.innerHTML = inner;
       list.appendChild(card);
       try { window._aiTableExports && window._aiTableExports.bind(card, toolName, result); } catch (_) {}
@@ -8587,10 +8899,15 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       var subtitle = (window._aiToolSubtitle && window._aiToolSubtitle(toolName, args)) || '';
       var rowCountForExport = (window._aiTableExports && window._aiTableExports.count(result)) || 0;
       var actionsHtml = (window._aiTableExports && window._aiTableExports.html(toolName, rowCountForExport)) || '';
+      var rowsSuffix = rowCountForExport > 0
+        ? ((subtitle ? ' · ' : '') + rowCountForExport + (rowCountForExport === 1 ? ' row' : ' rows'))
+        : '';
+      var bannerSub = (subtitle || '') + rowsSuffix;
       var head = '<div class="vom-data-head">'
-        + '<div style="display:flex;flex-direction:column;gap:2px;min-width:0;flex:1;">'
+        + '<span aria-hidden="true"></span>'
+        + '<div class="vom-data-title-wrap">'
         +   '<span class="vom-data-title">' + esc(title) + '</span>'
-        +   (subtitle ? '<span class="vom-data-args">' + esc(subtitle) + '</span>' : '')
+        +   (bannerSub ? '<span class="vom-data-subtitle">' + esc(bannerSub) + '</span>' : '')
         + '</div>'
         + (actionsHtml ? actionsHtml.replace(/vo-data-actions/g, 'vom-data-actions').replace(/vo-data-action/g, 'vom-data-action') : '')
         + '</div>';
@@ -8603,7 +8920,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
           + 'Expand all ' + fullCount + ' rows'
           + '</button>'
         : '';
-      card.innerHTML = head + body + expand;
+      card.innerHTML = head + '<div class="vom-data-card-body">' + body + expand + '</div>';
       box.appendChild(card);
       try { window._aiTableExports && window._aiTableExports.bind(card, toolName, result); } catch (_) {}
       var btn = card.querySelector('.vom-expand-chip');
@@ -8755,14 +9072,32 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
     };
     function _vomOpenTable(entry) {
       var titleEl = _vomEl('vomSheetTableTitle');
+      var actionsEl = _vomEl('vomSheetTableActions');
       var body = _vomEl('vomSheetTableBody');
       if (!body) return;
+      var sheetTitle = (window._aiToolTitle && window._aiToolTitle(entry.name)) || entry.name;
+      var sheetSub = (window._aiToolSubtitle && window._aiToolSubtitle(entry.name, entry.args || {})) || '';
+      var sheetRowCount = (window._aiTableExports && window._aiTableExports.count(entry.result)) || 0;
+      var rowsSuffix = sheetRowCount > 0
+        ? ((sheetSub ? ' · ' : '') + sheetRowCount + (sheetRowCount === 1 ? ' row' : ' rows'))
+        : '';
+      var fullSub = (sheetSub || '') + rowsSuffix;
+      var escFn = (typeof esc === 'function') ? esc : function (t) { return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) { return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]; }); };
       if (titleEl) {
-        var sheetTitle = (window._aiToolTitle && window._aiToolTitle(entry.name)) || entry.name;
-        var sheetSub = (window._aiToolSubtitle && window._aiToolSubtitle(entry.name, entry.args || {})) || '';
-        titleEl.textContent = sheetTitle + (sheetSub ? ' · ' + sheetSub : '');
+        titleEl.innerHTML = '<span class="vom-sheet-banner-title">' + escFn(sheetTitle) + '</span>'
+          + (fullSub ? '<span class="vom-sheet-banner-sub">' + escFn(fullSub) + '</span>' : '');
       }
-      body.innerHTML = '<div class="vom-data-card">' + _vomRenderResult(entry.result, /*compact*/ false) + '</div>';
+      if (actionsEl) {
+        if (window._aiTableExports) {
+          var raw = window._aiTableExports.html(entry.name, sheetRowCount) || '';
+          // Use vom- classes so #vomSheetTable scoped CSS picks them up.
+          actionsEl.innerHTML = raw.replace(/vo-data-actions/g, 'vom-data-actions').replace(/vo-data-action/g, 'vom-data-action');
+          try { window._aiTableExports.bind(actionsEl, entry.name, entry.result); } catch (_) {}
+        } else {
+          actionsEl.innerHTML = '';
+        }
+      }
+      body.innerHTML = '<div class="vom-data-card"><div class="vom-data-card-body">' + _vomRenderResult(entry.result, /*compact*/ false) + '</div></div>';
       // promote to full-table look inside sheet
       var minis = body.querySelectorAll('.vom-mini-table');
       Array.prototype.forEach.call(minis, function (t) { t.classList.remove('vom-mini-table'); t.classList.add('vom-full-table'); });
