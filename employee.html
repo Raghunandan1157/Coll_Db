@@ -4549,6 +4549,19 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12A9 9 0 1 1 12 3v9z"/><path d="M21 12A9 9 0 0 0 12 3v9z"/></svg>
             <span>Pie chart</span>
           </button>
+          <div class="ai-plus-sep"></div>
+          <button type="button" class="ai-plus-item" data-chart="bar3d" role="menuitem">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l4-4 4 4"/><rect x="6" y="9" width="4" height="12"/><rect x="12" y="5" width="4" height="16"/><rect x="18" y="13" width="3" height="8"/></svg>
+            <span>3D bar</span>
+          </button>
+          <button type="button" class="ai-plus-item" data-chart="scatter3d" role="menuitem">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="14" r="2"/><circle cx="13" cy="8" r="2"/><circle cx="18" cy="15" r="2"/><circle cx="9" cy="18" r="1.6"/></svg>
+            <span>3D scatter</span>
+          </button>
+          <button type="button" class="ai-plus-item" data-chart="surface3d" role="menuitem">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18l6-6 4 4 8-8"/><path d="M3 21l6-6 4 4 8-8" opacity=".5"/></svg>
+            <span>3D surface</span>
+          </button>
         </div>
       </div>
       <button onclick="window._aiTalk()" class="ai-panel-talk" id="aiTalkBtn" title="Tap to talk" aria-label="Talk">
@@ -5286,6 +5299,8 @@ body.emp-dark .ai-plus-menu { background: #0F172A; color: #E5E7EB; border-color:
 }
 .ai-plus-item:hover { background: var(--ai-accent-bg, #F3F4F6); color: var(--ai-accent-text, #111827); }
 body.emp-dark .ai-plus-item:hover { background: #1F2937; }
+.ai-plus-sep { height: 1px; background: #E5E7EB; margin: 4px 6px; }
+body.emp-dark .ai-plus-sep { background: #1F2937; }
 
 /* Side-by-side compare layout. */
 #aiPanel #aiSplitBtn.active { background: var(--ai-accent-bg, #ECFDF5); color: var(--ai-accent-text, #047857); }
@@ -5335,15 +5350,25 @@ body.emp-dark .ai-stt-status { color: rgba(255,255,255,.7); }
 .ai-stt-stop:hover { filter: brightness(.92); }
 .ai-panel-talk.recording { background: var(--ai-accent, #10A37F) !important; color: #fff !important; }
 
-/* AI chart container (rendered via Chart.js when assistant emits ```chart``` fence). */
+/* AI chart container (Chart.js for ```chart``` fence, Plotly for ```chart3d```). */
 .ai-chart-wrap {
   margin: 10px 0; padding: 12px;
   background: #fff;
   border: 1px solid #E5E7EB;
   border-radius: 12px;
   max-width: 100%;
+  position: relative;
 }
 body.emp-dark .ai-chart-wrap { background: #1E293B; border-color: #1F2937; }
+.ai-chart-toolbar { display: flex; justify-content: flex-end; margin-bottom: 6px; }
+.ai-chart-dl {
+  padding: 4px 10px; font-size: 11.5px; font-weight: 600;
+  border: 1px solid #E5E7EB; border-radius: 999px;
+  background: var(--ai-accent-bg, #ECFDF5); color: var(--ai-accent-text, #047857);
+  cursor: pointer; font-family: 'Inter', sans-serif;
+}
+.ai-chart-dl:hover { filter: brightness(.95); }
+body.emp-dark .ai-chart-dl { border-color: #1F2937; }
 
 /* Action toolbar under bot reply */
 .ai-actions { display: flex; gap: 4px; margin-top: 4px; opacity: 0; transition: opacity .2s; }
@@ -6043,6 +6068,21 @@ body.emp-dark .ai-bubble .ai-bq { border-left-color: #374151; color: #9CA3AF; }
   color: #1F2937 !important;
   border: 1px solid #C9C9C9 !important;
   padding: 6px 10px !important;
+}
+body.emp-dark .ai-bubble .ai-table td,
+body.emp-dark #voiceOverlay .vo-data-table td,
+body.emp-dark #voMobile .vom-mini-table td,
+body.emp-dark #voMobile .vom-full-table td {
+  background: #1E293B !important;
+  color: #F3F4F6 !important;
+  border-color: #334155 !important;
+}
+body.emp-dark .ai-bubble .ai-table tbody tr td:first-child,
+body.emp-dark #voiceOverlay .vo-data-table tbody tr td:first-child,
+body.emp-dark #voMobile .vom-mini-table tbody tr td:first-child,
+body.emp-dark #voMobile .vom-full-table tbody tr td:first-child {
+  background: #422006 !important;
+  color: #FBBF24 !important;
 }
 
 /* First column (entity name — region / branch / employee) — peach stripe */
@@ -7299,6 +7339,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
 
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js" charset="utf-8"></script>
   <script>
     // Shared employee-names map: single fetch kicked off before tab scripts load.
     window._empNameMapPromise = fetch('/api/employees/names')
@@ -7624,15 +7665,22 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       s = s.replace(/ I(\d+) /g, function(_m, i){
         return '<code class="ai-code">' + esc(inline[+i]) + '</code>';
       });
-      // Restore fenced code blocks. ```chart\n{...}``` -> canvas placeholder.
+      // Restore fenced code blocks. ```chart``` -> Chart.js canvas, ```chart3d``` -> Plotly div.
       s = s.replace(/ F(\d+) /g, function(_m, i){
         var body = fences[+i] || '';
+        var m3d = body.match(/^\s*chart3d\s*\n([\s\S]*)$/i);
+        if (m3d) {
+          var spec3 = m3d[1].trim();
+          var id3 = 'aiChart3d_' + Math.random().toString(36).slice(2, 9);
+          setTimeout(function () { try { window._aiRenderChart3D && window._aiRenderChart3D(id3, spec3); } catch (_) {} }, 30);
+          return '<div class="ai-chart-wrap ai-chart-wrap-3d"><div class="ai-chart-toolbar"><button type="button" class="ai-chart-dl" data-target="' + id3 + '" data-3d="1">Download PNG</button></div><div id="' + id3 + '" style="width:100%;height:360px;"></div></div>';
+        }
         var mch = body.match(/^\s*chart\s*\n([\s\S]*)$/i);
         if (mch) {
           var spec = mch[1].trim();
           var id = 'aiChart_' + Math.random().toString(36).slice(2, 9);
           setTimeout(function () { try { window._aiRenderChart && window._aiRenderChart(id, spec); } catch (_) {} }, 30);
-          return '<div class="ai-chart-wrap"><canvas id="' + id + '" height="220"></canvas></div>';
+          return '<div class="ai-chart-wrap"><div class="ai-chart-toolbar"><button type="button" class="ai-chart-dl" data-target="' + id + '">Download PNG</button></div><canvas id="' + id + '" height="220"></canvas></div>';
         }
         return '<pre class="ai-pre"><code>' + esc(body) + '</code></pre>';
       });
@@ -7816,14 +7864,37 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       }
       if (window._aiChartRequest) {
         var ct = String(window._aiChartRequest || '').toLowerCase();
-        if (ct === 'line' || ct === 'bar' || ct === 'pie') {
+        var is3d = (ct === 'bar3d' || ct === 'scatter3d' || ct === 'surface3d');
+        var fenceTag = is3d ? 'chart3d' : 'chart';
+        var spec2d = '{ "type": "' + ct + '", "labels": ["..."], "datasets": [{"label":"...", "data":[...]}] }';
+        var spec3d;
+        if (ct === 'bar3d') {
+          spec3d = '{ "type": "bar3d", "x": ["A","B","C"], "y": ["Apr","May"], "z": [[10,20,30],[15,25,35]] }';
+        } else if (ct === 'scatter3d') {
+          spec3d = '{ "type": "scatter3d", "x": [...], "y": [...], "z": [...], "labels": [...] }';
+        } else {
+          spec3d = '{ "type": "surface3d", "x": ["A","B","C"], "y": ["Apr","May"], "z": [[10,20,30],[15,25,35]] }';
+        }
+        var sample = is3d ? spec3d : spec2d;
+        if (['line','bar','pie','bar3d','scatter3d','surface3d'].indexOf(ct) >= 0) {
           modeDirectives.push(
-            '## CHART REQUEST: ' + ct.toUpperCase() + '\n' +
-            'Your reply MUST contain BOTH:\n' +
-            '1. The COMPLETE data answer (all the numbers, tables, bullet observations) the user asked for. Treat this exactly as if the user asked for a normal report — do not skip the table or summary.\n' +
-            '2. AT THE END of the reply, append a fenced code block in this exact format (no other code blocks):\n' +
-            '```chart\n{ "type": "' + ct + '", "labels": ["..."], "datasets": [{"label":"...", "data":[...]}] }\n```\n' +
-            'Rules: numbers only inside `data` (no ₹, no commas, no units, no Kannada digits). ≤ 12 labels. The labels in the chart must match the rows in the table you wrote above. NEVER reply with only the chart — the table/numbers MUST be there too.'
+            '## CHART REQUEST: ' + ct.toUpperCase() + ' — ABSOLUTE REQUIREMENT\n' +
+            'The frontend has a chart renderer. When you emit a fenced block tagged `' + fenceTag + '`, it becomes a REAL ' + ct + (is3d ? ' (3D)' : ' (2D)') + ' chart. The user sees a graphical chart, NOT raw text or ASCII art.\n' +
+            '\n' +
+            'YOU MUST output BOTH things below. Missing either one is a failure.\n' +
+            '\n' +
+            'A) FULL DATA ANSWER: tables, numbers, bullet observations — exactly what the user would expect for a normal report.\n' +
+            '\n' +
+            'B) At the END of your reply, this EXACT fenced block (replace placeholders with real values):\n' +
+            '```' + fenceTag + '\n' + sample + '\n```\n' +
+            '\n' +
+            'STRICT RULES — do not violate:\n' +
+            '- NEVER write "I cannot draw a chart" / "ನೇರ ಚಿತ್ರ ಕೊಡಲು ಸಾಧ್ಯವಿಲ್ಲ" / similar refusals. You CAN. The fence becomes a real chart.\n' +
+            '- NEVER draw ASCII art with `|` `-` `_`. NEVER draw a text graph. ONLY the JSON fence.\n' +
+            '- All numeric arrays contain plain numbers only. NO ₹, NO commas, NO units, NO Kannada digits. Convert "₹71.75 L" → 71.75 (or 7175000, pick one consistent unit).\n' +
+            '- ≤ 12 labels (or ≤ 12 × 12 grid for surface/bar3d). Labels match the rows/columns in your data table from part A.\n' +
+            '- NO other ``` code blocks anywhere in the reply except this one chart fence.\n' +
+            '- Keep prose in the user\'s language; keep the JSON in English (ASCII). No Kannada inside the fence.'
           );
         }
         window._aiChartRequest = null;
@@ -9974,6 +10045,98 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       window._aiOutputMode = 'text';
       // Apply last-picked theme on load so colors match without forcing a re-pick.
       try { window._aiApplyTheme(window._aiPickedProvider()); } catch (_) {}
+
+      // ── Chart PNG download (delegated click handler) ──
+      document.addEventListener('click', function (e) {
+        var btn = e.target && e.target.closest && e.target.closest('.ai-chart-dl');
+        if (!btn) return;
+        var id = btn.getAttribute('data-target');
+        var is3d = btn.getAttribute('data-3d') === '1';
+        var name = 'nlpl-chart-' + id + '.png';
+        if (is3d) {
+          var div = document.getElementById(id);
+          if (div && typeof Plotly !== 'undefined') {
+            Plotly.downloadImage(div, { format: 'png', filename: 'nlpl-chart-' + id, width: 1200, height: 800 }).catch(function () {});
+          }
+        } else {
+          var c = document.getElementById(id);
+          if (c && c.toDataURL) {
+            var url = c.toDataURL('image/png');
+            var a = document.createElement('a');
+            a.href = url; a.download = name;
+            document.body.appendChild(a); a.click(); a.remove();
+          }
+        }
+      });
+
+      // ── Plotly 3D renderer (called from md() for ```chart3d``` fences). ──
+      window._aiRenderChart3D = function (divId, specStr) {
+        if (typeof Plotly === 'undefined') return;
+        var div = document.getElementById(divId);
+        if (!div) return;
+        var spec; try { spec = JSON.parse(specStr); } catch (_) { return; }
+        var dark = document.body.classList.contains('emp-dark');
+        var paper = dark ? '#0F172A' : '#FFFFFF';
+        var fontColor = dark ? '#E5E7EB' : '#0F172A';
+        var grid = dark ? '#1F2937' : '#E5E7EB';
+        var palette = ['#10A37F','#4285F4','#FF7000','#4D6BFE','#E8362C','#9B72CB','#F59E0B','#0EA5E9','#84CC16','#EC4899','#14B8A6','#F97316'];
+        var type = String(spec.type || '').toLowerCase();
+        var traces = [];
+        var bar3dMode = false;
+        if (type === 'scatter3d') {
+          traces = [{
+            type: 'scatter3d', mode: 'markers',
+            x: spec.x || [], y: spec.y || [], z: spec.z || [],
+            text: spec.labels || undefined,
+            marker: { size: 5, color: spec.z || spec.x || [], colorscale: 'Viridis', opacity: 0.9 }
+          }];
+        } else if (type === 'bar3d') {
+          bar3dMode = true;
+          // Plotly has no native 3D bar — emulate using mesh3d cuboids per cell.
+          var xs = spec.x || [], ys = spec.y || [], zs = spec.z || [];
+          xs.forEach(function (xl, xi) {
+            ys.forEach(function (yl, yi) {
+              var h = (zs[yi] && zs[yi][xi]) || 0;
+              if (!h) return;
+              var x0 = xi - 0.35, x1 = xi + 0.35;
+              var y0 = yi - 0.35, y1 = yi + 0.35;
+              traces.push({
+                type: 'mesh3d',
+                x: [x0,x1,x1,x0,x0,x1,x1,x0],
+                y: [y0,y0,y1,y1,y0,y0,y1,y1],
+                z: [0,0,0,0,h,h,h,h],
+                i: [0,0,0,4,4,1,1,2,3,3,2,5],
+                j: [1,2,4,5,6,2,5,3,0,7,6,6],
+                k: [2,3,7,6,7,5,6,6,3,4,7,7],
+                color: palette[(xi + yi) % palette.length],
+                opacity: 0.92, flatshading: true, hoverinfo: 'text',
+                text: xl + ' / ' + yl + ': ' + h
+              });
+            });
+          });
+        } else if (type === 'surface3d') {
+          traces = [{ type: 'surface', x: spec.x, y: spec.y, z: spec.z, colorscale: 'Viridis', showscale: false }];
+        } else { return; }
+        var layout = {
+          paper_bgcolor: paper, plot_bgcolor: paper,
+          font: { color: fontColor, family: 'Inter, sans-serif', size: 12 },
+          margin: { l: 0, r: 0, t: 10, b: 0 },
+          scene: {
+            xaxis: { gridcolor: grid, zerolinecolor: grid },
+            yaxis: { gridcolor: grid, zerolinecolor: grid },
+            zaxis: { gridcolor: grid, zerolinecolor: grid }
+          },
+          showlegend: false
+        };
+        if (bar3dMode) {
+          layout.scene.xaxis.ticktext = spec.x;
+          layout.scene.xaxis.tickvals = (spec.x || []).map(function (_, i) { return i; });
+          layout.scene.yaxis.ticktext = spec.y;
+          layout.scene.yaxis.tickvals = (spec.y || []).map(function (_, i) { return i; });
+        }
+        try { Plotly.newPlot(div, traces, layout, { displaylogo: false, responsive: true }); }
+        catch (e) { console.warn('plotly 3d render failed:', e); }
+      };
 
       // ── Chart renderer (called from md() when ```chart``` fence is parsed). ──
       window._aiRenderChart = function (canvasId, specStr) {
