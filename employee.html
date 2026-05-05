@@ -11933,6 +11933,18 @@ document.addEventListener('keydown', function(e) {
 
 <script>
 (function() {
+  // On RELOAD, force Collection tab + latest date — strip hash, clear saved date
+  try {
+    var nav = (performance.getEntriesByType && performance.getEntriesByType('navigation')[0]) || null;
+    var isReload = nav ? nav.type === 'reload' : (performance.navigation && performance.navigation.type === 1);
+    if (isReload) {
+      if (window.location.hash) {
+        history.replaceState(null, '', window.location.pathname + window.location.search);
+      }
+      try { localStorage.removeItem('collSelectedDate'); } catch(_){}
+    }
+  } catch(_){}
+
   // Hash-based tab routing — e.g. employee.html#dailyreports opens the embedded DR tab
   var hash = (window.location.hash || '').replace('#', '').toLowerCase();
   var validTabs = ['collection','portfolio','disbursement','hourly','comparison','dailyreports','livetracking','chat','feedback','settings'];
