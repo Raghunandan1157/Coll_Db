@@ -4566,6 +4566,17 @@
 
 <!-- AI Assistant entry now lives in the sidebar; floating bar + FAB removed. -->
 
+<!-- ===== Inline STT overlay (chat-input mic) — pulse bars + Tap to stop ===== -->
+<div id="aiSttOverlay" aria-hidden="true">
+  <div class="ai-stt-card">
+    <div class="ai-stt-bars">
+      <span class="ai-stt-bar"></span><span class="ai-stt-bar"></span><span class="ai-stt-bar"></span><span class="ai-stt-bar"></span><span class="ai-stt-bar"></span>
+    </div>
+    <div class="ai-stt-status">Listening…</div>
+    <button type="button" class="ai-stt-stop" onclick="window._aiSttStop && window._aiSttStop()">Stop &amp; transcribe</button>
+  </div>
+</div>
+
 <!-- ===== Provider chooser (shows on every _aiOpen, before chat / cockpit) ===== -->
 <div id="aiProviderChooser" aria-hidden="true">
   <div class="aipc-bg" data-aipc-cancel></div>
@@ -5254,6 +5265,9 @@ body.emp-dark .ai-panel-messages::-webkit-scrollbar-thumb:hover { background: #3
   transition: background .15s, color .15s;
 }
 .ai-panel-plus:hover { background: #F3F4F6; color: #111827; }
+.ai-panel-plus.armed { background: var(--ai-accent-bg, #ECFDF5) !important; color: var(--ai-accent-text, #047857) !important; }
+.ai-panel-plus.armed::after { content: ''; position: absolute; top: 4px; right: 4px; width: 8px; height: 8px; background: var(--ai-accent, #10A37F); border-radius: 50%; }
+.ai-panel-plus { position: relative; }
 .ai-plus-menu {
   position: absolute; bottom: 44px; left: 50%; transform: translateX(-50%);
   display: none; flex-direction: column; min-width: 168px;
@@ -5307,6 +5321,19 @@ body.emp-dark .ai-pane-prov { background: #0F172A; color: #E5E7EB; border-color:
 @media (max-width: 720px) {
   .ai-panel-messages.ai-split-on > .ai-split-grid { grid-template-columns: 1fr; grid-auto-rows: minmax(0, 1fr); }
 }
+
+/* Inline STT overlay (pop-up over chat panel during voice dictation). */
+#aiSttOverlay { position: fixed; inset: 0; z-index: 11000; display: none; align-items: center; justify-content: center; background: rgba(8, 10, 16, .6); backdrop-filter: blur(6px); }
+#aiSttOverlay.open { display: flex; }
+.ai-stt-card { display: flex; flex-direction: column; align-items: center; gap: 18px; padding: 28px 36px; background: #fff; border-radius: 18px; box-shadow: 0 24px 64px rgba(0,0,0,.32); min-width: 280px; }
+body.emp-dark .ai-stt-card { background: #0F172A; color: #E5E7EB; }
+.ai-stt-bars { display: flex; gap: 6px; height: 56px; align-items: center; }
+.ai-stt-bar { display: inline-block; width: 8px; height: 56px; background: var(--ai-accent, #10A37F); border-radius: 4px; transform: scaleY(0.18); transform-origin: 50% 50%; transition: transform 80ms ease-out; }
+.ai-stt-status { font-size: 14px; font-weight: 600; color: #4B5563; letter-spacing: .01em; }
+body.emp-dark .ai-stt-status { color: rgba(255,255,255,.7); }
+.ai-stt-stop { padding: 10px 18px; border-radius: 999px; border: none; background: var(--ai-accent, #10A37F); color: #fff; font: 600 13px 'Inter', sans-serif; cursor: pointer; }
+.ai-stt-stop:hover { filter: brightness(.92); }
+.ai-panel-talk.recording { background: var(--ai-accent, #10A37F) !important; color: #fff !important; }
 
 /* AI chart container (rendered via Chart.js when assistant emits ```chart``` fence). */
 .ai-chart-wrap {
@@ -7792,12 +7819,16 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         if (ct === 'line' || ct === 'bar' || ct === 'pie') {
           modeDirectives.push(
             '## CHART REQUEST: ' + ct.toUpperCase() + '\n' +
-            'After the prose answer, append a fenced code block exactly like:\n' +
+            'Your reply MUST contain BOTH:\n' +
+            '1. The COMPLETE data answer (all the numbers, tables, bullet observations) the user asked for. Treat this exactly as if the user asked for a normal report — do not skip the table or summary.\n' +
+            '2. AT THE END of the reply, append a fenced code block in this exact format (no other code blocks):\n' +
             '```chart\n{ "type": "' + ct + '", "labels": ["..."], "datasets": [{"label":"...", "data":[...]}] }\n```\n' +
-            'Numbers only (no currency symbols/units inside data). Keep ≤ 12 labels. The frontend renders this as a chart.'
+            'Rules: numbers only inside `data` (no ₹, no commas, no units, no Kannada digits). ≤ 12 labels. The labels in the chart must match the rows in the table you wrote above. NEVER reply with only the chart — the table/numbers MUST be there too.'
           );
         }
         window._aiChartRequest = null;
+        var _pb = document.getElementById('aiPlusBtn');
+        if (_pb) { _pb.classList.remove('armed'); _pb.title = 'Insert chart'; }
       }
       if (modeDirectives.length) {
         msgs.unshift({ role: 'system', content: modeDirectives.join('\n\n') });
@@ -9720,9 +9751,97 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       if (_vomIsMobile()) return window._vomOpen();
       if (typeof _origAiOpen === 'function') return _origAiOpen.apply(this, arguments);
     };
+    // Chat-input mic: local STT only. Records audio → /api/transcribe → fills #aiInput.
+    // No cockpit redirect (user explicitly asked for inline voice-to-text).
     window._aiTalk = function () {
-      if (_vomIsMobile()) return window._vomOpen();
-      if (typeof _origAiTalk === 'function') return _origAiTalk.apply(this, arguments);
+      if (window._aiSttBusy) { window._aiSttStop && window._aiSttStop(); return; }
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        alert('Microphone not supported in this browser.');
+        return;
+      }
+      var btn = document.getElementById('aiTalkBtn');
+      var input = document.getElementById('aiInput');
+      var overlay = document.getElementById('aiSttOverlay');
+      var bars = overlay ? overlay.querySelectorAll('.ai-stt-bar') : [];
+      var chunks = [];
+      window._aiSttBusy = true;
+      if (btn) btn.classList.add('recording');
+      if (overlay) { overlay.classList.add('open'); overlay.setAttribute('aria-hidden', 'false'); }
+
+      navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
+        var AudioCtx = window.AudioContext || window.webkitAudioContext;
+        var actx = AudioCtx ? new AudioCtx() : null;
+        var analyser = null, src = null, anim = 0;
+        if (actx && bars.length) {
+          src = actx.createMediaStreamSource(stream);
+          analyser = actx.createAnalyser();
+          analyser.fftSize = 64;
+          src.connect(analyser);
+          var data = new Uint8Array(analyser.frequencyBinCount);
+          (function tick() {
+            if (!analyser) return;
+            analyser.getByteFrequencyData(data);
+            var step = Math.floor(data.length / Math.max(bars.length, 1));
+            bars.forEach(function (b, i) {
+              var v = data[i * step] || 0;
+              var pct = Math.max(0.15, Math.min(1, v / 200));
+              b.style.transform = 'scaleY(' + pct.toFixed(2) + ')';
+            });
+            anim = requestAnimationFrame(tick);
+          })();
+        }
+        var mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus'
+                 : MediaRecorder.isTypeSupported('audio/webm')             ? 'audio/webm'
+                 : '';
+        var mr = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+        mr.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
+        mr.onstop = function () {
+          try { stream.getTracks().forEach(function (t) { t.stop(); }); } catch (_) {}
+          if (anim) cancelAnimationFrame(anim);
+          if (actx && actx.close) try { actx.close(); } catch (_) {}
+          window._aiSttBusy = false;
+          if (btn) btn.classList.remove('recording');
+          if (btn) btn.classList.add('busy');
+          // Show "Transcribing…" state.
+          var statusLbl = overlay && overlay.querySelector('.ai-stt-status');
+          if (statusLbl) statusLbl.textContent = 'Transcribing…';
+
+          var blob = new Blob(chunks, { type: mr.mimeType || 'audio/webm' });
+          var fd = new FormData();
+          fd.append('audio', blob, 'speech.webm');
+          var sess = (typeof getSession === 'function') ? getSession() : {};
+          if (sess && sess.role) fd.append('role', sess.role);
+          if (sess && sess.location) fd.append('location', sess.location);
+
+          fetch('/api/transcribe', { method: 'POST', body: fd, headers: { 'Accept': 'application/json' } })
+            .then(function (r) { return r.ok ? r.json() : Promise.reject(new Error('http_' + r.status)); })
+            .then(function (j) {
+              var t = (j && j.transcript) ? String(j.transcript).trim() : '';
+              if (input) {
+                if (t) {
+                  input.value = (input.value ? (input.value.trim() + ' ') : '') + t;
+                  input.focus();
+                  input.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+              }
+            })
+            .catch(function (e) { console.warn('transcribe failed:', e && e.message); })
+            .finally(function () {
+              if (btn) btn.classList.remove('busy');
+              if (overlay) { overlay.classList.remove('open'); overlay.setAttribute('aria-hidden','true'); }
+            });
+        };
+        window._aiSttStop = function () { try { mr.stop(); } catch (_) {} };
+        mr.start();
+        // Auto-stop safety: 30s cap.
+        setTimeout(function () { if (window._aiSttBusy) window._aiSttStop && window._aiSttStop(); }, 30000);
+      }).catch(function (err) {
+        window._aiSttBusy = false;
+        if (btn) btn.classList.remove('recording');
+        if (overlay) { overlay.classList.remove('open'); overlay.setAttribute('aria-hidden','true'); }
+        console.warn('mic permission denied:', err && err.message);
+        alert('Microphone access denied. Please allow microphone in your browser.');
+      });
     };
 
     // ── Provider chooser + role-aware chips + error CTAs + table export ──
@@ -9904,10 +10023,12 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
             window._aiChartRequest = it.getAttribute('data-chart');
             window._aiTogglePlusMenu(false);
             var input = document.getElementById('aiInput');
-            if (input) {
-              var hint = '[' + window._aiChartRequest + ' chart] ';
-              if (input.value.indexOf(hint) !== 0) input.value = hint + input.value;
-              input.focus();
+            if (input) input.focus();
+            // Show a visual chip near the input so the user knows chart is armed.
+            var btn = document.getElementById('aiPlusBtn');
+            if (btn) {
+              btn.classList.add('armed');
+              btn.title = (window._aiChartRequest || 'chart') + ' chart armed for next message';
             }
           });
         });

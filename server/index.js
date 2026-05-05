@@ -7774,6 +7774,35 @@ function openaiTts(text) {
   });
 }
 
+// POST /api/transcribe — STT-only (no LLM, no TTS). Used by chat-input mic
+// so the user can dictate into the textarea without invoking voice cockpit.
+app.post('/api/transcribe', voiceUpload.single('audio'), requireAiAccess, async (req, res) => {
+  const origin = req.headers.origin || req.headers.referer || '';
+  const mobileOrigin = String(req.headers['x-app-origin'] || '').toLowerCase();
+  if (origin) {
+    if (!origin.includes('navachetanalivelihoods.com') && !origin.includes('localhost')) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+  } else if (mobileOrigin !== 'nlpl-mobile') {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  if (!OPENAI_KEY) return res.status(503).json({ error: 'openai_not_configured' });
+  if (!req.file || !req.file.buffer || !req.file.buffer.length) {
+    return res.status(400).json({ error: 'audio_file_required' });
+  }
+  try {
+    const role = String(req.body.role || '').trim();
+    const location = String(req.body.location || '').trim();
+    const session = (role && location) ? { role, location } : {};
+    const biasPrompt = await getSttBiasPrompt(session);
+    const transcript = await openaiStt(req.file.buffer, req.file.mimetype, req.file.originalname, biasPrompt);
+    res.json({ transcript: transcript || '' });
+  } catch (e) {
+    console.error('transcribe error:', e.message);
+    res.status(500).json({ error: 'transcribe_failed', detail: e.message.slice(0, 240) });
+  }
+});
+
 // POST /api/voice — multipart upload field "audio". Optional fields: role,
 // location. Returns { transcript, reply, audio_b64 (mp3 base64) }.
 app.post('/api/voice', voiceUpload.single('audio'), requireAiAccess, async (req, res) => {
