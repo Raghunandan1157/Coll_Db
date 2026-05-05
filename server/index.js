@@ -7523,6 +7523,8 @@ const GEMINI_KEY = process.env.GEMINI_KEY;
 const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'];
 const MISTRAL_KEY = process.env.MISTRAL_KEY;
 const MISTRAL_MODEL = process.env.MISTRAL_MODEL || 'mistral-large-latest';
+const DEEPSEEK_KEY = process.env.DEEPSEEK_KEY;
+const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
 const crypto = require('crypto');
 
 // ========== OpenAI voice pipeline (STT + LLM + TTS) ==========
@@ -8041,9 +8043,16 @@ app.post('/api/voice-stream', aiLimiter, voiceUpload.single('audio'), requireAiA
         return finish();
       }
       chain.push({ name: 'openai', run: () => runOpenAiWithTools(messages, session, VOICE_MAX_ROUNDS, onProgress) });
+    } else if (explicitProvider === 'deepseek') {
+      if (!DEEPSEEK_KEY) {
+        send('error', { message: 'DeepSeek not configured on this server.', reason: 'provider_unavailable', provider: 'deepseek' });
+        return finish();
+      }
+      chain.push({ name: 'deepseek', run: () => runDeepSeekWithTools(messages, session, VOICE_MAX_ROUNDS, onProgress) });
     } else {
-      if (MISTRAL_KEY) chain.push({ name: 'mistral', run: () => runMistralWithTools(messages, session, VOICE_MAX_ROUNDS, onProgress) });
-      if (OPENAI_KEY)  chain.push({ name: 'openai',  run: () => runOpenAiWithTools(messages, session, VOICE_MAX_ROUNDS, onProgress) });
+      if (MISTRAL_KEY)  chain.push({ name: 'mistral',  run: () => runMistralWithTools(messages, session, VOICE_MAX_ROUNDS, onProgress) });
+      if (OPENAI_KEY)   chain.push({ name: 'openai',   run: () => runOpenAiWithTools(messages, session, VOICE_MAX_ROUNDS, onProgress) });
+      if (DEEPSEEK_KEY) chain.push({ name: 'deepseek', run: () => runDeepSeekWithTools(messages, session, VOICE_MAX_ROUNDS, onProgress) });
     }
 
     let result = { ok: false, error: 'no_providers' };
@@ -8412,11 +8421,118 @@ async function callGeminiAi(messages) {
   return { ok: false, error: 'gemini_all_models_failed' };
 }
 
+// ── DeepSeek (OpenAI-compatible API at api.deepseek.com/v1).
+// Tool-calling format matches OpenAI exactly — reuse AI_TOOLS_SPEC + dispatchAiTool.
+async function callDeepSeekChatTools(messages, tools) {
+  if (!DEEPSEEK_KEY) return { ok: false, error: 'deepseek_not_configured' };
+  const body = {
+    model: DEEPSEEK_MODEL,
+    messages,
+    max_tokens: 1024,
+    temperature: 0.3,
+  };
+  if (tools && tools.length) {
+    body.tools = tools;
+    body.tool_choice = 'auto';
+  }
+  const payload = JSON.stringify(body);
+  return new Promise((resolve) => {
+    const r = https.request({
+      hostname: 'api.deepseek.com',
+      path: '/v1/chat/completions',
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + DEEPSEEK_KEY,
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(payload),
+      },
+    }, (resp) => {
+      let buf = '';
+      resp.on('data', (d) => (buf += d));
+      resp.on('end', () => {
+        try {
+          const j = JSON.parse(buf);
+          if (resp.statusCode >= 200 && resp.statusCode < 300) {
+            const msg = j?.choices?.[0]?.message;
+            if (!msg) return resolve({ ok: false, error: 'deepseek_empty', raw: buf.slice(0, 200) });
+            return resolve({ ok: true, message: msg, text: msg.content || '' });
+          }
+          return resolve({ ok: false, error: 'deepseek_http_' + resp.statusCode, raw: buf.slice(0, 240) });
+        } catch (e) {
+          resolve({ ok: false, error: 'deepseek_parse: ' + e.message });
+        }
+      });
+    });
+    r.on('error', (e) => resolve({ ok: false, error: 'deepseek_net: ' + e.message }));
+    r.setTimeout(45000, () => r.destroy(new Error('deepseek_timeout')));
+    r.write(payload);
+    r.end();
+  });
+}
+
+async function runDeepSeekWithTools(messages, session, maxRounds, onProgress) {
+  const convo = messages.slice();
+  const max = maxRounds || 12;
+  const emit = typeof onProgress === 'function' ? onProgress : null;
+  const callSig = new Map();
+  for (let round = 0; round < max; round++) {
+    if (emit) emit({ type: 'thinking', round: round + 1 });
+    const r = await callDeepSeekChatTools(convo, AI_TOOLS_SPEC);
+    if (!r.ok) {
+      console.error(`[deepseek-tools] round ${round + 1}/${max} call failed: ${r.error}`);
+      return r;
+    }
+    const msg = r.message || {};
+    const calls = Array.isArray(msg.tool_calls) ? msg.tool_calls : null;
+    if (!calls || !calls.length) {
+      console.log(`[deepseek-tools] round ${round + 1}/${max} done (text len ${(msg.content || '').length})`);
+      return { ok: true, text: normalizeKannadaNumbersForAi(msg.content || '') };
+    }
+    console.log(`[deepseek-tools] round ${round + 1}/${max} calling ${calls.length} tool(s): ${calls.map(c => c?.function?.name).join(', ')}`);
+    if (emit) emit({ type: 'tools', names: calls.map(c => c?.function?.name).filter(Boolean) });
+    convo.push({
+      role: 'assistant',
+      content: msg.content == null ? null : msg.content,
+      tool_calls: calls,
+    });
+    for (const c of calls) {
+      const fnName = c?.function?.name || '';
+      let argObj = {};
+      try { argObj = JSON.parse(c?.function?.arguments || '{}'); } catch (_) {}
+      const sig = fnName + '::' + JSON.stringify(argObj);
+      const prev = callSig.get(sig) || 0;
+      let toolResult;
+      if (prev >= 1) {
+        toolResult = { error: 'duplicate_call_blocked', instruction: 'You already called this tool with these exact arguments. Do NOT retry. Either change the arguments or answer the user with what you have. Do not loop.' };
+        if (emit) emit({ type: 'tool_result', name: fnName, args: argObj, queries: [], result: toolResult });
+      } else {
+        const sqlLog = [];
+        try {
+          await aiToolLogStore.run(sqlLog, async () => {
+            toolResult = await dispatchAiTool(fnName, argObj, session);
+          });
+        } catch (e) {
+          toolResult = { error: 'tool_threw: ' + e.message };
+        }
+        if (emit) emit({ type: 'tool_result', name: fnName, args: argObj, queries: sqlLog, result: toolResult });
+      }
+      callSig.set(sig, prev + 1);
+      convo.push({
+        role: 'tool',
+        tool_call_id: c.id,
+        name: fnName,
+        content: JSON.stringify(toolResult).slice(0, 24000),
+      });
+    }
+  }
+  return { ok: false, error: 'deepseek_tool_loop_exceeded' };
+}
+
 // GET /api/ai-providers — frontend uses this to render provider chooser
 // cards and disable the ones whose env keys are not configured.
 app.get('/api/ai-providers', (_req, res) => {
-  const all = ['openai', 'mistral', 'gemini'];
-  const haveKey = { openai: !!OPENAI_KEY, mistral: !!MISTRAL_KEY, gemini: !!GEMINI_KEY };
+  const all = ['openai', 'mistral', 'gemini', 'deepseek'];
+  const haveKey = { openai: !!OPENAI_KEY, mistral: !!MISTRAL_KEY, gemini: !!GEMINI_KEY, deepseek: !!DEEPSEEK_KEY };
   const available = all.filter((p) => haveKey[p]);
   const unavailable = all.filter((p) => !haveKey[p]);
   res.json({ available, unavailable });
@@ -8441,13 +8557,15 @@ app.post("/api/ai-chat", aiLimiter, requireAiAccess, async (req, res) => {
     return res.status(400).json({ error: 'messages array required' });
   }
 
-  // Provider selection: 'mistral' (default per spec) | 'gemini'. Anything else
-  // is normalised to 'mistral'. The other provider is the fallback on failure.
+  // Provider selection: 'mistral' | 'gemini' | 'openai' | 'deepseek'.
+  // Default = mistral. Fallback chain runs others on failure.
   const requested = String((req.body && req.body.provider) || 'mistral').toLowerCase();
-  const primary = requested === 'gemini' ? 'gemini' : 'mistral';
-  const fallback = primary === 'mistral' ? 'gemini' : 'mistral';
+  const validProviders = ['mistral', 'gemini', 'openai', 'deepseek'];
+  const primary = validProviders.includes(requested) ? requested : 'mistral';
+  const fallbackOrder = ['mistral', 'gemini', 'openai', 'deepseek'].filter(p => p !== primary);
+  const fallback = fallbackOrder[0];
 
-  if (!MISTRAL_KEY && !GEMINI_KEY && !OPENAI_KEY) {
+  if (!MISTRAL_KEY && !GEMINI_KEY && !OPENAI_KEY && !DEEPSEEK_KEY) {
     return res.status(503).json({ error: 'AI not configured.' });
   }
 
@@ -8586,8 +8704,8 @@ app.post("/api/ai-chat", aiLimiter, requireAiAccess, async (req, res) => {
     });
   }
 
-  // Try primary, then secondary, then OpenAI as last-resort fallback.
-  const order = [primary, fallback, 'openai'].filter((p, i, a) => a.indexOf(p) === i);
+  // Try primary, then fallbacks (mistral → gemini → openai → deepseek minus primary).
+  const order = [primary, ...fallbackOrder].filter((p, i, a) => a.indexOf(p) === i);
   let lastErr = null;
   for (const which of order) {
     let result;
@@ -8600,10 +8718,14 @@ app.post("/api/ai-chat", aiLimiter, requireAiAccess, async (req, res) => {
     } else if (which === 'openai') {
       if (!OPENAI_KEY) { lastErr = 'openai_not_configured'; continue; }
       result = await runOpenAiWithTools(mergedMessages, session);
+    } else if (which === 'deepseek') {
+      if (!DEEPSEEK_KEY) { lastErr = 'deepseek_not_configured'; continue; }
+      result = await runDeepSeekWithTools(mergedMessages, session);
     }
     if (result && result.ok && result.text) {
       const providerLabel = which === 'mistral' ? MISTRAL_MODEL
         : which === 'openai' ? OPENAI_LLM
+        : which === 'deepseek' ? DEEPSEEK_MODEL
         : (result.model || 'gemini');
       aiReplyCache.set(cacheKey, {
         reply: result.text,
@@ -8647,7 +8769,7 @@ app.post("/api/ai-chat-stream", aiLimiter, requireAiAccess, async (req, res) => 
     return res.status(400).json({ error: 'messages array required' });
   }
 
-  if (!MISTRAL_KEY && !GEMINI_KEY && !OPENAI_KEY) {
+  if (!MISTRAL_KEY && !GEMINI_KEY && !OPENAI_KEY && !DEEPSEEK_KEY) {
     return res.status(503).json({ error: 'AI not configured.' });
   }
 
@@ -8806,25 +8928,27 @@ app.post("/api/ai-chat-stream", aiLimiter, requireAiAccess, async (req, res) => 
     ? [{ role: 'system', content: mergedSystem }, ...nonSystem]
     : nonSystem;
 
-  // Honor explicit provider ('openai'|'mistral'|'gemini') from request body —
+  // Honor explicit provider ('openai'|'mistral'|'gemini'|'deepseek') from request body —
   // when present, use ONLY that provider (no fallback). Missing key → 503-
   // style SSE error so the UI can disable the card.
   const explicitProvider = String((req.body && req.body.provider) || '').toLowerCase().trim();
+  const validProvs = ['mistral', 'gemini', 'openai', 'deepseek'];
 
   // Pick the primary (for the 'open' event the UI displays before tokens).
   let primaryProv;
-  if (explicitProvider === 'mistral' || explicitProvider === 'gemini' || explicitProvider === 'openai') {
+  if (validProvs.includes(explicitProvider)) {
     primaryProv = explicitProvider;
   } else {
-    primaryProv = MISTRAL_KEY ? 'mistral' : (GEMINI_KEY ? 'gemini' : 'openai');
+    primaryProv = MISTRAL_KEY ? 'mistral' : (GEMINI_KEY ? 'gemini' : (OPENAI_KEY ? 'openai' : 'deepseek'));
   }
   const primaryModel = primaryProv === 'mistral' ? MISTRAL_MODEL
     : primaryProv === 'openai' ? OPENAI_LLM
+    : primaryProv === 'deepseek' ? DEEPSEEK_MODEL
     : 'gemini';
 
   // If explicit and that key is missing, fail fast with 503-style SSE.
   if (explicitProvider) {
-    const haveKey = { mistral: !!MISTRAL_KEY, gemini: !!GEMINI_KEY, openai: !!OPENAI_KEY };
+    const haveKey = { mistral: !!MISTRAL_KEY, gemini: !!GEMINI_KEY, openai: !!OPENAI_KEY, deepseek: !!DEEPSEEK_KEY };
     if (!haveKey[explicitProvider]) {
       send('open', { provider: explicitProvider, model: primaryModel });
       send('error', { message: explicitProvider + ' not configured on this server.', reason: 'provider_unavailable', provider: explicitProvider });
@@ -8847,7 +8971,7 @@ app.post("/api/ai-chat-stream", aiLimiter, requireAiAccess, async (req, res) => 
   };
 
   // Build chain. Explicit provider → single-element chain (no fallback).
-  // Auto → Mistral → Gemini → OpenAI in order, skipping unconfigured ones.
+  // Auto → Mistral → Gemini → OpenAI → DeepSeek, skipping unconfigured ones.
   const chain = [];
   if (explicitProvider === 'mistral') {
     chain.push({ name: 'mistral', run: () => runMistralWithTools(mergedMessages, session, undefined, onProgress) });
@@ -8855,10 +8979,13 @@ app.post("/api/ai-chat-stream", aiLimiter, requireAiAccess, async (req, res) => 
     chain.push({ name: 'gemini',  run: () => callGeminiAi(mergedMessages) });
   } else if (explicitProvider === 'openai') {
     chain.push({ name: 'openai',  run: () => runOpenAiWithTools(mergedMessages, session, undefined, onProgress) });
+  } else if (explicitProvider === 'deepseek') {
+    chain.push({ name: 'deepseek', run: () => runDeepSeekWithTools(mergedMessages, session, undefined, onProgress) });
   } else {
-    if (MISTRAL_KEY) chain.push({ name: 'mistral', run: () => runMistralWithTools(mergedMessages, session, undefined, onProgress) });
-    if (GEMINI_KEY)  chain.push({ name: 'gemini',  run: () => callGeminiAi(mergedMessages) });
-    if (OPENAI_KEY)  chain.push({ name: 'openai',  run: () => runOpenAiWithTools(mergedMessages, session, undefined, onProgress) });
+    if (MISTRAL_KEY)  chain.push({ name: 'mistral',  run: () => runMistralWithTools(mergedMessages, session, undefined, onProgress) });
+    if (GEMINI_KEY)   chain.push({ name: 'gemini',   run: () => callGeminiAi(mergedMessages) });
+    if (OPENAI_KEY)   chain.push({ name: 'openai',   run: () => runOpenAiWithTools(mergedMessages, session, undefined, onProgress) });
+    if (DEEPSEEK_KEY) chain.push({ name: 'deepseek', run: () => runDeepSeekWithTools(mergedMessages, session, undefined, onProgress) });
   }
 
   let result = { ok: false, error: 'no_providers' };
@@ -8891,6 +9018,7 @@ app.post("/api/ai-chat-stream", aiLimiter, requireAiAccess, async (req, res) => 
   }
   const usedModel = usedProvider === 'mistral' ? MISTRAL_MODEL
     : usedProvider === 'openai' ? OPENAI_LLM
+    : usedProvider === 'deepseek' ? DEEPSEEK_MODEL
     : (result.model || 'gemini');
   send('done', {
     provider: usedProvider,

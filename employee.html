@@ -4489,15 +4489,26 @@
 <div id="aiPanel" role="dialog" aria-label="NLPL AI Assistant">
   <div class="ai-panel-header">
     <div class="ai-header-left">
-      <div class="ai-panel-avatar">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 14.5 8.5 21 11l-6.5 2.5L12 20l-2.5-6.5L3 11l6.5-2.5z"/></svg>
-      </div>
-      <div>
-        <div class="ai-header-title">NLPL Assistant</div>
-        <div class="ai-header-sub" id="aiHeaderSub">Online · Mistral large + tools</div>
-      </div>
+      <button type="button" id="aiProvSwitch" class="ai-prov-switch" aria-haspopup="true" aria-expanded="false" title="Switch model">
+        <span class="ai-panel-avatar">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 14.5 8.5 21 11l-6.5 2.5L12 20l-2.5-6.5L3 11l6.5-2.5z"/></svg>
+        </span>
+        <span class="ai-prov-switch-text">
+          <span class="ai-header-title" id="aiProvName">NLPL Assistant</span>
+          <span class="ai-header-sub" id="aiHeaderSub">Online · Mistral large + tools</span>
+        </span>
+        <svg class="ai-prov-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div id="aiProvMenu" class="ai-prov-menu" role="menu" aria-hidden="true"></div>
     </div>
     <div class="ai-header-right">
+      <div class="ai-mode-toggle" role="tablist" aria-label="Output mode">
+        <button type="button" class="ai-mode-btn active" data-mode="text" role="tab" aria-selected="true" title="Text reply">Text</button>
+        <button type="button" class="ai-mode-btn" data-mode="report" role="tab" aria-selected="false" title="Generate report">Report</button>
+      </div>
+      <button id="aiSplitBtn" type="button" class="ai-icon-btn" title="Side-by-side compare" aria-label="Side-by-side">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="8" height="16" rx="1"/><rect x="13" y="4" width="8" height="16" rx="1"/></svg>
+      </button>
       <button onclick="window._aiNewChat && window._aiNewChat()" class="ai-icon-btn" title="New chat" aria-label="New chat">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
       </button>
@@ -4521,6 +4532,25 @@
     <div class="ai-panel-input-wrap" id="aiInputWrap">
       <textarea id="aiInput" placeholder="Message NLPL Assistant…" class="ai-panel-input" rows="1"
         onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();window._aiSend();}"></textarea>
+      <div class="ai-plus-wrap">
+        <button onclick="window._aiTogglePlusMenu && window._aiTogglePlusMenu()" class="ai-panel-plus" id="aiPlusBtn" title="Insert chart" aria-label="Insert chart" aria-haspopup="true" aria-expanded="false">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+        <div id="aiPlusMenu" class="ai-plus-menu" role="menu" aria-hidden="true">
+          <button type="button" class="ai-plus-item" data-chart="line" role="menuitem">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 7"/></svg>
+            <span>Line graph</span>
+          </button>
+          <button type="button" class="ai-plus-item" data-chart="bar" role="menuitem">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="20" x2="6" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="18" y1="20" x2="18" y2="14"/></svg>
+            <span>Bar graph</span>
+          </button>
+          <button type="button" class="ai-plus-item" data-chart="pie" role="menuitem">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12A9 9 0 1 1 12 3v9z"/><path d="M21 12A9 9 0 0 0 12 3v9z"/></svg>
+            <span>Pie chart</span>
+          </button>
+        </div>
+      </div>
       <button onclick="window._aiTalk()" class="ai-panel-talk" id="aiTalkBtn" title="Tap to talk" aria-label="Talk">
         <svg id="aiTalkIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a4 4 0 0 0-4 4v6a4 4 0 0 0 8 0V5a4 4 0 0 0-4-4z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
       </button>
@@ -4543,61 +4573,63 @@
     <header class="aipc-header">
       <div class="aipc-title">
         <span>Pick your AI</span>
-        <button type="button" class="aipc-help" id="aipcHelp" aria-label="Difference between providers" title="Reliable vs faster — pick whichever you feel like today.">?</button>
+        <button type="button" class="aipc-help" id="aipcHelp" aria-label="Difference between providers" title="ChatGPT (reliable), Mistral (fast w/ tools), Gemini (long context), DeepSeek (cheap & strong reasoning).">?</button>
       </div>
       <button type="button" class="aipc-close" id="aipcClose" aria-label="Cancel">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </header>
-    <p class="aipc-sub" id="aipcSub">Pick how you want to ask — talk or type.</p>
+    <p class="aipc-sub" id="aipcSub">Pick a model — each has its own theme.</p>
     <div class="aipc-cards">
-      <button type="button" class="aipc-card aipc-openai" data-provider="openai" data-purpose="talk">
+      <button type="button" class="aipc-card aipc-openai" data-provider="openai" data-purpose="chat">
         <div class="aipc-logo">
-          <!-- OpenAI knot mark -->
-          <svg viewBox="0 0 256 260" width="48" height="48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <svg viewBox="0 0 256 260" width="44" height="44" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
             <path fill="currentColor" d="M239.184 106.203a64.716 64.716 0 0 0-5.576-53.103C219.452 28.459 191 15.784 163.213 21.74A65.586 65.586 0 0 0 52.096 45.22a64.716 64.716 0 0 0-43.23 31.36c-14.31 24.602-11.061 55.634 8.033 76.74a64.665 64.665 0 0 0 5.525 53.102c14.174 24.65 42.644 37.324 70.446 31.36a64.72 64.72 0 0 0 48.754 21.744c28.481.025 53.714-18.361 62.414-45.481a64.767 64.767 0 0 0 43.229-31.36c14.137-24.558 10.875-55.423-8.083-76.483Zm-97.56 136.338a48.397 48.397 0 0 1-31.105-11.255l1.535-.87 51.67-29.825a8.595 8.595 0 0 0 4.247-7.367v-72.85l21.845 12.636c.218.111.37.32.409.563v60.367c-.056 26.818-21.783 48.554-48.601 48.601Zm-104.466-44.61a48.345 48.345 0 0 1-5.781-32.589l1.534.921 51.722 29.826a8.339 8.339 0 0 0 8.441 0l63.181-36.425v25.221a.87.87 0 0 1-.358.665l-52.335 30.184c-23.257 13.398-52.97 5.431-66.404-17.803ZM23.549 85.38a48.499 48.499 0 0 1 25.58-21.333v61.39a8.288 8.288 0 0 0 4.195 7.316l62.874 36.272-21.845 12.636a.819.819 0 0 1-.767 0L41.353 151.53c-23.211-13.454-31.171-43.144-17.804-66.405v.256Zm179.466 41.695-63.08-36.63L161.73 77.86a.819.819 0 0 1 .768 0l52.233 30.184a48.6 48.6 0 0 1-7.316 87.635v-61.391a8.544 8.544 0 0 0-4.4-7.213Zm21.742-32.69-1.535-.922-51.619-30.081a8.39 8.39 0 0 0-8.492 0L99.98 99.808V74.587a.716.716 0 0 1 .307-.665l52.233-30.133a48.652 48.652 0 0 1 72.236 50.391v.205ZM88.061 139.097l-21.845-12.585a.87.87 0 0 1-.41-.614V65.685a48.652 48.652 0 0 1 79.757-37.346l-1.535.87-51.67 29.825a8.595 8.595 0 0 0-4.246 7.367l-.05 72.697Zm11.868-25.58 28.138-16.217 28.188 16.218v32.434l-28.086 16.218-28.188-16.218-.052-32.434Z"/>
           </svg>
         </div>
         <div class="aipc-card-name">ChatGPT</div>
-        <div class="aipc-card-model">Voice mode · talk to it</div>
-        <div class="aipc-card-tag">🎙️ Hold mic, ask out loud</div>
+        <div class="aipc-card-model">OpenAI · gpt-4o</div>
+        <div class="aipc-card-tag">Reliable, broad knowledge</div>
         <div class="aipc-card-status" data-status>Ready</div>
       </button>
       <button type="button" class="aipc-card aipc-mistral" data-provider="mistral" data-purpose="chat">
         <div class="aipc-logo">
-          <!-- Mistral 5-stripe mark -->
-          <svg viewBox="0 0 256 224" width="64" height="56" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <rect x="0"   y="0"   width="48"  height="32" fill="#FFD800"/>
-            <rect x="48"  y="0"   width="48"  height="32" fill="#FFD800"/>
-            <rect x="0"   y="32"  width="32"  height="32" fill="#FFD800"/>
-            <rect x="32"  y="32"  width="48"  height="32" fill="#FFA500"/>
-            <rect x="80"  y="32"  width="48"  height="32" fill="#FFA500"/>
-            <rect x="128" y="32"  width="48"  height="32" fill="#FFA500"/>
-            <rect x="176" y="32"  width="48"  height="32" fill="#FFD800"/>
-            <rect x="224" y="32"  width="32"  height="32" fill="#FFD800"/>
-            <rect x="0"   y="64"  width="32"  height="32" fill="#FFD800"/>
-            <rect x="32"  y="64"  width="48"  height="32" fill="#FF8C00"/>
-            <rect x="128" y="64"  width="48"  height="32" fill="#FF8C00"/>
-            <rect x="224" y="64"  width="32"  height="32" fill="#FFD800"/>
-            <rect x="0"   y="96"  width="32"  height="32" fill="#FFD800"/>
-            <rect x="32"  y="96"  width="48"  height="32" fill="#FF6B35"/>
-            <rect x="80"  y="96"  width="48"  height="32" fill="#FF6B35"/>
-            <rect x="128" y="96"  width="48"  height="32" fill="#FF6B35"/>
-            <rect x="176" y="96"  width="48"  height="32" fill="#FF6B35"/>
-            <rect x="224" y="96"  width="32"  height="32" fill="#FFD800"/>
-            <rect x="0"   y="128" width="32"  height="32" fill="#FFD800"/>
-            <rect x="32"  y="128" width="48"  height="32" fill="#E8362C"/>
-            <rect x="128" y="128" width="48"  height="32" fill="#E8362C"/>
-            <rect x="224" y="128" width="32"  height="32" fill="#FFD800"/>
-            <rect x="0"   y="160" width="48"  height="32" fill="#FFD800"/>
-            <rect x="48"  y="160" width="48"  height="32" fill="#FFD800"/>
-            <rect x="160" y="160" width="48"  height="32" fill="#FFD800"/>
-            <rect x="208" y="160" width="48"  height="32" fill="#FFD800"/>
+          <svg viewBox="0 0 256 224" width="56" height="48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <rect x="0" y="0" width="256" height="32" fill="#FFD800"/>
+            <rect x="0" y="32" width="256" height="32" fill="#FFA500"/>
+            <rect x="0" y="64" width="256" height="32" fill="#FF8C00"/>
+            <rect x="0" y="96" width="256" height="32" fill="#FF6B35"/>
+            <rect x="0" y="128" width="256" height="32" fill="#E8362C"/>
+            <rect x="0" y="160" width="256" height="32" fill="#B8232A"/>
           </svg>
         </div>
         <div class="aipc-card-name">Mistral</div>
-        <div class="aipc-card-model">Chat mode · type to it</div>
-        <div class="aipc-card-tag">⌨️ Tap and write your question</div>
+        <div class="aipc-card-model">mistral-large-latest</div>
+        <div class="aipc-card-tag">Fast, strong with tools</div>
+        <div class="aipc-card-status" data-status>Ready</div>
+      </button>
+      <button type="button" class="aipc-card aipc-gemini" data-provider="gemini" data-purpose="chat">
+        <div class="aipc-logo">
+          <svg viewBox="0 0 24 24" width="44" height="44" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <defs><linearGradient id="gemg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#4285F4"/><stop offset="50%" stop-color="#9B72CB"/><stop offset="100%" stop-color="#D96570"/></linearGradient></defs>
+            <path fill="url(#gemg)" d="M12 2c.4 4.5 2.5 6.6 7 7-4.5.4-6.6 2.5-7 7-.4-4.5-2.5-6.6-7-7 4.5-.4 6.6-2.5 7-7z"/>
+          </svg>
+        </div>
+        <div class="aipc-card-name">Gemini</div>
+        <div class="aipc-card-model">gemini-2.5-flash</div>
+        <div class="aipc-card-tag">Google · long context</div>
+        <div class="aipc-card-status" data-status>Ready</div>
+      </button>
+      <button type="button" class="aipc-card aipc-deepseek" data-provider="deepseek" data-purpose="chat">
+        <div class="aipc-logo">
+          <svg viewBox="0 0 24 24" width="44" height="44" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <circle cx="12" cy="12" r="10" fill="#4D6BFE"/>
+            <path fill="#fff" d="M8 9c2-2 6-2 8 0-1 1-2 1-3 1l-1 2c0 1 1 1 2 1-2 2-6 2-8 0 1-1 2-1 3-1l1-2c0-1-1-1-2-1z"/>
+          </svg>
+        </div>
+        <div class="aipc-card-name">DeepSeek</div>
+        <div class="aipc-card-model">deepseek-chat</div>
+        <div class="aipc-card-tag">Strong reasoning, low-cost</div>
         <div class="aipc-card-status" data-status>Ready</div>
       </button>
     </div>
@@ -4895,8 +4927,29 @@ body.emp-dark .ai-bar-icon { background: rgba(99,102,241,0.15); color: #A5B4FC; 
   height: auto !important;
   font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   color: #0f172a;
+  /* Provider-themed color tokens — overridden per-provider in JS via _aiApplyTheme(). */
+  --ai-accent: #10A37F;
+  --ai-accent-bg: #ECFDF5;
+  --ai-accent-text: #047857;
 }
 #aiPanel.open { display: flex; }
+#aiPanel .ai-panel-avatar { background: linear-gradient(135deg, var(--ai-accent), var(--ai-accent)) !important; }
+#aiPanel .ai-panel-send { background: var(--ai-accent) !important; }
+#aiPanel .ai-panel-send:hover { filter: brightness(.92); }
+#aiPanel .ai-panel-talk.busy { background: var(--ai-accent) !important; }
+#aiPanel .ai-panel-input-wrap:focus-within { box-shadow: 0 0 0 2px var(--ai-accent-bg, rgba(5,150,105,.18)); }
+#aiPanel .ai-empty-orb { background: linear-gradient(135deg, var(--ai-accent), var(--ai-accent)) !important; }
+/* Provider-tagged top-left badge */
+#aiPanel .ai-prov-badge {
+  display:inline-flex; align-items:center; gap:6px;
+  padding:4px 10px; border-radius:999px;
+  background: var(--ai-accent-bg); color: var(--ai-accent-text);
+  font-size:11.5px; font-weight:600; letter-spacing:.02em;
+  border: 1px solid rgba(0,0,0,.04);
+  cursor: pointer;
+}
+#aiPanel .ai-prov-badge:hover { filter: brightness(.96); }
+#aiPanel .ai-prov-badge .ai-prov-dot { width:8px; height:8px; border-radius:50%; background: var(--ai-accent); }
 
 /* Header */
 .ai-panel-header {
@@ -4908,8 +4961,64 @@ body.emp-dark .ai-bar-icon { background: rgba(99,102,241,0.15); color: #A5B4FC; 
   position: relative;
   z-index: 2;
 }
-.ai-header-left { display: flex; align-items: center; gap: 12px; }
+.ai-header-left { display: flex; align-items: center; gap: 12px; position: relative; }
 .ai-header-right { display: flex; align-items: center; gap: 6px; }
+
+/* Top-left provider switcher (clickable header) */
+.ai-prov-switch {
+  display: flex; align-items: center; gap: 10px;
+  border: 1px solid transparent; background: transparent;
+  padding: 4px 8px 4px 4px; border-radius: 12px;
+  cursor: pointer; font: inherit; color: inherit;
+  transition: background .15s, border-color .15s;
+}
+.ai-prov-switch:hover { background: #F3F4F6; border-color: #E5E7EB; }
+body.emp-dark .ai-prov-switch:hover { background: #1F2937; border-color: #374151; }
+.ai-prov-switch-text { display: flex; flex-direction: column; align-items: flex-start; }
+.ai-prov-caret { color: #6B7280; flex-shrink: 0; }
+.ai-prov-switch[aria-expanded="true"] .ai-prov-caret { transform: rotate(180deg); }
+
+.ai-prov-menu {
+  position: absolute; top: 56px; left: 8px; z-index: 10010;
+  min-width: 240px; padding: 6px;
+  background: #fff; color: #0F172A;
+  border: 1px solid #E5E7EB; border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0,0,0,.14);
+  display: none; flex-direction: column; gap: 2px;
+}
+.ai-prov-menu.open { display: flex; }
+body.emp-dark .ai-prov-menu { background: #0F172A; color: #E5E7EB; border-color: #1F2937; }
+.ai-prov-menu-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border-radius: 8px;
+  background: transparent; border: none; cursor: pointer;
+  font: inherit; color: inherit; text-align: left;
+}
+.ai-prov-menu-item:hover { background: #F3F4F6; }
+body.emp-dark .ai-prov-menu-item:hover { background: #1F2937; }
+.ai-prov-menu-item .ai-prov-swatch { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+.ai-prov-menu-item .ai-prov-meta { display: flex; flex-direction: column; line-height: 1.15; }
+.ai-prov-menu-item .ai-prov-meta-name { font-size: 13.5px; font-weight: 600; }
+.ai-prov-menu-item .ai-prov-meta-sub  { font-size: 11.5px; color: #6B7280; }
+body.emp-dark .ai-prov-menu-item .ai-prov-meta-sub { color: rgba(255,255,255,.55); }
+.ai-prov-menu-item.active { background: var(--ai-accent-bg, #ECFDF5); color: var(--ai-accent-text, #047857); }
+.ai-prov-menu-item[disabled] { opacity: .4; cursor: not-allowed; }
+
+/* Top-right text/report toggle */
+.ai-mode-toggle {
+  display: inline-flex; align-items: center;
+  background: #F3F4F6; border: 1px solid #E5E7EB; border-radius: 999px;
+  padding: 2px;
+}
+body.emp-dark .ai-mode-toggle { background: #1F2937; border-color: #374151; }
+.ai-mode-btn {
+  border: none; background: transparent; cursor: pointer;
+  padding: 5px 12px; font: 600 12px/1 'Inter', sans-serif;
+  border-radius: 999px; color: #4B5563;
+}
+.ai-mode-btn.active { background: var(--ai-accent, #10A37F); color: #fff; }
+body.emp-dark .ai-mode-btn { color: #CBD5E1; }
+body.emp-dark .ai-mode-btn.active { color: #fff; }
 .ai-panel-avatar {
   width: 34px; height: 34px; border-radius: 10px;
   background: linear-gradient(135deg, #10A37F, #0e8c6c);
@@ -5135,6 +5244,79 @@ body.emp-dark .ai-panel-messages::-webkit-scrollbar-thumb:hover { background: #3
 
 /* Typing dots (initial pre-stream state) */
 .ai-typing { display: inline-flex; gap: 4px; align-items: center; height: 24px; }
+
+/* + button (chart insert) wrap */
+.ai-plus-wrap { position: relative; display: inline-flex; }
+.ai-panel-plus {
+  width: 36px; height: 36px; border-radius: 8px;
+  border: none; background: transparent; color: #4B5563;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: background .15s, color .15s;
+}
+.ai-panel-plus:hover { background: #F3F4F6; color: #111827; }
+.ai-plus-menu {
+  position: absolute; bottom: 44px; left: 50%; transform: translateX(-50%);
+  display: none; flex-direction: column; min-width: 168px;
+  background: #fff; color: #0F172A;
+  border: 1px solid #E5E7EB; border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0,0,0,.14);
+  padding: 6px; z-index: 10020;
+}
+.ai-plus-menu.open { display: flex; }
+body.emp-dark .ai-plus-menu { background: #0F172A; color: #E5E7EB; border-color: #1F2937; }
+.ai-plus-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border: none; border-radius: 8px;
+  background: transparent; color: inherit; cursor: pointer; font: inherit;
+  text-align: left;
+}
+.ai-plus-item:hover { background: var(--ai-accent-bg, #F3F4F6); color: var(--ai-accent-text, #111827); }
+body.emp-dark .ai-plus-item:hover { background: #1F2937; }
+
+/* Side-by-side compare layout. */
+#aiPanel #aiSplitBtn.active { background: var(--ai-accent-bg, #ECFDF5); color: var(--ai-accent-text, #047857); }
+.ai-panel-messages.ai-split-on { padding: 0; }
+.ai-panel-messages.ai-split-on > .ai-split-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+  height: 100%; padding: 12px;
+}
+.ai-split-pane {
+  display: flex; flex-direction: column; min-width: 0;
+  border: 1px solid #E5E7EB; border-radius: 12px; background: #fff;
+  overflow: hidden;
+}
+body.emp-dark .ai-split-pane { background: #0F172A; border-color: #1F2937; }
+.ai-pane-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px; border-bottom: 2px solid #10A37F;
+  background: #F9FAFB;
+}
+body.emp-dark .ai-pane-head { background: #111827; }
+.ai-pane-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.ai-pane-prov {
+  flex: 1; min-width: 0;
+  padding: 4px 6px; border: 1px solid #E5E7EB; border-radius: 6px;
+  background: #fff; font: 600 12.5px 'Inter', sans-serif; color: #0F172A;
+  cursor: pointer;
+}
+body.emp-dark .ai-pane-prov { background: #0F172A; color: #E5E7EB; border-color: #1F2937; }
+.ai-split-body {
+  flex: 1; min-height: 0;
+  overflow-y: auto; padding: 12px;
+}
+@media (max-width: 720px) {
+  .ai-panel-messages.ai-split-on > .ai-split-grid { grid-template-columns: 1fr; grid-auto-rows: minmax(0, 1fr); }
+}
+
+/* AI chart container (rendered via Chart.js when assistant emits ```chart``` fence). */
+.ai-chart-wrap {
+  margin: 10px 0; padding: 12px;
+  background: #fff;
+  border: 1px solid #E5E7EB;
+  border-radius: 12px;
+  max-width: 100%;
+}
+body.emp-dark .ai-chart-wrap { background: #1E293B; border-color: #1F2937; }
 
 /* Action toolbar under bot reply */
 .ai-actions { display: flex; gap: 4px; margin-top: 4px; opacity: 0; transition: opacity .2s; }
@@ -6334,7 +6516,7 @@ body.emp-dark .ai-bubble .ai-table td { background: #fff !important; color: #1F2
 }
 #aiProviderChooser .aipc-modal {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
-  width: min(560px, calc(100vw - 28px));
+  width: min(720px, calc(100vw - 28px));
   background: #fff; color: #111827;
   border-radius: 18px;
   box-shadow: 0 24px 64px rgba(0,0,0,.32);
@@ -6384,8 +6566,10 @@ body.emp-dark #aiProviderChooser .aipc-sub { color: rgba(255,255,255,.55); }
 }
 body.emp-dark #aiProviderChooser .aipc-card { background: #1E293B; border-color: rgba(255,255,255,.08); }
 #aiProviderChooser .aipc-card:hover:not([disabled]) { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(0,0,0,.08); }
-#aiProviderChooser .aipc-card.aipc-openai:hover:not([disabled])  { border-color: #10A37F; }
-#aiProviderChooser .aipc-card.aipc-mistral:hover:not([disabled]) { border-color: #FF7000; }
+#aiProviderChooser .aipc-card.aipc-openai:hover:not([disabled])   { border-color: #10A37F; }
+#aiProviderChooser .aipc-card.aipc-mistral:hover:not([disabled])  { border-color: #FF7000; }
+#aiProviderChooser .aipc-card.aipc-gemini:hover:not([disabled])   { border-color: #4285F4; }
+#aiProviderChooser .aipc-card.aipc-deepseek:hover:not([disabled]) { border-color: #4D6BFE; }
 #aiProviderChooser .aipc-card[disabled] { opacity: .42; cursor: not-allowed; }
 
 #aiProviderChooser .aipc-logo {
@@ -6414,12 +6598,13 @@ body.emp-dark #aiProviderChooser .aipc-card-model { color: rgba(255,255,255,.6);
 #aiProviderChooser .aipc-card-tag { font-size: 13px; font-weight: 500; color: #111827; margin-top: 2px; }
 body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
 @media (max-width: 560px) {
-  #aiProviderChooser .aipc-modal { top: 0; left: 0; transform: none; width: 100vw; height: 100vh; max-width: 100vw; border-radius: 0; padding: 18px 16px; display: flex; flex-direction: column; }
-  #aiProviderChooser .aipc-cards { grid-template-columns: 1fr; gap: 10px; }
-}
-/* Mobile: chat-mode card hidden — voice cockpit is the only mobile-friendly surface. */
-@media (max-width: 767px) {
-  #aiProviderChooser .aipc-card.aipc-mistral { display: none; }
+  #aiProviderChooser .aipc-modal { top: 0; left: 0; transform: none; width: 100vw; height: 100vh; max-width: 100vw; max-height: 100vh; border-radius: 0; padding: 18px 16px; display: flex; flex-direction: column; overflow-y: auto; }
+  #aiProviderChooser .aipc-cards { grid-template-columns: 1fr 1fr; gap: 10px; }
+  #aiProviderChooser .aipc-card { padding: 14px 10px 12px; }
+  #aiProviderChooser .aipc-logo { width: 48px; height: 48px; }
+  #aiProviderChooser .aipc-logo svg { width: 36px !important; height: 36px !important; }
+  #aiProviderChooser .aipc-card-name { font-size: 15px; }
+  #aiProviderChooser .aipc-card-tag { font-size: 11.5px; }
 }
 
 /* ===== Copy / Export icon strip on data cards (desktop cockpit + mobile) ===== */
@@ -7086,6 +7271,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       </style>
 
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script>
     // Shared employee-names map: single fetch kicked off before tab scripts load.
     window._empNameMapPromise = fetch('/api/employees/names')
@@ -7411,9 +7597,17 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       s = s.replace(/ I(\d+) /g, function(_m, i){
         return '<code class="ai-code">' + esc(inline[+i]) + '</code>';
       });
-      // Restore fenced code blocks.
+      // Restore fenced code blocks. ```chart\n{...}``` -> canvas placeholder.
       s = s.replace(/ F(\d+) /g, function(_m, i){
-        return '<pre class="ai-pre"><code>' + esc(fences[+i]) + '</code></pre>';
+        var body = fences[+i] || '';
+        var mch = body.match(/^\s*chart\s*\n([\s\S]*)$/i);
+        if (mch) {
+          var spec = mch[1].trim();
+          var id = 'aiChart_' + Math.random().toString(36).slice(2, 9);
+          setTimeout(function () { try { window._aiRenderChart && window._aiRenderChart(id, spec); } catch (_) {} }, 30);
+          return '<div class="ai-chart-wrap"><canvas id="' + id + '" height="220"></canvas></div>';
+        }
+        return '<pre class="ai-pre"><code>' + esc(body) + '</code></pre>';
       });
 
       // Paragraphs / line breaks. Don't insert <br> right after block tags.
@@ -7579,6 +7773,36 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         }
       } catch (_) {}
 
+      // Output-mode directives (Text vs Report) + optional chart type from + button.
+      var modeDirectives = [];
+      if (window._aiOutputMode === 'report') {
+        modeDirectives.push(
+          '## OUTPUT MODE: REPORT\n' +
+          'Format the reply as a structured business report:\n' +
+          '1. **Executive Summary** — 2–3 sentence headline.\n' +
+          '2. **Key Metrics** — markdown table with the relevant KPIs.\n' +
+          '3. **Breakdown** — markdown table per branch/region/employee where applicable.\n' +
+          '4. **Observations & Risks** — bullet list with concrete findings.\n' +
+          '5. **Recommendations** — 3–5 actionable next steps.\n' +
+          'Use markdown headings (##) and tables. Keep the report tight; no fluff.'
+        );
+      }
+      if (window._aiChartRequest) {
+        var ct = String(window._aiChartRequest || '').toLowerCase();
+        if (ct === 'line' || ct === 'bar' || ct === 'pie') {
+          modeDirectives.push(
+            '## CHART REQUEST: ' + ct.toUpperCase() + '\n' +
+            'After the prose answer, append a fenced code block exactly like:\n' +
+            '```chart\n{ "type": "' + ct + '", "labels": ["..."], "datasets": [{"label":"...", "data":[...]}] }\n```\n' +
+            'Numbers only (no currency symbols/units inside data). Keep ≤ 12 labels. The frontend renders this as a chart.'
+          );
+        }
+        window._aiChartRequest = null;
+      }
+      if (modeDirectives.length) {
+        msgs.unshift({ role: 'system', content: modeDirectives.join('\n\n') });
+      }
+
       var buffer = '';
       var sawDelta = false;
       function setStatus(text) {
@@ -7706,8 +7930,125 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       if (_aiBusy) return;
       input.value = '';
       autosizeInput(input);
-      sendStream(msg, false);
+      if (window._aiSplit && window._aiSplit.on) {
+        _aiSendSplit(msg);
+      } else {
+        sendStream(msg, false);
+      }
     };
+
+    // ── Split-mode parallel send: dispatch one SSE stream per pane. ──
+    function _aiSendSplit(msg) {
+      var session = getSession();
+      var paneL = document.getElementById('aiPaneL');
+      var paneR = document.getElementById('aiPaneR');
+      if (!paneL || !paneR) { sendStream(msg, false); return; }
+      _aiHistory.push({ role: 'user', content: msg });
+      // Mirror user bubble in both panes.
+      [paneL, paneR].forEach(function (p) {
+        var row = document.createElement('div');
+        row.className = 'ai-row ai-row-user';
+        row.innerHTML = '<div class="ai-bubble ai-bubble-user">' + esc(msg).replace(/\n/g, '<br>') + '</div>';
+        p.appendChild(row);
+        p.scrollTop = p.scrollHeight;
+      });
+      _aiBusy = true;
+      var done = 0;
+      function paneFinished() { done++; if (done >= 2) _aiBusy = false; }
+      _aiStreamInto(paneL, msg, window._aiSplit.leftProv,  paneFinished);
+      _aiStreamInto(paneR, msg, window._aiSplit.rightProv, paneFinished);
+    }
+
+    function _aiStreamInto(paneBox, msg, providerOverride, onDone) {
+      var row = appendAssistantShell(paneBox);
+      var content = row.querySelector('[data-content]');
+      var statusEl = row.querySelector('[data-status]');
+      var session = getSession();
+      var msgs = [];
+      _aiHistory.slice(-20).forEach(function(h){ msgs.push({ role: h.role, content: h.content }); });
+      if (msgs.length === 0 || msgs[msgs.length - 1].role !== 'user') msgs.push({ role: 'user', content: msg });
+      try {
+        if (window._aiCtxApply) {
+          var lastIdx = -1;
+          for (var i = msgs.length - 1; i >= 0; i--) if (msgs[i].role === 'user') { lastIdx = i; break; }
+          if (lastIdx >= 0) msgs[lastIdx] = { role: 'user', content: window._aiCtxApply(msgs[lastIdx].content) };
+        }
+      } catch (_) {}
+
+      var modeDirectives = [];
+      if (window._aiOutputMode === 'report') {
+        modeDirectives.push('## OUTPUT MODE: REPORT\nFormat as a structured business report with **Executive Summary**, **Key Metrics** (markdown table), **Breakdown** (markdown table), **Observations & Risks**, **Recommendations**. Tight, no fluff.');
+      }
+      if (modeDirectives.length) msgs.unshift({ role: 'system', content: modeDirectives.join('\n\n') });
+
+      var buffer = '';
+      var sawDelta = false;
+      function setStatus(t) {
+        if (!statusEl) return;
+        if (!t) { statusEl.style.display = 'none'; statusEl.textContent = ''; return; }
+        statusEl.style.display = 'inline-flex'; statusEl.textContent = t;
+      }
+      function applyEvent(event, dataStr) {
+        var data = {}; try { data = JSON.parse(dataStr); } catch (_) {}
+        if (event === 'open' || event === 'thinking') { if (!sawDelta) setStatus('Thinking…'); }
+        else if (event === 'tools') setStatus('Querying ' + ((data.names || []).join(', ') || 'database') + '…');
+        else if (event === 'fallback') setStatus('Switching providers…');
+        else if (event === 'delta') {
+          if (!sawDelta) { sawDelta = true; setStatus(''); content.innerHTML = ''; }
+          buffer += data.text || '';
+          content.innerHTML = md(buffer) + '<span class="ai-cursor"></span>';
+          paneBox.scrollTop = paneBox.scrollHeight;
+        } else if (event === 'done') {
+          setStatus('');
+          content.innerHTML = md(buffer);
+          bindActions(row, buffer, msg);
+          if (onDone) onDone();
+        } else if (event === 'error') {
+          setStatus('');
+          row.remove();
+          appendErrorBubble(paneBox, data.message || 'AI is briefly busy. Please retry.', msg, data.code || data.error || '', msg);
+          if (onDone) onDone();
+        }
+      }
+
+      fetch('/api/ai-chat-stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream' },
+        body: JSON.stringify({ messages: msgs, role: session.role || '', location: session.location || '', provider: providerOverride })
+      }).then(function(resp){
+        if (!resp.ok || !resp.body) throw new Error('http_' + resp.status);
+        var reader = resp.body.getReader();
+        var decoder = new TextDecoder();
+        var pending = '';
+        function pump() {
+          return reader.read().then(function(r){
+            if (r.done) {
+              if (sawDelta) { content.innerHTML = md(buffer); bindActions(row, buffer, msg); }
+              else { row.remove(); appendErrorBubble(paneBox, 'Stream ended unexpectedly.', msg); }
+              if (onDone) onDone();
+              return;
+            }
+            pending += decoder.decode(r.value, { stream: true });
+            var parts = pending.split('\n\n');
+            pending = parts.pop();
+            parts.forEach(function(chunk){
+              var ev = 'message', data = '';
+              chunk.split('\n').forEach(function(line){
+                if (line.indexOf('event:') === 0) ev = line.slice(6).trim();
+                else if (line.indexOf('data:') === 0) data += line.slice(5).trim();
+              });
+              applyEvent(ev, data);
+            });
+            return pump();
+          });
+        }
+        return pump();
+      }).catch(function(){
+        row.remove();
+        appendErrorBubble(paneBox, 'Could not reach AI. Please try again.', msg);
+        if (onDone) onDone();
+      });
+    }
 
     // Auto-grow textarea-like input
     function autosizeInput(el) {
@@ -9404,12 +9745,248 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       return r !== 'FO';
     }
 
+    window._AI_PROVIDERS = ['openai', 'mistral', 'gemini', 'deepseek'];
+    window._AI_PROVIDER_META = {
+      openai:   { label: 'ChatGPT',  model: 'gpt-4o',              accent: '#10A37F', bg: '#ECFDF5', text: '#047857' },
+      mistral:  { label: 'Mistral',  model: 'mistral-large',       accent: '#FF7000', bg: '#FFF4EC', text: '#C2410C' },
+      gemini:   { label: 'Gemini',   model: 'gemini-2.5-flash',    accent: '#4285F4', bg: '#EFF6FF', text: '#1D4ED8' },
+      deepseek: { label: 'DeepSeek', model: 'deepseek-chat',       accent: '#4D6BFE', bg: '#EEF2FF', text: '#3730A3' }
+    };
+
     window._aiPickedProvider = function () {
       try {
         var v = String(localStorage.getItem('nlpl_ai_provider') || '').toLowerCase();
-        return (v === 'mistral') ? 'mistral' : 'openai';
+        return (window._AI_PROVIDERS.indexOf(v) >= 0) ? v : 'openai';
       } catch (_) { return 'openai'; }
     };
+
+    // Apply provider's color theme to chat panel.
+    window._aiApplyTheme = function (prov) {
+      var meta = (window._AI_PROVIDER_META || {})[prov] || window._AI_PROVIDER_META.openai;
+      var panel = document.getElementById('aiPanel');
+      if (panel) {
+        panel.setAttribute('data-provider', prov);
+        panel.style.setProperty('--ai-accent', meta.accent);
+        panel.style.setProperty('--ai-accent-bg', meta.bg);
+        panel.style.setProperty('--ai-accent-text', meta.text);
+      }
+      var nameEl = document.getElementById('aiProvName');
+      if (nameEl) nameEl.textContent = meta.label;
+      var sub = document.getElementById('aiHeaderSub');
+      if (sub) sub.textContent = 'Online · ' + meta.model;
+    };
+
+    // ── Top-left provider-switch dropdown ──
+    window._aiAvailableProviders = window._aiAvailableProviders || null;
+    window._aiBuildProvMenu = function () {
+      var menu = document.getElementById('aiProvMenu');
+      if (!menu) return;
+      var avail = window._aiAvailableProviders;
+      var providers = window._AI_PROVIDERS || [];
+      var current = window._aiPickedProvider();
+      menu.innerHTML = '';
+      providers.forEach(function (p) {
+        var meta = window._AI_PROVIDER_META[p];
+        if (!meta) return;
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'ai-prov-menu-item' + (p === current ? ' active' : '');
+        btn.setAttribute('data-prov', p);
+        if (avail && avail.indexOf(p) < 0) {
+          btn.setAttribute('disabled', 'disabled');
+          btn.title = 'Not configured on the server';
+        }
+        btn.innerHTML =
+          '<span class="ai-prov-swatch" style="background:' + meta.accent + '"></span>' +
+          '<span class="ai-prov-meta">' +
+            '<span class="ai-prov-meta-name">' + meta.label + '</span>' +
+            '<span class="ai-prov-meta-sub">' + meta.model + '</span>' +
+          '</span>';
+        btn.addEventListener('click', function () {
+          if (btn.hasAttribute('disabled')) return;
+          try { localStorage.setItem('nlpl_ai_provider', p); } catch (_) {}
+          window._aiApplyTheme(p);
+          window._aiToggleProvMenu(false);
+        });
+        menu.appendChild(btn);
+      });
+    };
+    window._aiToggleProvMenu = function (forceOpen) {
+      var menu = document.getElementById('aiProvMenu');
+      var btn  = document.getElementById('aiProvSwitch');
+      if (!menu || !btn) return;
+      var isOpen = menu.classList.contains('open');
+      var nextOpen = (typeof forceOpen === 'boolean') ? forceOpen : !isOpen;
+      if (nextOpen) {
+        window._aiBuildProvMenu();
+        menu.classList.add('open');
+        menu.setAttribute('aria-hidden', 'false');
+        btn.setAttribute('aria-expanded', 'true');
+      } else {
+        menu.classList.remove('open');
+        menu.setAttribute('aria-hidden', 'true');
+        btn.setAttribute('aria-expanded', 'false');
+      }
+    };
+    document.addEventListener('click', function (e) {
+      var menu = document.getElementById('aiProvMenu');
+      var btn  = document.getElementById('aiProvSwitch');
+      if (!menu || !menu.classList.contains('open')) return;
+      if (menu.contains(e.target) || (btn && btn.contains(e.target))) return;
+      window._aiToggleProvMenu(false);
+    });
+    document.addEventListener('DOMContentLoaded', function () {
+      var btn = document.getElementById('aiProvSwitch');
+      if (btn) btn.addEventListener('click', function (e) { e.stopPropagation(); window._aiToggleProvMenu(); });
+      // Probe available providers once.
+      fetch('/api/ai-providers').then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) { if (j && Array.isArray(j.available)) window._aiAvailableProviders = j.available; })
+        .catch(function () {});
+      // Top-right Text/Report toggle.
+      var modeBtns = document.querySelectorAll('.ai-mode-toggle .ai-mode-btn');
+      modeBtns.forEach(function (b) {
+        b.addEventListener('click', function () {
+          modeBtns.forEach(function (x) { x.classList.remove('active'); x.setAttribute('aria-selected','false'); });
+          b.classList.add('active');
+          b.setAttribute('aria-selected','true');
+          window._aiOutputMode = b.getAttribute('data-mode') || 'text';
+        });
+      });
+      window._aiOutputMode = 'text';
+      // Apply last-picked theme on load so colors match without forcing a re-pick.
+      try { window._aiApplyTheme(window._aiPickedProvider()); } catch (_) {}
+
+      // ── Chart renderer (called from md() when ```chart``` fence is parsed). ──
+      window._aiRenderChart = function (canvasId, specStr) {
+        if (typeof Chart === 'undefined') return;
+        var canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+        var spec;
+        try { spec = JSON.parse(specStr); } catch (_) { return; }
+        var type = (spec.type || 'bar').toLowerCase();
+        if (['line','bar','pie'].indexOf(type) < 0) type = 'bar';
+        var palette = ['#10A37F','#4285F4','#FF7000','#4D6BFE','#E8362C','#9B72CB','#F59E0B','#0EA5E9','#84CC16','#EC4899','#14B8A6','#F97316'];
+        var datasets = (spec.datasets || []).map(function (d, i) {
+          var color = palette[i % palette.length];
+          var ds = { label: d.label || ('Series ' + (i + 1)), data: d.data || [], borderColor: color, backgroundColor: color + '33' };
+          if (type === 'pie') ds.backgroundColor = palette.slice(0, (d.data || []).length);
+          if (type === 'line') ds.tension = 0.3;
+          return ds;
+        });
+        try {
+          // Dispose existing instance if any.
+          if (canvas._chart) { canvas._chart.destroy(); canvas._chart = null; }
+          canvas._chart = new Chart(canvas.getContext('2d'), {
+            type: type,
+            data: { labels: spec.labels || [], datasets: datasets },
+            options: {
+              responsive: true, maintainAspectRatio: false,
+              plugins: { legend: { display: type === 'pie' || datasets.length > 1 } }
+            }
+          });
+        } catch (e) { console.warn('chart render failed:', e); }
+      };
+
+      // ── + button: chart-type popup ──
+      var plusBtn = document.getElementById('aiPlusBtn');
+      var plusMenu = document.getElementById('aiPlusMenu');
+      window._aiTogglePlusMenu = function (forceOpen) {
+        if (!plusBtn || !plusMenu) return;
+        var isOpen = plusMenu.classList.contains('open');
+        var nextOpen = (typeof forceOpen === 'boolean') ? forceOpen : !isOpen;
+        plusMenu.classList.toggle('open', nextOpen);
+        plusMenu.setAttribute('aria-hidden', nextOpen ? 'false' : 'true');
+        plusBtn.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
+      };
+      if (plusMenu) {
+        plusMenu.querySelectorAll('.ai-plus-item').forEach(function (it) {
+          it.addEventListener('click', function () {
+            window._aiChartRequest = it.getAttribute('data-chart');
+            window._aiTogglePlusMenu(false);
+            var input = document.getElementById('aiInput');
+            if (input) {
+              var hint = '[' + window._aiChartRequest + ' chart] ';
+              if (input.value.indexOf(hint) !== 0) input.value = hint + input.value;
+              input.focus();
+            }
+          });
+        });
+      }
+      document.addEventListener('click', function (e) {
+        if (!plusMenu || !plusMenu.classList.contains('open')) return;
+        if (plusMenu.contains(e.target) || (plusBtn && plusBtn.contains(e.target))) return;
+        window._aiTogglePlusMenu(false);
+      });
+
+      // ── Side-by-side compare panel toggle ──
+      var splitBtn = document.getElementById('aiSplitBtn');
+      if (splitBtn) splitBtn.addEventListener('click', function () { if (window._aiSplitToggle) window._aiSplitToggle(); });
+
+      // ── Side-by-side mode: split messages into 2 panes, each with own provider. ──
+      window._aiSplit = window._aiSplit || { on: false, leftProv: 'openai', rightProv: 'mistral' };
+
+      function buildPaneHeader(side) {
+        var s = window._aiSplit;
+        var prov = (side === 'left') ? s.leftProv : s.rightProv;
+        var meta = window._AI_PROVIDER_META[prov] || window._AI_PROVIDER_META.openai;
+        var providers = window._AI_PROVIDERS;
+        var avail = window._aiAvailableProviders;
+        var opts = providers.map(function (p) {
+          var m2 = window._AI_PROVIDER_META[p];
+          var disabled = (avail && avail.indexOf(p) < 0) ? ' disabled' : '';
+          var sel = (p === prov) ? ' selected' : '';
+          return '<option value="' + p + '"' + sel + disabled + '>' + m2.label + '</option>';
+        }).join('');
+        return '<div class="ai-pane-head" style="border-color:' + meta.accent + '"><span class="ai-pane-dot" style="background:' + meta.accent + '"></span>' +
+          '<select class="ai-pane-prov" data-side="' + side + '">' + opts + '</select></div>';
+      }
+
+      window._aiBuildSplitDOM = function () {
+        var box = document.getElementById('aiMessages');
+        if (!box) return;
+        box.classList.add('ai-split-on');
+        box.innerHTML =
+          '<div class="ai-split-grid">' +
+            '<section class="ai-split-pane" data-side="left">' + buildPaneHeader('left') + '<div class="ai-split-body" id="aiPaneL"></div></section>' +
+            '<section class="ai-split-pane" data-side="right">' + buildPaneHeader('right') + '<div class="ai-split-body" id="aiPaneR"></div></section>' +
+          '</div>';
+        box.querySelectorAll('.ai-pane-prov').forEach(function (sel) {
+          sel.addEventListener('change', function () {
+            var side = sel.getAttribute('data-side');
+            var v = sel.value;
+            if (side === 'left') window._aiSplit.leftProv = v;
+            else                 window._aiSplit.rightProv = v;
+            // Recolor pane-head dot/border.
+            var head = sel.closest('.ai-pane-head');
+            var meta2 = window._AI_PROVIDER_META[v] || window._AI_PROVIDER_META.openai;
+            if (head) {
+              head.style.borderColor = meta2.accent;
+              var dot = head.querySelector('.ai-pane-dot');
+              if (dot) dot.style.background = meta2.accent;
+            }
+          });
+        });
+      };
+
+      window._aiSplitToggle = function () {
+        window._aiSplit.on = !window._aiSplit.on;
+        var btn = document.getElementById('aiSplitBtn');
+        if (btn) btn.classList.toggle('active', window._aiSplit.on);
+        var box = document.getElementById('aiMessages');
+        if (!box) return;
+        if (window._aiSplit.on) {
+          window._aiBuildSplitDOM();
+        } else {
+          box.classList.remove('ai-split-on');
+          if (typeof _initialMessagesHtml === 'string' && _initialMessagesHtml !== null) {
+            box.innerHTML = _initialMessagesHtml;
+          } else {
+            box.innerHTML = '';
+          }
+          try { window._aiRenderStarterChips && window._aiRenderStarterChips(); } catch (_) {}
+        }
+      };
+    });
 
     // ── Role-aware starter chips ──
     window.getStarterChips = function (role, location, hour) {
@@ -9566,6 +10143,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
             localStorage.setItem('nlpl_ai_provider', prov);
             localStorage.setItem('nlpl_ai_purpose', purpose);
           } catch (_) {}
+          if (typeof window._aiApplyTheme === 'function') window._aiApplyTheme(prov);
           close();
           onPick && onPick(prov, purpose);
         });
