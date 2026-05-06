@@ -6678,7 +6678,38 @@ async function dispatchAiTool(name, args, session) {
        GROUP BY ${groupCols}
        ORDER BY ${orderCol}
        LIMIT ${lim}`;
-    return await safeQuery(sql, params, lim);
+    const rows = await safeQuery(sql, params, lim);
+    // Pre-format every money cell so the AI never has to do the
+    // rupees → crore division itself. v4-pro and other models have
+    // dropped zeros from large amounts (e.g. ₹178.96 Cr → ₹17.90 Cr)
+    // when forced to compute. Always quote `amount_str` verbatim.
+    if (Array.isArray(rows)) {
+      let totalRupees = 0;
+      let totalCount = 0;
+      for (const r of rows) {
+        if (r && r.amount != null) {
+          const rupees = Number(r.amount);
+          const cr = rupees / 1e7;
+          r.amount_rupees = rupees;
+          r.amount_cr = Math.round(cr * 100) / 100;
+          r.amount_str = '₹' + r.amount_cr.toFixed(2) + ' Cr';
+          totalRupees += rupees;
+        }
+        if (r && r.count != null) totalCount += Number(r.count);
+      }
+      const totalCr = Math.round((totalRupees / 1e7) * 100) / 100;
+      return {
+        rows,
+        totals: {
+          count: totalCount,
+          amount_rupees: totalRupees,
+          amount_cr: totalCr,
+          amount_str: '₹' + totalCr.toFixed(2) + ' Cr',
+        },
+        formatting_note: 'Each row already has amount_str (formatted ₹X.XX Cr). Quote amount_str EXACTLY — do not divide amount yourself.',
+      };
+    }
+    return rows;
   }
 
   if (name === 'list_employees') {
@@ -8688,6 +8719,7 @@ app.post("/api/ai-chat", aiLimiter, requireAiAccess, async (req, res) => {
       '- For employee-name lookups: if the user mentioned a branch / area / district / region with the name ("Shivraj from Raichur"), pass it as location_hint to find_employee. If find_employee returns more than one match or `ambiguous: true`, list the matching employees with emp_id + branch/role and ask which one the user means. Never pick one silently for common names like Karthik. Do not list phone numbers while disambiguating multiple people. If find_employee returns 0 rows, do NOT fall back to overall company numbers — tell the user the name didn\'t match and ask them to repeat it.',
       '- For branch/entity lookups: if find_branch returns more than one match or `ambiguous: true`, list the matching branches with region/division/area and ask which one the user means. Never pick one silently for partial branch names.',
       '- Never invent numbers. Quote what tools return.',
+      '- **Money formatting — DO NOT do the division yourself.** disbursement_query returns each row with `amount_str` (already formatted, e.g. "₹178.96 Cr") and the wrapper has `totals.amount_str`. Copy `amount_str` VERBATIM into your reply. Do NOT divide `amount` by 10000000 yourself — past replies dropped a zero (₹178.96 Cr → ₹17.90 Cr) and gave wrong totals. If `amount_str` is present, use it exactly as-is. The total row in your table MUST equal `totals.amount_str`, not a re-summed value.',
       '- Never use the words "snapshot" or "provided data" or "JSON below" in your replies — they leak internal plumbing. Just answer with the numbers and a short label.',
       '- If a question mentions FTOD, DPD, KYC, disbursement plan, NPA closure, or "daily plan" → MUST call daily_reports_query. Do NOT say "data not available" without calling the tool first.',
       '- If the user asks "how is my branch doing today / branch summary / give me a summary of <branch> / end-of-day rollup" → call `branch_summary()` (single tool, returns headcount + collection + NPA + disbursement + FTOD + DPD). Do NOT chain 5 separate tool calls.',
@@ -8946,6 +8978,7 @@ app.post("/api/ai-chat-stream", aiLimiter, requireAiAccess, async (req, res) => 
       '- For comparisons, output a Markdown table.',
       '- For ambiguous lookups, list options and ask which one.',
       '- Never invent numbers. If JSON doesn\'t have it, call a tool.',
+      '- **Money formatting — DO NOT do the division yourself.** disbursement_query returns each row with `amount_str` (already formatted, e.g. "₹178.96 Cr") and the wrapper has `totals.amount_str`. Copy `amount_str` VERBATIM into your reply. Do NOT divide `amount` by 10000000 yourself — past replies dropped a zero (₹178.96 Cr → ₹17.90 Cr) and gave wrong totals. If `amount_str` is present, use it exactly as-is. The total row in your table MUST equal `totals.amount_str`, not a re-summed value.',
       '- Never say "snapshot", "JSON", "provided data".',
       '',
       '## Internal context block (DO NOT mention this in your reply)',
