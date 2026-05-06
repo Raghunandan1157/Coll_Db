@@ -13382,5 +13382,476 @@ document.addEventListener('keydown', function(e) {
   }
 })();
 </script>
+<style>
+/* ====================================================================
+   ChatGPT-style monochrome override for the AI panel.
+   Last block in the document so it wins on equal specificity.
+   Light: white panel, near-black text. Dark: charcoal panel, off-white.
+   Provider color tokens (--ai-accent) are kept functional but no longer
+   used for prominent surfaces — chrome stays neutral regardless of
+   which provider the user selects.
+   =================================================================== */
+
+/* ── Panel chrome ─────────────────────────────────────────────────── */
+#aiPanel {
+  background: #FFFFFF !important;
+  color: #0D0D0D !important;
+  font-family: 'Söhne', 'Inter', system-ui, -apple-system, sans-serif !important;
+}
+body.emp-dark #aiPanel {
+  background: #212121 !important;
+  color: #ECECEC !important;
+}
+
+#aiPanel .ai-panel-header {
+  background: transparent !important;
+  border-bottom: 1px solid #ECECEC !important;
+  padding: 12px 18px !important;
+}
+body.emp-dark #aiPanel .ai-panel-header { border-bottom-color: #2F2F2F !important; }
+
+#aiPanel .ai-panel-avatar {
+  background: #0D0D0D !important;
+  color: #FFFFFF !important;
+}
+body.emp-dark #aiPanel .ai-panel-avatar { background: #ECECEC !important; color: #0D0D0D !important; }
+
+#aiPanel .ai-header-title { color: #0D0D0D !important; font-weight: 600 !important; }
+body.emp-dark #aiPanel .ai-header-title { color: #ECECEC !important; }
+#aiPanel .ai-header-sub { color: #8E8EA0 !important; }
+
+#aiPanel .ai-icon-btn {
+  color: #5D5D5D !important;
+  background: transparent !important;
+}
+#aiPanel .ai-icon-btn:hover { background: #F4F4F4 !important; color: #0D0D0D !important; }
+body.emp-dark #aiPanel .ai-icon-btn { color: #B4B4B4 !important; }
+body.emp-dark #aiPanel .ai-icon-btn:hover { background: #2F2F2F !important; color: #ECECEC !important; }
+
+/* ── Empty state ──────────────────────────────────────────────────── */
+#aiPanel .ai-empty-orb {
+  background: #0D0D0D !important;
+  box-shadow: none !important;
+  animation: none !important;
+}
+#aiPanel .ai-empty-orb-glow { display: none !important; }
+body.emp-dark #aiPanel .ai-empty-orb { background: #ECECEC !important; }
+body.emp-dark #aiPanel .ai-empty-orb svg { stroke: #0D0D0D !important; }
+#aiPanel .ai-empty-greet {
+  background: none !important;
+  color: #8E8EA0 !important;
+  -webkit-text-fill-color: #8E8EA0 !important;
+}
+#aiPanel .ai-empty-title {
+  background: none !important;
+  color: #0D0D0D !important;
+  -webkit-text-fill-color: #0D0D0D !important;
+  font-weight: 600 !important;
+  letter-spacing: -.02em !important;
+}
+body.emp-dark #aiPanel .ai-empty-title {
+  color: #ECECEC !important;
+  -webkit-text-fill-color: #ECECEC !important;
+}
+#aiPanel .ai-empty-sub { color: #8E8EA0 !important; }
+
+/* ── Starter chips — flat outlined ────────────────────────────────── */
+#aiPanel .ai-chip {
+  background: #FFFFFF !important;
+  border: 1px solid #E5E5E5 !important;
+  color: #0D0D0D !important;
+  border-radius: 12px !important;
+}
+#aiPanel .ai-chip:hover {
+  background: #F7F7F8 !important;
+  border-color: #D1D1D1 !important;
+  box-shadow: none !important;
+}
+body.emp-dark #aiPanel .ai-chip {
+  background: #2F2F2F !important;
+  border-color: #3F3F3F !important;
+  color: #ECECEC !important;
+}
+body.emp-dark #aiPanel .ai-chip:hover { background: #3A3A3A !important; }
+#aiPanel .ai-chip-icon {
+  background: #F7F7F8 !important;
+  border-color: #E5E5E5 !important;
+}
+body.emp-dark #aiPanel .ai-chip-icon {
+  background: #1F1F1F !important;
+  border-color: #3F3F3F !important;
+}
+#aiPanel .ai-chip-sub { color: #8E8EA0 !important; }
+
+/* ── User bubble ──────────────────────────────────────────────────── */
+#aiPanel .ai-bubble-user {
+  background: #F4F4F4 !important;
+  border: none !important;
+  border-radius: 22px !important;
+  color: #0D0D0D !important;
+  padding: 10px 16px !important;
+}
+body.emp-dark #aiPanel .ai-bubble-user {
+  background: #2F2F2F !important;
+  color: #ECECEC !important;
+}
+
+/* ── Bot bubble — flowing prose, no background ────────────────────── */
+#aiPanel .ai-bubble-bot { background: transparent !important; color: #0D0D0D !important; }
+body.emp-dark #aiPanel .ai-bubble-bot { color: #ECECEC !important; }
+#aiPanel .ai-bubble strong { color: #0D0D0D !important; font-weight: 600 !important; }
+body.emp-dark #aiPanel .ai-bubble strong { color: #FFFFFF !important; }
+#aiPanel .ai-bubble .ai-h { color: #0D0D0D !important; }
+body.emp-dark #aiPanel .ai-bubble .ai-h { color: #FFFFFF !important; }
+#aiPanel .ai-cursor { background: #0D0D0D !important; }
+body.emp-dark #aiPanel .ai-cursor { background: #ECECEC !important; }
+
+/* ── Status pill — neutral grey ───────────────────────────────────── */
+#aiPanel .ai-status {
+  background: #F7F7F8 !important;
+  border: 1px solid #ECECEC !important;
+  color: #5D5D5D !important;
+  font-weight: 500 !important;
+}
+body.emp-dark #aiPanel .ai-status {
+  background: #2F2F2F !important;
+  border-color: #3F3F3F !important;
+  color: #B4B4B4 !important;
+}
+#aiPanel .ai-status::before {
+  border-color: #E5E5E5 !important;
+  border-top-color: #0D0D0D !important;
+}
+body.emp-dark #aiPanel .ai-status::before {
+  border-color: #3F3F3F !important;
+  border-top-color: #ECECEC !important;
+}
+#aiPanel .ai-dot { background: #8E8EA0 !important; }
+
+/* ── Composer / input — ChatGPT pill ──────────────────────────────── */
+#aiPanel .ai-panel-input-area {
+  background: transparent !important;
+  border-top: 1px solid transparent !important;
+  padding: 10px 16px 18px !important;
+}
+body.emp-dark #aiPanel .ai-panel-input-area { background: transparent !important; }
+#aiPanel .ai-panel-input-wrap {
+  background: #FFFFFF !important;
+  border: 1px solid #E5E5E5 !important;
+  border-radius: 28px !important;
+  padding: 10px 10px 10px 18px !important;
+  box-shadow: 0 2px 6px rgba(0,0,0,.04) !important;
+  transition: border-color .15s ease, box-shadow .15s ease !important;
+}
+#aiPanel .ai-panel-input-wrap:focus-within {
+  border-color: #0D0D0D !important;
+  box-shadow: 0 0 0 1px #0D0D0D, 0 4px 12px rgba(0,0,0,.08) !important;
+}
+body.emp-dark #aiPanel .ai-panel-input-wrap {
+  background: #2F2F2F !important;
+  border-color: #3F3F3F !important;
+  box-shadow: none !important;
+}
+body.emp-dark #aiPanel .ai-panel-input-wrap:focus-within {
+  border-color: #ECECEC !important;
+  box-shadow: 0 0 0 1px #ECECEC !important;
+}
+#aiPanel .ai-panel-input { color: #0D0D0D !important; }
+body.emp-dark #aiPanel .ai-panel-input { color: #ECECEC !important; }
+#aiPanel .ai-panel-input::placeholder { color: #8E8EA0 !important; }
+
+/* + (insert chart) and mic buttons inside input */
+#aiPanel .ai-panel-plus,
+#aiPanel .ai-panel-talk {
+  width: 32px !important; height: 32px !important; border-radius: 50% !important;
+  background: transparent !important; color: #5D5D5D !important;
+}
+#aiPanel .ai-panel-plus:hover,
+#aiPanel .ai-panel-talk:hover { background: #F4F4F4 !important; color: #0D0D0D !important; }
+body.emp-dark #aiPanel .ai-panel-plus,
+body.emp-dark #aiPanel .ai-panel-talk { color: #B4B4B4 !important; }
+body.emp-dark #aiPanel .ai-panel-plus:hover,
+body.emp-dark #aiPanel .ai-panel-talk:hover { background: #3F3F3F !important; color: #FFFFFF !important; }
+
+/* Send button — small black circle, white arrow */
+#aiPanel .ai-panel-send[data-state="idle"],
+#aiPanel .ai-panel-send:not([data-state="busy"]) {
+  background: #0D0D0D !important;
+  color: #FFFFFF !important;
+  width: 32px !important; height: 32px !important;
+  border-radius: 50% !important;
+  box-shadow: none !important;
+}
+body.emp-dark #aiPanel .ai-panel-send[data-state="idle"],
+body.emp-dark #aiPanel .ai-panel-send:not([data-state="busy"]) {
+  background: #ECECEC !important;
+  color: #0D0D0D !important;
+}
+#aiPanel .ai-panel-send:hover:not([data-state="busy"]) { filter: brightness(.85) !important; }
+/* Stop state stays red — functional alarm */
+#aiPanel .ai-panel-send[data-state="busy"] {
+  background: #0D0D0D !important;
+  color: #FFFFFF !important;
+}
+body.emp-dark #aiPanel .ai-panel-send[data-state="busy"] {
+  background: #ECECEC !important;
+  color: #0D0D0D !important;
+}
+
+/* Edit pencil on user bubbles */
+#aiPanel .ai-row-user .ai-edit-btn {
+  border-color: #E5E5E5 !important;
+  background: #FFFFFF !important;
+  color: #5D5D5D !important;
+}
+#aiPanel .ai-row-user .ai-edit-btn:hover {
+  background: #F4F4F4 !important;
+  color: #0D0D0D !important;
+  border-color: #0D0D0D !important;
+}
+body.emp-dark #aiPanel .ai-row-user .ai-edit-btn {
+  background: #2F2F2F !important;
+  border-color: #3F3F3F !important;
+  color: #B4B4B4 !important;
+}
+body.emp-dark #aiPanel .ai-row-user .ai-edit-btn:hover {
+  background: #ECECEC !important;
+  color: #0D0D0D !important;
+  border-color: #ECECEC !important;
+}
+
+/* Footer disclaimer */
+#aiPanel .ai-panel-footer {
+  background: transparent !important;
+  color: #8E8EA0 !important;
+  font-size: 11.5px !important;
+}
+
+/* Messages region — match panel bg */
+#aiPanel .ai-panel-messages { background: transparent !important; }
+
+/* ── AI tables — keep their high-contrast theme but neutralize the
+   maroon header to match the monochrome look. ─────────────────────── */
+#aiPanel .ai-bubble .ai-table-wrap {
+  border: 1px solid #E5E5E5 !important;
+  border-radius: 12px !important;
+  background: #FFFFFF !important;
+}
+body.emp-dark #aiPanel .ai-bubble .ai-table-wrap {
+  border-color: #3F3F3F !important;
+  background: #2F2F2F !important;
+}
+#aiPanel .ai-bubble .ai-table thead th,
+#aiPanel .ai-bubble .ai-table thead th * {
+  background: #0D0D0D !important;
+  color: #FFFFFF !important;
+  border-color: #0D0D0D !important;
+  font-weight: 700 !important;
+  letter-spacing: .04em !important;
+  text-transform: uppercase !important;
+}
+body.emp-dark #aiPanel .ai-bubble .ai-table thead th,
+body.emp-dark #aiPanel .ai-bubble .ai-table thead th * {
+  background: #ECECEC !important;
+  color: #0D0D0D !important;
+  border-color: #ECECEC !important;
+}
+#aiPanel .ai-bubble .ai-table tbody td,
+#aiPanel .ai-bubble .ai-table tbody td * {
+  background: #FFFFFF !important;
+  color: #0D0D0D !important;
+  border-color: #ECECEC !important;
+}
+#aiPanel .ai-bubble .ai-table tbody tr:nth-child(even) td:not(:first-child) {
+  background: #F7F7F8 !important;
+}
+#aiPanel .ai-bubble .ai-table tbody tr td:first-child,
+#aiPanel .ai-bubble .ai-table tbody tr td:first-child * {
+  background: #F4F4F4 !important;
+  color: #0D0D0D !important;
+  font-weight: 600 !important;
+}
+#aiPanel .ai-bubble .ai-table tr.total-row td,
+#aiPanel .ai-bubble .ai-table tr.total-row td * {
+  background: #0D0D0D !important;
+  color: #FFFFFF !important;
+  font-weight: 700 !important;
+  border-top: 2px solid #0D0D0D !important;
+}
+body.emp-dark #aiPanel .ai-bubble .ai-table tbody td,
+body.emp-dark #aiPanel .ai-bubble .ai-table tbody td * {
+  background: #1F1F1F !important;
+  color: #ECECEC !important;
+  border-color: #3F3F3F !important;
+}
+body.emp-dark #aiPanel .ai-bubble .ai-table tbody tr:nth-child(even) td:not(:first-child) {
+  background: #2A2A2A !important;
+}
+body.emp-dark #aiPanel .ai-bubble .ai-table tbody tr td:first-child,
+body.emp-dark #aiPanel .ai-bubble .ai-table tbody tr td:first-child * {
+  background: #3A3A3A !important;
+  color: #ECECEC !important;
+}
+body.emp-dark #aiPanel .ai-bubble .ai-table tr.total-row td,
+body.emp-dark #aiPanel .ai-bubble .ai-table tr.total-row td * {
+  background: #ECECEC !important;
+  color: #0D0D0D !important;
+  border-top-color: #ECECEC !important;
+}
+
+/* ── Provider chooser — monochrome ─────────────────────────────────── */
+#aiProviderChooser .aipc-modal {
+  background: #FFFFFF !important;
+  background-image: none !important;
+  color: #0D0D0D !important;
+  border-radius: 20px !important;
+  box-shadow: 0 24px 60px rgba(0,0,0,.18) !important;
+}
+body.emp-dark #aiProviderChooser .aipc-modal {
+  background: #212121 !important;
+  background-image: none !important;
+  color: #ECECEC !important;
+  box-shadow: 0 24px 60px rgba(0,0,0,.6) !important;
+}
+#aiProviderChooser .aipc-title { color: #0D0D0D !important; }
+body.emp-dark #aiProviderChooser .aipc-title { color: #ECECEC !important; }
+#aiProviderChooser .aipc-sub { color: #8E8EA0 !important; }
+#aiProviderChooser .aipc-card {
+  background: #FFFFFF !important;
+  border: 1px solid #E5E5E5 !important;
+  border-radius: 14px !important;
+  color: #0D0D0D !important;
+}
+body.emp-dark #aiProviderChooser .aipc-card {
+  background: #2F2F2F !important;
+  border-color: #3F3F3F !important;
+  color: #ECECEC !important;
+}
+#aiProviderChooser .aipc-card::before { display: none !important; }
+#aiProviderChooser .aipc-card:hover:not([disabled]) {
+  border-color: #0D0D0D !important;
+  box-shadow: 0 6px 16px rgba(0,0,0,.08) !important;
+}
+body.emp-dark #aiProviderChooser .aipc-card:hover:not([disabled]) {
+  border-color: #ECECEC !important;
+  box-shadow: 0 6px 16px rgba(0,0,0,.4) !important;
+}
+#aiProviderChooser .aipc-card.is-active {
+  box-shadow: 0 0 0 2px #0D0D0D, 0 6px 16px rgba(0,0,0,.10) !important;
+  border-color: #0D0D0D !important;
+}
+body.emp-dark #aiProviderChooser .aipc-card.is-active {
+  box-shadow: 0 0 0 2px #ECECEC !important;
+  border-color: #ECECEC !important;
+}
+#aiProviderChooser .aipc-card-name { color: #0D0D0D !important; }
+body.emp-dark #aiProviderChooser .aipc-card-name { color: #ECECEC !important; }
+#aiProviderChooser .aipc-card-model { color: #8E8EA0 !important; }
+#aiProviderChooser .aipc-card-tag { color: #5D5D5D !important; font-weight: 500 !important; }
+body.emp-dark #aiProviderChooser .aipc-card-tag { color: #B4B4B4 !important; }
+#aiProviderChooser .aipc-card-status {
+  background: #F4F4F4 !important;
+  color: #5D5D5D !important;
+  border-radius: 999px !important;
+}
+body.emp-dark #aiProviderChooser .aipc-card-status {
+  background: #1F1F1F !important;
+  color: #B4B4B4 !important;
+}
+#aiProviderChooser .aipc-card[disabled] .aipc-card-status {
+  background: #FEE2E2 !important; color: #B91C1C !important;
+}
+
+/* DeepSeek flash/pro chip — keep distinct without rainbow */
+#aiProviderChooser .aipc-chip-flash {
+  background: #F4F4F4 !important;
+  color: #0D0D0D !important;
+  border: 1px solid #E5E5E5 !important;
+}
+#aiProviderChooser .aipc-chip-pro {
+  background: #0D0D0D !important;
+  color: #FFFFFF !important;
+  border: 1px solid #0D0D0D !important;
+  box-shadow: none !important;
+  background-image: none !important;
+}
+body.emp-dark #aiProviderChooser .aipc-chip-flash {
+  background: #1F1F1F !important;
+  color: #ECECEC !important;
+  border-color: #3F3F3F !important;
+}
+body.emp-dark #aiProviderChooser .aipc-chip-pro {
+  background: #ECECEC !important;
+  color: #0D0D0D !important;
+  border-color: #ECECEC !important;
+}
+
+#aiProviderChooser .aipc-help,
+#aiProviderChooser .aipc-close {
+  border-color: #E5E5E5 !important;
+  color: #5D5D5D !important;
+  background: transparent !important;
+}
+#aiProviderChooser .aipc-help:hover,
+#aiProviderChooser .aipc-close:hover { background: #F4F4F4 !important; color: #0D0D0D !important; }
+body.emp-dark #aiProviderChooser .aipc-help,
+body.emp-dark #aiProviderChooser .aipc-close {
+  border-color: #3F3F3F !important;
+  color: #B4B4B4 !important;
+}
+body.emp-dark #aiProviderChooser .aipc-help:hover,
+body.emp-dark #aiProviderChooser .aipc-close:hover {
+  background: #2F2F2F !important;
+  color: #ECECEC !important;
+}
+
+/* Provider top-left switcher dropdown — neutral */
+#aiPanel .ai-prov-switch {
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  color: #0D0D0D !important;
+}
+#aiPanel .ai-prov-switch:hover {
+  background: #F4F4F4 !important;
+  border-color: #E5E5E5 !important;
+}
+body.emp-dark #aiPanel .ai-prov-switch { color: #ECECEC !important; }
+body.emp-dark #aiPanel .ai-prov-switch:hover {
+  background: #2F2F2F !important;
+  border-color: #3F3F3F !important;
+}
+#aiPanel .ai-prov-badge {
+  background: #F4F4F4 !important;
+  color: #0D0D0D !important;
+}
+body.emp-dark #aiPanel .ai-prov-badge {
+  background: #2F2F2F !important;
+  color: #ECECEC !important;
+}
+#aiPanel .ai-prov-badge .ai-prov-dot { background: #0D0D0D !important; }
+body.emp-dark #aiPanel .ai-prov-badge .ai-prov-dot { background: #ECECEC !important; }
+
+#aiPanel .ai-prov-menu {
+  background: #FFFFFF !important;
+  border: 1px solid #E5E5E5 !important;
+  color: #0D0D0D !important;
+  box-shadow: 0 12px 28px rgba(0,0,0,.12) !important;
+}
+body.emp-dark #aiPanel .ai-prov-menu {
+  background: #2F2F2F !important;
+  border-color: #3F3F3F !important;
+  color: #ECECEC !important;
+}
+#aiPanel .ai-prov-menu-item:hover { background: #F4F4F4 !important; color: #0D0D0D !important; }
+body.emp-dark #aiPanel .ai-prov-menu-item:hover { background: #3F3F3F !important; color: #FFFFFF !important; }
+#aiPanel .ai-prov-menu-item.active {
+  background: #F4F4F4 !important;
+  color: #0D0D0D !important;
+}
+body.emp-dark #aiPanel .ai-prov-menu-item.active {
+  background: #3F3F3F !important;
+  color: #FFFFFF !important;
+}
+</style>
 </body>
 </html>
