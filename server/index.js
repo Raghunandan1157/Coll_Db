@@ -8090,6 +8090,7 @@ app.post('/api/voice-stream', aiLimiter, voiceUpload.single('audio'), requireAiA
     // is sent back as a 503-style SSE error so the UI can prompt the user.
     const VOICE_MAX_ROUNDS = 6;
     const explicitProvider = String((req.body && req.body.provider) || '').toLowerCase().trim();
+    const voiceDeepSeekOverride = String((req.body && req.body.deepseek_model) || '').toLowerCase().trim() || undefined;
     const chain = [];
     if (explicitProvider === 'mistral') {
       if (!MISTRAL_KEY) {
@@ -8108,11 +8109,11 @@ app.post('/api/voice-stream', aiLimiter, voiceUpload.single('audio'), requireAiA
         send('error', { message: 'DeepSeek not configured on this server.', reason: 'provider_unavailable', provider: 'deepseek' });
         return finish();
       }
-      chain.push({ name: 'deepseek', run: () => runDeepSeekWithTools(messages, session, VOICE_MAX_ROUNDS, onProgress) });
+      chain.push({ name: 'deepseek', run: () => runDeepSeekWithTools(messages, session, VOICE_MAX_ROUNDS, onProgress, voiceDeepSeekOverride) });
     } else {
       if (MISTRAL_KEY)  chain.push({ name: 'mistral',  run: () => runMistralWithTools(messages, session, VOICE_MAX_ROUNDS, onProgress) });
       if (OPENAI_KEY)   chain.push({ name: 'openai',   run: () => runOpenAiWithTools(messages, session, VOICE_MAX_ROUNDS, onProgress) });
-      if (DEEPSEEK_KEY) chain.push({ name: 'deepseek', run: () => runDeepSeekWithTools(messages, session, VOICE_MAX_ROUNDS, onProgress) });
+      if (DEEPSEEK_KEY) chain.push({ name: 'deepseek', run: () => runDeepSeekWithTools(messages, session, VOICE_MAX_ROUNDS, onProgress, voiceDeepSeekOverride) });
     }
 
     let result = { ok: false, error: 'no_providers' };
@@ -8483,10 +8484,26 @@ async function callGeminiAi(messages) {
 
 // ── DeepSeek (OpenAI-compatible API at api.deepseek.com/v1).
 // Tool-calling format matches OpenAI exactly — reuse AI_TOOLS_SPEC + dispatchAiTool.
-async function callDeepSeekChatTools(messages, tools) {
+// Allowed override values for per-request DeepSeek model selection.
+const DEEPSEEK_MODEL_ALLOWLIST = new Set([
+  'deepseek-v4-pro',
+  'deepseek-v4-flash',
+  'deepseek-chat',
+  'deepseek-reasoner',
+]);
+function _resolveDeepSeekModel(override) {
+  if (typeof override === 'string') {
+    const v = override.trim().toLowerCase();
+    if (v === 'flash') return 'deepseek-v4-flash';
+    if (v === 'pro') return 'deepseek-v4-pro';
+    if (DEEPSEEK_MODEL_ALLOWLIST.has(v)) return v;
+  }
+  return DEEPSEEK_MODEL;
+}
+async function callDeepSeekChatTools(messages, tools, modelOverride) {
   if (!DEEPSEEK_KEY) return { ok: false, error: 'deepseek_not_configured' };
   const body = {
-    model: DEEPSEEK_MODEL,
+    model: _resolveDeepSeekModel(modelOverride),
     messages,
     max_tokens: 1024,
     temperature: 0.3,
@@ -8530,14 +8547,14 @@ async function callDeepSeekChatTools(messages, tools) {
   });
 }
 
-async function runDeepSeekWithTools(messages, session, maxRounds, onProgress) {
+async function runDeepSeekWithTools(messages, session, maxRounds, onProgress, modelOverride) {
   const convo = messages.slice();
   const max = maxRounds || 12;
   const emit = typeof onProgress === 'function' ? onProgress : null;
   const callSig = new Map();
   for (let round = 0; round < max; round++) {
     if (emit) emit({ type: 'thinking', round: round + 1 });
-    const r = await callDeepSeekChatTools(convo, AI_TOOLS_SPEC);
+    const r = await callDeepSeekChatTools(convo, AI_TOOLS_SPEC, modelOverride);
     if (!r.ok) {
       console.error(`[deepseek-tools] round ${round + 1}/${max} call failed: ${r.error}`);
       return r;
@@ -8617,7 +8634,7 @@ app.post("/api/ai-chat", aiLimiter, requireAiAccess, async (req, res) => {
     return res.status(403).json({ error: 'Forbidden' });
   }
 
-  const { messages, role, location } = req.body || {};
+  const { messages, role, location, deepseek_model: deepseekModelOverride } = req.body || {};
   if (!messages || !Array.isArray(messages)) {
     return res.status(400).json({ error: 'messages array required' });
   }
@@ -8786,7 +8803,7 @@ app.post("/api/ai-chat", aiLimiter, requireAiAccess, async (req, res) => {
       result = await runOpenAiWithTools(mergedMessages, session);
     } else if (which === 'deepseek') {
       if (!DEEPSEEK_KEY) { lastErr = 'deepseek_not_configured'; continue; }
-      result = await runDeepSeekWithTools(mergedMessages, session);
+      result = await runDeepSeekWithTools(mergedMessages, session, undefined, undefined, deepseekModelOverride);
     }
     if (result && result.ok && result.text) {
       const providerLabel = which === 'mistral' ? MISTRAL_MODEL
@@ -8830,7 +8847,7 @@ app.post("/api/ai-chat-stream", aiLimiter, requireAiAccess, async (req, res) => 
     return res.status(403).json({ error: 'Forbidden' });
   }
 
-  const { messages, role, location } = req.body || {};
+  const { messages, role, location, deepseek_model: deepseekModelOverride } = req.body || {};
   if (!messages || !Array.isArray(messages)) {
     return res.status(400).json({ error: 'messages array required' });
   }
@@ -9047,12 +9064,12 @@ app.post("/api/ai-chat-stream", aiLimiter, requireAiAccess, async (req, res) => 
   } else if (explicitProvider === 'openai') {
     chain.push({ name: 'openai',  run: () => runOpenAiWithTools(mergedMessages, session, undefined, onProgress) });
   } else if (explicitProvider === 'deepseek') {
-    chain.push({ name: 'deepseek', run: () => runDeepSeekWithTools(mergedMessages, session, undefined, onProgress) });
+    chain.push({ name: 'deepseek', run: () => runDeepSeekWithTools(mergedMessages, session, undefined, onProgress, deepseekModelOverride) });
   } else {
     if (MISTRAL_KEY)  chain.push({ name: 'mistral',  run: () => runMistralWithTools(mergedMessages, session, undefined, onProgress) });
     if (GEMINI_KEY)   chain.push({ name: 'gemini',   run: () => callGeminiAi(mergedMessages) });
     if (OPENAI_KEY)   chain.push({ name: 'openai',   run: () => runOpenAiWithTools(mergedMessages, session, undefined, onProgress) });
-    if (DEEPSEEK_KEY) chain.push({ name: 'deepseek', run: () => runDeepSeekWithTools(mergedMessages, session, undefined, onProgress) });
+    if (DEEPSEEK_KEY) chain.push({ name: 'deepseek', run: () => runDeepSeekWithTools(mergedMessages, session, undefined, onProgress, deepseekModelOverride) });
   }
 
   let result = { ok: false, error: 'no_providers' };

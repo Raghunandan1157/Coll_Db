@@ -4654,8 +4654,18 @@
           </svg>
         </div>
         <div class="aipc-card-name">DeepSeek</div>
-        <div class="aipc-card-model">deepseek-v4-pro</div>
+        <div class="aipc-card-model" id="aipcDeepseekModelLabel">deepseek-v4-pro</div>
         <div class="aipc-card-tag">Strong reasoning, low-cost</div>
+        <div class="aipc-variant-row" role="radiogroup" aria-label="DeepSeek variant" onclick="event.stopPropagation();">
+          <button type="button" class="aipc-variant-btn" data-ds-variant="flash" role="radio" aria-checked="false">
+            <span class="aipc-variant-name">Flash</span>
+            <span class="aipc-variant-sub">fast · cheap</span>
+          </button>
+          <button type="button" class="aipc-variant-btn active" data-ds-variant="pro" role="radio" aria-checked="true">
+            <span class="aipc-variant-name">Pro</span>
+            <span class="aipc-variant-sub">reasoning · accurate</span>
+          </button>
+        </div>
         <div class="aipc-card-status" data-status>Ready</div>
       </button>
     </div>
@@ -6833,14 +6843,23 @@ body:not(.emp-dark) #aiPanel .ai-bubble .ai-table tbody tr td:first-child * {
 }
 #aiProviderChooser .aipc-modal {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
-  width: min(720px, calc(100vw - 28px));
+  width: min(760px, calc(100vw - 28px));
   background: #fff; color: #111827;
-  border-radius: 18px;
-  box-shadow: 0 24px 64px rgba(0,0,0,.32);
-  padding: 22px 22px 20px;
+  border-radius: 22px;
+  box-shadow: 0 32px 80px rgba(0,0,0,.42), 0 0 0 1px rgba(255,255,255,.08);
+  padding: 26px 24px 22px;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-image:
+    radial-gradient(1200px 320px at -10% -20%, rgba(16,163,127,.08), transparent 60%),
+    radial-gradient(1000px 300px at 110% 110%, rgba(99,102,241,.10), transparent 60%);
 }
-body.emp-dark #aiProviderChooser .aipc-modal { background: #0F172A; color: #E5E7EB; }
+body.emp-dark #aiProviderChooser .aipc-modal {
+  background: #0B1220; color: #E5E7EB;
+  background-image:
+    radial-gradient(1200px 320px at -10% -20%, rgba(16,163,127,.18), transparent 60%),
+    radial-gradient(1000px 300px at 110% 110%, rgba(99,102,241,.20), transparent 60%);
+  box-shadow: 0 32px 80px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.06);
+}
 #aiProviderChooser .aipc-header {
   display: flex; align-items: center; justify-content: space-between;
   margin-bottom: 4px;
@@ -6875,19 +6894,76 @@ body.emp-dark #aiProviderChooser .aipc-sub { color: rgba(255,255,255,.55); }
 #aiProviderChooser .aipc-card {
   position: relative; text-align: center;
   padding: 22px 16px 18px;
-  border: 1.5px solid #E5E7EB; border-radius: 14px;
+  border: 1.5px solid #E5E7EB; border-radius: 18px;
   background: #fff; cursor: pointer;
   font-family: inherit; color: inherit;
-  transition: border-color .15s, transform .12s, box-shadow .15s, background .15s;
+  transition: border-color .18s ease, transform .14s ease, box-shadow .18s ease, background .18s ease;
   display: flex; flex-direction: column; align-items: center; gap: 8px;
+  overflow: hidden;
+  isolation: isolate;
 }
-body.emp-dark #aiProviderChooser .aipc-card { background: #1E293B; border-color: rgba(255,255,255,.08); }
-#aiProviderChooser .aipc-card:hover:not([disabled]) { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(0,0,0,.08); }
+#aiProviderChooser .aipc-card::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: var(--card-glow, transparent);
+  opacity: 0;
+  transition: opacity .2s ease;
+  pointer-events: none;
+  z-index: 0;
+}
+#aiProviderChooser .aipc-card > * { position: relative; z-index: 1; }
+#aiProviderChooser .aipc-card.aipc-openai   { --card-glow: radial-gradient(circle at 50% 0%, rgba(16,163,127,.18), transparent 70%); }
+#aiProviderChooser .aipc-card.aipc-mistral  { --card-glow: radial-gradient(circle at 50% 0%, rgba(255,112,0,.18), transparent 70%); }
+#aiProviderChooser .aipc-card.aipc-gemini   { --card-glow: radial-gradient(circle at 50% 0%, rgba(66,133,244,.18), transparent 70%); }
+#aiProviderChooser .aipc-card.aipc-deepseek { --card-glow: radial-gradient(circle at 50% 0%, rgba(77,107,254,.20), transparent 70%); }
+#aiProviderChooser .aipc-card:hover:not([disabled])::before { opacity: 1; }
+body.emp-dark #aiProviderChooser .aipc-card {
+  background: linear-gradient(180deg, #131C2E, #101827);
+  border-color: rgba(255,255,255,.08);
+}
+#aiProviderChooser .aipc-card:hover:not([disabled]) { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(0,0,0,.16); }
 #aiProviderChooser .aipc-card.aipc-openai:hover:not([disabled])   { border-color: #10A37F; }
 #aiProviderChooser .aipc-card.aipc-mistral:hover:not([disabled])  { border-color: #FF7000; }
 #aiProviderChooser .aipc-card.aipc-gemini:hover:not([disabled])   { border-color: #4285F4; }
 #aiProviderChooser .aipc-card.aipc-deepseek:hover:not([disabled]) { border-color: #4D6BFE; }
+#aiProviderChooser .aipc-card.is-active { box-shadow: 0 0 0 2px var(--card-accent, #4D6BFE), 0 12px 28px rgba(0,0,0,.18); }
+#aiProviderChooser .aipc-card.aipc-openai.is-active   { --card-accent: #10A37F; }
+#aiProviderChooser .aipc-card.aipc-mistral.is-active  { --card-accent: #FF7000; }
+#aiProviderChooser .aipc-card.aipc-gemini.is-active   { --card-accent: #4285F4; }
+#aiProviderChooser .aipc-card.aipc-deepseek.is-active { --card-accent: #4D6BFE; }
 #aiProviderChooser .aipc-card[disabled] { opacity: .42; cursor: not-allowed; }
+
+/* DeepSeek flash/pro segmented sub-pill */
+#aiProviderChooser .aipc-variant-row {
+  display: inline-flex; gap: 4px; padding: 3px;
+  margin-top: 6px;
+  border-radius: 999px;
+  background: rgba(77,107,254,.10);
+  border: 1px solid rgba(77,107,254,.22);
+}
+body.emp-dark #aiProviderChooser .aipc-variant-row {
+  background: rgba(77,107,254,.16); border-color: rgba(167,139,250,.30);
+}
+#aiProviderChooser .aipc-variant-btn {
+  appearance: none; border: none; background: transparent;
+  padding: 5px 12px; border-radius: 999px;
+  font-family: inherit; font-size: 11.5px; font-weight: 600;
+  color: #4338CA; cursor: pointer;
+  display: inline-flex; flex-direction: column; align-items: center; gap: 1px;
+  line-height: 1.1;
+  transition: background .15s ease, color .15s ease, transform .12s ease;
+}
+body.emp-dark #aiProviderChooser .aipc-variant-btn { color: #C7D2FE; }
+#aiProviderChooser .aipc-variant-btn .aipc-variant-name { font-size: 12px; font-weight: 700; }
+#aiProviderChooser .aipc-variant-btn .aipc-variant-sub { font-size: 9.5px; opacity: .72; letter-spacing: .04em; text-transform: uppercase; }
+#aiProviderChooser .aipc-variant-btn:hover { background: rgba(77,107,254,.16); }
+#aiProviderChooser .aipc-variant-btn.active {
+  background: linear-gradient(135deg, #4D6BFE, #6366F1);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(77,107,254,.32);
+}
+#aiProviderChooser .aipc-variant-btn.active .aipc-variant-sub { opacity: .92; }
+#aiProviderChooser .aipc-variant-btn:active { transform: scale(.96); }
 
 #aiProviderChooser .aipc-logo {
   width: 72px; height: 72px;
@@ -8203,7 +8279,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       fetch('/api/ai-chat-stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream' },
-        body: JSON.stringify({ messages: msgs, role: session.role || '', location: session.location || '', provider: (window._aiPickedProvider && window._aiPickedProvider()) || 'openai' })
+        body: JSON.stringify({ messages: msgs, role: session.role || '', location: session.location || '', provider: (window._aiPickedProvider && window._aiPickedProvider()) || 'openai', deepseek_model: (window._aiDeepSeekModelId && window._aiDeepSeekModelId()) || undefined })
       }).then(function(resp){
         if (!resp.ok || !resp.body) throw new Error('http_' + resp.status);
         var reader = resp.body.getReader();
@@ -9135,6 +9211,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       if (session.role) fd.append('role', session.role);
       if (session.location) fd.append('location', session.location);
       try { fd.append('provider', (window._aiPickedProvider && window._aiPickedProvider()) || 'openai'); } catch(_) {}
+      try { var _dsM = window._aiDeepSeekModelId && window._aiDeepSeekModelId(); if (_dsM) fd.append('deepseek_model', _dsM); } catch(_) {}
       // Active-context filter (task #15) — server prepends to transcript.
       try { var _ctxP = window._aiCtxPreamble && window._aiCtxPreamble(window._aiCtxGet && window._aiCtxGet()); if (_ctxP) fd.append('context_preamble', _ctxP); } catch(_) {}
 
@@ -9285,6 +9362,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       if (session.role) fd.append('role', session.role);
       if (session.location) fd.append('location', session.location);
       try { fd.append('provider', (window._aiPickedProvider && window._aiPickedProvider()) || 'openai'); } catch(_) {}
+      try { var _dsM = window._aiDeepSeekModelId && window._aiDeepSeekModelId(); if (_dsM) fd.append('deepseek_model', _dsM); } catch(_) {}
       // Active-context filter (task #15) — server prepends to transcript.
       try { var _ctxP = window._aiCtxPreamble && window._aiCtxPreamble(window._aiCtxGet && window._aiCtxGet()); if (_ctxP) fd.append('context_preamble', _ctxP); } catch(_) {}
 
@@ -9624,6 +9702,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       if (session.role) fd.append('role', session.role);
       if (session.location) fd.append('location', session.location);
       try { fd.append('provider', (window._aiPickedProvider && window._aiPickedProvider()) || 'openai'); } catch(_) {}
+      try { var _dsM = window._aiDeepSeekModelId && window._aiDeepSeekModelId(); if (_dsM) fd.append('deepseek_model', _dsM); } catch(_) {}
       // Active-context filter (task #15) — server prepends to transcript.
       try { var _ctxP = window._aiCtxPreamble && window._aiCtxPreamble(window._aiCtxGet && window._aiCtxGet()); if (_ctxP) fd.append('context_preamble', _ctxP); } catch(_) {}
 
@@ -9661,7 +9740,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       fetch('/api/ai-chat-stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: [{ role: 'user', content: _vomMsgPayload }], role: session.role || '', location: session.location || '', provider: (window._aiPickedProvider && window._aiPickedProvider()) || 'openai' }),
+        body: JSON.stringify({ messages: [{ role: 'user', content: _vomMsgPayload }], role: session.role || '', location: session.location || '', provider: (window._aiPickedProvider && window._aiPickedProvider()) || 'openai', deepseek_model: (window._aiDeepSeekModelId && window._aiDeepSeekModelId()) || undefined }),
         signal: ctrl ? ctrl.signal : undefined
       })
         .then(function (r) {
@@ -10203,6 +10282,43 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       } catch (_) { return 'openai'; }
     };
 
+    // DeepSeek model variant: 'flash' (fast/cheap) or 'pro' (reasoning/accurate).
+    // Default = 'pro'. Sent to /api/ai-chat-stream as `deepseek_model`.
+    window._AI_DEEPSEEK_VARIANTS = {
+      flash: { id: 'flash', model: 'deepseek-v4-flash', label: 'deepseek-v4-flash' },
+      pro:   { id: 'pro',   model: 'deepseek-v4-pro',   label: 'deepseek-v4-pro' }
+    };
+    window._aiDeepSeekVariant = function () {
+      try {
+        var v = String(localStorage.getItem('nlpl_ai_deepseek_model') || '').toLowerCase();
+        return (v === 'flash' || v === 'pro') ? v : 'pro';
+      } catch (_) { return 'pro'; }
+    };
+    window._aiSetDeepSeekVariant = function (variant) {
+      var v = (variant === 'flash') ? 'flash' : 'pro';
+      try { localStorage.setItem('nlpl_ai_deepseek_model', v); } catch (_) {}
+      // Update card label + active pill state if chooser open.
+      var lbl = document.getElementById('aipcDeepseekModelLabel');
+      if (lbl) lbl.textContent = window._AI_DEEPSEEK_VARIANTS[v].label;
+      var btns = document.querySelectorAll('#aiProviderChooser .aipc-variant-btn');
+      Array.prototype.forEach.call(btns, function (b) {
+        var on = b.getAttribute('data-ds-variant') === v;
+        b.classList.toggle('active', on);
+        b.setAttribute('aria-checked', on ? 'true' : 'false');
+      });
+      // Update chat header sub if currently on DeepSeek.
+      try {
+        if (window._aiPickedProvider() === 'deepseek') {
+          var sub = document.getElementById('aiHeaderSub');
+          if (sub) sub.textContent = 'Online · ' + window._AI_DEEPSEEK_VARIANTS[v].label;
+        }
+      } catch (_) {}
+    };
+    // Convenience: returns the actual model id ('deepseek-v4-pro' etc).
+    window._aiDeepSeekModelId = function () {
+      return window._AI_DEEPSEEK_VARIANTS[window._aiDeepSeekVariant()].model;
+    };
+
     // Apply provider's color theme to chat panel.
     window._aiApplyTheme = function (prov) {
       var meta = (window._AI_PROVIDER_META || {})[prov] || window._AI_PROVIDER_META.openai;
@@ -10216,7 +10332,12 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       var nameEl = document.getElementById('aiProvName');
       if (nameEl) nameEl.textContent = meta.label;
       var sub = document.getElementById('aiHeaderSub');
-      if (sub) sub.textContent = 'Online · ' + meta.model;
+      if (sub) {
+        var modelLabel = (prov === 'deepseek')
+          ? (window._aiDeepSeekModelId ? window._aiDeepSeekModelId() : meta.model)
+          : meta.model;
+        sub.textContent = 'Online · ' + modelLabel;
+      }
     };
 
     // ── Top-left provider-switch dropdown ──
@@ -10657,11 +10778,27 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       }
       var el = document.getElementById('aiProviderChooser');
       if (!el) { onPick && onPick(window._aiPickedProvider()); return; }
-      // Reset cards.
+      // Reset cards + sync currently-picked provider as active.
       var cards = el.querySelectorAll('.aipc-card');
+      var currentProv = window._aiPickedProvider();
       Array.prototype.forEach.call(cards, function (c) {
         c.removeAttribute('disabled');
         var st = c.querySelector('[data-status]'); if (st) st.textContent = 'Ready';
+        c.classList.toggle('is-active', c.getAttribute('data-provider') === currentProv);
+      });
+      // Sync DeepSeek variant pill from saved choice.
+      try {
+        if (typeof window._aiSetDeepSeekVariant === 'function') {
+          window._aiSetDeepSeekVariant(window._aiDeepSeekVariant());
+        }
+      } catch (_) {}
+      // Wire variant pill clicks (rebind on every open since cards get cloned on close).
+      Array.prototype.forEach.call(el.querySelectorAll('.aipc-variant-btn'), function (b) {
+        b.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          var v = b.getAttribute('data-ds-variant');
+          if (v) window._aiSetDeepSeekVariant(v);
+        });
       });
       el.classList.add('open');
       el.setAttribute('aria-hidden', 'false');
