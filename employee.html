@@ -4569,8 +4569,9 @@
       <button onclick="window._aiTalk()" class="ai-panel-talk" id="aiTalkBtn" title="Tap to talk" aria-label="Talk">
         <svg id="aiTalkIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a4 4 0 0 0-4 4v6a4 4 0 0 0 8 0V5a4 4 0 0 0-4-4z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
       </button>
-      <button onclick="window._aiSend()" class="ai-panel-send" aria-label="Send">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+      <button id="aiSendBtn" onclick="window._aiSendOrStop && window._aiSendOrStop()" class="ai-panel-send" aria-label="Send" data-state="idle">
+        <svg class="ai-send-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+        <svg class="ai-stop-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
       </button>
     </div>
     <div class="ai-panel-footer" aria-hidden="true">
@@ -4646,26 +4647,28 @@
         <div class="aipc-card-tag">Google · long context</div>
         <div class="aipc-card-status" data-status>Ready</div>
       </button>
-      <button type="button" class="aipc-card aipc-deepseek" data-provider="deepseek" data-purpose="chat">
+      <button type="button" class="aipc-card aipc-deepseek" data-provider="deepseek" data-deepseek-model="flash" data-purpose="chat">
         <div class="aipc-logo">
           <svg viewBox="0 0 24 24" width="44" height="44" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
             <circle cx="12" cy="12" r="10" fill="#4D6BFE"/>
             <path fill="#fff" d="M8 9c2-2 6-2 8 0-1 1-2 1-3 1l-1 2c0 1 1 1 2 1-2 2-6 2-8 0 1-1 2-1 3-1l1-2c0-1-1-1-2-1z"/>
           </svg>
         </div>
-        <div class="aipc-card-name">DeepSeek</div>
-        <div class="aipc-card-model" id="aipcDeepseekModelLabel">deepseek-v4-pro</div>
-        <div class="aipc-card-tag">Strong reasoning, low-cost</div>
-        <div class="aipc-variant-row" role="radiogroup" aria-label="DeepSeek variant" onclick="event.stopPropagation();">
-          <button type="button" class="aipc-variant-btn" data-ds-variant="flash" role="radio" aria-checked="false">
-            <span class="aipc-variant-name">Flash</span>
-            <span class="aipc-variant-sub">fast · cheap</span>
-          </button>
-          <button type="button" class="aipc-variant-btn active" data-ds-variant="pro" role="radio" aria-checked="true">
-            <span class="aipc-variant-name">Pro</span>
-            <span class="aipc-variant-sub">reasoning · accurate</span>
-          </button>
+        <div class="aipc-card-name">DeepSeek <span class="aipc-card-chip aipc-chip-flash">Flash</span></div>
+        <div class="aipc-card-model">deepseek-v4-flash</div>
+        <div class="aipc-card-tag">Fast &amp; cheap</div>
+        <div class="aipc-card-status" data-status>Ready</div>
+      </button>
+      <button type="button" class="aipc-card aipc-deepseek" data-provider="deepseek" data-deepseek-model="pro" data-purpose="chat">
+        <div class="aipc-logo">
+          <svg viewBox="0 0 24 24" width="44" height="44" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <circle cx="12" cy="12" r="10" fill="#4D6BFE"/>
+            <path fill="#fff" d="M8 9c2-2 6-2 8 0-1 1-2 1-3 1l-1 2c0 1 1 1 2 1-2 2-6 2-8 0 1-1 2-1 3-1l1-2c0-1-1-1-2-1z"/>
+          </svg>
         </div>
+        <div class="aipc-card-name">DeepSeek <span class="aipc-card-chip aipc-chip-pro">Pro</span></div>
+        <div class="aipc-card-model">deepseek-v4-pro</div>
+        <div class="aipc-card-tag">Reasoning &amp; accurate</div>
         <div class="aipc-card-status" data-status>Ready</div>
       </button>
     </div>
@@ -5152,7 +5155,27 @@ body.emp-dark .ai-panel-messages::-webkit-scrollbar-thumb:hover { background: #3
   display: flex; gap: 12px; align-items: flex-start;
   width: 100%; max-width: 760px; margin: 0 auto;
 }
-.ai-row-user { justify-content: flex-end; }
+.ai-row-user { justify-content: flex-end; align-items: center; gap: 6px; }
+.ai-row-user .ai-edit-btn {
+  width: 26px; height: 26px; border-radius: 8px;
+  border: 1px solid #E5E7EB; background: #fff; color: #6B7280;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none;
+  transition: opacity .15s ease, color .15s ease, border-color .15s ease, background .15s ease, transform .12s ease;
+  flex-shrink: 0;
+}
+.ai-row-user:hover .ai-edit-btn { opacity: 1; pointer-events: auto; }
+.ai-row-user .ai-edit-btn:hover { color: var(--ai-accent, #10A37F); border-color: var(--ai-accent, #10A37F); background: var(--ai-accent-bg, #ECFDF5); }
+.ai-row-user .ai-edit-btn:active { transform: scale(.94); }
+body.emp-dark .ai-row-user .ai-edit-btn { background: #1F2937; border-color: #374151; color: #9CA3AF; }
+body.emp-dark .ai-row-user .ai-edit-btn:hover { color: #fff; background: var(--ai-accent, #10A37F); border-color: var(--ai-accent, #10A37F); }
+.ai-stopped-tag {
+  display: inline-block; margin-top: 8px;
+  padding: 3px 10px; border-radius: 999px;
+  font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  background: #FEE2E2; color: #B91C1C; border: 1px solid #FCA5A5;
+}
+body.emp-dark .ai-stopped-tag { background: rgba(220,38,38,.18); color: #FCA5A5; border-color: rgba(220,38,38,.4); }
 .ai-row-bot  { justify-content: flex-start; }
 .ai-row-bot .ai-bot-col { max-width: calc(100% - 42px); }
 
@@ -5524,9 +5547,21 @@ body.emp-dark .ai-chart-dl { border-color: #1F2937; }
   border: none; background: #10A37F; color: #fff;
   cursor: pointer; display: flex; align-items: center; justify-content: center;
   transition: background .15s, transform .1s; flex-shrink: 0;
+  position: relative;
 }
-.ai-panel-send:hover { background: #0e8c6c; }
+.ai-panel-send:hover { filter: brightness(.92); }
 .ai-panel-send:active { transform: scale(0.94); }
+.ai-panel-send .ai-stop-icon { display: none; }
+.ai-panel-send[data-state="busy"] {
+  background: #DC2626 !important;
+  animation: aiStopPulse 1.4s ease-in-out infinite;
+}
+.ai-panel-send[data-state="busy"] .ai-send-icon { display: none; }
+.ai-panel-send[data-state="busy"] .ai-stop-icon { display: block; }
+@keyframes aiStopPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(220,38,38,.45); }
+  50% { box-shadow: 0 0 0 6px rgba(220,38,38,0); }
+}
 .ai-panel-talk {
   width: 36px; height: 36px; border-radius: 50%;
   border: none; background: transparent; color: #6B7280;
@@ -6889,8 +6924,20 @@ body.emp-dark #aiProviderChooser .aipc-close { border-color: rgba(255,255,255,.1
 }
 body.emp-dark #aiProviderChooser .aipc-sub { color: rgba(255,255,255,.55); }
 #aiProviderChooser .aipc-cards {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
 }
+#aiProviderChooser .aipc-card-chip {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 7px; border-radius: 999px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  vertical-align: middle;
+  line-height: 1.4;
+}
+#aiProviderChooser .aipc-chip-flash { background: rgba(99,102,241,.14); color: #4338CA; border: 1px solid rgba(99,102,241,.3); }
+#aiProviderChooser .aipc-chip-pro   { background: linear-gradient(135deg, #4D6BFE, #6366F1); color: #fff; border: 1px solid rgba(255,255,255,.12); box-shadow: 0 2px 6px rgba(77,107,254,.32); }
+body.emp-dark #aiProviderChooser .aipc-chip-flash { background: rgba(167,139,250,.18); color: #C7D2FE; border-color: rgba(167,139,250,.32); }
 #aiProviderChooser .aipc-card {
   position: relative; text-align: center;
   padding: 22px 16px 18px;
@@ -8027,7 +8074,40 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
     function appendUserBubble(box, msg) {
       var row = document.createElement('div');
       row.className = 'ai-row ai-row-user';
-      row.innerHTML = '<div class="ai-bubble ai-bubble-user">' + esc(msg) + '</div>';
+      row.dataset.userMsg = msg;
+      row.innerHTML = '<button type="button" class="ai-edit-btn" title="Edit message" aria-label="Edit message">'
+        + '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>'
+        + '</button>'
+        + '<div class="ai-bubble ai-bubble-user">' + esc(msg) + '</div>';
+      var btn = row.querySelector('.ai-edit-btn');
+      if (btn) btn.addEventListener('click', function () {
+        if (_aiBusy) return;
+        var input = document.getElementById('aiInput');
+        if (!input) return;
+        input.value = msg;
+        try { autosizeInput(input); } catch (_) {}
+        input.focus();
+        // Drop this user row + everything after it so a fresh send replaces.
+        var parent = row.parentElement;
+        if (parent) {
+          var n = row;
+          while (n) {
+            var nx = n.nextSibling;
+            parent.removeChild(n);
+            n = nx;
+          }
+        }
+        // Trim chat history to just before this user message so the AI
+        // doesn't see the original prompt twice.
+        try {
+          for (var i = _aiHistory.length - 1; i >= 0; i--) {
+            if (_aiHistory[i].role === 'user' && _aiHistory[i].content === msg) {
+              _aiHistory = _aiHistory.slice(0, i);
+              break;
+            }
+          }
+        } catch (_) {}
+      });
       box.appendChild(row);
       box.scrollTop = box.scrollHeight;
     }
@@ -8276,10 +8356,16 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         }
       }
 
+      // AbortController so the user can cancel mid-stream via the stop button.
+      var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+      window._aiCurrentAbort = controller;
+      _aiSetSendButtonState('busy');
+
       fetch('/api/ai-chat-stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream' },
-        body: JSON.stringify({ messages: msgs, role: session.role || '', location: session.location || '', provider: (window._aiPickedProvider && window._aiPickedProvider()) || 'openai', deepseek_model: (window._aiDeepSeekModelId && window._aiDeepSeekModelId()) || undefined })
+        body: JSON.stringify({ messages: msgs, role: session.role || '', location: session.location || '', provider: (window._aiPickedProvider && window._aiPickedProvider()) || 'openai', deepseek_model: (window._aiDeepSeekModelId && window._aiDeepSeekModelId()) || undefined }),
+        signal: controller ? controller.signal : undefined
       }).then(function(resp){
         if (!resp.ok || !resp.body) throw new Error('http_' + resp.status);
         var reader = resp.body.getReader();
@@ -8290,6 +8376,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
             if (r.done) {
               if (_aiBusy) {
                 _aiBusy = false;
+                _aiSetSendButtonState('idle');
                 if (sawDelta) {
                   content.innerHTML = md(buffer);
                   _aiHistory.push({ role: 'assistant', content: buffer });
@@ -8318,9 +8405,23 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         return pump();
       }).catch(function(err){
         setStatus('');
-        row.remove();
-        appendErrorBubble(box, 'Could not reach AI. Please try again.', msg);
+        _aiSetSendButtonState('idle');
+        if (err && err.name === 'AbortError') {
+          // User stopped — keep partial buffer if any, mark as stopped.
+          if (sawDelta && buffer) {
+            content.innerHTML = md(buffer) + '<div class="ai-stopped-tag">Stopped</div>';
+            _aiHistory.push({ role: 'assistant', content: buffer + '\n\n_(stopped)_' });
+            bindActions(row, buffer, msg);
+          } else {
+            row.remove();
+          }
+        } else {
+          row.remove();
+          appendErrorBubble(box, 'Could not reach AI. Please try again.', msg);
+        }
         _aiBusy = false;
+      }).finally(function(){
+        if (window._aiCurrentAbort === controller) window._aiCurrentAbort = null;
       });
     }
 
@@ -8365,6 +8466,28 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       } else {
         sendStream(msg, false);
       }
+    };
+
+    // Toggle send/stop button state. Called from the streaming pipeline.
+    window._aiSetSendButtonState = function (state) {
+      var btn = document.getElementById('aiSendBtn');
+      if (!btn) return;
+      var s = (state === 'busy') ? 'busy' : 'idle';
+      btn.setAttribute('data-state', s);
+      btn.setAttribute('aria-label', s === 'busy' ? 'Stop generating' : 'Send');
+      btn.title = s === 'busy' ? 'Stop generating' : 'Send';
+    };
+    function _aiSetSendButtonState(state) { return window._aiSetSendButtonState(state); }
+
+    // Click handler for the dual-purpose Send/Stop button.
+    window._aiSendOrStop = function () {
+      if (_aiBusy) {
+        try {
+          if (window._aiCurrentAbort) window._aiCurrentAbort.abort();
+        } catch (_) {}
+        return;
+      }
+      window._aiSend();
     };
 
     // ── Split-mode parallel send: dispatch one SSE stream per pane. ──
@@ -10778,27 +10901,18 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       }
       var el = document.getElementById('aiProviderChooser');
       if (!el) { onPick && onPick(window._aiPickedProvider()); return; }
-      // Reset cards + sync currently-picked provider as active.
+      // Reset cards + highlight the currently saved provider/variant.
       var cards = el.querySelectorAll('.aipc-card');
       var currentProv = window._aiPickedProvider();
+      var currentDsVariant = (typeof window._aiDeepSeekVariant === 'function') ? window._aiDeepSeekVariant() : 'pro';
       Array.prototype.forEach.call(cards, function (c) {
         c.removeAttribute('disabled');
         var st = c.querySelector('[data-status]'); if (st) st.textContent = 'Ready';
-        c.classList.toggle('is-active', c.getAttribute('data-provider') === currentProv);
-      });
-      // Sync DeepSeek variant pill from saved choice.
-      try {
-        if (typeof window._aiSetDeepSeekVariant === 'function') {
-          window._aiSetDeepSeekVariant(window._aiDeepSeekVariant());
-        }
-      } catch (_) {}
-      // Wire variant pill clicks (rebind on every open since cards get cloned on close).
-      Array.prototype.forEach.call(el.querySelectorAll('.aipc-variant-btn'), function (b) {
-        b.addEventListener('click', function (ev) {
-          ev.stopPropagation();
-          var v = b.getAttribute('data-ds-variant');
-          if (v) window._aiSetDeepSeekVariant(v);
-        });
+        var cardProv = c.getAttribute('data-provider');
+        var cardDs = c.getAttribute('data-deepseek-model') || '';
+        var matchProv = cardProv === currentProv;
+        var matchVariant = (cardProv !== 'deepseek') || (cardDs === currentDsVariant);
+        c.classList.toggle('is-active', matchProv && matchVariant);
       });
       el.classList.add('open');
       el.setAttribute('aria-hidden', 'false');
@@ -10845,9 +10959,13 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
           if (c.hasAttribute('disabled')) return;
           var prov = c.getAttribute('data-provider');
           var purpose = c.getAttribute('data-purpose') || 'chat';
+          var dsVariant = c.getAttribute('data-deepseek-model') || '';
           try {
             localStorage.setItem('nlpl_ai_provider', prov);
             localStorage.setItem('nlpl_ai_purpose', purpose);
+            if (prov === 'deepseek' && (dsVariant === 'flash' || dsVariant === 'pro')) {
+              localStorage.setItem('nlpl_ai_deepseek_model', dsVariant);
+            }
           } catch (_) {}
           if (typeof window._aiApplyTheme === 'function') window._aiApplyTheme(prov);
           close();
