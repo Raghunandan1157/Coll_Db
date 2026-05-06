@@ -8519,11 +8519,16 @@ async function runDeepSeekWithTools(messages, session, maxRounds, onProgress) {
     }
     console.log(`[deepseek-tools] round ${round + 1}/${max} calling ${calls.length} tool(s): ${calls.map(c => c?.function?.name).join(', ')}`);
     if (emit) emit({ type: 'tools', names: calls.map(c => c?.function?.name).filter(Boolean) });
-    convo.push({
+    const dsAssistantTurn = {
       role: 'assistant',
       content: msg.content == null ? null : msg.content,
       tool_calls: calls,
-    });
+    };
+    // DeepSeek v4-pro (reasoning mode) rejects the next round with
+    // "The reasoning_content in the thinking mode must be passed back to the API."
+    // unless we echo reasoning_content on the assistant turn.
+    if (msg.reasoning_content) dsAssistantTurn.reasoning_content = msg.reasoning_content;
+    convo.push(dsAssistantTurn);
     for (const c of calls) {
       const fnName = c?.function?.name || '';
       let argObj = {};
