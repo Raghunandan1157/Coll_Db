@@ -13227,11 +13227,16 @@ body.emp-dark #voMobile .vom-full-table tr.total-row td {
             if (!n) return false;
             var cls = (n.className || '');
             if (typeof cls !== 'string') return false;
-            // Skip the structural blocks we've already rendered.
-            if (/ai-ans-hero|ai-ans-mkpis|ai-ans-followups|ai-spark-wrap/.test(cls)) return false;
+            // Skip the structural blocks we've already rendered. .ai-ans-calc
+            // is the live <details> drawer — print-card builds its own static
+            // mirror later, so including it here produces a duplicate
+            // "Show calculation" block in the captured PNG.
+            if (/ai-ans-hero|ai-ans-mkpis|ai-ans-followups|ai-spark-wrap|ai-ans-calc/.test(cls)) return false;
             if (n.tagName === 'TABLE') return false; // handled separately below
             // Preserve any wrapper that contains the styled table.
             if (n.querySelector && n.querySelector('table')) return false;
+            // Also skip wrappers that contain the calc drawer.
+            if (n.querySelector && n.querySelector('.ai-ans-calc')) return false;
             if (looksLikeTableDupHeading(n)) return false;  // only drop fake-table heading row
             return true;
           });
