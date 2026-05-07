@@ -8156,6 +8156,10 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       row.innerHTML = botIcon
         + '<div class="ai-bot-col">'
         + '<div class="ai-status" data-status></div>'
+        + '<div class="ai-think" data-think hidden>'
+        +   '<div class="ai-think-meta"><span class="ai-think-pip"></span><span>NLPL · running query</span><span class="ai-think-line"></span></div>'
+        +   '<div class="ai-think-card" data-think-card></div>'
+        + '</div>'
         + '<div class="ai-bubble ai-bubble-bot" data-content><span class="ai-typing"><span class="ai-dot"></span><span class="ai-dot" style="animation-delay:.2s"></span><span class="ai-dot" style="animation-delay:.4s"></span></span></div>'
         + '<div class="ai-actions" data-actions style="display:none;">'
         + '<button class="ai-action-btn" data-act="copy" title="Copy"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>'
@@ -8276,6 +8280,8 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       var row = appendAssistantShell(box);
       var content = row.querySelector('[data-content]');
       var statusEl = row.querySelector('[data-status]');
+      var thinkBox = row.querySelector('[data-think]');
+      var thinkCard = row.querySelector('[data-think-card]');
       var session = getSession();
       var msgs = [];
       _aiHistory.slice(-20).forEach(function(h){ msgs.push({ role: h.role, content: h.content }); });
@@ -8356,44 +8362,92 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
 
       var buffer = '';
       var sawDelta = false;
-      function setStatus(text) {
-        if (!statusEl) return;
-        if (!text) { statusEl.style.display = 'none'; statusEl.textContent = ''; return; }
-        statusEl.style.display = 'inline-flex';
-        statusEl.textContent = text;
+      // ── Multi-step thinking card (matches design pack: dot, check, mono text) ──
+      function showThink() {
+        if (statusEl) { statusEl.style.display = 'none'; statusEl.textContent = ''; }
+        if (thinkBox) thinkBox.hidden = false;
+        if (content) content.style.display = 'none';
       }
+      function hideThink() {
+        if (thinkBox) thinkBox.hidden = true;
+        if (content) content.style.display = '';
+      }
+      function pushStep(key, label) {
+        if (!thinkCard) return;
+        var existing = thinkCard.querySelector('[data-tk="' + key + '"]');
+        Array.prototype.forEach.call(thinkCard.querySelectorAll('.ai-think-step'), function (s) {
+          s.classList.remove('active');
+          if (!s.classList.contains('done')) s.classList.add('done');
+          var c = s.querySelector('.ai-cursor-blink'); if (c) c.remove();
+        });
+        if (existing) {
+          existing.classList.remove('done');
+          existing.classList.add('active');
+          var lbl = existing.querySelector('.ai-think-label');
+          if (lbl) lbl.textContent = label;
+          if (!existing.querySelector('.ai-cursor-blink')) {
+            var cur = document.createElement('span');
+            cur.className = 'ai-cursor-blink';
+            existing.appendChild(cur);
+          }
+          return existing;
+        }
+        var step = document.createElement('div');
+        step.className = 'ai-think-step active';
+        step.setAttribute('data-tk', key);
+        step.innerHTML = '<span class="ai-think-dot"></span>'
+          + '<span class="ai-think-check"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>'
+          + '<span class="ai-think-label">' + (label || '') + '</span>'
+          + '<span class="ai-cursor-blink"></span>';
+        thinkCard.appendChild(step);
+        return step;
+      }
+      function setStatus(_) { /* legacy no-op; thinking now lives in the card */ }
       function applyEvent(event, dataStr) {
         var data = {};
         try { data = JSON.parse(dataStr); } catch (_) {}
         if (event === 'open') {
-          setStatus('Preparing request…');
+          showThink();
+          pushStep('open', 'preparing request');
         } else if (event === 'thinking') {
-          if (!sawDelta) setStatus('Thinking through the dashboard context…');
+          if (!sawDelta) {
+            showThink();
+            pushStep('thinking', 'thinking through dashboard context');
+          }
         } else if (event === 'tools') {
+          showThink();
           var names = (data.names || []).join(', ');
-          setStatus('Querying ' + (names || 'database') + '…');
+          pushStep('tools', 'querying ' + (names || 'database'));
         } else if (event === 'tool_result') {
-          setStatus('Reading data and preparing the result…');
+          pushStep('tool_result', 'reading data · preparing result');
         } else if (event === 'fallback') {
-          setStatus('Switching provider and retrying…');
+          pushStep('fallback', 'switching provider · retrying');
         } else if (event === 'delta') {
           if (!sawDelta) {
             sawDelta = true;
-            setStatus('Writing answer…');
+            // Mark all steps done; fade out the thinking card.
+            if (thinkCard) {
+              Array.prototype.forEach.call(thinkCard.querySelectorAll('.ai-think-step'), function (s) {
+                s.classList.remove('active');
+                s.classList.add('done');
+                var c = s.querySelector('.ai-cursor-blink'); if (c) c.remove();
+              });
+            }
+            setTimeout(hideThink, 180);
             content.innerHTML = '';
           }
           buffer += data.text || '';
           content.innerHTML = md(buffer) + '<span class="ai-cursor"></span>';
           box.scrollTop = box.scrollHeight;
         } else if (event === 'done') {
-          setStatus('');
+          hideThink();
           content.innerHTML = md(buffer);
           _aiHistory.push({ role: 'assistant', content: buffer });
           try { window._aiPersistTurn && window._aiPersistTurn('assistant', buffer); } catch (_) {}
           bindActions(row, buffer, msg);
           _aiBusy = false;
         } else if (event === 'error') {
-          setStatus('');
+          hideThink();
           row.remove();
           appendErrorBubble(box, data.message || 'AI is briefly busy. Please retry.', msg, data.code || data.error || '', msg);
           _aiBusy = false;
@@ -10438,7 +10492,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       return r !== 'FO';
     }
 
-    window._AI_PROVIDERS = ['openai', 'mistral', 'gemini', 'deepseek'];
+    window._AI_PROVIDERS = ['openai', 'mistral', 'deepseek'];
     window._AI_PROVIDER_META = {
       openai:   { label: 'ChatGPT',  model: 'gpt-4o',              accent: '#10A37F', bg: '#ECFDF5', text: '#047857' },
       mistral:  { label: 'Mistral',  model: 'mistral-large',       accent: '#FF7000', bg: '#FFF4EC', text: '#C2410C' },
@@ -10517,17 +10571,26 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       var menu = document.getElementById('aiProvMenu');
       if (!menu) return;
       var avail = window._aiAvailableProviders;
-      var providers = window._AI_PROVIDERS || [];
       var current = window._aiPickedProvider();
+      var dsVariant = (typeof window._aiDeepSeekVariant === 'function') ? window._aiDeepSeekVariant() : 'pro';
+      // Gemini removed — provider entries built explicitly so DeepSeek can split into Flash + Pro.
+      var entries = [
+        { prov: 'openai',   variant: null,    label: 'ChatGPT',          sub: 'gpt-4o' },
+        { prov: 'mistral',  variant: null,    label: 'Mistral',          sub: 'mistral-large' },
+        { prov: 'deepseek', variant: 'flash', label: 'DeepSeek',         sub: 'deepseek-v4-flash' },
+        { prov: 'deepseek', variant: 'pro',   label: 'DeepSeek',         sub: 'deepseek-v4-pro' }
+      ];
       menu.innerHTML = '';
-      providers.forEach(function (p) {
-        var meta = window._AI_PROVIDER_META[p];
+      entries.forEach(function (e) {
+        var meta = window._AI_PROVIDER_META[e.prov];
         if (!meta) return;
+        var isActive = (e.prov === current) && (e.prov !== 'deepseek' || e.variant === dsVariant);
         var btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = 'ai-prov-menu-item' + (p === current ? ' active' : '');
-        btn.setAttribute('data-prov', p);
-        if (avail && avail.indexOf(p) < 0) {
+        btn.className = 'ai-prov-menu-item' + (isActive ? ' active' : '');
+        btn.setAttribute('data-prov', e.prov);
+        if (e.variant) btn.setAttribute('data-deepseek-model', e.variant);
+        if (avail && avail.indexOf(e.prov) < 0) {
           btn.setAttribute('disabled', 'disabled');
           btn.title = 'Not configured on the server';
         }
@@ -10535,12 +10598,17 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
           '<span class="ai-prov-swatch" style="background:' + meta.accent + '"></span>' +
           '<span class="ai-prov-meta">' +
             '<span class="ai-prov-meta-name">' + meta.label + '</span>' +
-            '<span class="ai-prov-meta-sub">' + meta.model + '</span>' +
+            '<span class="ai-prov-meta-sub">' + e.sub + '</span>' +
           '</span>';
         btn.addEventListener('click', function () {
           if (btn.hasAttribute('disabled')) return;
-          try { localStorage.setItem('nlpl_ai_provider', p); } catch (_) {}
-          window._aiApplyTheme(p);
+          try {
+            localStorage.setItem('nlpl_ai_provider', e.prov);
+            if (e.prov === 'deepseek' && e.variant) {
+              localStorage.setItem('nlpl_ai_deepseek_model', e.variant);
+            }
+          } catch (_) {}
+          window._aiApplyTheme(e.prov);
           window._aiToggleProvMenu(false);
         });
         menu.appendChild(btn);
@@ -14047,6 +14115,82 @@ body.emp-dark #aiPanel {
 #aiPanel #aiThemeBtn .ai-theme-moon { display: block; }
 body.emp-dark #aiPanel #aiThemeBtn .ai-theme-sun { display: block; }
 body.emp-dark #aiPanel #aiThemeBtn .ai-theme-moon { display: none; }
+
+/* Thinking card — matches design pack: meta line + steps with dot/check, mono text. */
+#aiPanel .ai-think {
+  display: flex; flex-direction: column; gap: 10px;
+  margin: 4px 0 14px;
+  font-family: var(--nlpl-font-mono);
+}
+#aiPanel .ai-think[hidden] { display: none; }
+#aiPanel .ai-think-meta {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 10.5px;
+  color: var(--nlpl-fg-4);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+#aiPanel .ai-think-pip {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--nlpl-accent);
+  box-shadow: 0 0 8px rgba(31,95,209,0.45);
+  flex-shrink: 0;
+}
+#aiPanel .ai-think-line {
+  flex: 1; height: 1px; max-width: 80px;
+  background: linear-gradient(90deg, var(--nlpl-line), transparent);
+}
+#aiPanel .ai-think-card {
+  background: var(--nlpl-bg-card);
+  border: 1px solid var(--nlpl-line);
+  border-radius: var(--nlpl-radius);
+  padding: 12px 16px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+#aiPanel .ai-think-step {
+  display: flex; align-items: center; gap: 10px;
+  font-family: var(--nlpl-font-mono);
+  font-size: 11.5px;
+  color: var(--nlpl-fg-3);
+  line-height: 1.4;
+}
+#aiPanel .ai-think-step.pending { color: var(--nlpl-fg-4); }
+#aiPanel .ai-think-step.done { color: var(--nlpl-fg-2); }
+#aiPanel .ai-think-step.active { color: var(--nlpl-fg); }
+#aiPanel .ai-think-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--nlpl-accent);
+  box-shadow: 0 0 8px rgba(31,95,209,0.45);
+}
+#aiPanel .ai-think-step.pending .ai-think-dot {
+  background: var(--nlpl-fg-4); box-shadow: none;
+}
+#aiPanel .ai-think-step.done .ai-think-dot {
+  background: var(--nlpl-pos);
+  box-shadow: 0 0 0 2px rgba(31,138,91,0.18);
+}
+#aiPanel .ai-think-check {
+  display: none;
+  width: 11px; height: 11px;
+  color: var(--nlpl-pos);
+  flex-shrink: 0;
+}
+#aiPanel .ai-think-step.done .ai-think-check { display: inline-grid; place-items: center; }
+#aiPanel .ai-think-label::before {
+  content: '→ ';
+  color: var(--nlpl-fg-4);
+  margin-right: 2px;
+}
+#aiPanel .ai-cursor-blink {
+  display: inline-block;
+  width: 6px; height: 12px;
+  background: var(--nlpl-accent);
+  margin-left: 4px;
+  vertical-align: middle;
+  animation: aiCursorBlink 0.9s steps(2) infinite;
+}
+@keyframes aiCursorBlink { 50% { opacity: 0; } }
 
 /* Auto-spark — tiny SVG area chart appended to bot bubbles. */
 #aiPanel .ai-spark-wrap {

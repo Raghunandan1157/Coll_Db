@@ -8554,9 +8554,27 @@ async function runDeepSeekWithTools(messages, session, maxRounds, onProgress, mo
   const callSig = new Map();
   for (let round = 0; round < max; round++) {
     if (emit) emit({ type: 'thinking', round: round + 1 });
-    const r = await callDeepSeekChatTools(convo, AI_TOOLS_SPEC, modelOverride);
+    let r = await callDeepSeekChatTools(convo, AI_TOOLS_SPEC, modelOverride);
+    if (!r.ok && r.error === 'deepseek_http_400' && round > 0) {
+      // Retry once after dropping the assistant's reasoning_content + tool_calls
+      // and any unmatched tool turns. v4-pro occasionally rejects the echoed
+      // chain on the next round — a fresh invocation usually recovers without
+      // having to fail the whole stream.
+      const rawSnip = r.raw ? ` raw=${String(r.raw).replace(/\s+/g, ' ').slice(0, 240)}` : '';
+      console.error(`[deepseek-tools] round ${round + 1}/${max} 400; retrying without reasoning_content${rawSnip}`);
+      const cleaned = convo.map(m => {
+        if (m && m.role === 'assistant') {
+          const c = { role: 'assistant', content: m.content == null ? '' : m.content };
+          if (m.tool_calls) c.tool_calls = m.tool_calls;
+          return c;
+        }
+        return m;
+      });
+      r = await callDeepSeekChatTools(cleaned, AI_TOOLS_SPEC, modelOverride);
+    }
     if (!r.ok) {
-      console.error(`[deepseek-tools] round ${round + 1}/${max} call failed: ${r.error}`);
+      const rawSnip = r.raw ? ` raw=${String(r.raw).replace(/\s+/g, ' ').slice(0, 240)}` : '';
+      console.error(`[deepseek-tools] round ${round + 1}/${max} call failed: ${r.error}${rawSnip}`);
       return r;
     }
     const msg = r.message || {};
