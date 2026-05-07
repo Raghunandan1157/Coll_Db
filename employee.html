@@ -11404,6 +11404,12 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
     window._aiVisualIntent = function (question) {
       var q = String(question || '').toLowerCase();
       if (!q) return null;
+      // Categorical breakdown of a single total → donut/pie.
+      // Tested before 'series' so "daily breakdown" still wins time-series.
+      if (/\b(by\s+(product|bucket|dpd|category|type|stage|status)|breakdown|share|distribution|composition|mix|split\s+(by|of))\b/.test(q)
+          && !/\b(daily breakdown|day[-\s]?by[-\s]?day)\b/.test(q)) {
+        return 'breakdown';
+      }
       // Time-series: day-by-day, MTD, FYTD, this/last week/month, trend, till date.
       if (/\b(day[-\s]?by[-\s]?day|trend|over time|each day|daily breakdown|first of (the )?month|till date|mtd|fytd|ytd|this (week|month|year)|last (\d+\s+)?(days?|weeks?|months?))\b/.test(q)) {
         return 'series';
@@ -11478,6 +11484,28 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         var palette = ['#1f5fd1', '#1f8a5b', '#b97a0a', '#7c3aed', '#dc2626', '#0891b2', '#ea580c', '#65a30d', '#db2777', '#475569'];
         var spk = document.createElement('div');
         spk.className = 'ai-spark-wrap';
+        // Breakdown / pie: small categorical table with one numeric column.
+        // Shape gate: 2-8 rows, primary numeric column, NOT date-like.
+        var pieEligible = (intent === 'breakdown')
+          && (rows.length >= 2 && rows.length <= 8)
+          && (dateLike < Math.ceil(rows.length / 2))
+          && (typeof window._aiBuildPieSvg === 'function');
+        if (pieEligible) {
+          var pieSlices = rows.slice(0, 12).map(function (r) {
+            var t = r.cells[primary] ? String(r.cells[primary].textContent || '').replace(/[^\-0-9.]/g, '') : '';
+            return {
+              label: String((r.cells[0] && r.cells[0].textContent) || '').trim().slice(0, 28),
+              value: parseFloat(t) || 0
+            };
+          });
+          spk.classList.add('ai-spark-wrap-pie');
+          spk.innerHTML = window._aiBuildPieSvg(pieSlices, { w: 360, palette: palette });
+          if (spk.innerHTML) {
+            bubbleEl.appendChild(spk);
+            bubbleEl.__sparked = true;
+            return;
+          }
+        }
         if (preferBars) {
           var barRows = rows.slice(0, 10).map(function (r, idx) {
             var t = r.cells[primary] ? String(r.cells[primary].textContent || '').replace(/[^\-0-9.]/g, '') : '';
@@ -11508,6 +11536,77 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       } catch (_) {}
     };
 
+    // Build 2-3 follow-up question prompts from intent + table content.
+    // Heuristic only — no LLM tokens. Returns ['prompt', ...] (≤56 chars each).
+    window._aiBuildFollowups = function (intent, table, userQuestion) {
+      try {
+        var rows = [];
+        if (table) {
+          rows = Array.prototype.slice.call(table.querySelectorAll('tbody tr, tr'))
+            .filter(function (r) { return r.cells && r.cells.length >= 2 && !r.querySelector('th'); });
+        }
+        var maxCols = rows.reduce(function (m, r) { return Math.max(m, r.cells.length); }, 0);
+        var primaryCol = -1;
+        for (var c = 1; c < maxCols; c++) {
+          var hits = 0;
+          rows.forEach(function (r) {
+            var t = r.cells[c] ? String(r.cells[c].textContent || '').replace(/[^\-0-9.]/g, '') : '';
+            if (t && isFinite(parseFloat(t))) hits++;
+          });
+          if (hits >= Math.ceil(rows.length / 2)) { primaryCol = c; break; }
+        }
+        var ranked = (primaryCol > 0) ? rows.slice().map(function (r) {
+          var t = String((r.cells[primaryCol] && r.cells[primaryCol].textContent) || '').replace(/[^\-0-9.]/g, '');
+          return {
+            label: String((r.cells[0] && r.cells[0].textContent) || '').trim(),
+            value: parseFloat(t) || 0
+          };
+        }).filter(function (r) { return r.label && isFinite(r.value); })
+          .sort(function (a, b) { return b.value - a.value; }) : [];
+
+        var top = ranked[0] && ranked[0].label ? ranked[0].label : '';
+        var bot = ranked.length ? ranked[ranked.length - 1].label : '';
+        var mover = top || '';
+
+        function chip(s) {
+          var v = String(s || '').replace(/\s+/g, ' ').trim();
+          if (v.length > 56) v = v.slice(0, 53).trim() + '…';
+          return v;
+        }
+
+        var picks = [];
+        if (intent === 'per-row' && top && bot && top !== bot) {
+          picks.push('Why is ' + bot + ' below plan?');
+          picks.push("Show " + top + "'s performance trend");
+          picks.push('Compare ' + top + ' vs ' + bot + ' this week');
+        } else if (intent === 'compare') {
+          if (mover) picks.push('Drill into ' + mover);
+          picks.push("What's driving the gap?");
+          picks.push('Forecast next 7 days');
+        } else if (intent === 'breakdown') {
+          if (top) picks.push('Show ' + top + ' over time');
+          if (top) picks.push('Which branches drive ' + top + '?');
+          if (top && bot && top !== bot) picks.push('Compare ' + top + ' vs ' + bot);
+        } else if (intent === 'series') {
+          picks.push('Show this trend over the last 30 days');
+          picks.push('Compare with last week');
+          picks.push('Top 5 contributors');
+        } else {
+          picks.push('Show this trend over the last 30 days');
+          picks.push('Compare with last week');
+          picks.push('Top 5 contributors');
+        }
+        var seen = {};
+        var out = [];
+        picks.map(chip).forEach(function (p) {
+          if (!p || seen[p]) return;
+          seen[p] = 1;
+          out.push(p);
+        });
+        return out.slice(0, 3);
+      } catch (_) { return []; }
+    };
+
     // Hero "answer card" wrapper. Runs AFTER markdown render + spark attach.
     // Wraps prose+table inside a .ai-ans-card shell with header, optional
     // hero number + chart, mini-KPI strip, attainment bars, and source foot.
@@ -11518,7 +11617,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         var table = bubbleEl.querySelector('table');
         if (!table) return;
         var intent = window._aiVisualIntent && window._aiVisualIntent(userQuestion);
-        if (intent !== 'series' && intent !== 'compare' && intent !== 'per-row') return;
+        if (intent !== 'series' && intent !== 'compare' && intent !== 'per-row' && intent !== 'breakdown') return;
 
         // Collect data rows (excluding header rows).
         var rows = Array.prototype.slice.call(table.querySelectorAll('tbody tr, tr'))
@@ -11588,8 +11687,9 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         var meta = document.createElement('div');
         meta.className = 'ai-ans-meta';
         var metaText = document.createElement('span');
-        metaText.textContent = (intent === 'per-row') ? 'Ranked answer'
-                              : (intent === 'compare') ? 'Comparison'
+        metaText.textContent = (intent === 'per-row')   ? 'Ranked answer'
+                              : (intent === 'compare')   ? 'Comparison'
+                              : (intent === 'breakdown') ? 'Breakdown'
                               : 'Time-series answer';
         meta.appendChild(metaText);
         var metaLine = document.createElement('span');
@@ -12016,6 +12116,40 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
           }
         } catch (_) {}
 
+        // ── Follow-up question chips (heuristic, no LLM) ──────────────
+        try {
+          var followPrompts = window._aiBuildFollowups
+            ? window._aiBuildFollowups(intent, table, userQuestion) : [];
+          if (followPrompts && followPrompts.length) {
+            var fuWrap = document.createElement('div');
+            fuWrap.className = 'ai-ans-followups';
+            var fuLabel = document.createElement('span');
+            fuLabel.className = 'ai-ans-fu-label';
+            fuLabel.textContent = 'Follow up';
+            fuWrap.appendChild(fuLabel);
+            var FU_ICON = '<svg class="ai-ans-fu-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2 14.5 8.5 21 11l-6.5 2.5L12 20l-2.5-6.5L3 11l6.5-2.5z"/></svg>';
+            followPrompts.forEach(function (p) {
+              var btn = document.createElement('button');
+              btn.type = 'button';
+              btn.className = 'ai-ans-fu';
+              btn.setAttribute('data-prompt', p);
+              btn.innerHTML = FU_ICON + '<span class="ai-ans-fu-text"></span>';
+              btn.querySelector('.ai-ans-fu-text').textContent = p;
+              btn.addEventListener('click', function () {
+                var prompt = btn.getAttribute('data-prompt') || '';
+                var inp = document.getElementById('aiInput');
+                if (inp) {
+                  inp.value = prompt;
+                  try { inp.focus(); } catch (_) {}
+                }
+                try { window._aiSend && window._aiSend(); } catch (_) {}
+              });
+              fuWrap.appendChild(btn);
+            });
+            body.appendChild(fuWrap);
+          }
+        } catch (_) {}
+
         card.appendChild(head);
         card.appendChild(body);
 
@@ -12195,6 +12329,77 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       var legend = '<div class="ai-spark-legend"><span class="ai-spark-legend-item">' + (opts.headLabel || 'value') + ' · sorted desc</span></div>';
       return svg + legend;
     };
+    // Donut chart used when intent is 'breakdown' (categorical share of one total).
+    // slices: [{label, value, color?}], opts: { w, palette }. Caps at 6, merges tail.
+    window._aiBuildPieSvg = function (slices, opts) {
+      opts = opts || {};
+      var palette = opts.palette || ['#1f5fd1','#1f8a5b','#b97a0a','#7c3aed','#dc2626','#0891b2'];
+      var raw = (slices || []).map(function (s) {
+        return { label: String(s.label || '').slice(0, 28), value: Math.max(0, Number(s.value) || 0) };
+      }).filter(function (s) { return s.value > 0; });
+      if (raw.length < 2) return '';
+      raw.sort(function (a, b) { return b.value - a.value; });
+      if (raw.length > 6) {
+        var head = raw.slice(0, 5);
+        var tail = raw.slice(5);
+        var other = tail.reduce(function (sum, s) { return sum + s.value; }, 0);
+        head.push({ label: 'Other', value: other });
+        raw = head;
+      }
+      var total = raw.reduce(function (sum, s) { return sum + s.value; }, 0) || 1;
+      raw.forEach(function (s, i) { s.color = s.color || palette[i % palette.length]; });
+
+      var w = opts.w || 360;
+      var h = 160;
+      var cx = 80, cy = 80, r = 64, ir = 44; // donut: outer 64, inner 44 → thickness 20.
+      function arcPath(startA, endA) {
+        var sx1 = cx + r * Math.sin(startA), sy1 = cy - r * Math.cos(startA);
+        var ex1 = cx + r * Math.sin(endA),   ey1 = cy - r * Math.cos(endA);
+        var sx2 = cx + ir * Math.sin(endA),  sy2 = cy - ir * Math.cos(endA);
+        var ex2 = cx + ir * Math.sin(startA),ey2 = cy - ir * Math.cos(startA);
+        var large = (endA - startA) > Math.PI ? 1 : 0;
+        return 'M ' + sx1.toFixed(2) + ' ' + sy1.toFixed(2)
+             + ' A ' + r + ' ' + r + ' 0 ' + large + ' 1 ' + ex1.toFixed(2) + ' ' + ey1.toFixed(2)
+             + ' L ' + sx2.toFixed(2) + ' ' + sy2.toFixed(2)
+             + ' A ' + ir + ' ' + ir + ' 0 ' + large + ' 0 ' + ex2.toFixed(2) + ' ' + ey2.toFixed(2)
+             + ' Z';
+      }
+      function fmt(v) {
+        if (Math.abs(v) >= 1e7) return (v / 1e7).toFixed(1) + ' Cr';
+        if (Math.abs(v) >= 1e5) return (v / 1e5).toFixed(1) + ' L';
+        if (Math.abs(v) >= 1000) return Math.round(v).toLocaleString('en-IN');
+        if (Number.isInteger(v)) return String(v);
+        return v.toFixed(1);
+      }
+      function esc(s) { return String(s || '').replace(/[<>&]/g, function (m) { return ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' })[m]; }); }
+
+      var svg = '<svg class="ai-spark ai-spark-pie" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="xMinYMin meet" aria-hidden="true">';
+      var acc = 0;
+      raw.forEach(function (s) {
+        var startA = (acc / total) * Math.PI * 2;
+        acc += s.value;
+        var endA = (acc / total) * Math.PI * 2;
+        if (raw.length === 1) {
+          svg += '<circle cx="' + cx + '" cy="' + cy + '" r="' + ((r + ir) / 2) + '" fill="none" stroke="' + s.color + '" stroke-width="' + (r - ir) + '"/>';
+        } else {
+          svg += '<path d="' + arcPath(startA, endA) + '" fill="' + s.color + '"/>';
+        }
+      });
+      svg += '<text x="' + cx + '" y="' + (cy - 2) + '" text-anchor="middle" font-family="ui-monospace, Menlo, monospace" font-size="16" font-weight="600" fill="rgba(15,25,41,0.95)">' + fmt(total) + '</text>';
+      svg += '<text x="' + cx + '" y="' + (cy + 14) + '" text-anchor="middle" font-family="ui-monospace, Menlo, monospace" font-size="9" fill="rgba(15,25,41,0.50)" letter-spacing="0.12em">TOTAL</text>';
+      svg += '</svg>';
+
+      var legend = '<div class="ai-spark-legend ai-spark-pie-legend">' + raw.map(function (s) {
+        var pct = ((s.value / total) * 100).toFixed(1);
+        return '<span class="ai-spark-legend-item">'
+             + '<span class="ai-spark-swatch" style="background:' + s.color + '"></span>'
+             + '<span class="ai-pie-leg-label">' + esc(s.label) + '</span>'
+             + '<span class="ai-pie-leg-val">' + fmt(s.value) + ' <span class="ai-pie-leg-pct">(' + pct + '%)</span></span>'
+             + '</span>';
+      }).join('') + '</div>';
+      return svg + legend;
+    };
+
     // Multi-series area+line chart used when intent is series/compare.
     window._aiBuildSeriesSvg = function (series, labels, opts) {
       opts = opts || {};
@@ -16975,6 +17180,99 @@ body.emp-dark #aiPanel .ai-insp-tl-dot {
   #aiPanel .ai-ans-hero-num { font-size: 44px; }
   #aiPanel .ai-ans-hero-num .ai-ans-hero-unit { font-size: 22px; }
   #aiPanel .ai-ans-mkpis { grid-template-columns: 1fr 1fr; }
+}
+
+/* ── Pie / donut chart (intent='breakdown') ─────────────────────── */
+#aiPanel .ai-spark-wrap-pie {
+  max-width: 360px;
+}
+#aiPanel .ai-spark-pie {
+  max-height: 180px;
+}
+#aiPanel .ai-spark-pie-legend {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 16px;
+  margin-top: 10px;
+  font-family: var(--nlpl-font-mono);
+  font-size: 11px;
+  color: var(--nlpl-fg-3);
+  letter-spacing: 0.02em;
+}
+#aiPanel .ai-spark-pie-legend .ai-spark-legend-item {
+  display: grid;
+  grid-template-columns: 10px 1fr auto;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+#aiPanel .ai-spark-pie-legend .ai-pie-leg-label {
+  color: var(--nlpl-fg-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#aiPanel .ai-spark-pie-legend .ai-pie-leg-val {
+  color: var(--nlpl-fg);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+#aiPanel .ai-spark-pie-legend .ai-pie-leg-pct {
+  color: var(--nlpl-fg-4);
+}
+@media (max-width: 760px) {
+  #aiPanel .ai-spark-pie-legend { grid-template-columns: 1fr; }
+}
+
+/* ── Follow-up question chips inside the answer card ───────────── */
+#aiPanel .ai-ans-followups {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--nlpl-line-soft);
+  margin-top: 14px;
+}
+#aiPanel .ai-ans-fu-label {
+  font-family: var(--nlpl-font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--nlpl-fg-4);
+  margin-right: 4px;
+}
+#aiPanel .ai-ans-fu {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--nlpl-font-sans);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--nlpl-fg-2);
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--nlpl-line);
+  background: var(--nlpl-bg-card);
+  cursor: pointer;
+  transition: all 0.15s;
+  box-shadow: 0 1px 2px rgba(15,25,41,0.04);
+  line-height: 1.2;
+}
+#aiPanel .ai-ans-fu .ai-ans-fu-icon {
+  color: var(--nlpl-accent);
+  flex-shrink: 0;
+}
+#aiPanel .ai-ans-fu:hover {
+  background: var(--nlpl-bg-card-2);
+  color: var(--nlpl-fg);
+  border-color: var(--nlpl-accent);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(15,25,41,0.06);
+}
+@media (max-width: 760px) {
+  #aiPanel .ai-ans-followups { gap: 6px; padding-top: 12px; margin-top: 12px; }
+  #aiPanel .ai-ans-fu { font-size: 12px; padding: 5px 10px; }
 }
 </style>
 </body>
