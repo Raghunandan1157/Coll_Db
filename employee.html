@@ -5720,8 +5720,8 @@ body.emp-dark .ai-chart-dl { border-color: #1F2937; }
 }
 
 /* Dark-mode-ish softening when emp-dark is active */
-body.emp-dark #aiPanel { background: #0F172A; color: #E5E7EB; }
-body.emp-dark #aiPanel { border-color: #1F2937 !important; box-shadow: none !important; }
+#aiPanel.ai-dark { background: #0F172A; color: #E5E7EB; }
+#aiPanel.ai-dark { border-color: #1F2937 !important; box-shadow: none !important; }
 body.emp-dark .ai-panel-header { background: #0F172A; border-color: #1F2937; }
 body.emp-dark .ai-header-title { color: #F9FAFB; }
 body.emp-dark .ai-header-sub   { color: #9CA3AF; }
@@ -6540,39 +6540,39 @@ body:not(.emp-dark) #aiPanel .ai-bubble .ai-table tr.total-row td * {
 }
 
 /* Dark mode */
-body.emp-dark #aiPanel .ai-bubble .ai-table,
-body.emp-dark #aiPanel .ai-bubble .ai-table-wrap {
+#aiPanel.ai-dark .ai-bubble .ai-table,
+#aiPanel.ai-dark .ai-bubble .ai-table-wrap {
   background: #0B1220 !important;
   border-color: #334155 !important;
 }
-body.emp-dark #aiPanel .ai-bubble .ai-table thead th,
-body.emp-dark #aiPanel .ai-bubble .ai-table thead th * {
+#aiPanel.ai-dark .ai-bubble .ai-table thead th,
+#aiPanel.ai-dark .ai-bubble .ai-table thead th * {
   background: #8B1A2D !important;
   color: #FFFFFF !important;
   border-color: #6E1422 !important;
 }
-body.emp-dark #aiPanel .ai-bubble .ai-table tbody td,
-body.emp-dark #aiPanel .ai-bubble .ai-table tbody td * {
+#aiPanel.ai-dark .ai-bubble .ai-table tbody td,
+#aiPanel.ai-dark .ai-bubble .ai-table tbody td * {
   background: #111827 !important;
   color: #F1F5F9 !important;
   border-color: #334155 !important;
 }
-body.emp-dark #aiPanel .ai-bubble .ai-table tbody tr:nth-child(even) td:not(:first-child),
-body.emp-dark #aiPanel .ai-bubble .ai-table tbody tr:nth-child(even) td:not(:first-child) * {
+#aiPanel.ai-dark .ai-bubble .ai-table tbody tr:nth-child(even) td:not(:first-child),
+#aiPanel.ai-dark .ai-bubble .ai-table tbody tr:nth-child(even) td:not(:first-child) * {
   background: #0F172A !important;
   color: #F1F5F9 !important;
 }
-body.emp-dark #aiPanel .ai-bubble .ai-table tbody tr td:first-child,
-body.emp-dark #aiPanel .ai-bubble .ai-table tbody tr td:first-child * {
+#aiPanel.ai-dark .ai-bubble .ai-table tbody tr td:first-child,
+#aiPanel.ai-dark .ai-bubble .ai-table tbody tr td:first-child * {
   background: #422006 !important;
   color: #FCD34D !important;
   font-weight: 600 !important;
 }
-body.emp-dark #aiPanel .ai-bubble .ai-table tbody tr:hover td:not(:first-child) {
+#aiPanel.ai-dark .ai-bubble .ai-table tbody tr:hover td:not(:first-child) {
   background: #1E293B !important;
 }
-body.emp-dark #aiPanel .ai-bubble .ai-table tr.total-row td,
-body.emp-dark #aiPanel .ai-bubble .ai-table tr.total-row td * {
+#aiPanel.ai-dark .ai-bubble .ai-table tr.total-row td,
+#aiPanel.ai-dark .ai-bubble .ai-table tr.total-row td * {
   background: #78350F !important;
   color: #FEF3C7 !important;
   border-top-color: #F59E0B !important;
@@ -11288,18 +11288,27 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       }
     };
 
-    // ── Theme toggle (light default, dark via body.emp-dark) ──
+    // ── Theme toggle — scoped to #aiPanel only.
+    // Dashboard body.emp-dark is its own state; the AI panel has its own
+    // theme stored in nlpl_ai_theme and applied via #aiPanel.ai-light /
+    // #aiPanel.ai-dark. Default is light. The override CSS reads these
+    // panel classes and falls back to body.emp-dark only if neither is set.
     window._aiApplyStoredTheme = function () {
       try {
         var t = localStorage.getItem('nlpl_ai_theme') || 'light';
-        if (t === 'dark') document.body.classList.add('emp-dark');
-        else document.body.classList.remove('emp-dark');
+        var p = document.getElementById('aiPanel');
+        if (!p) return;
+        p.classList.remove('ai-light', 'ai-dark');
+        p.classList.add(t === 'dark' ? 'ai-dark' : 'ai-light');
       } catch (_) {}
     };
     window._aiToggleTheme = function () {
       try {
-        var dark = !document.body.classList.contains('emp-dark');
-        document.body.classList.toggle('emp-dark', dark);
+        var p = document.getElementById('aiPanel');
+        if (!p) return;
+        var dark = !p.classList.contains('ai-dark');
+        p.classList.remove('ai-light', 'ai-dark');
+        p.classList.add(dark ? 'ai-dark' : 'ai-light');
         localStorage.setItem('nlpl_ai_theme', dark ? 'dark' : 'light');
       } catch (_) {}
     };
@@ -16361,7 +16370,10 @@ document.addEventListener('keydown', function(e) {
   --nlpl-font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   --nlpl-font-mono: "IBM Plex Mono", "SF Mono", ui-monospace, Menlo, monospace;
 }
-body.emp-dark #aiPanel {
+/* AI panel theme is now scoped to the panel itself, NOT body.emp-dark.
+   Default = light. User toggle adds .ai-dark to #aiPanel. The dashboard's
+   own body.emp-dark stays decoupled. */
+#aiPanel.ai-dark {
   --nlpl-bg: #0f1320;
   --nlpl-bg-elev: #161b2c;
   --nlpl-bg-card: #1a2034;
@@ -16634,8 +16646,8 @@ body.emp-dark #aiPanel {
 /* Theme toggle: show sun in dark mode, moon in light mode. */
 #aiPanel #aiThemeBtn .ai-theme-sun { display: none; }
 #aiPanel #aiThemeBtn .ai-theme-moon { display: block; }
-body.emp-dark #aiPanel #aiThemeBtn .ai-theme-sun { display: block; }
-body.emp-dark #aiPanel #aiThemeBtn .ai-theme-moon { display: none; }
+#aiPanel.ai-dark #aiThemeBtn .ai-theme-sun { display: block; }
+#aiPanel.ai-dark #aiThemeBtn .ai-theme-moon { display: none; }
 
 /* Thinking card — matches design pack: meta line + steps with dot/check, mono text. */
 #aiPanel .ai-think {
@@ -17029,7 +17041,7 @@ body.emp-dark #aiPanel #aiThemeBtn .ai-theme-moon { display: none; }
   align-items: flex-end;
   gap: 6px;
 }
-body.emp-dark #aiPanel .ai-panel-input-wrap {
+#aiPanel.ai-dark .ai-panel-input-wrap {
   box-shadow: 0 4px 16px rgba(0,0,0,0.30) !important;
 }
 #aiPanel .ai-panel-input-wrap:focus-within {
@@ -17305,7 +17317,7 @@ body.emp-dark #aiProviderChooser .aipc-card-status {
   background: var(--nlpl-accent-soft);
   border-color: rgba(31, 95, 209, 0.4);
 }
-body.emp-dark #aiPanel .ai-insp-action.primary {
+#aiPanel.ai-dark .ai-insp-action.primary {
   border-color: rgba(91, 142, 240, 0.4);
 }
 #aiPanel .ai-insp-action.primary:hover { background: var(--nlpl-accent-soft); filter: brightness(0.97); }
@@ -17363,7 +17375,7 @@ body.emp-dark #aiPanel .ai-insp-action.primary {
   margin-top: 6px;
   box-shadow: 0 0 0 3px rgba(31, 95, 209, 0.18);
 }
-body.emp-dark #aiPanel .ai-insp-tl-dot {
+#aiPanel.ai-dark .ai-insp-tl-dot {
   box-shadow: 0 0 0 3px rgba(91, 142, 240, 0.18);
 }
 #aiPanel .ai-insp-tl-item:not(:last-child)::before {
@@ -18019,12 +18031,12 @@ body.emp-dark #aiPanel .ai-insp-tl-dot {
   background: rgba(196, 61, 61, 0.96);
   border-color: rgba(255, 200, 200, 0.25);
 }
-body.emp-dark #aiPanel .ai-toast {
+#aiPanel.ai-dark .ai-toast {
   background: rgba(238, 241, 247, 0.96);
   color: #0f1320;
   border-color: rgba(15, 19, 32, 0.12);
 }
-body.emp-dark #aiPanel .ai-toast.is-error {
+#aiPanel.ai-dark .ai-toast.is-error {
   background: rgba(224, 107, 107, 0.96);
   color: #ffffff;
 }
