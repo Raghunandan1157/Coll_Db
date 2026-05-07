@@ -11653,7 +11653,7 @@ body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
           var pieSlices = rows.slice(0, 12).map(function (r) {
             var t = r.cells[primary] ? String(r.cells[primary].textContent || '').replace(/[^\-0-9.]/g, '') : '';
             return {
-              label: String((r.cells[0] && r.cells[0].textContent) || '').trim().slice(0, 28),
+              label: String((r.cells[labelColIdx] && r.cells[labelColIdx].textContent) || '').trim().slice(0, 28),
               value: parseFloat(t) || 0
             };
           });
@@ -11669,7 +11669,7 @@ body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
           var barRows = rows.slice(0, 10).map(function (r, idx) {
             var t = r.cells[primary] ? String(r.cells[primary].textContent || '').replace(/[^\-0-9.]/g, '') : '';
             return {
-              label: String((r.cells[0] && r.cells[0].textContent) || '').trim().slice(0, 22),
+              label: String((r.cells[labelColIdx] && r.cells[labelColIdx].textContent) || '').trim().slice(0, 22),
               value: parseFloat(t) || 0,
               color: palette[idx % palette.length]
             };
@@ -11686,7 +11686,7 @@ body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
             return { name: head ? String(head.textContent || '').trim() : ('Series ' + (idx + 1)), values: col, color: palette[idx] };
           });
           var labels = rows.slice(0, 12).map(function (r) {
-            return String((r.cells[0] && r.cells[0].textContent) || '').trim().slice(0, 10);
+            return String((r.cells[labelColIdx] && r.cells[labelColIdx].textContent) || '').trim().slice(0, 10);
           });
           spk.innerHTML = window._aiBuildSeriesSvg(series, labels, { w: 360, h: 96 });
         }
@@ -12143,34 +12143,32 @@ body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
         }
         // Dedupe LLM-emitted prose duplicates of the styled table (e.g. an
         // ASCII "table" header rendered as <h2> followed by raw text rows).
+        // CRITICAL: skip ANY node that contains a <table> (the styled table
+        // is wrapped in <div class="ai-table-wrap"><table>...</table></div>,
+        // and dropping the wrapper would take the table with it).
         try {
           var hdrTokens = [];
-          var bodyTokens = [];
           Array.prototype.forEach.call(table.querySelectorAll('thead th, tr th'), function (th) {
             var t = String(th.textContent || '').trim().toLowerCase();
             if (t && t.length >= 2) hdrTokens.push(t);
           });
-          Array.prototype.forEach.call(table.querySelectorAll('tbody td'), function (td) {
-            var t = String(td.textContent || '').trim().toLowerCase();
-            if (t && t.length >= 3 && !/^\d{1,3}$/.test(t)) bodyTokens.push(t);
-          });
           var kids = Array.prototype.slice.call(bubbleEl.children);
           kids.forEach(function (n) {
             if (!n || n === table) return;
-            // Don't strip the spark (already kept above) or the table itself.
             if (n.classList && n.classList.contains('ai-spark-wrap')) return;
             if (n.tagName === 'TABLE') return;
+            // Preserve any wrapper that contains the styled table.
+            if (n.querySelector && n.querySelector('table')) return;
             var txt = String(n.textContent || '').toLowerCase();
             if (!txt) return;
+            // Drop ONLY headings whose text contains 3+ of the styled
+            // table's header cells — that's the LLM's plain-text "header
+            // row" rendered as <h2>. Body-cell heuristic is too aggressive
+            // and was wiping legitimate analytical prose.
+            var isHeading = /^H[1-6]$/i.test(n.tagName || '');
+            if (!isHeading) return;
             var headerHits = hdrTokens.filter(function (h) { return h && txt.indexOf(h) !== -1; }).length;
-            var bodyHits = 0;
-            for (var i = 0; i < bodyTokens.length && bodyHits < 4; i++) {
-              if (txt.indexOf(bodyTokens[i]) !== -1) bodyHits++;
-            }
-            // Heading-as-table-header (3+ header tokens) or prose-as-body
-            // (3+ body tokens) → drop. Limit to short blocks (< 800 chars)
-            // so we don't wipe legitimate analytical prose.
-            if ((headerHits >= 3 || bodyHits >= 3) && txt.length < 800) {
+            if (headerHits >= 3 && txt.length < 300) {
               if (n.parentNode) n.parentNode.removeChild(n);
             }
           });
@@ -12848,23 +12846,17 @@ body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
               if (t && t.length >= 3 && !/^\d{1,3}$/.test(t)) bodyCellTokens.push(t);
             });
           }
-          function looksLikeTableDup(node) {
+          function looksLikeTableDupHeading(node) {
             if (!node) return false;
+            // Only consider H1..H6 — body-cell heuristic was too aggressive
+            // and wiped real analytical prose.
+            if (!/^H[1-6]$/i.test(node.tagName || '')) return false;
             var txt = String(node.textContent || '').toLowerCase();
-            if (!txt) return false;
-            // Heading whose text contains ≥3 of the styled table's header cells
-            // → it is the LLM's plain-text "header row".
+            if (!txt || txt.length > 300) return false;
             var headerHits = headerTokens.filter(function (h) {
               return h && txt.indexOf(h) !== -1;
             }).length;
-            if (headerHits >= 3) return true;
-            // Long prose block where ≥3 distinct body-cell values appear
-            // verbatim → it is the LLM's plain-text "body rows".
-            var bodyHits = 0;
-            for (var i = 0; i < bodyCellTokens.length && bodyHits < 4; i++) {
-              if (txt.indexOf(bodyCellTokens[i]) !== -1) bodyHits++;
-            }
-            return bodyHits >= 3;
+            return headerHits >= 3;
           }
           var proseNodes = Array.prototype.slice.call(body.children).filter(function (n) {
             if (!n) return false;
@@ -12873,7 +12865,9 @@ body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
             // Skip the structural blocks we've already rendered.
             if (/ai-ans-hero|ai-ans-mkpis|ai-ans-followups|ai-spark-wrap/.test(cls)) return false;
             if (n.tagName === 'TABLE') return false; // handled separately below
-            if (looksLikeTableDup(n)) return false;  // LLM-emitted prose duplicate of the table
+            // Preserve any wrapper that contains the styled table.
+            if (n.querySelector && n.querySelector('table')) return false;
+            if (looksLikeTableDupHeading(n)) return false;  // only drop fake-table heading row
             return true;
           });
           if (proseNodes.length) {
