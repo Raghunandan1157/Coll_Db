@@ -11418,23 +11418,53 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       if (/\b(compare|comparison|versus|vs\.?|today vs|yesterday vs)\b/.test(q)) {
         return 'compare';
       }
-      // Per-entity ranking / breakdown — covers field officers, FOs, staff,
-      // branches, regions, employees, products. Triggers bar chart.
-      if (/\btop\s*\d+\s+(field\s+officers?|fos?|officers?|employees?|branches?|regions?|staff|teams?|products?|members?)\b/.test(q)) {
+      // Explicit ranking → per-row (downstream may still fall to line if first
+      // column is ordered, e.g. "top 5 days").
+      if (/\btop\s*\d+\s+(field\s+officers?|fos?|officers?|employees?|branches?|regions?|staff|teams?|products?|members?|days?|weeks?|months?)\b/.test(q)) {
         return 'per-row';
       }
       if (/\b(rank|ranking|leader\s*board|best|worst|highest|lowest|leading|underperform)\b/.test(q)) {
         return 'per-row';
       }
+      // Per-entity / per-group queries — gate a chart but routing prefers line
+      // when the first column is ordered.
       if (/\b(per (employee|branch|fo|officer|region|product)|each (employee|branch|fo|officer)|by (employee|branch|region|product|fo)|all (employees|branches|regions|fos))\b/.test(q)) {
         return 'per-row';
       }
-      // Performance / collection broken down by team/group.
+      // Generic performance / collection / disbursement query with a team/group
+      // dimension — gate a chart, routing decides line vs bar.
       if (/\b(performance|collection|disbursement|npa|portfolio).*\b(team|group|squad|each|every)\b/.test(q)
        || /\b(team|group|squad).*\b(performance|collection)\b/.test(q)) {
         return 'per-row';
       }
       return null;
+    };
+
+    // Detect ordered/sequential first-column labels (dates, weekdays, months,
+    // quarters, week-of-month, "D-N" trailing-day, "Day N", or strictly
+    // increasing integers). Used by _aiAttachSpark to bias toward line charts.
+    window._aiIsOrderedLabel = function (label) {
+      if (label == null) return false;
+      var l = String(label).trim();
+      if (!l) return false;
+      if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(l)) return true;                 // 2026-05-07
+      if (/^\d{1,2}[\/\-]\d{1,2}([\/\-]\d{2,4})?$/.test(l)) return true;  // 05/07 / 5-7-26
+      if (/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/i.test(l)) return true;  // Apr 8 / Apr-26
+      if (/^(mon|tue|wed|thu|fri|sat|sun|monday|tuesday|wednesday|thursday|friday|saturday|sunday)$/i.test(l)) return true;
+      if (/^q[1-4]\b/i.test(l)) return true;                              // Q1, Q2 2026
+      if (/^w[1-5]\b/i.test(l) || /^week\s*\d+$/i.test(l)) return true;   // W1, Week 3
+      if (/^d-?\d+$/i.test(l) || /^day\s*\d+$/i.test(l)) return true;    // D-1, Day 7
+      return false;
+    };
+    window._aiHasStrictlyIncreasingInts = function (labels) {
+      var nums = (labels || []).map(function (l) {
+        var t = String(l || '').trim();
+        var m = t.match(/-?\d+/);
+        return m ? parseInt(m[0], 10) : null;
+      });
+      if (nums.length < 2 || nums.some(function (n) { return n === null; })) return false;
+      for (var i = 1; i < nums.length; i++) if (nums[i] <= nums[i - 1]) return false;
+      return true;
     };
     window._aiAttachSpark = function (bubbleEl, question) {
       try {
@@ -11477,7 +11507,29 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
               || /^\d{1,2}[\/\-]\d{1,2}([\/\-]\d{2,4})?$/.test(l)
               || /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|mon|tue|wed|thu|fri|sat|sun)\b/i.test(l);
         }).length;
-        var preferBars = (intent === 'per-row') || (dateLike < Math.ceil(rows.length / 2));
+        // Broader "ordered first column" check (dates + weekdays + months +
+        // quarters + W1-W5 + D-N + Day N + strictly increasing ints).
+        var orderedHits = labelsRaw.filter(function (l) {
+          return window._aiIsOrderedLabel && window._aiIsOrderedLabel(l);
+        }).length;
+        var seqInts = window._aiHasStrictlyIncreasingInts && window._aiHasStrictlyIncreasingInts(labelsRaw);
+        var orderedLike = (orderedHits >= Math.ceil(rows.length / 2)) || seqInts || (dateLike >= Math.ceil(rows.length / 2));
+        // Explicit ranking phrases — bars only if user clearly asked for a
+        // ranking. "leading|underperform|by branch" don't trigger bars.
+        var explicitRank = /\b(top\s*\d+|rank|ranking|leader\s*board|best|worst|highest|lowest)\b/i.test(question || '');
+        // Compare with multiple numeric columns → prefer line (e.g. "this week
+        // vs last week"). Single-numeric ranking compare may fall to bars.
+        var compareMultiNum = (intent === 'compare' && numCols.length >= 2);
+        // Line wins by default for 4+ ordered rows or any compare-multi.
+        var preferLine = (rows.length >= 4 && orderedLike) || compareMultiNum;
+        // Bars only for explicit ranking AND first column is non-ordered names.
+        var preferBars = explicitRank && !orderedLike;
+        // Fall-through: when neither preferLine nor preferBars, default to LINE
+        // when the first column is ordered, otherwise bars (small categorical).
+        if (!preferLine && !preferBars) {
+          preferLine = orderedLike;
+          preferBars = !orderedLike;
+        }
         // First numeric column is the primary metric; pick the column whose
         // header best matches "amount / collection / value / total / score".
         var heads = Array.prototype.slice.call(table.querySelectorAll('thead th, tr th')).map(function (h) { return String(h.textContent || '').toLowerCase(); });
@@ -12592,44 +12644,74 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         var y = pad.t + (1 - (v - min) / span) * ih;
         return [x, y];
       }
+      // Smooth path through points using midpoint cubic bezier — matches the
+      // hero AreaChart in answers.jsx (gentle curves between samples).
+      function smoothPath(pts) {
+        if (!pts.length) return '';
+        if (pts.length === 1) return 'M ' + pts[0][0].toFixed(1) + ' ' + pts[0][1].toFixed(1);
+        var d = 'M ' + pts[0][0].toFixed(1) + ' ' + pts[0][1].toFixed(1);
+        for (var i = 1; i < pts.length; i++) {
+          var p0 = pts[i - 1], p1 = pts[i];
+          var cx = (p0[0] + p1[0]) / 2;
+          d += ' C ' + cx.toFixed(1) + ' ' + p0[1].toFixed(1)
+             + ', ' + cx.toFixed(1) + ' ' + p1[1].toFixed(1)
+             + ', ' + p1[0].toFixed(1) + ' ' + p1[1].toFixed(1);
+        }
+        return d;
+      }
       var svg = '<svg class="ai-spark" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" aria-hidden="true">';
-      // Light horizontal guides.
-      [0, 0.5, 1].forEach(function (p) {
+      // Light horizontal guides — quartile lines, subtle.
+      [0.25, 0.5, 0.75].forEach(function (p) {
         var y = pad.t + p * ih;
-        svg += '<line x1="' + pad.l + '" x2="' + (pad.l + iw) + '" y1="' + y.toFixed(1) + '" y2="' + y.toFixed(1) + '" stroke="rgba(0,0,0,0.06)" stroke-dasharray="2 4"/>';
+        svg += '<line x1="' + pad.l + '" x2="' + (pad.l + iw) + '" y1="' + y.toFixed(1) + '" y2="' + y.toFixed(1) + '" stroke="rgba(0,0,0,0.05)" stroke-dasharray="2 4"/>';
       });
       series.forEach(function (s, idx) {
         var pts = (s.values || []).map(function (v, i) { return pt(i, v); });
         if (!pts.length) return;
-        var d = pts.map(function (p, i) { return (i === 0 ? 'M' : 'L') + p[0].toFixed(1) + ' ' + p[1].toFixed(1); }).join(' ');
+        var d = smoothPath(pts);
         var gid = 'gs' + idx + '_' + Math.random().toString(36).slice(2, 6);
         if (!s.dashed) {
           // Solid series — render gradient fill underneath for the hero look.
           var fillD = d + ' L ' + pts[pts.length - 1][0].toFixed(1) + ' ' + (pad.t + ih).toFixed(1)
                         + ' L ' + pts[0][0].toFixed(1) + ' ' + (pad.t + ih).toFixed(1) + ' Z';
           svg += '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0" y2="1">'
-              +    '<stop offset="0%" stop-color="' + s.color + '" stop-opacity="0.20"/>'
+              +    '<stop offset="0%" stop-color="' + s.color + '" stop-opacity="0.30"/>'
               +    '<stop offset="100%" stop-color="' + s.color + '" stop-opacity="0"/>'
               +  '</linearGradient></defs>';
           svg += '<path d="' + fillD + '" fill="url(#' + gid + ')"/>';
         }
-        var dashAttr = s.dashed ? ' stroke-dasharray="4 4" opacity="0.7"' : '';
-        svg += '<path d="' + d + '" fill="none" stroke="' + s.color + '" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"' + dashAttr + '/>';
+        var strokeAttrs = s.dashed
+          ? ' stroke-width="1.5" stroke-dasharray="3 3" opacity="0.7"'
+          : ' stroke-width="2"';
+        svg += '<path d="' + d + '" fill="none" stroke="' + s.color + '" stroke-linecap="round" stroke-linejoin="round"' + strokeAttrs + '/>';
         if (!s.dashed) {
+          // End-dot with halo — radius 5 outer ring at 18% opacity, then solid 2.5.
           var last = pts[pts.length - 1];
+          svg += '<circle cx="' + last[0].toFixed(1) + '" cy="' + last[1].toFixed(1) + '" r="5" fill="' + s.color + '" fill-opacity="0.18"/>';
           svg += '<circle cx="' + last[0].toFixed(1) + '" cy="' + last[1].toFixed(1) + '" r="2.5" fill="' + s.color + '"/>';
         }
       });
-      // x-axis label endpoints (first + last) so user knows the axis.
+      // x-axis ticks: first / mid / last only — mono with tracking.
       if (labels && labels.length) {
-        var first = labels[0], lastLabel = labels[Math.min(labels.length, n) - 1];
-        svg += '<text x="' + pad.l + '" y="' + (h - 4) + '" font-size="9" fill="rgba(0,0,0,0.45)" font-family="ui-monospace, Menlo, monospace">' + (first || '') + '</text>';
-        svg += '<text x="' + (pad.l + iw) + '" y="' + (h - 4) + '" font-size="9" fill="rgba(0,0,0,0.45)" font-family="ui-monospace, Menlo, monospace" text-anchor="end">' + (lastLabel || '') + '</text>';
+        var first = labels[0];
+        var lastIdx = Math.min(labels.length, n) - 1;
+        var lastLabel = labels[lastIdx];
+        var midIdx = Math.floor(lastIdx / 2);
+        var midLabel = (midIdx > 0 && midIdx < lastIdx) ? labels[midIdx] : '';
+        var tickAttrs = ' font-size="9" fill="rgba(15,25,41,0.45)" font-family="ui-monospace, Menlo, monospace" letter-spacing="0.06em"';
+        svg += '<text x="' + pad.l + '" y="' + (h - 4) + '"' + tickAttrs + '>' + (first || '') + '</text>';
+        if (midLabel && midLabel !== first && midLabel !== lastLabel) {
+          svg += '<text x="' + (pad.l + iw / 2).toFixed(1) + '" y="' + (h - 4) + '" text-anchor="middle"' + tickAttrs + '>' + midLabel + '</text>';
+        }
+        svg += '<text x="' + (pad.l + iw) + '" y="' + (h - 4) + '" text-anchor="end"' + tickAttrs + '>' + (lastLabel || '') + '</text>';
       }
       svg += '</svg>';
-      // Mini legend.
+      // Mini legend — show DASHED indicator next to dashed series.
       var legend = '<div class="ai-spark-legend">' + series.map(function (s) {
-        return '<span class="ai-spark-legend-item"><span class="ai-spark-swatch" style="background:' + s.color + '"></span>' + (s.name || '').replace(/[<>&]/g, '') + '</span>';
+        var swatch = s.dashed
+          ? '<span class="ai-spark-swatch ai-spark-swatch-dashed" style="border-top-color:' + s.color + '"></span>'
+          : '<span class="ai-spark-swatch" style="background:' + s.color + '"></span>';
+        return '<span class="ai-spark-legend-item">' + swatch + (s.name || '').replace(/[<>&]/g, '') + '</span>';
       }).join('') + '</div>';
       return svg + legend;
     };
@@ -16234,6 +16316,13 @@ body.emp-dark #aiPanel #aiThemeBtn .ai-theme-moon { display: none; }
 #aiPanel .ai-spark-swatch {
   width: 8px; height: 8px; border-radius: 2px;
   display: inline-block;
+}
+#aiPanel .ai-spark-swatch-dashed {
+  width: 14px; height: 0;
+  border-top: 2px dashed currentColor;
+  background: transparent !important;
+  border-radius: 0;
+  opacity: 0.85;
 }
 
 /* Text/Report seg toggle (pill) */
