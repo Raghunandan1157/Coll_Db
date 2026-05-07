@@ -11852,8 +11852,21 @@ body.emp-dark #voMobile .vom-full-table tr.total-row td {
         // (cells.length >= 1) so we still wrap the card shell — header, body,
         // follow-ups, source foot — for answers like "Branches below 90%".
         // Hero/mini-KPI/chart paths below skip naturally when no numeric column.
+        // Drop totals/summary rows here — they pollute the hero sum, the chart
+        // (Total spikes the last point), and the KPI strip. _aiAttachSpark
+        // already filters these; the card builder must do the same.
         var rows = Array.prototype.slice.call(table.querySelectorAll('tbody tr, tr'))
-          .filter(function (r) { return r.cells && r.cells.length >= 1 && !r.querySelector('th'); });
+          .filter(function (r) {
+            if (!r.cells || r.cells.length < 1) return false;
+            if (r.querySelector('th')) return false;
+            var firstCell = String((r.cells[0] && r.cells[0].textContent) || '').trim().toLowerCase();
+            if (/^(total|grand\s*total|sum|subtotal|overall|all)\b/.test(firstCell)) {
+              // Visually de-emphasize the row in the styled table without removing it.
+              try { r.classList.add('ai-table-total'); } catch (_) {}
+              return false;
+            }
+            return true;
+          });
         if (!rows.length) return;
 
         // Snapshot fallback: when no narrow intent matches but the answer is a
@@ -11880,11 +11893,14 @@ body.emp-dark #voMobile .vom-full-table tr.total-row td {
           && rows.length >= 2
           && dateLike >= Math.ceil(rows.length / 2);
 
-        // Find primary numeric column (first column where >= half rows are numeric).
+        // Find primary numeric column. Prefer the column whose header looks
+        // like the metric of interest (amount / value / cr / collection / total
+        // / disbursement / score / attainment) over a less-meaningful integer
+        // column like row counts. Fixes hero showing "₹1,29,070" because the
+        // first numeric column was account counts, not amounts.
         var heads = Array.prototype.slice.call(table.querySelectorAll('thead th, tr th'))
           .map(function (h) { return String(h.textContent || ''); });
         var maxCols = rows.reduce(function (m, r) { return Math.max(m, r.cells.length); }, 0);
-        var primaryCol = -1;
         function _colIsNumeric(c) {
           var hits = 0;
           rows.forEach(function (r) {
@@ -11893,8 +11909,25 @@ body.emp-dark #voMobile .vom-full-table tr.total-row td {
           });
           return hits >= Math.ceil(rows.length / 2);
         }
+        function _colHeaderRank(c) {
+          var h = String(heads[c] || '').toLowerCase();
+          if (/(amount|cr\b|crore|value|collection|disburs|total|portfolio|outstanding|principal|interest|emi)/.test(h)) return 3;
+          if (/(attain|%|percent|rate|ratio|score)/.test(h)) return 2;
+          if (/(count|cases|active|new|accounts|loans|customers)/.test(h)) return 1;
+          return 0;
+        }
+        var primaryCol = -1;
+        var bestRank = -1;
         for (var c = 1; c < maxCols; c++) {
-          if (_colIsNumeric(c)) { primaryCol = c; break; }
+          if (!_colIsNumeric(c)) continue;
+          var r = _colHeaderRank(c);
+          if (r > bestRank) { bestRank = r; primaryCol = c; }
+        }
+        // Fallback: if nothing matched, use the first numeric column.
+        if (primaryCol < 0) {
+          for (var cc = 1; cc < maxCols; cc++) {
+            if (_colIsNumeric(cc)) { primaryCol = cc; break; }
+          }
         }
         // Detect prior-period numeric column for dual-line hero (intent === compare).
         var priorCol = -1;
@@ -12069,10 +12102,18 @@ body.emp-dark #voMobile .vom-full-table tr.total-row td {
             })();
             var bigNum = document.createElement('div');
             bigNum.className = 'ai-ans-hero-num';
-            var cur = document.createElement('span');
-            cur.className = 'currency';
-            cur.textContent = '₹';
-            bigNum.appendChild(cur);
+            // ₹ prefix only when the primary column is actually money. Headers
+            // like "Accounts" / "Cases" / "Customers" got "₹" prepended which
+            // turned a count of 1,29,070 into "₹1,29,070".
+            var primaryHeadL = String(heads[primaryCol] || '').toLowerCase();
+            var isMoneyCol = /(amount|cr\b|crore|value|collection|disburs|portfolio|outstanding|principal|interest|emi|₹|rs\.?|inr|total)/.test(primaryHeadL)
+              && !/(count|cases|loans|customers|accounts)/.test(primaryHeadL);
+            if (isMoneyCol) {
+              var cur = document.createElement('span');
+              cur.className = 'currency';
+              cur.textContent = '₹';
+              bigNum.appendChild(cur);
+            }
             // Split numeric body from unit suffix. Whitespace before unit is
             // optional so "12.5cr" also matches and gets styled smaller.
             var unitMatch = String(heroNumText).match(/^([\d,]+(?:\.\d+)?)\s*(cr|crore|crores|lakh|lakhs|l)?$/i);
