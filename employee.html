@@ -4508,6 +4508,10 @@
       <button id="aiSplitBtn" type="button" class="ai-icon-btn" title="Side-by-side compare" aria-label="Side-by-side">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="8" height="16" rx="1"/><rect x="13" y="4" width="8" height="16" rx="1"/></svg>
       </button>
+      <button id="aiThemeBtn" type="button" class="ai-icon-btn" title="Toggle theme" aria-label="Toggle theme" onclick="window._aiToggleTheme && window._aiToggleTheme()">
+        <svg class="ai-theme-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.05" y2="7.05"/><line x1="16.95" y1="16.95" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.05" y2="16.95"/><line x1="16.95" y1="7.05" x2="19.07" y2="4.93"/></svg>
+        <svg class="ai-theme-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
       <button onclick="window._aiNewChat && window._aiNewChat()" class="ai-icon-btn" title="New chat" aria-label="New chat">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
       </button>
@@ -10898,6 +10902,133 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       }
     };
 
+    // ── Theme toggle (light default, dark via body.emp-dark) ──
+    window._aiApplyStoredTheme = function () {
+      try {
+        var t = localStorage.getItem('nlpl_ai_theme') || 'light';
+        if (t === 'dark') document.body.classList.add('emp-dark');
+        else document.body.classList.remove('emp-dark');
+      } catch (_) {}
+    };
+    window._aiToggleTheme = function () {
+      try {
+        var dark = !document.body.classList.contains('emp-dark');
+        document.body.classList.toggle('emp-dark', dark);
+        localStorage.setItem('nlpl_ai_theme', dark ? 'dark' : 'light');
+      } catch (_) {}
+    };
+    try { window._aiApplyStoredTheme(); } catch (_) {}
+
+    // ── Auto-spark: tiny SVG area chart appended to bot turns. ──
+    // Extracts up to 12 numeric values from a markdown table or inline numbers
+    // and renders an 80×32 area chart with end dot + gradient fill.
+    window._aiBuildSparkSvg = function (values, opts) {
+      var vals = (values || []).map(function (v) { return Number(v); }).filter(function (v) { return isFinite(v); });
+      if (vals.length < 2) return '';
+      vals = vals.slice(0, 12);
+      opts = opts || {};
+      var w = opts.w || 220;
+      var h = opts.h || 36;
+      var pad = 2;
+      var min = Math.min.apply(null, vals);
+      var max = Math.max.apply(null, vals);
+      var span = (max - min) || 1;
+      var pts = vals.map(function (v, i) {
+        var x = pad + (vals.length === 1 ? 0 : (i / (vals.length - 1)) * (w - pad * 2));
+        var y = pad + (1 - (v - min) / span) * (h - pad * 2);
+        return [x, y];
+      });
+      var d = pts.map(function (p, i) { return (i === 0 ? 'M' : 'L') + p[0].toFixed(1) + ' ' + p[1].toFixed(1); }).join(' ');
+      var fill = d + ' L ' + pts[pts.length - 1][0].toFixed(1) + ' ' + (h - pad).toFixed(1)
+                   + ' L ' + pts[0][0].toFixed(1) + ' ' + (h - pad).toFixed(1) + ' Z';
+      var last = pts[pts.length - 1];
+      var gid = 'spkg' + Math.random().toString(36).slice(2, 8);
+      return '<svg class="ai-spark" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" aria-hidden="true">'
+        + '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0" y2="1">'
+        + '<stop offset="0%" stop-color="currentColor" stop-opacity="0.30"/>'
+        + '<stop offset="100%" stop-color="currentColor" stop-opacity="0"/>'
+        + '</linearGradient></defs>'
+        + '<path d="' + fill + '" fill="url(#' + gid + ')"/>'
+        + '<path d="' + d + '" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>'
+        + '<circle cx="' + last[0].toFixed(1) + '" cy="' + last[1].toFixed(1) + '" r="2.5" fill="currentColor"/>'
+        + '<circle cx="' + last[0].toFixed(1) + '" cy="' + last[1].toFixed(1) + '" r="5" fill="currentColor" fill-opacity="0.18"/>'
+        + '</svg>';
+    };
+    window._aiExtractNumbers = function (root) {
+      if (!root) return [];
+      // 1) Prefer numeric values from a table column.
+      var table = root.querySelector('table');
+      if (table) {
+        var rows = Array.prototype.slice.call(table.querySelectorAll('tbody tr, tr'));
+        // Find column index whose cell text most often parses to a number, skipping the first column (usually labels).
+        var sample = rows.slice(0, 12);
+        var bestCol = -1, bestCount = 0;
+        var maxCols = sample.reduce(function (m, r) { return Math.max(m, r.cells ? r.cells.length : 0); }, 0);
+        for (var c = 1; c < maxCols; c++) {
+          var n = 0;
+          for (var i = 0; i < sample.length; i++) {
+            var cell = sample[i].cells && sample[i].cells[c];
+            if (!cell) continue;
+            var t = String(cell.textContent || '').replace(/[^\-0-9.]/g, '');
+            if (t && isFinite(parseFloat(t))) n++;
+          }
+          if (n > bestCount) { bestCount = n; bestCol = c; }
+        }
+        if (bestCol >= 0 && bestCount >= 2) {
+          var out = [];
+          rows.forEach(function (r) {
+            var cell = r.cells && r.cells[bestCol];
+            if (!cell) return;
+            var t = String(cell.textContent || '').replace(/[^\-0-9.]/g, '');
+            var v = parseFloat(t);
+            if (isFinite(v)) out.push(v);
+          });
+          return out.slice(0, 12);
+        }
+      }
+      // 2) Fall back: scrape numbers from prose. Skip dates / years like 2026.
+      var txt = String(root.textContent || '');
+      var nums = [];
+      var re = /(?:^|[^a-zA-Z0-9])(-?\d{1,3}(?:,\d{3})+(?:\.\d+)?|-?\d+\.\d+|-?\d+)(?:[^a-zA-Z0-9]|$)/g;
+      var m;
+      while ((m = re.exec(txt)) !== null && nums.length < 24) {
+        var n = parseFloat(m[1].replace(/,/g, ''));
+        if (!isFinite(n)) continue;
+        if (n >= 1900 && n <= 2100 && Math.floor(n) === n) continue; // skip years
+        nums.push(n);
+      }
+      return nums.slice(0, 12);
+    };
+    window._aiAttachSpark = function (bubbleEl) {
+      try {
+        if (!bubbleEl || bubbleEl.__sparked) return;
+        bubbleEl.__sparked = true;
+        if (bubbleEl.querySelector('.ai-spark, .chartjs-render-monitor, .plotly')) return;
+        var nums = window._aiExtractNumbers(bubbleEl);
+        if (!nums || nums.length < 3) return;
+        var spk = document.createElement('div');
+        spk.className = 'ai-spark-wrap';
+        spk.innerHTML = window._aiBuildSparkSvg(nums, { w: 240, h: 40 });
+        bubbleEl.appendChild(spk);
+      } catch (_) {}
+    };
+    // Watch #aiMessages for new bot bubbles + late streaming completion.
+    document.addEventListener('DOMContentLoaded', function () {
+      var box = document.getElementById('aiMessages');
+      if (!box || !window.MutationObserver) return;
+      var debounce;
+      var attempt = function () {
+        Array.prototype.forEach.call(box.querySelectorAll('.ai-bubble-bot, .ai-msg-bot'), function (b) {
+          if (!b.__sparked) window._aiAttachSpark(b);
+        });
+      };
+      var obs = new MutationObserver(function () {
+        clearTimeout(debounce);
+        debounce = setTimeout(attempt, 220);
+      });
+      obs.observe(box, { childList: true, subtree: true, characterData: true });
+    });
+
     // ── User key (phone preferred, else emp_id, else role+location) ──
     window._aiUserKey = function () {
       try {
@@ -11219,29 +11350,24 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         alert('AI Assistant is available for Branch Managers and above. Field Officers do not have access.');
         return;
       }
-      window._aiShowProviderChooser(function (prov, purpose) {
-        // Card pick decides the surface, not the original entry point:
-        //   purpose === 'talk' → open voice cockpit (mobile _vomOpen / desktop _aiTalk)
-        //   purpose === 'chat' → open text chat panel
-        if (purpose === 'talk') {
-          if (_vomIsMobile()) {
-            window._vomOpen && window._vomOpen();
-          } else if (typeof _origAiTalk === 'function') {
-            // Open chat panel first so the voice overlay has a host to live in.
-            _aiOpenPostChooser.apply(window, []);
-            setTimeout(function () { _origAiTalk.apply(window, []); }, 80);
-          } else {
-            _aiOpenPostChooser.apply(window, []);
-          }
-        } else {
-          _aiOpenPostChooser.apply(window, []);
+      // Default to DeepSeek v4 Flash on first open. User can switch via header dropdown.
+      try {
+        if (!localStorage.getItem('nlpl_ai_provider')) {
+          localStorage.setItem('nlpl_ai_provider', 'deepseek');
         }
-        // Re-render chips after the panel paints (covers desktop empty state).
-        setTimeout(function () {
-          try { window._aiRenderStarterChips && window._aiRenderStarterChips(); } catch (_) {}
-          try { window._aiRefreshRail && window._aiRefreshRail(); } catch (_) {}
-        }, 80);
-      });
+        if (!localStorage.getItem('nlpl_ai_deepseek_model')) {
+          localStorage.setItem('nlpl_ai_deepseek_model', 'flash');
+        }
+        localStorage.setItem('nlpl_ai_purpose', 'chat');
+      } catch (_) {}
+      if (typeof window._aiApplyTheme === 'function') {
+        try { window._aiApplyTheme(window._aiPickedProvider()); } catch (_) {}
+      }
+      _aiOpenPostChooser.apply(window, []);
+      setTimeout(function () {
+        try { window._aiRenderStarterChips && window._aiRenderStarterChips(); } catch (_) {}
+        try { window._aiRefreshRail && window._aiRefreshRail(); } catch (_) {}
+      }, 80);
     };
 
     // ── Smart error CTA mapping ──
@@ -13914,6 +14040,26 @@ body.emp-dark #aiPanel {
   background: var(--nlpl-bg-card) !important;
   color: var(--nlpl-fg) !important;
   border-color: var(--nlpl-line) !important;
+}
+
+/* Theme toggle: show sun in dark mode, moon in light mode. */
+#aiPanel #aiThemeBtn .ai-theme-sun { display: none; }
+#aiPanel #aiThemeBtn .ai-theme-moon { display: block; }
+body.emp-dark #aiPanel #aiThemeBtn .ai-theme-sun { display: block; }
+body.emp-dark #aiPanel #aiThemeBtn .ai-theme-moon { display: none; }
+
+/* Auto-spark — tiny SVG area chart appended to bot bubbles. */
+#aiPanel .ai-spark-wrap {
+  margin: 10px 0 2px;
+  color: var(--nlpl-accent);
+  display: block;
+}
+#aiPanel .ai-spark {
+  display: block;
+  width: 100%;
+  max-width: 240px;
+  height: 40px;
+  color: inherit;
 }
 
 /* Text/Report seg toggle (pill) */
