@@ -4555,6 +4555,92 @@
       </div>
     </div>
   </aside>
+  <aside id="aiInspector" class="ai-inspector" aria-label="Active query inspector">
+    <div class="ai-insp-section" data-insp="query">
+      <div class="ai-insp-label">Active query</div>
+      <div class="ai-insp-card">
+        <div class="ai-insp-row">
+          <span class="ai-insp-key">Scope</span>
+          <span class="ai-insp-val" id="aiInspScope">overall</span>
+        </div>
+        <div class="ai-insp-row">
+          <span class="ai-insp-key">Period</span>
+          <span class="ai-insp-val" id="aiInspPeriod">—</span>
+        </div>
+        <div class="ai-insp-row">
+          <span class="ai-insp-key">Refreshed</span>
+          <span class="ai-insp-val" id="aiInspRefreshed">live</span>
+        </div>
+      </div>
+    </div>
+    <div class="ai-insp-section" data-insp="filters">
+      <div class="ai-insp-label">Filters</div>
+      <div class="ai-insp-card" id="aiInspFilters">
+        <div class="ai-insp-row">
+          <span class="ai-insp-key">Role view</span>
+          <span class="ai-insp-val" id="aiInspRole">—</span>
+        </div>
+        <div class="ai-insp-row">
+          <span class="ai-insp-key">Source</span>
+          <span class="ai-insp-val">live DB</span>
+        </div>
+      </div>
+    </div>
+    <div class="ai-insp-section" data-insp="actions">
+      <div class="ai-insp-label">Quick actions</div>
+      <button type="button" class="ai-insp-action primary" data-action="export-pdf"
+        onclick="console.log('[inspector] action:', 'export-pdf')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <span>Export PDF</span>
+        <span class="ia-meta">↑E</span>
+      </button>
+      <button type="button" class="ai-insp-action" data-action="share-link"
+        onclick="console.log('[inspector] action:', 'share-link')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+        <span>Share answer link</span>
+      </button>
+      <button type="button" class="ai-insp-action" data-action="schedule-weekly"
+        onclick="console.log('[inspector] action:', 'schedule-weekly')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <span>Schedule weekly</span>
+      </button>
+      <button type="button" class="ai-insp-action" data-action="pin-dashboard"
+        onclick="console.log('[inspector] action:', 'pin-dashboard')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14l-1.5-4.5a2 2 0 0 1 0-1.5L19 7H5l1.5 4a2 2 0 0 1 0 1.5z"/></svg>
+        <span>Pin to dashboard</span>
+      </button>
+    </div>
+    <div class="ai-insp-section" data-insp="activity">
+      <div class="ai-insp-label">Activity</div>
+      <div class="ai-insp-card" id="aiInspActivity">
+        <div class="ai-insp-tl-item">
+          <div class="ai-insp-tl-dot"></div>
+          <div>
+            <div class="ai-insp-tl-body">Daily collection upload synced</div>
+            <div class="ai-insp-tl-time">2m ago</div>
+          </div>
+        </div>
+        <div class="ai-insp-tl-item">
+          <div class="ai-insp-tl-dot"></div>
+          <div>
+            <div class="ai-insp-tl-body">Branch master refreshed</div>
+            <div class="ai-insp-tl-time">14m ago</div>
+          </div>
+        </div>
+        <div class="ai-insp-tl-item">
+          <div class="ai-insp-tl-dot"></div>
+          <div>
+            <div class="ai-insp-tl-body">Employee performance updated</div>
+            <div class="ai-insp-tl-time">1h ago</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="ai-insp-section" data-insp="sources">
+      <div class="ai-insp-label">Sources used</div>
+      <div class="ai-insp-card" id="aiInspSources"></div>
+    </div>
+  </aside>
   <div id="aiContextChipChat" class="ai-ctx-chip-strip" hidden></div>
   <div id="aiMessages" class="ai-panel-messages">
     <div class="ai-empty">
@@ -4611,6 +4697,20 @@
         <svg class="ai-send-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
         <svg class="ai-stop-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
       </button>
+    </div>
+    <div class="ai-comp-foot" id="aiCompFoot">
+      <span class="ai-comp-scope">Scope · <b id="aiCompScope">Overall</b> · period <b id="aiCompPeriod">—</b></span>
+      <span class="ai-comp-kbds">
+        <span><span class="ai-comp-kbd">↵</span> send</span>
+        <span><span class="ai-comp-kbd">⇧↵</span> newline</span>
+        <span><span class="ai-comp-kbd">/</span> commands</span>
+      </span>
+    </div>
+    <div class="ai-comp-suggest" id="aiCompSuggest">
+      <span class="ai-comp-suggest-label">TRY</span>
+      <button type="button" class="ai-comp-sg" data-prompt="Compare West vs East collections this week">Compare West vs East collections this week</button>
+      <button type="button" class="ai-comp-sg" data-prompt="Why is my branch below plan?">Why is my branch below plan?</button>
+      <button type="button" class="ai-comp-sg" data-prompt="Forecast disbursement for next 30 days">Forecast disbursement for next 30 days</button>
     </div>
     <div class="ai-panel-footer" aria-hidden="true">
       <span>NLPL Assistant can make mistakes. Verify important numbers.</span>
@@ -11207,6 +11307,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
     function _aiPrewarmChats() {
       try { window._aiFetchChats && window._aiFetchChats(); } catch (_) {}
       try { window._aiRefreshRail && window._aiRefreshRail(); } catch (_) {}
+      try { window._aiRefreshInspector && window._aiRefreshInspector(); } catch (_) {}
     }
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', function () { setTimeout(_aiPrewarmChats, 120); });
@@ -11565,6 +11666,76 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       } catch (_) {}
     };
 
+    // ── Right inspector panel: scope / period / refreshed / sources / activity ──
+    window._aiRefreshInspector = function () {
+      try {
+        var s = (typeof _aiSession === 'function') ? _aiSession() : (window._aiSession ? window._aiSession() : {});
+        var loc = String((s && s.location) || '').trim();
+        var role = String((s && s.role) || '').toUpperCase();
+
+        var scopeEl = document.getElementById('aiInspScope');
+        var periodEl = document.getElementById('aiInspPeriod');
+        var refreshedEl = document.getElementById('aiInspRefreshed');
+        var roleEl = document.getElementById('aiInspRole');
+        if (scopeEl) scopeEl.textContent = (loc ? loc.toLowerCase() : 'overall');
+
+        // Period — today's date (mirrors composer/inspector context).
+        if (periodEl) {
+          try {
+            var d = new Date();
+            var y = d.getFullYear();
+            var m = String(d.getMonth() + 1).padStart(2, '0');
+            var dd = String(d.getDate()).padStart(2, '0');
+            periodEl.textContent = y + '-' + m + '-' + dd;
+          } catch (_) { periodEl.textContent = '—'; }
+        }
+
+        // Refreshed — same source as the rail meter (nlpl_last_upload_ts).
+        if (refreshedEl) {
+          var lastUpload = 0;
+          try { lastUpload = Number(localStorage.getItem('nlpl_last_upload_ts') || 0); } catch (_) {}
+          if (lastUpload > 0) {
+            var mins = Math.max(0, Math.round((Date.now() - lastUpload) / 60000));
+            refreshedEl.textContent = mins < 60 ? (mins + 'm ago') : (Math.round(mins / 60) + 'h ago');
+          } else {
+            refreshedEl.textContent = 'live';
+          }
+        }
+
+        // Role view label (mirrors rail foot).
+        if (roleEl) {
+          var roleLabel = role === 'CEO' ? 'CEO'
+                        : role === 'RM'  ? 'Regional Manager'
+                        : role === 'DM'  ? 'Division Manager'
+                        : role === 'BM'  ? 'Branch Manager'
+                        : role === 'FO'  ? 'Field Officer'
+                        : (role || 'Member');
+          roleEl.textContent = roleLabel;
+        }
+
+        // Sources used — static list for now.
+        var srcEl = document.getElementById('aiInspSources');
+        if (srcEl) {
+          var sources = [
+            { name: 'collections_daily', status: 'live' },
+            { name: 'branch_master', status: '14m' },
+            { name: 'employee_performance', status: '1h' }
+          ];
+          var fileSvg = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
+          srcEl.innerHTML = sources.map(function (src) {
+            var live = src.status === 'live';
+            return '<div class="ai-insp-source">'
+              +   '<span class="ai-insp-source-name">' + fileSvg + '<span>' + src.name + '</span></span>'
+              +   '<span class="ai-insp-source-status' + (live ? ' live' : '') + '">'
+              +     '<span class="ai-insp-source-dot"></span>'
+              +     '<span>' + src.status + '</span>'
+              +   '</span>'
+              + '</div>';
+          }).join('');
+        }
+      } catch (_) {}
+    };
+
     // ── DB-backed conversation history (Phase B). All calls keyed by user_key. ──
     window._aiCurrentChatKey = function () { return 'nlpl_ai_current_db:' + window._aiUserKey(); };
     window._aiChatsCache = [];
@@ -11740,6 +11911,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       setTimeout(function () {
         try { window._aiRenderStarterChips && window._aiRenderStarterChips(); } catch (_) {}
         try { window._aiRefreshRail && window._aiRefreshRail(); } catch (_) {}
+        try { window._aiRefreshInspector && window._aiRefreshInspector(); } catch (_) {}
       }, 30);
     };
 
@@ -11859,6 +12031,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       var refreshAll = function () {
         try { window._aiRenderStarterChips && window._aiRenderStarterChips(); } catch (_) {}
         try { window._aiRefreshRail && window._aiRefreshRail(); } catch (_) {}
+        try { window._aiRefreshInspector && window._aiRefreshInspector(); } catch (_) {}
       };
       refreshAll();
       setTimeout(refreshAll, 80);
@@ -14290,10 +14463,10 @@ body.emp-dark #aiPanel {
   --nlpl-warn: #e0a040;
 }
 
-/* ── Panel grid layout: header / rail | (context+main+input) ─────── */
+/* ── Panel grid layout: header / rail | (context+main+input) | inspector ─────── */
 #aiPanel.open {
   display: grid !important;
-  grid-template-columns: 256px 1fr;
+  grid-template-columns: 256px 1fr 320px;
   grid-template-rows: 56px auto 1fr auto;
   background: var(--nlpl-bg) !important;
   color: var(--nlpl-fg) !important;
@@ -14311,13 +14484,16 @@ body.emp-dark #aiPanel {
 #aiPanel #aiContextChipChat { grid-column: 2; grid-row: 2; }
 #aiPanel #aiMessages      { grid-column: 2; grid-row: 3; min-height: 0; }
 #aiPanel .ai-panel-input-area { grid-column: 2; grid-row: 4; }
+#aiPanel #aiInspector     { grid-column: 3; grid-row: 2 / 5; }
 
 @media (max-width: 1180px) {
   #aiPanel.open { grid-template-columns: 220px 1fr; }
+  #aiPanel #aiInspector { display: none !important; }
 }
 @media (max-width: 760px) {
   #aiPanel.open { grid-template-columns: 1fr; }
-  #aiPanel #aiRail { display: none !important; }
+  #aiPanel #aiRail,
+  #aiPanel #aiInspector { display: none !important; }
   #aiPanel .ai-panel-header { grid-column: 1; }
   #aiPanel #aiContextChipChat,
   #aiPanel #aiMessages,
@@ -15128,6 +15304,163 @@ body.emp-dark #aiProviderChooser .aipc-card-tag,
 body.emp-dark #aiProviderChooser .aipc-card-model,
 body.emp-dark #aiProviderChooser .aipc-card-status {
   color: #8b94a8 !important;
+}
+
+/* ── Right inspector panel ──────────────────────────────────────── */
+#aiPanel .ai-inspector {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 18px;
+  background: var(--nlpl-bg-elev);
+  border-left: 1px solid var(--nlpl-line-soft);
+  overflow-y: auto;
+  font-family: var(--nlpl-font-sans);
+  color: var(--nlpl-fg);
+}
+#aiPanel .ai-insp-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+#aiPanel .ai-insp-label {
+  font-family: var(--nlpl-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--nlpl-fg-4);
+  font-weight: 500;
+}
+#aiPanel .ai-insp-card {
+  background: var(--nlpl-bg-card);
+  border: 1px solid var(--nlpl-line);
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 13px;
+  color: var(--nlpl-fg);
+}
+#aiPanel .ai-insp-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 0;
+  border-top: 1px dashed var(--nlpl-line-soft);
+}
+#aiPanel .ai-insp-row:first-child { border-top: 0; }
+#aiPanel .ai-insp-key {
+  font-size: 12px;
+  color: var(--nlpl-fg-3);
+}
+#aiPanel .ai-insp-val {
+  font-family: var(--nlpl-font-mono);
+  font-size: 12px;
+  color: var(--nlpl-fg);
+}
+#aiPanel .ai-insp-action {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  background: var(--nlpl-bg-card);
+  border: 1px solid var(--nlpl-line);
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: var(--nlpl-font-sans);
+  font-size: 13px;
+  color: var(--nlpl-fg);
+  text-align: left;
+  transition: background 0.12s, border-color 0.12s;
+}
+#aiPanel .ai-insp-action:hover {
+  background: var(--nlpl-bg-card-2);
+  border-color: var(--nlpl-line);
+}
+#aiPanel .ai-insp-action svg { color: var(--nlpl-accent); flex-shrink: 0; }
+#aiPanel .ai-insp-action.primary {
+  background: var(--nlpl-accent-soft);
+  border-color: rgba(31, 95, 209, 0.4);
+}
+body.emp-dark #aiPanel .ai-insp-action.primary {
+  border-color: rgba(91, 142, 240, 0.4);
+}
+#aiPanel .ai-insp-action.primary:hover { background: var(--nlpl-accent-soft); filter: brightness(0.97); }
+#aiPanel .ai-insp-action .ia-meta {
+  font-family: var(--nlpl-font-mono);
+  font-size: 10.5px;
+  color: var(--nlpl-fg-4);
+  margin-left: auto;
+  letter-spacing: 0.04em;
+}
+#aiPanel .ai-insp-source {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0;
+  font-family: var(--nlpl-font-mono);
+  font-size: 12px;
+  border-top: 1px dashed var(--nlpl-line-soft);
+}
+#aiPanel .ai-insp-source:first-child { border-top: 0; }
+#aiPanel .ai-insp-source-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--nlpl-fg);
+}
+#aiPanel .ai-insp-source-name svg { color: var(--nlpl-fg-4); flex-shrink: 0; }
+#aiPanel .ai-insp-source-status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--nlpl-font-mono);
+  font-size: 10.5px;
+  color: var(--nlpl-fg-4);
+  letter-spacing: 0.04em;
+}
+#aiPanel .ai-insp-source-status .ai-insp-source-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--nlpl-fg-4);
+}
+#aiPanel .ai-insp-source-status.live { color: var(--nlpl-pos); }
+#aiPanel .ai-insp-source-status.live .ai-insp-source-dot { background: var(--nlpl-pos); }
+#aiPanel .ai-insp-tl-item {
+  display: flex;
+  gap: 10px;
+  padding: 0 0 8px 0;
+  position: relative;
+}
+#aiPanel .ai-insp-tl-item:last-child { padding-bottom: 0; }
+#aiPanel .ai-insp-tl-dot {
+  width: 8px; height: 8px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--nlpl-accent);
+  margin-top: 6px;
+  box-shadow: 0 0 0 3px rgba(31, 95, 209, 0.18);
+}
+body.emp-dark #aiPanel .ai-insp-tl-dot {
+  box-shadow: 0 0 0 3px rgba(91, 142, 240, 0.18);
+}
+#aiPanel .ai-insp-tl-item:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 3.5px;
+  top: 16px;
+  bottom: 0;
+  width: 1px;
+  background: var(--nlpl-line-soft);
+}
+#aiPanel .ai-insp-tl-body {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--nlpl-fg-2);
+}
+#aiPanel .ai-insp-tl-time {
+  font-family: var(--nlpl-font-mono);
+  font-size: 10px;
+  color: var(--nlpl-fg-4);
+  margin-top: 2px;
+  letter-spacing: 0.04em;
 }
 </style>
 </body>
