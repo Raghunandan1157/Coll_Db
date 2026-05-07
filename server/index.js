@@ -10347,6 +10347,177 @@ app.get('/api/chat/employees', async (req, res) => {
   }
 });
 
+// ===================================================================
+// AI Chat history (Phase B) — keyed by user_key (phone / emp_id / role).
+// Tables: ai_chat_conversations, ai_chat_messages.
+// All endpoints require user_key — server only ever returns rows for
+// that key, so users see only their own history.
+// ===================================================================
+function _aiChatUserKey(req) {
+  const k = String((req.query && req.query.user_key) || (req.body && req.body.user_key) || '').trim();
+  return k && k.length <= 200 ? k : '';
+}
+
+// GET /api/ai-chat/conversations?user_key=...
+app.get('/api/ai-chat/conversations', async (req, res) => {
+  try {
+    const userKey = _aiChatUserKey(req);
+    if (!userKey) return res.status(400).json({ error: 'user_key required' });
+    const r = await pool.query(
+      `SELECT c.id, c.title, c.pinned, c.provider, c.created_at, c.updated_at,
+              (SELECT COUNT(*) FROM ai_chat_messages m WHERE m.conversation_id = c.id) AS msg_count
+         FROM ai_chat_conversations c
+        WHERE c.user_key = $1
+        ORDER BY c.pinned DESC, c.updated_at DESC
+        LIMIT 100`,
+      [userKey]
+    );
+    res.json({ conversations: r.rows });
+  } catch (err) {
+    console.error('ai-chat list error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/ai-chat/conversations  body: {user_key, title?, provider?}
+app.post('/api/ai-chat/conversations', async (req, res) => {
+  try {
+    const userKey = _aiChatUserKey(req);
+    if (!userKey) return res.status(400).json({ error: 'user_key required' });
+    const title = String((req.body && req.body.title) || 'New conversation').slice(0, 200);
+    const provider = req.body && req.body.provider ? String(req.body.provider).slice(0, 40) : null;
+    const r = await pool.query(
+      `INSERT INTO ai_chat_conversations (user_key, title, provider)
+       VALUES ($1, $2, $3)
+       RETURNING id, title, pinned, provider, created_at, updated_at`,
+      [userKey, title, provider]
+    );
+    res.json({ conversation: r.rows[0] });
+  } catch (err) {
+    console.error('ai-chat create error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PATCH /api/ai-chat/conversations/:id  body: {user_key, title?, pinned?}
+app.patch('/api/ai-chat/conversations/:id', async (req, res) => {
+  try {
+    const userKey = _aiChatUserKey(req);
+    if (!userKey) return res.status(400).json({ error: 'user_key required' });
+    const id = parseInt(req.params.id, 10);
+    if (!id || id < 1) return res.status(400).json({ error: 'invalid id' });
+    const sets = [];
+    const params = [id, userKey];
+    if (req.body && typeof req.body.title === 'string') {
+      params.push(req.body.title.slice(0, 200));
+      sets.push('title = $' + params.length);
+    }
+    if (req.body && typeof req.body.pinned === 'boolean') {
+      params.push(req.body.pinned);
+      sets.push('pinned = $' + params.length);
+    }
+    if (!sets.length) return res.json({ ok: true });
+    sets.push('updated_at = NOW()');
+    const r = await pool.query(
+      `UPDATE ai_chat_conversations SET ${sets.join(', ')}
+        WHERE id = $1 AND user_key = $2
+       RETURNING id, title, pinned, updated_at`,
+      params
+    );
+    if (!r.rowCount) return res.status(404).json({ error: 'not found' });
+    res.json({ conversation: r.rows[0] });
+  } catch (err) {
+    console.error('ai-chat patch error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /api/ai-chat/conversations/:id?user_key=...
+app.delete('/api/ai-chat/conversations/:id', async (req, res) => {
+  try {
+    const userKey = _aiChatUserKey(req);
+    if (!userKey) return res.status(400).json({ error: 'user_key required' });
+    const id = parseInt(req.params.id, 10);
+    if (!id || id < 1) return res.status(400).json({ error: 'invalid id' });
+    const r = await pool.query(
+      `DELETE FROM ai_chat_conversations WHERE id = $1 AND user_key = $2`,
+      [id, userKey]
+    );
+    res.json({ deleted: r.rowCount });
+  } catch (err) {
+    console.error('ai-chat delete error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/ai-chat/conversations/:id/messages?user_key=...
+app.get('/api/ai-chat/conversations/:id/messages', async (req, res) => {
+  try {
+    const userKey = _aiChatUserKey(req);
+    if (!userKey) return res.status(400).json({ error: 'user_key required' });
+    const id = parseInt(req.params.id, 10);
+    if (!id || id < 1) return res.status(400).json({ error: 'invalid id' });
+    const own = await pool.query(
+      `SELECT id FROM ai_chat_conversations WHERE id = $1 AND user_key = $2 LIMIT 1`,
+      [id, userKey]
+    );
+    if (!own.rowCount) return res.status(404).json({ error: 'not found' });
+    const r = await pool.query(
+      `SELECT id, role, content, created_at
+         FROM ai_chat_messages
+        WHERE conversation_id = $1
+        ORDER BY id ASC
+        LIMIT 1000`,
+      [id]
+    );
+    res.json({ messages: r.rows });
+  } catch (err) {
+    console.error('ai-chat messages list error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/ai-chat/conversations/:id/messages  body: {user_key, role, content}
+app.post('/api/ai-chat/conversations/:id/messages', async (req, res) => {
+  try {
+    const userKey = _aiChatUserKey(req);
+    if (!userKey) return res.status(400).json({ error: 'user_key required' });
+    const id = parseInt(req.params.id, 10);
+    if (!id || id < 1) return res.status(400).json({ error: 'invalid id' });
+    const role = String((req.body && req.body.role) || '').toLowerCase();
+    const content = String((req.body && req.body.content) || '');
+    if (!['user', 'assistant', 'system'].includes(role)) {
+      return res.status(400).json({ error: 'invalid role' });
+    }
+    if (!content) return res.status(400).json({ error: 'content required' });
+    const own = await pool.query(
+      `SELECT id, title FROM ai_chat_conversations WHERE id = $1 AND user_key = $2 LIMIT 1`,
+      [id, userKey]
+    );
+    if (!own.rowCount) return res.status(404).json({ error: 'not found' });
+    const insert = await pool.query(
+      `INSERT INTO ai_chat_messages (conversation_id, role, content)
+       VALUES ($1, $2, $3)
+       RETURNING id, role, content, created_at`,
+      [id, role, content.slice(0, 16000)]
+    );
+    // Auto-title from first user message; bump updated_at always.
+    if (role === 'user' && (own.rows[0].title === 'New conversation' || !own.rows[0].title)) {
+      const t = content.replace(/\s+/g, ' ').trim().slice(0, 80);
+      await pool.query(
+        `UPDATE ai_chat_conversations SET title = $1, updated_at = NOW() WHERE id = $2`,
+        [t || 'New conversation', id]
+      );
+    } else {
+      await pool.query(`UPDATE ai_chat_conversations SET updated_at = NOW() WHERE id = $1`, [id]);
+    }
+    res.json({ message: insert.rows[0] });
+  } catch (err) {
+    console.error('ai-chat messages append error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ----- socket.io: chat namespace on the main io server ---------------
 io.on('connection', (socket) => {
   // chat:join — emp joins their personal room. Optional `last_seen_ids`

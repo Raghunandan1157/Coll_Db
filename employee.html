@@ -10955,65 +10955,88 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         }
         if (scopeEl) scopeEl.textContent = (loc ? loc.toLowerCase() : 'overall');
 
-        window._aiRenderRailHistory && window._aiRenderRailHistory();
+        window._aiFetchChats && window._aiFetchChats();
       } catch (_) {}
     };
 
-    // ── Local conversation history (Phase A: localStorage; Phase B will sync to PG) ──
-    window._aiHistoryStoreKey = function () { return 'nlpl_ai_chats:' + window._aiUserKey(); };
-    window._aiCurrentChatKey = function () { return 'nlpl_ai_current:' + window._aiUserKey(); };
-    window._aiLoadChats = function () {
-      try {
-        var raw = localStorage.getItem(window._aiHistoryStoreKey());
-        var arr = raw ? JSON.parse(raw) : [];
-        return Array.isArray(arr) ? arr : [];
-      } catch (_) { return []; }
-    };
-    window._aiSaveChats = function (arr) {
-      try { localStorage.setItem(window._aiHistoryStoreKey(), JSON.stringify(arr || [])); } catch (_) {}
-    };
+    // ── DB-backed conversation history (Phase B). All calls keyed by user_key. ──
+    window._aiCurrentChatKey = function () { return 'nlpl_ai_current_db:' + window._aiUserKey(); };
+    window._aiChatsCache = [];
     window._aiCurrentChatId = function () {
       try { return localStorage.getItem(window._aiCurrentChatKey()) || ''; } catch (_) { return ''; }
     };
     window._aiSetCurrentChatId = function (id) {
       try {
-        if (id) localStorage.setItem(window._aiCurrentChatKey(), id);
+        if (id) localStorage.setItem(window._aiCurrentChatKey(), String(id));
         else localStorage.removeItem(window._aiCurrentChatKey());
       } catch (_) {}
     };
+    window._aiFetchChats = function () {
+      var key = window._aiUserKey();
+      return fetch('/api/ai-chat/conversations?user_key=' + encodeURIComponent(key))
+        .then(function (r) { return r.ok ? r.json() : { conversations: [] }; })
+        .then(function (j) {
+          window._aiChatsCache = (j && j.conversations) || [];
+          window._aiRenderRailHistory && window._aiRenderRailHistory();
+          return window._aiChatsCache;
+        })
+        .catch(function () { return []; });
+    };
+    window._aiCreateChat = function (firstContent) {
+      var key = window._aiUserKey();
+      var prov = window._aiPickedProvider ? window._aiPickedProvider() : null;
+      var title = String(firstContent || 'New conversation').replace(/\s+/g, ' ').trim().slice(0, 80) || 'New conversation';
+      return fetch('/api/ai-chat/conversations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_key: key, title: title, provider: prov })
+      })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) {
+          var c = j && j.conversation;
+          if (c) {
+            window._aiSetCurrentChatId(c.id);
+            window._aiChatsCache.unshift({ ...c, msg_count: 0 });
+          }
+          return c;
+        })
+        .catch(function () { return null; });
+    };
     window._aiPersistTurn = function (role, content) {
       if (!content) return;
-      var chats = window._aiLoadChats();
+      var key = window._aiUserKey();
       var id = window._aiCurrentChatId();
-      var conv = id ? chats.find(function (c) { return c.id === id; }) : null;
-      if (!conv) {
-        conv = {
-          id: 'c' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
-          title: '',
-          ts: Date.now(),
-          msgs: []
-        };
-        chats.unshift(conv);
-        window._aiSetCurrentChatId(conv.id);
-      }
-      conv.msgs.push({ role: role, content: String(content).slice(0, 8000), ts: Date.now() });
-      conv.ts = Date.now();
-      if (!conv.title && role === 'user') conv.title = String(content).slice(0, 60);
-      while (chats.length > 60) chats.pop();
-      window._aiSaveChats(chats);
-      window._aiRenderRailHistory && window._aiRenderRailHistory();
+      var post = function (cid) {
+        return fetch('/api/ai-chat/conversations/' + cid + '/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_key: key, role: role, content: String(content).slice(0, 16000) })
+        })
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function () {
+            // Refresh rail to bump updated_at + auto-title.
+            window._aiFetchChats && window._aiFetchChats();
+          })
+          .catch(function () {});
+      };
+      if (id) return post(id);
+      return window._aiCreateChat(role === 'user' ? content : '').then(function (c) {
+        if (c) post(c.id);
+      });
     };
     window._aiRenderRailHistory = function () {
       var listEl = document.getElementById('aiRailRecentList');
       var pinnedSec = document.getElementById('aiRailPinned');
       var pinnedListEl = document.getElementById('aiRailPinnedList');
       if (!listEl) return;
-      var chats = window._aiLoadChats();
-      var current = window._aiCurrentChatId();
+      var chats = window._aiChatsCache || [];
+      var current = String(window._aiCurrentChatId() || '');
       var pinned = chats.filter(function (c) { return c.pinned; });
       var recent = chats.filter(function (c) { return !c.pinned; }).slice(0, 20);
-      function fmtAge(ts) {
-        var d = Math.max(0, Date.now() - (ts || 0));
+      function fmtAge(iso) {
+        var ts = iso ? Date.parse(iso) : 0;
+        if (!ts) return '';
+        var d = Math.max(0, Date.now() - ts);
         var m = Math.floor(d / 60000);
         if (m < 1) return 'now';
         if (m < 60) return m + 'm';
@@ -11028,14 +11051,14 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         return String(s || '').replace(/[<>&]/g, function (m) { return ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' })[m]; });
       }
       function itemHtml(c, isPinned) {
-        var act = (c.id === current) ? ' aria-current="true"' : '';
+        var act = (String(c.id) === current) ? ' aria-current="true"' : '';
         var cls = 'ai-rail-item' + (isPinned ? ' pinned' : '');
         var icon = isPinned
           ? '<svg class="ai-rail-item-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2 9 9l-7 1 5 5-1 7 6-3 6 3-1-7 5-5-7-1z"/></svg>'
           : '<svg class="ai-rail-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>';
         return '<button class="' + cls + '"' + act + ' data-cid="' + c.id + '">' + icon
           + '<span class="ai-rail-item-title">' + esc(c.title || 'Untitled') + '</span>'
-          + '<span class="ai-rail-item-meta">' + fmtAge(c.ts) + '</span></button>';
+          + '<span class="ai-rail-item-meta">' + fmtAge(c.updated_at) + '</span></button>';
       }
       if (pinnedSec) pinnedSec.hidden = !pinned.length;
       if (pinnedListEl) pinnedListEl.innerHTML = pinned.map(function (c) { return itemHtml(c, true); }).join('');
@@ -11053,25 +11076,29 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       if (pinnedListEl) attach(pinnedListEl);
     };
     window._aiOpenChat = function (cid) {
-      var chats = window._aiLoadChats();
-      var conv = chats.find(function (c) { return c.id === cid; });
-      if (!conv) return;
+      var key = window._aiUserKey();
       window._aiSetCurrentChatId(cid);
-      try { if (typeof _aiHistory !== 'undefined') _aiHistory.length = 0; } catch (_) {}
-      var box = document.getElementById('aiMessages');
-      if (box) box.innerHTML = '';
-      (conv.msgs || []).forEach(function (m) {
-        try { if (typeof _aiHistory !== 'undefined') _aiHistory.push({ role: m.role, content: m.content }); } catch (_) {}
-        if (typeof window._aiAppendBubble === 'function') {
-          window._aiAppendBubble(m.role, m.content);
-        } else if (box) {
-          var d = document.createElement('div');
-          d.className = m.role === 'user' ? 'ai-msg-user' : 'ai-msg-bot';
-          d.textContent = m.content;
-          box.appendChild(d);
-        }
-      });
-      window._aiRenderRailHistory && window._aiRenderRailHistory();
+      fetch('/api/ai-chat/conversations/' + encodeURIComponent(cid) + '/messages?user_key=' + encodeURIComponent(key))
+        .then(function (r) { return r.ok ? r.json() : { messages: [] }; })
+        .then(function (j) {
+          var msgs = (j && j.messages) || [];
+          try { if (typeof _aiHistory !== 'undefined') _aiHistory.length = 0; } catch (_) {}
+          var box = document.getElementById('aiMessages');
+          if (box) box.innerHTML = '';
+          msgs.forEach(function (m) {
+            try { if (typeof _aiHistory !== 'undefined') _aiHistory.push({ role: m.role, content: m.content }); } catch (_) {}
+            if (typeof window._aiAppendBubble === 'function') {
+              window._aiAppendBubble(m.content, m.role);
+            } else if (box) {
+              var d = document.createElement('div');
+              d.className = m.role === 'user' ? 'ai-msg-user' : 'ai-msg-bot';
+              d.textContent = m.content;
+              box.appendChild(d);
+            }
+          });
+          window._aiRenderRailHistory && window._aiRenderRailHistory();
+        })
+        .catch(function () {});
     };
 
     window._aiRenderStarterChips = function () {
