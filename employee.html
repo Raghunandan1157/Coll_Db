@@ -8227,8 +8227,8 @@ body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
       // Paragraphs / line breaks. Don't insert <br> right after block tags.
       s = s.replace(/\n{2,}/g, '<br><br>');
       s = s.replace(/\n/g, '<br>');
-      s = s.replace(/<br>\s*(<\/?(?:h[2-4]|ul|ol|li|table|thead|tbody|tr|td|th|pre|blockquote|div)\b[^>]*>)/g, '$1');
-      s = s.replace(/(<\/(?:h[2-4]|ul|ol|table|pre|blockquote|div)>)\s*<br>/g, '$1');
+      s = s.replace(/<br>\s*(<\/?(?:h[2-6]|ul|ol|li|table|thead|tbody|tr|td|th|pre|blockquote|div)\b[^>]*>)/g, '$1');
+      s = s.replace(/(<\/(?:h[2-6]|ul|ol|table|pre|blockquote|div)>)\s*<br>/g, '$1');
       return s;
     }
 
@@ -11884,8 +11884,22 @@ body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
           if (/^\s*(Δ|delta|change|vs\s*lm|vs\s*last|vs\s*prior)/i.test(String(h || '').trim())) deltaCols.push(i);
         });
         // Detect existing rank/serial column so we don't double-prepend.
+        // Also handle headers like "Position" / "Sr." / unnamed by falling back
+        // to a content heuristic: every cells[0] is a small int AND cells[1]
+        // is non-numeric (matches the same heuristic in _aiAttachSpark + _aiBuildFollowups).
         var firstHeaderTxt = String(heads[0] || '').toLowerCase().trim();
-        var firstColIsRank = /^#$|^rank$|^sl?\.?\s*no\.?$|^s\.?\s*no\.?$|^no\.?$/.test(firstHeaderTxt);
+        var firstColIsRank = /^#$|^rank$|^sl?\.?\s*no\.?$|^s\.?\s*no\.?$|^no\.?$|^position$|^sr\.?$|^pos\.?$/.test(firstHeaderTxt);
+        if (!firstColIsRank && rows.length > 0 && rows[0].cells.length >= 3) {
+          var cardCol0AllInt = rows.every(function (r) {
+            var t = String((r.cells[0] && r.cells[0].textContent) || '').trim();
+            return /^\d{1,3}$/.test(t);
+          });
+          var cardCol1NonNumeric = rows.every(function (r) {
+            var t = String((r.cells[1] && r.cells[1].textContent) || '').trim();
+            return t && !/^[\d,.\-₹%\s]+$/.test(t);
+          });
+          if (cardCol0AllInt && cardCol1NonNumeric) firstColIsRank = true;
+        }
 
         // Prose-only text (skip table + spark) for number/KPI extraction.
         var proseText = '';
@@ -12022,29 +12036,32 @@ body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
             } else {
               bigNum.appendChild(document.createTextNode(heroNumText));
             }
-            // Delta block — try to lift a "+X.X%" / "-X.X%" hint from prose.
-            var heroMeta = document.createElement('div');
-            heroMeta.className = 'ai-ans-hero-meta';
+            // Delta block — only render when prose volunteers a "+X.X%" /
+            // "-X.X%" hint. Earlier code rendered a fake-positive "↑ —" with
+            // .delta-big.pos styling whenever the LLM omitted a delta — visually
+            // identical to a real positive trend. Skip the block instead
+            // (audit MAJOR — render-auditor).
             var dm = proseText.match(/(↑|↓|up|down|\+|-)\s*(\d+(?:\.\d+)?)\s*%/i);
-            var deltaBig = document.createElement('span');
-            deltaBig.className = 'delta-big pos';
             if (dm) {
+              var heroMeta = document.createElement('div');
+              heroMeta.className = 'ai-ans-hero-meta';
               var sign = dm[1] || '';
               var pct = parseFloat(dm[2]);
               var isNeg = /down|-|↓/i.test(sign);
-              deltaBig.classList.toggle('neg', isNeg);
-              deltaBig.classList.toggle('pos', !isNeg);
+              var deltaBig = document.createElement('span');
+              deltaBig.className = 'delta-big ' + (isNeg ? 'neg' : 'pos');
               deltaBig.textContent = (isNeg ? '↓ ' : '↑ ') + pct.toFixed(1) + '%';
+              var deltaSub = document.createElement('span');
+              deltaSub.textContent = 'vs. last period';
+              heroMeta.appendChild(deltaBig);
+              heroMeta.appendChild(deltaSub);
+              heroL.appendChild(eyebrow);
+              heroL.appendChild(bigNum);
+              heroL.appendChild(heroMeta);
             } else {
-              deltaBig.textContent = '↑ —';
+              heroL.appendChild(eyebrow);
+              heroL.appendChild(bigNum);
             }
-            var deltaSub = document.createElement('span');
-            deltaSub.textContent = 'vs. last period';
-            heroMeta.appendChild(deltaBig);
-            heroMeta.appendChild(deltaSub);
-            heroL.appendChild(eyebrow);
-            heroL.appendChild(bigNum);
-            heroL.appendChild(heroMeta);
 
             var heroR = document.createElement('div');
             heroR.className = 'ai-ans-hero-chart';
@@ -12804,12 +12821,15 @@ body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
         return clone.outerHTML;
       };
 
-      // ── Root container. Width fixed at 720, white, padded.
+      // ── Root container. Width fixed at 720, padded. Root background uses
+      // the resolved panel bg token so dark-mode panels produce a dark PNG
+      // root, not a mixed white-bg / dark-cells card (BLOCKER #1).
       var root = document.createElement('div');
+      var ROOT_BG = tok('--nlpl-bg', '#ffffff');
       root.style.cssText = [
         'width: 720px',
         'box-sizing: border-box',
-        'background: #ffffff',
+        'background: ' + ROOT_BG,
         'color: ' + FG,
         'font-family: ' + FONT,
         'font-size: 14px',
@@ -13934,6 +13954,7 @@ body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
     // sources cards with relative-time labels. Cached for 60s so we don't
     // hammer the endpoint on every panel re-open.
     window._aiActivityCache = window._aiActivityCache || { ts: 0, data: null };
+    window._aiActivityInFlight = window._aiActivityInFlight || null;
     function _aiFmtAge(iso, now) {
       if (!iso) return '—';
       var t = Date.parse(iso);
@@ -14009,16 +14030,33 @@ body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
       // Reuse cache if fresh (≤60s) so opening / new-chat doesn't refetch each time.
       if (window._aiActivityCache.data && (now - window._aiActivityCache.ts) < 60000) {
         _aiRenderActivitySources(window._aiActivityCache.data);
-        return;
+        return window._aiActivityInFlight || Promise.resolve(window._aiActivityCache.data);
       }
-      fetch('/api/ai-activity')
+      // De-dup parallel calls — _aiOpen fires _aiRefreshInspector 3× on first
+      // open which previously launched 3 parallel /api/ai-activity GETs
+      // (audit MAJOR — copy-auditor).
+      if (window._aiActivityInFlight) return window._aiActivityInFlight;
+      window._aiActivityInFlight = fetch('/api/ai-activity')
         .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (j) {
-          if (!j) return;
+          if (!j) {
+            // Surface fetch failure visibly instead of leaving the seed HTML
+            // showing fake "2m / 14m / 1h ago" timestamps forever.
+            try {
+              var act = document.getElementById('aiInspActivity');
+              if (act) act.innerHTML = '<div class="ai-insp-empty">Activity unavailable</div>';
+              var src = document.getElementById('aiInspSources');
+              if (src) src.innerHTML = '<div class="ai-insp-empty">Sources unavailable</div>';
+            } catch (_) {}
+            return null;
+          }
           window._aiActivityCache = { ts: Date.now(), data: j };
           _aiRenderActivitySources(j);
+          return j;
         })
-        .catch(function () {});
+        .catch(function () {})
+        .finally(function () { window._aiActivityInFlight = null; });
+      return window._aiActivityInFlight;
     };
 
     // ── DB-backed conversation history (Phase B). All calls keyed by user_key. ──
@@ -14089,10 +14127,13 @@ body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
         })
         .catch(function () { return null; });
     };
+    // Single in-flight create guard: prevents user+assistant turns from
+    // racing into TWO conversations when the user-side _aiCreateChat is
+    // still in flight (audit MAJOR — rail-auditor).
+    window._aiCreateInFlight = null;
     window._aiPersistTurn = function (role, content) {
       if (!content) return;
       var key = window._aiUserKey();
-      var id = window._aiCurrentChatId();
       var post = function (cid) {
         return fetch('/api/ai-chat/conversations/' + cid + '/messages', {
           method: 'POST',
@@ -14106,8 +14147,21 @@ body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
           })
           .catch(function () {});
       };
+      var id = window._aiCurrentChatId();
       if (id) return post(id);
-      return window._aiCreateChat(role === 'user' ? content : '').then(function (c) {
+      // No existing chat yet. If a create is already in flight (from the
+      // user turn), share its promise instead of starting a second create.
+      if (!window._aiCreateInFlight) {
+        window._aiCreateInFlight = window._aiCreateChat(role === 'user' ? content : '')
+          .then(function (c) { return c; })
+          .catch(function () { return null; })
+          .finally(function () {
+            // Clear the latch on the next tick so subsequent turns can resolve
+            // against _aiCurrentChatId(), which the create has populated.
+            setTimeout(function () { window._aiCreateInFlight = null; }, 0);
+          });
+      }
+      return window._aiCreateInFlight.then(function (c) {
         if (c) post(c.id);
       });
     };
@@ -14176,7 +14230,19 @@ body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
           var pinBtn = row.querySelector('[data-action="pin"]');
           var delBtn = row.querySelector('[data-action="del"]');
           var titleEl = row.querySelector('.ai-rail-item-title');
-          if (openBtn) openBtn.addEventListener('click', function () { window._aiOpenChat && window._aiOpenChat(cid); });
+          // Defer single-click open by 220ms so a quick double-click on the
+          // title can pre-empt the open + cancel the open. Without this the
+          // open click rerenders the rail and detaches titleEl before the
+          // dblclick handler fires (audit MAJOR — rail-auditor).
+          var openTimer = null;
+          if (openBtn) openBtn.addEventListener('click', function (e) {
+            if (e.detail >= 2) return; // dblclick path takes over
+            if (openTimer) { clearTimeout(openTimer); openTimer = null; }
+            openTimer = setTimeout(function () {
+              openTimer = null;
+              window._aiOpenChat && window._aiOpenChat(cid);
+            }, 220);
+          });
           if (pinBtn) pinBtn.addEventListener('click', function (e) {
             e.stopPropagation();
             var c = (window._aiChatsCache || []).filter(function (x) { return String(x.id) === String(cid); })[0];
@@ -14191,6 +14257,7 @@ body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
           });
           if (titleEl) titleEl.addEventListener('dblclick', function (e) {
             e.stopPropagation(); e.preventDefault();
+            if (openTimer) { clearTimeout(openTimer); openTimer = null; }
             window._aiBeginRename && window._aiBeginRename(cid, titleEl);
           });
         });
