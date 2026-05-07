@@ -9074,20 +9074,33 @@ app.post("/api/ai-chat-stream", aiLimiter, requireAiAccess, async (req, res) => 
 
   // Build chain. Explicit provider → single-element chain (no fallback).
   // Auto → Mistral → Gemini → OpenAI → DeepSeek, skipping unconfigured ones.
+  // Build provider chain. When the user picks a specific provider, that
+  // provider runs first — but we still queue the other configured providers
+  // as auto-fallback so a transient upstream 400/429 doesn't surface as
+  // "AI is briefly busy". Frontend gets a `fallback` SSE event so the user
+  // sees the switch in the thinking card.
   const chain = [];
-  if (explicitProvider === 'mistral') {
-    chain.push({ name: 'mistral', run: () => runMistralWithTools(mergedMessages, session, undefined, onProgress) });
+  function addProvider(name) {
+    if (chain.find(c => c.name === name)) return;
+    if (name === 'mistral'  && MISTRAL_KEY)  chain.push({ name, run: () => runMistralWithTools(mergedMessages, session, undefined, onProgress) });
+    if (name === 'openai'   && OPENAI_KEY)   chain.push({ name, run: () => runOpenAiWithTools(mergedMessages, session, undefined, onProgress) });
+    if (name === 'deepseek' && DEEPSEEK_KEY) chain.push({ name, run: () => runDeepSeekWithTools(mergedMessages, session, undefined, onProgress, deepseekModelOverride) });
+    // Gemini intentionally excluded from automatic fallback — quota / leaked-key issues in prod.
+  }
+  if (explicitProvider && ['mistral','openai','deepseek'].includes(explicitProvider)) {
+    addProvider(explicitProvider);
+    addProvider('mistral');
+    addProvider('openai');
+    addProvider('deepseek');
   } else if (explicitProvider === 'gemini') {
     chain.push({ name: 'gemini',  run: () => callGeminiAi(mergedMessages) });
-  } else if (explicitProvider === 'openai') {
-    chain.push({ name: 'openai',  run: () => runOpenAiWithTools(mergedMessages, session, undefined, onProgress) });
-  } else if (explicitProvider === 'deepseek') {
-    chain.push({ name: 'deepseek', run: () => runDeepSeekWithTools(mergedMessages, session, undefined, onProgress, deepseekModelOverride) });
+    addProvider('mistral');
+    addProvider('openai');
+    addProvider('deepseek');
   } else {
-    if (MISTRAL_KEY)  chain.push({ name: 'mistral',  run: () => runMistralWithTools(mergedMessages, session, undefined, onProgress) });
-    if (GEMINI_KEY)   chain.push({ name: 'gemini',   run: () => callGeminiAi(mergedMessages) });
-    if (OPENAI_KEY)   chain.push({ name: 'openai',   run: () => runOpenAiWithTools(mergedMessages, session, undefined, onProgress) });
-    if (DEEPSEEK_KEY) chain.push({ name: 'deepseek', run: () => runDeepSeekWithTools(mergedMessages, session, undefined, onProgress, deepseekModelOverride) });
+    addProvider('mistral');
+    addProvider('openai');
+    addProvider('deepseek');
   }
 
   let result = { ok: false, error: 'no_providers' };
