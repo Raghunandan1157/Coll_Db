@@ -11551,7 +11551,11 @@ body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
           return;
         }
         var intent = window._aiVisualIntent(question);
-        if (!intent) return;
+        // Default chart presence for ANY structured table — gate only chart TYPE
+        // on intent. If a numeric column exists, _aiAttachSpark renders bars
+        // (non-ordered first column) or line (ordered/time series). Single-col
+        // tables fall through naturally because numCols stays empty.
+        if (!intent) intent = 'snapshot';
         var table = bubbleEl.querySelector('table');
         if (!table) return;
         var rows = Array.prototype.slice.call(table.querySelectorAll('tbody tr, tr'));
@@ -11701,8 +11705,10 @@ body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
       try {
         var rows = [];
         if (table) {
+          // Allow single-column tables so snapshot answers (e.g. a list of
+          // branch names) still get entity-name-based follow-up chips.
           rows = Array.prototype.slice.call(table.querySelectorAll('tbody tr, tr'))
-            .filter(function (r) { return r.cells && r.cells.length >= 2 && !r.querySelector('th'); });
+            .filter(function (r) { return r.cells && r.cells.length >= 1 && !r.querySelector('th'); });
         }
         var maxCols = rows.reduce(function (m, r) { return Math.max(m, r.cells.length); }, 0);
         // Detect rank/serial column so chip labels use the entity name, not "01"/"02".
@@ -11747,6 +11753,12 @@ body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
         var bot = ranked.length ? ranked[ranked.length - 1].label : '';
         var mover = top || '';
 
+        // Snapshot fallback: when there's no numeric column to rank on (e.g.
+        // single-column branch list), pull entity names straight from rows so
+        // the chips reference real branches instead of generic prompts.
+        var firstEntity = rows[0] && rows[0].cells[labelCol] ? String(rows[0].cells[labelCol].textContent || '').trim() : '';
+        var secondEntity = rows[1] && rows[1].cells[labelCol] ? String(rows[1].cells[labelCol].textContent || '').trim() : '';
+
         function chip(s) {
           var v = String(s || '').replace(/\s+/g, ' ').trim();
           if (v.length > 56) v = v.slice(0, 53).trim() + '…';
@@ -11754,7 +11766,15 @@ body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
         }
 
         var picks = [];
-        if (intent === 'per-row' && top && bot && top !== bot) {
+        if (intent === 'snapshot' && firstEntity) {
+          picks.push('Show ' + firstEntity + ' trend');
+          picks.push('Why is ' + firstEntity + ' below plan?');
+          if (secondEntity && secondEntity !== firstEntity) {
+            picks.push('Compare ' + firstEntity + ' vs ' + secondEntity);
+          } else {
+            picks.push('Top 5 contributors');
+          }
+        } else if (intent === 'per-row' && top && bot && top !== bot) {
           picks.push('Why is ' + bot + ' below plan?');
           picks.push("Show " + top + "'s performance trend");
           picks.push('Compare ' + top + ' vs ' + bot + ' this week');
@@ -11797,17 +11817,22 @@ body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
         if (!table) return;
         var intent = window._aiVisualIntent && window._aiVisualIntent(userQuestion);
 
-        // Collect data rows (excluding header rows).
+        // Collect data rows (excluding header rows). Allow single-column tables
+        // (cells.length >= 1) so we still wrap the card shell — header, body,
+        // follow-ups, source foot — for answers like "Branches below 90%".
+        // Hero/mini-KPI/chart paths below skip naturally when no numeric column.
         var rows = Array.prototype.slice.call(table.querySelectorAll('tbody tr, tr'))
-          .filter(function (r) { return r.cells && r.cells.length >= 2 && !r.querySelector('th'); });
+          .filter(function (r) { return r.cells && r.cells.length >= 1 && !r.querySelector('th'); });
         if (!rows.length) return;
 
         // Snapshot fallback: when no narrow intent matches but the answer is a
-        // multi-row structured table, still wrap with the card shell (header +
-        // body + follow-ups + source foot). Hero/chart gates further down still
-        // require series/compare so we do not invent a chart for snapshots.
+        // structured table (incl. single-column lists like "branches below 90%"),
+        // still wrap with the card shell — header + body + follow-ups + source
+        // foot. Hero gate below still requires series/compare so we don't invent
+        // a hero number for snapshots; chart-type routing in _aiAttachSpark
+        // already handles bars-vs-line for snapshot when a numeric col exists.
         if (intent !== 'series' && intent !== 'compare' && intent !== 'per-row' && intent !== 'breakdown') {
-          if (rows.length >= 2) intent = 'snapshot';
+          if (rows.length >= 1) intent = 'snapshot';
           else return;
         }
 
@@ -11877,6 +11902,7 @@ body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
         metaText.textContent = (intent === 'per-row')   ? 'Ranked answer'
                               : (intent === 'compare')   ? 'Comparison'
                               : (intent === 'breakdown') ? 'Breakdown'
+                              : (intent === 'snapshot')  ? 'Snapshot'
                               : 'Time-series answer';
         meta.appendChild(metaText);
         var metaLine = document.createElement('span');
@@ -12093,8 +12119,9 @@ body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
             kpiCandidates.push({ label: labelText, value: valueText, delta: delta });
           }
         }
-        if (kpiCandidates.length === 0) {
-          // Fallback: first up-to-3 rows of the table.
+        if (kpiCandidates.length === 0 && maxCols >= 2) {
+          // Fallback: first up-to-3 rows of the table. Skip entirely for
+          // single-column tables (no numeric column → no "value" to display).
           // For rank-prefixed tables, use cells[1] as the entity label so the
           // KPI doesn't read "01 / 02 / 03".
           var labelColForKpi = 0;
