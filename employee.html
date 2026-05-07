@@ -8429,41 +8429,133 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
 
       // ── Filler "doing complex work" steps so the card never feels stalled. ──
       // Real SSE events still get rendered; in between, we sprinkle plausible
-      // technical chatter on a 700-1100ms cadence. Each filler advances the
-      // active step (previous flips to done with green check) so the card
-      // grows and reads like a serious pipeline.
-      var _aiFillerPool = [
-        'parsing intent · " ' + String(msg).slice(0, 28).replace(/"/g, '’') + (msg.length > 28 ? '…' : '') + ' "',
-        'resolving scope · ' + (session.location ? session.location : 'overall'),
-        'binding session · role=' + (session.role || 'guest'),
-        'planning sql · cost-based optimizer',
-        'scanning employee_performance · 1.4M rows',
-        'joining branch_master ↔ region_master',
-        'applying access policy · row-level filter',
-        'pre-aggregating period buckets',
-        'computing rolling deltas · vs prior window',
-        'normalizing ₹ → Cr · tabular_nums',
-        'reading 92 records',
-        'ranking branches · top-N=12',
-        'cross-checking npa thresholds · DPD>30',
-        'reconciling daily vs monthly rollup',
-        'shaping markdown · numbers right-aligned',
-        'validating output · schema v2',
-        'compiling tool call · arg vector',
-        'streaming tokens · ' + ((window._aiPickedProvider && window._aiPickedProvider()) || 'openai')
-      ];
+      // technical chatter on a 700-1100ms cadence. Pool is built dynamically
+      // from the actual question so each turn reads as if the AI is doing
+      // work specific to that prompt.
+      var _aiFillerPool = (function buildPool() {
+        var q = String(msg || '').toLowerCase();
+        var loc = session.location || '';
+        var role = session.role || '';
+        var prov = (window._aiPickedProvider && window._aiPickedProvider()) || 'openai';
+        var pool = [];
+        var truncated = String(msg).slice(0, 32).replace(/"/g, '’') + (msg.length > 32 ? '…' : '');
+        pool.push('parsing intent · " ' + truncated + ' "');
+        if (loc) pool.push('resolving scope · ' + loc);
+        else pool.push('resolving scope · overall');
+        if (role) pool.push('binding session · role=' + role);
+
+        // ── Topic
+        var topicHit = false;
+        if (/\bnpa\b/.test(q)) {
+          pool.push('scanning npa_activation · branch=' + (loc || 'all'));
+          pool.push('counting outstanding cases · DPD>90');
+          pool.push('fetching activation history · FYTD');
+          topicHit = true;
+        }
+        if (/disburs/.test(q)) {
+          pool.push('querying disbursement_daily · daily layer');
+          pool.push('aggregating by product · IGL/FIG/IL');
+          pool.push('summing amount_cr · tabular_nums');
+          topicHit = true;
+        }
+        if (/portfolio|\bpos\b/.test(q)) {
+          pool.push('reading portfolio_pos · 1.4M rows');
+          pool.push('applying month filter · current period');
+          topicHit = true;
+        }
+        if (/kyc/.test(q)) {
+          pool.push('scanning kyc_status · pending=open');
+          topicHit = true;
+        }
+        if (/ftod|first[\s-]?time\s*on[\s-]?day/.test(q)) {
+          pool.push('querying ftod_actual · today snapshot');
+          topicHit = true;
+        }
+        if (/dpd|delinquency|bucket/.test(q)) {
+          pool.push('bucketing by DPD · 1-30 / 31-60 / 61-90');
+          topicHit = true;
+        }
+        if (/collection|demand/.test(q)) {
+          pool.push('querying collections_daily · regular vs early');
+          pool.push('summing demand · Cr');
+          topicHit = true;
+        }
+        if (/employee|\bfo\b|\bbm\b|\brm\b|\bdm\b|field officer|staff|officer/.test(q)) {
+          pool.push('loading employee_master · ' + (loc || 'all branches'));
+          pool.push('joining performance · employee_performance');
+          topicHit = true;
+        }
+        if (/branch/.test(q) && !/branch=' + /.test(q)) {
+          pool.push('loading branch_master');
+          pool.push('joining performance · employee_performance');
+          topicHit = true;
+        }
+        if (/region/.test(q)) {
+          pool.push('loading region_master · joining branches');
+          topicHit = true;
+        }
+        if (!topicHit) {
+          pool.push('querying employee_performance');
+        }
+
+        // ── Operation
+        var topMatch = q.match(/top\s*(\d+)/);
+        if (topMatch) {
+          pool.push('ranking by performance score');
+          pool.push('selecting top-N=' + topMatch[1]);
+        } else if (/highest|best|leading/.test(q)) {
+          pool.push('ranking by performance score · descending');
+        } else if (/lowest|worst|below plan|underperform/.test(q)) {
+          pool.push('ranking by attainment · ascending');
+        }
+        if (/compare|\bvs\.?\b|versus/.test(q)) {
+          pool.push('computing deltas · period A vs period B');
+          pool.push('aligning windows · normalize day count');
+        }
+        if (/yesterday|today/.test(q)) {
+          pool.push('reading daily_performance · last 2 days');
+        }
+        if (/day[\s-]?by[\s-]?day|trend|over time/.test(q)) {
+          pool.push('expanding to daily series · last 30 days');
+        }
+        if (/this month|mtd|first of (the )?month/.test(q)) {
+          pool.push('expanding window · MTD · day 1 → today');
+        }
+        if (/last month/.test(q)) {
+          pool.push('switching window · prior calendar month');
+        }
+        if (/this fy|fytd|year to date|ytd/.test(q)) {
+          pool.push('expanding window · FYTD · Apr 1 → today');
+        }
+        if (/last (\d+)\s*(days?|weeks?|months?)/.test(q)) {
+          pool.push('expanding window · trailing range');
+        }
+        if (/breakdown|split|by\s+(branch|region|product|employee|fo)/.test(q)) {
+          pool.push('grouping by entity · pivot');
+        }
+        if (/plan/.test(q)) {
+          pool.push('joining daily_reports · plan vs actual');
+        }
+        if (/why|reason|cause|root\s*cause/.test(q)) {
+          pool.push('hypothesis check · attribution analysis');
+          pool.push('correlating leading indicators');
+        }
+
+        // ── Closing
+        pool.push('applying access policy · row-level filter · ' + (role || 'session'));
+        pool.push('shaping markdown · numbers right-aligned');
+        pool.push('streaming tokens · ' + prov);
+        return pool;
+      })();
       var _aiFillerIdx = 0;
       var _aiFillerSeq = 0;
       var _aiFillerTimer = null;
+      // Generic continuation chatter when the pool is exhausted on slow rounds.
       var _aiFillerLong = [
-        'recomputing FY ranges',
         'caching intermediate frame',
-        'memoizing branch totals',
         'deduplicating tool calls',
-        'running validators · 7 checks',
-        'preparing prose summary',
-        'rendering tabular output',
-        'inserting tabular_nums hints'
+        'running validators',
+        'rendering tabular output'
       ];
       function _aiNextFiller() {
         if (sawDelta) return;
