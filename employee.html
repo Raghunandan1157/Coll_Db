@@ -11596,14 +11596,30 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         headLeft.appendChild(h3);
         var headActions = document.createElement('div');
         headActions.className = 'ai-ans-head-actions';
-        [['copy','⧉'], ['pin','◉'], ['menu','⋯']].forEach(function (pair) {
+        var HEAD_ICONS = {
+          copy: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
+          pin:  '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg>',
+          menu: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>'
+        };
+        var HEAD_LABEL = { copy: 'Copy as image', pin: 'Pin to dashboard', menu: 'More' };
+        [['copy'], ['pin'], ['menu']].forEach(function (pair) {
           var b = document.createElement('button');
           b.type = 'button';
           b.className = 'ai-ans-head-btn';
           b.dataset.kind = pair[0];
-          b.setAttribute('aria-label', pair[0]);
-          b.textContent = pair[1];
-          b.addEventListener('click', function () { try { console.log('[answer-card]', pair[0]); } catch (_) {} });
+          b.setAttribute('aria-label', HEAD_LABEL[pair[0]] || pair[0]);
+          b.title = HEAD_LABEL[pair[0]] || pair[0];
+          b.innerHTML = HEAD_ICONS[pair[0]];
+          b.addEventListener('click', function () {
+            if (pair[0] === 'copy') {
+              window._aiCopyAnswerCardAsImage && window._aiCopyAnswerCardAsImage(bubbleEl, b);
+            } else if (pair[0] === 'pin') {
+              b.classList.toggle('is-on');
+              try { console.log('[answer-card] pin'); } catch (_) {}
+            } else {
+              try { console.log('[answer-card] menu'); } catch (_) {}
+            }
+          });
           headActions.appendChild(b);
         });
         head.appendChild(headLeft);
@@ -11811,14 +11827,27 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
 
         var footActions = document.createElement('div');
         footActions.className = 'ai-ans-foot-actions';
-        [['up','▲'], ['down','▼'], ['regen','↻']].forEach(function (pair) {
+        var FOOT_ICONS = {
+          up:    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9A2 2 0 0 0 19.72 9H14z"/><line x1="7" y1="22" x2="7" y2="11"/></svg>',
+          down:  '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9A2 2 0 0 0 4.28 15H10z"/><line x1="17" y1="2" x2="17" y2="13"/></svg>',
+          regen: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>'
+        };
+        [['up'], ['down'], ['regen']].forEach(function (pair) {
           var b = document.createElement('button');
           b.type = 'button';
           b.className = 'ai-ans-foot-btn';
           b.dataset.kind = pair[0];
-          b.setAttribute('aria-label', pair[0]);
-          b.textContent = pair[1];
-          b.addEventListener('click', function () { try { console.log('[answer-card]', pair[0]); } catch (_) {} });
+          b.setAttribute('aria-label', pair[0] === 'regen' ? 'Regenerate' : (pair[0] === 'up' ? 'Helpful' : 'Not helpful'));
+          b.title = b.getAttribute('aria-label');
+          b.innerHTML = FOOT_ICONS[pair[0]];
+          b.addEventListener('click', function () {
+            if (pair[0] === 'regen' && typeof window._aiSendRegen === 'function') {
+              try { window._aiSendRegen(userQuestion); } catch (_) {}
+              return;
+            }
+            b.classList.toggle('is-on');
+            try { console.log('[answer-card]', pair[0]); } catch (_) {}
+          });
           footActions.appendChild(b);
         });
         foot.appendChild(srcs);
@@ -11828,6 +11857,95 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         bubbleEl.appendChild(card);
         bubbleEl.appendChild(foot);
         bubbleEl.__answerCarded = true;
+      } catch (_) {}
+    };
+
+    // Copy the entire answer card (header + hero + table + foot) as a PNG
+    // to the system clipboard so the user can paste into WhatsApp / docs.
+    // Falls back to file download if the Clipboard API rejects the image.
+    window._aiCopyAnswerCardAsImage = function (bubbleEl, btn) {
+      try {
+        var card = bubbleEl.querySelector('.ai-ans-card');
+        var meta = bubbleEl.querySelector('.ai-ans-meta');
+        var foot = bubbleEl.querySelector('.ai-ans-foot');
+        // Compose a temporary capture container so meta + card + foot land in one image
+        // even though they're separate DOM siblings.
+        var clip = document.createElement('div');
+        clip.style.position = 'fixed';
+        clip.style.left = '-99999px';
+        clip.style.top = '0';
+        clip.style.width = (card ? card.getBoundingClientRect().width : bubbleEl.getBoundingClientRect().width) + 'px';
+        clip.style.background = '#ffffff';
+        clip.style.padding = '20px';
+        clip.style.borderRadius = '14px';
+        clip.style.fontFamily = '"Inter", system-ui, sans-serif';
+        if (meta) clip.appendChild(meta.cloneNode(true));
+        if (card) clip.appendChild(card.cloneNode(true));
+        if (foot) {
+          var footClone = foot.cloneNode(true);
+          // Drop the action buttons from the captured image — only sources stay.
+          var fa = footClone.querySelector('.ai-ans-foot-actions');
+          if (fa) fa.remove();
+          clip.appendChild(footClone);
+        }
+        document.body.appendChild(clip);
+        var setBtn = function (icon, label, ms) {
+          if (!btn) return;
+          var orig = btn.innerHTML;
+          btn.innerHTML = icon;
+          btn.classList.add('is-flash');
+          if (label) btn.title = label;
+          setTimeout(function () { btn.innerHTML = orig; btn.classList.remove('is-flash'); btn.title = 'Copy as image'; }, ms || 1800);
+        };
+        var doCapture = function () {
+          if (typeof html2canvas !== 'function') {
+            document.body.removeChild(clip);
+            setBtn('<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>', 'Copied (text)', 1500);
+            try { navigator.clipboard.writeText((card ? card.textContent : bubbleEl.textContent) || ''); } catch (_) {}
+            return;
+          }
+          html2canvas(clip, { scale: 2, backgroundColor: '#ffffff', logging: false, useCORS: true })
+            .then(function (canvas) {
+              document.body.removeChild(clip);
+              canvas.toBlob(function (blob) {
+                if (!blob) return;
+                var write = function () {
+                  try {
+                    return navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                  } catch (e) {
+                    return Promise.reject(e);
+                  }
+                };
+                write().then(function () {
+                  setBtn('<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>', 'Copied!', 1800);
+                }).catch(function () {
+                  // Clipboard image rejected (some browsers) — download instead.
+                  var a = document.createElement('a');
+                  a.href = URL.createObjectURL(blob);
+                  a.download = 'nlpl-answer-' + Date.now() + '.png';
+                  a.click();
+                  setBtn('<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>', 'Saved', 1800);
+                });
+              }, 'image/png');
+            })
+            .catch(function () {
+              document.body.removeChild(clip);
+              setBtn('<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>', 'Capture failed', 1500);
+            });
+        };
+        if (typeof html2canvas === 'function') {
+          doCapture();
+        } else {
+          var s = document.createElement('script');
+          s.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+          s.onload = doCapture;
+          s.onerror = function () {
+            document.body.removeChild(clip);
+            try { navigator.clipboard.writeText((card ? card.textContent : bubbleEl.textContent) || ''); } catch (_) {}
+            setBtn('<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>', 'Copied (text)', 1500);
+          };
+          document.head.appendChild(s);
+        }
       } catch (_) {}
     };
 
@@ -15898,20 +16016,36 @@ body.emp-dark #aiPanel .ai-insp-tl-dot {
   margin-right: 4px;
 }
 #aiPanel .ai-comp-suggest .ai-comp-sg {
-  font-family: var(--nlpl-font-mono);
-  font-size: 11.5px;
-  color: var(--nlpl-fg-3);
-  padding: 4px 10px;
-  border-radius: 6px;
-  border: 1px solid transparent;
-  background: transparent;
+  font-family: var(--nlpl-font-sans);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--nlpl-fg-2);
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--nlpl-line);
+  background: var(--nlpl-bg-card);
   cursor: pointer;
-  transition: all 0.12s;
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 1px 2px rgba(15,25,41,0.04);
+}
+#aiPanel .ai-comp-suggest .ai-comp-sg::before {
+  content: '';
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231f5fd1' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 2 14.5 8.5 21 11l-6.5 2.5L12 20l-2.5-6.5L3 11l6.5-2.5z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-size: contain;
 }
 #aiPanel .ai-comp-suggest .ai-comp-sg:hover {
   background: var(--nlpl-bg-card-2);
   color: var(--nlpl-fg);
-  border-color: var(--nlpl-line);
+  border-color: var(--nlpl-accent);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(15,25,41,0.06);
 }
 @media (max-width: 760px) {
   #aiPanel .ai-comp-suggest {
@@ -16009,20 +16143,38 @@ body.emp-dark #aiPanel .ai-insp-tl-dot {
 #aiPanel .ai-ans-head-btn,
 #aiPanel .ai-ans-foot-btn {
   background: transparent;
-  border: none;
+  border: 1px solid transparent;
   color: var(--nlpl-fg-3);
   cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 6px;
-  font-family: var(--nlpl-font-mono);
-  font-size: 12px;
-  line-height: 1;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: inline-grid;
+  place-items: center;
+  transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.12s;
+  padding: 0;
 }
 #aiPanel .ai-ans-head-btn:hover,
 #aiPanel .ai-ans-foot-btn:hover {
   background: var(--nlpl-bg-card-2);
   color: var(--nlpl-fg);
+  border-color: var(--nlpl-line);
 }
+#aiPanel .ai-ans-head-btn:active,
+#aiPanel .ai-ans-foot-btn:active { transform: scale(0.94); }
+#aiPanel .ai-ans-head-btn.is-on,
+#aiPanel .ai-ans-foot-btn.is-on {
+  background: var(--nlpl-accent-soft);
+  color: var(--nlpl-accent);
+  border-color: var(--nlpl-accent);
+}
+#aiPanel .ai-ans-head-btn.is-flash {
+  background: #1f8a5b;
+  color: #fff;
+  border-color: #1f8a5b;
+}
+#aiPanel .ai-ans-foot-btn[data-kind="up"].is-on { color: var(--nlpl-pos); border-color: var(--nlpl-pos); background: rgba(31,138,91,0.10); }
+#aiPanel .ai-ans-foot-btn[data-kind="down"].is-on { color: var(--nlpl-neg); border-color: var(--nlpl-neg); background: rgba(196,61,61,0.10); }
 
 #aiPanel .ai-ans-body {
   padding: 20px 18px;
