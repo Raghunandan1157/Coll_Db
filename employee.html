@@ -12347,6 +12347,120 @@ body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
           }
         } catch (_) {}
 
+        // ── Calculation section (formula + worked rows) ──────────────
+        // Shows ONLY when the prose has a "Calculation"/"Formula:" cue,
+        // OR when an attainment-style column + plan/target + actual columns
+        // exist so we can derive the formula. Keeps inputs visible to the
+        // user beside the chart, addressing the "show me the math" ask.
+        try {
+          var _calcFormula = '';
+          var _calcRows = [];
+          var _proseLower = String(proseText || '').toLowerCase();
+          // (1) Prose cue: pull the line after a "Formula:" / "Calculation:" anchor.
+          var _fm = proseText.match(/(?:^|\n|[.;])\s*(?:formula|calculation)\s*[:\-–]\s*([^\n.;]{2,160})/i);
+          if (_fm && _fm[1]) _calcFormula = _fm[1].trim();
+          var _hasCalcHeading = /(^|\n)\s*calculation\b/i.test(proseText) || /\bformula\s*:/i.test(proseText);
+
+          // (2) Header-shape cue: any header looks like a derived ratio.
+          var _ratioColIdx = -1;
+          for (var _ri = 0; _ri < maxCols; _ri++) {
+            if (/attainment|%|ratio|score|\brate\b/i.test(String(heads[_ri] || ''))) { _ratioColIdx = _ri; break; }
+          }
+          // Find auxiliary numeric columns (plan / target / actual / achieved / disbursed).
+          var _planIdx = -1, _actualIdx = -1;
+          for (var _ai2 = 1; _ai2 < maxCols; _ai2++) {
+            if (_ai2 === _ratioColIdx) continue;
+            var _h = String(heads[_ai2] || '');
+            if (_planIdx === -1 && /plan|target|demand|expected/i.test(_h) && _colIsNumeric(_ai2)) { _planIdx = _ai2; continue; }
+            if (_actualIdx === -1 && /actual|achiev|disburs|collect|done|received/i.test(_h) && _colIsNumeric(_ai2)) { _actualIdx = _ai2; continue; }
+          }
+          // Fallback: if we still don't have both, take the first two numeric cols other than the ratio col.
+          if (_ratioColIdx > -1 && (_planIdx === -1 || _actualIdx === -1)) {
+            var _picks = [];
+            for (var _aj = 1; _aj < maxCols; _aj++) {
+              if (_aj === _ratioColIdx) continue;
+              if (_colIsNumeric(_aj)) _picks.push(_aj);
+              if (_picks.length >= 2) break;
+            }
+            if (_picks.length >= 2) {
+              if (_actualIdx === -1) _actualIdx = _picks[0];
+              if (_planIdx === -1) _planIdx = _picks[1];
+            }
+          }
+
+          var _showCalc = _hasCalcHeading
+            || (_ratioColIdx > -1 && _planIdx > -1 && _actualIdx > -1);
+
+          if (_showCalc) {
+            // Build formula text if prose didn't supply one.
+            if (!_calcFormula && _ratioColIdx > -1 && _planIdx > -1 && _actualIdx > -1) {
+              var _ratioName = String(heads[_ratioColIdx] || 'attainment').trim().toLowerCase();
+              var _actualName = String(heads[_actualIdx] || 'actual').trim().toLowerCase();
+              var _planName = String(heads[_planIdx] || 'plan').trim().toLowerCase();
+              _calcFormula = _ratioName + ' = ' + _actualName + ' ÷ ' + _planName + ' × 100';
+            }
+            if (!_calcFormula) _calcFormula = 'See prose above for derivation.';
+
+            // Worked examples for the first 3 rows (use raw text from cells).
+            var _liveRows = Array.prototype.slice.call((table.querySelector('tbody') || table).querySelectorAll('tr'))
+              .filter(function (r) { return r.cells && r.cells.length >= 2 && !r.querySelector('th'); });
+            var _maxRows = Math.min(3, _liveRows.length);
+            for (var _wi = 0; _wi < _maxRows; _wi++) {
+              var _r = _liveRows[_wi];
+              var _entity = String((_r.cells[0] && _r.cells[0].textContent) || '').trim() || ('Row ' + (_wi + 1));
+              if (_ratioColIdx > -1 && _planIdx > -1 && _actualIdx > -1) {
+                var _aTxt = String((_r.cells[_actualIdx] && _r.cells[_actualIdx].textContent) || '').trim();
+                var _pTxt = String((_r.cells[_planIdx] && _r.cells[_planIdx].textContent) || '').trim();
+                var _rTxt = String((_r.cells[_ratioColIdx] && _r.cells[_ratioColIdx].textContent) || '').trim();
+                _calcRows.push(_entity + ': ' + (_aTxt || '—') + ' ÷ ' + (_pTxt || '—') + ' × 100 = ' + (_rTxt || '—'));
+              } else {
+                // Generic: list every non-first cell as "<header>: <value>".
+                var _bits = [];
+                for (var _ci = 1; _ci < _r.cells.length; _ci++) {
+                  var _hh = String(heads[_ci] || ('col ' + _ci)).trim();
+                  var _vv = String((_r.cells[_ci] && _r.cells[_ci].textContent) || '').trim();
+                  if (_vv) _bits.push(_hh + '=' + _vv);
+                }
+                _calcRows.push(_entity + ': ' + _bits.join(', '));
+              }
+            }
+
+            var _details = document.createElement('details');
+            _details.className = 'ai-ans-calc';
+            var _summary = document.createElement('summary');
+            _summary.textContent = 'Show calculation';
+            _details.appendChild(_summary);
+            var _calcBody = document.createElement('div');
+            _calcBody.className = 'ai-ans-calc-body';
+            var _formulaEl = document.createElement('div');
+            _formulaEl.className = 'ai-ans-calc-formula';
+            var _formulaLabel = document.createElement('span');
+            _formulaLabel.className = 'ai-ans-calc-label';
+            _formulaLabel.textContent = 'Formula';
+            var _formulaCode = document.createElement('code');
+            _formulaCode.textContent = _calcFormula;
+            _formulaEl.appendChild(_formulaLabel);
+            _formulaEl.appendChild(_formulaCode);
+            _calcBody.appendChild(_formulaEl);
+            if (_calcRows.length) {
+              var _exLabel = document.createElement('div');
+              _exLabel.className = 'ai-ans-calc-label';
+              _exLabel.textContent = 'Worked rows';
+              _calcBody.appendChild(_exLabel);
+              var _exList = document.createElement('ul');
+              _exList.className = 'ai-ans-calc-rows';
+              _calcRows.forEach(function (line) {
+                var _li = document.createElement('li');
+                _li.textContent = line;
+                _exList.appendChild(_li);
+              });
+              _calcBody.appendChild(_exList);
+            }
+            _details.appendChild(_calcBody);
+            body.appendChild(_details);
+          }
+        } catch (_) {}
+
         // ── Follow-up question chips (heuristic, no LLM) ──────────────
         try {
           var followPrompts = window._aiBuildFollowups
@@ -12962,6 +13076,45 @@ body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
             rebuilt.innerHTML += '<tbody>' + bodyHtml + '</tbody>';
           }
           cardDiv.appendChild(bubbleWrap);
+        }
+      } catch (_) {}
+
+      // ── Calculation block (mirrors the live <details> as static layout
+      //    so html2canvas can paint it — collapsibles capture inconsistently).
+      try {
+        var calcEl = card && card.querySelector('.ai-ans-calc');
+        if (calcEl) {
+          var calcFormulaSrc = calcEl.querySelector('.ai-ans-calc-formula code');
+          var calcFormulaText = calcFormulaSrc ? (calcFormulaSrc.textContent || '').trim() : '';
+          var calcRowItems = Array.prototype.slice.call(calcEl.querySelectorAll('.ai-ans-calc-rows li'))
+            .map(function (li) { return (li.textContent || '').trim(); }).filter(Boolean);
+          if (calcFormulaText || calcRowItems.length) {
+            var calcBox = document.createElement('div');
+            calcBox.style.cssText = [
+              'border: 1px solid ' + LINE,
+              'border-radius: 10px',
+              'background: ' + BG_ALT,
+              'padding: 12px 14px',
+              'margin: 0 0 16px 0'
+            ].join('; ') + ';';
+            var calcHtml = ''
+              + '<div style="font-family: ' + FONT_MONO + '; font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: ' + FG4 + '; margin-bottom: 6px;">CALCULATION</div>';
+            if (calcFormulaText) {
+              calcHtml += '<div style="font-family: ' + FONT_MONO + '; font-size: 12.5px; color: ' + FG + '; margin-bottom: ' + (calcRowItems.length ? '10' : '0') + 'px;">'
+                + esc(calcFormulaText)
+                + '</div>';
+            }
+            if (calcRowItems.length) {
+              calcHtml += '<div style="font-family: ' + FONT_MONO + '; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: ' + FG4 + '; margin-bottom: 4px;">WORKED ROWS</div>';
+              calcHtml += '<div style="font-family: ' + FONT_MONO + '; font-size: 12px; color: ' + FG2 + '; line-height: 1.55;">'
+                + calcRowItems.map(function (line) {
+                    return '<div style="margin: 0 0 3px 0;">• ' + esc(line) + '</div>';
+                  }).join('')
+                + '</div>';
+            }
+            calcBox.innerHTML = calcHtml;
+            cardDiv.appendChild(calcBox);
+          }
         }
       } catch (_) {}
 
@@ -18340,6 +18493,101 @@ body.emp-dark #aiProviderChooser .aipc-card-status {
 }
 @media (max-width: 760px) {
   #aiPanel .ai-spark-pie-legend { grid-template-columns: 1fr; }
+}
+
+/* ── Calculation drawer inside the answer card ─────────────────── */
+#aiPanel .ai-ans-calc {
+  margin-top: 14px;
+  padding: 0;
+  border: 1px solid var(--nlpl-line);
+  border-radius: 10px;
+  background: var(--nlpl-bg-card-2);
+  overflow: hidden;
+}
+#aiPanel .ai-ans-calc > summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 10px 14px;
+  font-family: var(--nlpl-font-sans);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--nlpl-fg-3);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  user-select: none;
+  transition: color 0.15s, background 0.15s;
+}
+#aiPanel .ai-ans-calc > summary::-webkit-details-marker { display: none; }
+#aiPanel .ai-ans-calc > summary::before {
+  content: "▸";
+  font-family: var(--nlpl-font-mono);
+  font-size: 10px;
+  color: var(--nlpl-fg-4);
+  transition: transform 0.15s, color 0.15s;
+  display: inline-block;
+}
+#aiPanel .ai-ans-calc[open] > summary::before {
+  transform: rotate(90deg);
+  color: var(--nlpl-accent);
+}
+#aiPanel .ai-ans-calc > summary:hover {
+  color: var(--nlpl-accent);
+  background: var(--nlpl-accent-soft);
+}
+#aiPanel .ai-ans-calc-body {
+  padding: 4px 14px 14px 14px;
+  border-top: 1px dashed var(--nlpl-line-soft);
+}
+#aiPanel .ai-ans-calc-label {
+  font-family: var(--nlpl-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--nlpl-fg-4);
+  margin: 10px 0 6px 0;
+}
+#aiPanel .ai-ans-calc-formula {
+  margin-top: 10px;
+}
+#aiPanel .ai-ans-calc-formula code {
+  display: block;
+  font-family: 'IBM Plex Mono', var(--nlpl-font-mono, 'SF Mono'), Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  color: var(--nlpl-fg);
+  background: var(--nlpl-bg-card);
+  border: 1px solid var(--nlpl-line-soft);
+  border-radius: 6px;
+  padding: 6px 10px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-variant-numeric: tabular-nums;
+}
+#aiPanel .ai-ans-calc-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-family: 'IBM Plex Mono', var(--nlpl-font-mono, 'SF Mono'), Menlo, Consolas, monospace;
+  font-size: 12px;
+  color: var(--nlpl-fg-2);
+  line-height: 1.55;
+}
+#aiPanel .ai-ans-calc-rows li {
+  margin: 0 0 4px 0;
+  padding-left: 10px;
+  position: relative;
+}
+#aiPanel .ai-ans-calc-rows li::before {
+  content: "•";
+  position: absolute;
+  left: 0;
+  color: var(--nlpl-fg-4);
+}
+@media (max-width: 760px) {
+  #aiPanel .ai-ans-calc > summary { font-size: 12px; padding: 9px 12px; }
+  #aiPanel .ai-ans-calc-body { padding: 4px 12px 12px 12px; }
+  #aiPanel .ai-ans-calc-formula code { font-size: 12px; }
+  #aiPanel .ai-ans-calc-rows { font-size: 11.5px; }
 }
 
 /* ── Follow-up question chips inside the answer card ───────────── */
