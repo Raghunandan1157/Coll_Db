@@ -10987,6 +10987,18 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
     };
     try { window._aiApplyStoredTheme(); } catch (_) {}
 
+    // Pre-warm the chat cache as soon as the page is ready so the rail
+    // isn't waiting on a network roundtrip when the panel opens.
+    function _aiPrewarmChats() {
+      try { window._aiFetchChats && window._aiFetchChats(); } catch (_) {}
+      try { window._aiRefreshRail && window._aiRefreshRail(); } catch (_) {}
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function () { setTimeout(_aiPrewarmChats, 120); });
+    } else {
+      setTimeout(_aiPrewarmChats, 120);
+    }
+
     // ── Auto-spark: tiny SVG area chart appended to bot turns. ──
     // Extracts up to 12 numeric values from a markdown table or inline numbers
     // and renders an 80×32 area chart with end dot + gradient fill.
@@ -11418,8 +11430,17 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         alert('AI Assistant is available for Branch Managers and above. Field Officers do not have access.');
         return;
       }
-      // Default to DeepSeek v4 Flash on first open. User can switch via header dropdown.
+      // Default to DeepSeek v4 Flash. Migrate users once: if the v4-pro
+      // default leaked from an earlier build, force them to Flash unless
+      // they've set the migration flag (which is set whenever this
+      // function fires after the migration code path).
       try {
+        var migrated = localStorage.getItem('nlpl_ai_default_v');
+        if (migrated !== '2026-05-07-flash') {
+          localStorage.setItem('nlpl_ai_provider', 'deepseek');
+          localStorage.setItem('nlpl_ai_deepseek_model', 'flash');
+          localStorage.setItem('nlpl_ai_default_v', '2026-05-07-flash');
+        }
         if (!localStorage.getItem('nlpl_ai_provider')) {
           localStorage.setItem('nlpl_ai_provider', 'deepseek');
         }
@@ -11432,10 +11453,16 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         try { window._aiApplyTheme(window._aiPickedProvider()); } catch (_) {}
       }
       _aiOpenPostChooser.apply(window, []);
-      setTimeout(function () {
+      // Fire rail-load aggressively: immediately + at a few delays so the
+      // network-bound fetch is guaranteed to render once it resolves and we
+      // don't depend on a single setTimeout race.
+      var refreshAll = function () {
         try { window._aiRenderStarterChips && window._aiRenderStarterChips(); } catch (_) {}
         try { window._aiRefreshRail && window._aiRefreshRail(); } catch (_) {}
-      }, 80);
+      };
+      refreshAll();
+      setTimeout(refreshAll, 80);
+      setTimeout(refreshAll, 600);
     };
 
     // ── Smart error CTA mapping ──
