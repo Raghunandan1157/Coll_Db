@@ -11741,7 +11741,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
               b.classList.toggle('is-on');
               try { console.log('[answer-card] pin'); } catch (_) {}
             } else {
-              try { console.log('[answer-card] menu'); } catch (_) {}
+              try { window._aiOpenCardMenu && window._aiOpenCardMenu(bubbleEl, b); } catch (_) {}
             }
           });
           headActions.appendChild(b);
@@ -12207,93 +12207,248 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       } catch (_) {}
     };
 
-    // Copy the entire answer card (header + hero + table + foot) as a PNG
-    // to the system clipboard so the user can paste into WhatsApp / docs.
-    // Falls back to file download if the Clipboard API rejects the image.
-    window._aiCopyAnswerCardAsImage = function (bubbleEl, btn) {
+    // ── html2canvas preloader. Resolves once the lib is on window. ──
+    // Idempotent — repeated calls return the same Promise. Called from
+    // _aiOpen so the script is in flight long before the user clicks copy.
+    window._aiHtml2CanvasReady = null;
+    window._aiPreloadHtml2Canvas = function () {
+      if (window._aiHtml2CanvasReady) return window._aiHtml2CanvasReady;
+      window._aiHtml2CanvasReady = new Promise(function (resolve, reject) {
+        if (typeof html2canvas === 'function') { resolve(html2canvas); return; }
+        var s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+        s.async = true;
+        s.onload = function () {
+          if (typeof html2canvas === 'function') resolve(html2canvas);
+          else reject(new Error('html2canvas loaded but not callable'));
+        };
+        s.onerror = function () { reject(new Error('html2canvas script load failed')); };
+        document.head.appendChild(s);
+      });
+      // Detach a rejection handler so an early failure doesn't surface as an
+      // unhandled promise rejection — every caller has its own .catch.
+      window._aiHtml2CanvasReady.catch(function () {});
+      return window._aiHtml2CanvasReady;
+    };
+
+    // ── Toast bubble (bottom-right of #aiPanel). Shared helper. ──
+    window._aiToast = function (text, opts) {
+      opts = opts || {};
+      var panel = document.getElementById('aiPanel');
+      if (!panel) return;
+      var host = panel.querySelector('.ai-toast-host');
+      if (!host) {
+        host = document.createElement('div');
+        host.className = 'ai-toast-host';
+        panel.appendChild(host);
+      }
+      var t = document.createElement('div');
+      t.className = 'ai-toast' + (opts.error ? ' is-error' : '');
+      t.textContent = String(text || '');
+      host.appendChild(t);
+      // Force reflow so the slide-in transition fires.
+      // eslint-disable-next-line no-unused-expressions
+      t.offsetHeight;
+      t.classList.add('is-shown');
+      var ttl = Number(opts.ms || 4000);
+      setTimeout(function () {
+        t.classList.remove('is-shown');
+        setTimeout(function () { if (t.parentNode) t.parentNode.removeChild(t); }, 320);
+      }, ttl);
+    };
+
+    // ── Plain-text copy. ONLY called via the explicit "Copy answer text"
+    //    menu item — never as a fallback for the image path. ──
+    window._aiCopyAnswerText = function (bubbleEl) {
       try {
         var card = bubbleEl.querySelector('.ai-ans-card');
-        var meta = bubbleEl.querySelector('.ai-ans-meta');
-        var foot = bubbleEl.querySelector('.ai-ans-foot');
-        // Compose a temporary capture container so meta + card + foot land in one image
-        // even though they're separate DOM siblings.
-        var clip = document.createElement('div');
-        clip.style.position = 'fixed';
-        clip.style.left = '-99999px';
-        clip.style.top = '0';
-        clip.style.width = (card ? card.getBoundingClientRect().width : bubbleEl.getBoundingClientRect().width) + 'px';
-        clip.style.background = '#ffffff';
-        clip.style.padding = '20px';
-        clip.style.borderRadius = '14px';
-        clip.style.fontFamily = '"Inter", system-ui, sans-serif';
-        if (meta) clip.appendChild(meta.cloneNode(true));
-        if (card) clip.appendChild(card.cloneNode(true));
-        if (foot) {
-          var footClone = foot.cloneNode(true);
-          // Drop the action buttons from the captured image — only sources stay.
-          var fa = footClone.querySelector('.ai-ans-foot-actions');
-          if (fa) fa.remove();
-          clip.appendChild(footClone);
-        }
-        document.body.appendChild(clip);
-        var setBtn = function (icon, label, ms) {
-          if (!btn) return;
-          var orig = btn.innerHTML;
-          btn.innerHTML = icon;
-          btn.classList.add('is-flash');
-          if (label) btn.title = label;
-          setTimeout(function () { btn.innerHTML = orig; btn.classList.remove('is-flash'); btn.title = 'Copy as image'; }, ms || 1800);
-        };
-        var doCapture = function () {
-          if (typeof html2canvas !== 'function') {
-            document.body.removeChild(clip);
-            setBtn('<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>', 'Copied (text)', 1500);
-            try { navigator.clipboard.writeText((card ? card.textContent : bubbleEl.textContent) || ''); } catch (_) {}
-            return;
-          }
-          html2canvas(clip, { scale: 2, backgroundColor: '#ffffff', logging: false, useCORS: true })
-            .then(function (canvas) {
-              document.body.removeChild(clip);
-              canvas.toBlob(function (blob) {
-                if (!blob) return;
-                var write = function () {
-                  try {
-                    return navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-                  } catch (e) {
-                    return Promise.reject(e);
-                  }
-                };
-                write().then(function () {
-                  setBtn('<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>', 'Copied!', 1800);
-                }).catch(function () {
-                  // Clipboard image rejected (some browsers) — download instead.
-                  var a = document.createElement('a');
-                  a.href = URL.createObjectURL(blob);
-                  a.download = 'nlpl-answer-' + Date.now() + '.png';
-                  a.click();
-                  setBtn('<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>', 'Saved', 1800);
-                });
-              }, 'image/png');
-            })
-            .catch(function () {
-              document.body.removeChild(clip);
-              setBtn('<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>', 'Capture failed', 1500);
-            });
-        };
-        if (typeof html2canvas === 'function') {
-          doCapture();
-        } else {
-          var s = document.createElement('script');
-          s.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
-          s.onload = doCapture;
-          s.onerror = function () {
-            document.body.removeChild(clip);
-            try { navigator.clipboard.writeText((card ? card.textContent : bubbleEl.textContent) || ''); } catch (_) {}
-            setBtn('<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>', 'Copied (text)', 1500);
-          };
-          document.head.appendChild(s);
-        }
+        var txt = String((card ? card.textContent : bubbleEl.textContent) || '').replace(/\s+\n/g, '\n').trim();
+        navigator.clipboard.writeText(txt).then(function () {
+          window._aiToast && window._aiToast('Answer text copied to clipboard');
+        }).catch(function () {
+          window._aiToast && window._aiToast('Couldn\'t copy text — clipboard blocked', { error: true });
+        });
       } catch (_) {}
+    };
+
+    // ── Card-menu popover (3 items: Copy as image / Save as PNG / Copy text). ──
+    window._aiOpenCardMenu = function (bubbleEl, anchorBtn) {
+      var existing = document.querySelector('.ai-card-menu');
+      if (existing) existing.parentNode.removeChild(existing);
+
+      var menu = document.createElement('div');
+      menu.className = 'ai-card-menu';
+      menu.setAttribute('role', 'menu');
+      var items = [
+        { key: 'copy-image', label: 'Copy as image',
+          icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>',
+          run: function () { window._aiCopyAnswerCardAsImage && window._aiCopyAnswerCardAsImage(bubbleEl, anchorBtn, { mode: 'clipboard' }); } },
+        { key: 'save-png', label: 'Save as PNG',
+          icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
+          run: function () { window._aiCopyAnswerCardAsImage && window._aiCopyAnswerCardAsImage(bubbleEl, anchorBtn, { mode: 'download' }); } },
+        { key: 'copy-text', label: 'Copy answer text',
+          icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
+          run: function () { window._aiCopyAnswerText && window._aiCopyAnswerText(bubbleEl); } }
+      ];
+      items.forEach(function (it) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'ai-card-menu-item';
+        b.setAttribute('role', 'menuitem');
+        b.dataset.action = it.key;
+        b.innerHTML = it.icon + '<span>' + it.label + '</span>';
+        b.addEventListener('click', function () { close(); it.run(); });
+        menu.appendChild(b);
+      });
+
+      // Position relative to the anchor button.
+      document.body.appendChild(menu);
+      var rect = anchorBtn.getBoundingClientRect();
+      var menuW = menu.getBoundingClientRect().width || 200;
+      menu.style.top = Math.round(rect.bottom + 6) + 'px';
+      menu.style.left = Math.round(rect.right - menuW) + 'px';
+      requestAnimationFrame(function () { menu.classList.add('is-open'); });
+
+      function close() {
+        if (!menu.parentNode) return;
+        menu.classList.remove('is-open');
+        document.removeEventListener('mousedown', outside, true);
+        document.removeEventListener('keydown', escKey, true);
+        setTimeout(function () { if (menu.parentNode) menu.parentNode.removeChild(menu); }, 160);
+      }
+      function outside(e) { if (!menu.contains(e.target) && e.target !== anchorBtn) close(); }
+      function escKey(e) { if (e.key === 'Escape') close(); }
+      setTimeout(function () {
+        document.addEventListener('mousedown', outside, true);
+        document.addEventListener('keydown', escKey, true);
+      }, 0);
+    };
+
+    // Copy the entire answer card (header + hero + table + foot) as a PNG.
+    // NEVER falls back to text — on capture failure or clipboard rejection
+    // the file is downloaded and a toast surfaces the result.
+    //   opts.mode: 'clipboard' (default) | 'download'
+    window._aiCopyAnswerCardAsImage = function (bubbleEl, btn, opts) {
+      opts = opts || {};
+      var mode = opts.mode === 'download' ? 'download' : 'clipboard';
+      var card = bubbleEl.querySelector('.ai-ans-card');
+      var meta = bubbleEl.querySelector('.ai-ans-meta');
+      var foot = bubbleEl.querySelector('.ai-ans-foot');
+
+      // Anchor sizing on the original card so the captured layout matches.
+      var srcRect = (card || bubbleEl).getBoundingClientRect();
+      var srcWidth = Math.round(srcRect.width);
+
+      // Compose temporary capture container — meta + card + foot in one image.
+      var clip = document.createElement('div');
+      clip.style.position = 'fixed';
+      clip.style.left = '-99999px';
+      clip.style.top = '0';
+      clip.style.width = srcWidth + 'px';
+      clip.style.background = '#ffffff';
+      clip.style.padding = '20px';
+      clip.style.borderRadius = '14px';
+      clip.style.fontFamily = '"Inter", system-ui, sans-serif';
+      clip.style.color = '#0f1929';
+      if (meta) clip.appendChild(meta.cloneNode(true));
+      if (card) clip.appendChild(card.cloneNode(true));
+      if (foot) {
+        var footClone = foot.cloneNode(true);
+        // Drop the action buttons from the captured image — only sources stay.
+        var fa = footClone.querySelector('.ai-ans-foot-actions');
+        if (fa) fa.remove();
+        clip.appendChild(footClone);
+      }
+      document.body.appendChild(clip);
+
+      // Walk every SVG in the clip — set xmlns + resolve currentColor so
+      // html2canvas doesn't render strokes/fills as black/transparent.
+      try {
+        var svgs = clip.querySelectorAll('svg');
+        Array.prototype.forEach.call(svgs, function (svg) {
+          if (!svg.getAttribute('xmlns')) svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+          var color = '';
+          try { color = window.getComputedStyle(svg).color || window.getComputedStyle(svg.parentNode || svg).color || ''; } catch (_) {}
+          if (!color) color = '#1f5fd1';
+          var nodes = [svg].concat(Array.prototype.slice.call(svg.querySelectorAll('*')));
+          nodes.forEach(function (n) {
+            ['stroke', 'fill'].forEach(function (attr) {
+              var v = n.getAttribute && n.getAttribute(attr);
+              if (v && v.toLowerCase() === 'currentcolor') n.setAttribute(attr, color);
+            });
+            if (n.style) {
+              if ((n.style.stroke || '').toLowerCase() === 'currentcolor') n.style.stroke = color;
+              if ((n.style.fill || '').toLowerCase() === 'currentcolor') n.style.fill = color;
+            }
+          });
+        });
+      } catch (_) {}
+
+      var setBtn = function (icon, label, ms) {
+        if (!btn) return;
+        var orig = btn.innerHTML;
+        btn.innerHTML = icon;
+        btn.classList.add('is-flash');
+        if (label) btn.title = label;
+        setTimeout(function () { btn.innerHTML = orig; btn.classList.remove('is-flash'); btn.title = 'Copy as image'; }, ms || 1800);
+      };
+
+      var captureH = Math.max(clip.scrollHeight, 200);
+      var captureW = Math.max(srcWidth, 200);
+      var cleanup = function () { try { if (clip.parentNode) clip.parentNode.removeChild(clip); } catch (_) {} };
+
+      var doCapture = function (h2c) {
+        return h2c(clip, {
+          scale: 2,
+          backgroundColor: '#ffffff',
+          useCORS: true,
+          logging: false,
+          width: captureW,
+          height: captureH,
+          windowWidth: captureW + 80,
+          windowHeight: captureH + 80
+        });
+      };
+
+      var triggerDownload = function (blob) {
+        var fname = 'nlpl-answer-' + Date.now() + '.png';
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = fname;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function () { try { URL.revokeObjectURL(a.href); a.remove(); } catch (_) {} }, 1500);
+        setBtn('<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>', 'Saved', 1800);
+        window._aiToast && window._aiToast('Saved ' + fname + ' — open it from Downloads to share');
+      };
+
+      window._aiPreloadHtml2Canvas()
+        .then(function (h2c) { return doCapture(h2c); })
+        .then(function (canvas) {
+          return new Promise(function (resolve, reject) {
+            canvas.toBlob(function (blob) { blob ? resolve(blob) : reject(new Error('toBlob returned null')); }, 'image/png');
+          });
+        })
+        .then(function (blob) {
+          if (mode === 'download') { triggerDownload(blob); return; }
+          var canWrite = (typeof ClipboardItem === 'function')
+            && navigator.clipboard
+            && typeof navigator.clipboard.write === 'function';
+          if (!canWrite) { triggerDownload(blob); return; }
+          navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
+            .then(function () {
+              setBtn('<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>', 'Copied!', 1800);
+              window._aiToast && window._aiToast('Answer card copied — paste anywhere');
+            })
+            .catch(function () { triggerDownload(blob); });
+        })
+        .catch(function (err) {
+          try { console.warn('[copy-as-image] capture failed:', err); } catch (_) {}
+          setBtn('<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>', 'Capture failed', 1500);
+          window._aiToast && window._aiToast('Couldn\'t capture this card — try the menu\'s Save image option', { error: true });
+          // Hard stop — never fall back to text.
+        })
+        .then(function () { cleanup(); }, function () { cleanup(); });
     };
 
     // Horizontal bar chart for per-entity rankings (top N FOs, branches, etc).
@@ -13236,6 +13391,9 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         }
         localStorage.setItem('nlpl_ai_purpose', 'chat');
       } catch (_) {}
+      // Preload html2canvas immediately on panel open so the copy-as-image
+      // path doesn't have to wait on a script fetch when the user clicks.
+      try { window._aiPreloadHtml2Canvas && window._aiPreloadHtml2Canvas(); } catch (_) {}
       if (typeof window._aiApplyTheme === 'function') {
         try { window._aiApplyTheme(window._aiPickedProvider()); } catch (_) {}
       }
@@ -17273,6 +17431,116 @@ body.emp-dark #aiPanel .ai-insp-tl-dot {
 @media (max-width: 760px) {
   #aiPanel .ai-ans-followups { gap: 6px; padding-top: 12px; margin-top: 12px; }
   #aiPanel .ai-ans-fu { font-size: 12px; padding: 5px 10px; }
+}
+
+/* ── Toast (shared, used by copy-as-image and friends) ──────────── */
+#aiPanel .ai-toast-host {
+  position: absolute;
+  right: 20px;
+  bottom: 20px;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 8px;
+  z-index: 60;
+  pointer-events: none;
+}
+#aiPanel .ai-toast {
+  pointer-events: auto;
+  background: rgba(15, 25, 41, 0.94);
+  color: #fff;
+  font-family: var(--nlpl-font-sans);
+  font-size: 12.5px;
+  line-height: 1.4;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 10px 24px rgba(15, 25, 41, 0.18);
+  max-width: 280px;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+#aiPanel .ai-toast.is-shown {
+  opacity: 1;
+  transform: translateY(0);
+}
+#aiPanel .ai-toast.is-error {
+  background: rgba(196, 61, 61, 0.96);
+  border-color: rgba(255, 200, 200, 0.25);
+}
+body.emp-dark #aiPanel .ai-toast {
+  background: rgba(238, 241, 247, 0.96);
+  color: #0f1320;
+  border-color: rgba(15, 19, 32, 0.12);
+}
+body.emp-dark #aiPanel .ai-toast.is-error {
+  background: rgba(224, 107, 107, 0.96);
+  color: #ffffff;
+}
+
+/* ── Card-menu popover (… button under each answer card) ───────── */
+.ai-card-menu {
+  position: fixed;
+  z-index: 9999;
+  min-width: 200px;
+  background: #ffffff;
+  border: 1px solid #e3e6eb;
+  border-radius: 10px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  box-shadow: 0 12px 28px rgba(15, 25, 41, 0.14);
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: 13px;
+  color: #0f1929;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 0.14s ease, transform 0.14s ease;
+}
+.ai-card-menu.is-open {
+  opacity: 1;
+  transform: translateY(0);
+}
+.ai-card-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  width: 100%;
+  transition: background 0.12s;
+}
+.ai-card-menu-item:hover {
+  background: #f5f6f8;
+}
+.ai-card-menu-item svg {
+  color: #5d6b82;
+  flex-shrink: 0;
+}
+.ai-card-menu-item:hover svg {
+  color: #1f5fd1;
+}
+body.emp-dark .ai-card-menu {
+  background: #1a2034;
+  border-color: #2c3450;
+  color: #eef1f7;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4);
+}
+body.emp-dark .ai-card-menu-item:hover {
+  background: #1f2740;
+}
+body.emp-dark .ai-card-menu-item svg {
+  color: #8b94a8;
+}
+body.emp-dark .ai-card-menu-item:hover svg {
+  color: #5b8ef0;
 }
 </style>
 </body>
