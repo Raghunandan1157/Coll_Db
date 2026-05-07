@@ -899,6 +899,7 @@
           var r = await fetch('/api/otp/verify', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ mobile: state.mobile, role: state.role, code: code }) });
           var data = await r.json().catch(function(){ return {}; });
           if (!r.ok) throw new Error(data.error || 'Verification failed');
+          try { localStorage.setItem('userPhone', state.mobile || ''); } catch (_) {}
           $('otpSuccessText').textContent = 'Logging you in as ' + state.role + ' — ' + state.location;
           showView('otpViewSuccess');
           setTimeout(function(){

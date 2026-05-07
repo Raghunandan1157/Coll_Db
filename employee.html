@@ -4505,10 +4505,6 @@
       <div id="aiProvMenu" class="ai-prov-menu" role="menu" aria-hidden="true"></div>
     </div>
     <div class="ai-header-right">
-      <div class="ai-mode-toggle" role="tablist" aria-label="Output mode">
-        <button type="button" class="ai-mode-btn active" data-mode="text" role="tab" aria-selected="true" title="Text reply">Text</button>
-        <button type="button" class="ai-mode-btn" data-mode="report" role="tab" aria-selected="false" title="Generate report">Report</button>
-      </div>
       <button id="aiSplitBtn" type="button" class="ai-icon-btn" title="Side-by-side compare" aria-label="Side-by-side">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="8" height="16" rx="1"/><rect x="13" y="4" width="8" height="16" rx="1"/></svg>
       </button>
@@ -4520,6 +4516,41 @@
       </button>
     </div>
   </div>
+  <aside id="aiRail" class="ai-rail" aria-label="Chat history">
+    <button id="aiRailNew" type="button" onclick="window._aiNewChat && window._aiNewChat()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      <span>New conversation</span>
+      <span class="ai-rail-kbd">⌘ K</span>
+    </button>
+    <div class="ai-rail-section" id="aiRailPinned" hidden>
+      <div class="ai-rail-label">Pinned</div>
+      <div class="ai-rail-list" id="aiRailPinnedList"></div>
+    </div>
+    <div class="ai-rail-section">
+      <div class="ai-rail-label">Recent</div>
+      <div class="ai-rail-list" id="aiRailRecentList">
+        <div class="ai-rail-empty">No conversations yet</div>
+      </div>
+    </div>
+    <div class="ai-rail-meter" id="aiRailMeter">
+      <div class="ai-rail-meter-row">
+        <span>DATA FRESHNESS</span>
+        <b id="aiRailMeterAge">—</b>
+      </div>
+      <div class="ai-rail-meter-bar"><span id="aiRailMeterFill" style="width:100%"></span></div>
+      <div class="ai-rail-meter-row">
+        <span id="aiRailMeterScope">overall</span>
+        <span class="ai-rail-meter-live"><span class="ai-rail-meter-dot"></span>live</span>
+      </div>
+    </div>
+    <div class="ai-rail-foot">
+      <div class="ai-rail-avatar" id="aiRailAvatar">RS</div>
+      <div class="ai-rail-foot-body">
+        <div class="ai-rail-foot-name" id="aiRailUserName">Guest</div>
+        <div class="ai-rail-foot-role" id="aiRailUserRole">—</div>
+      </div>
+    </div>
+  </aside>
   <div id="aiContextChipChat" class="ai-ctx-chip-strip" hidden></div>
   <div id="aiMessages" class="ai-panel-messages">
     <div class="ai-empty">
@@ -8234,6 +8265,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       if (!alreadyInHistory) {
         appendUserBubble(box, msg);
         _aiHistory.push({ role: 'user', content: msg });
+        try { window._aiPersistTurn && window._aiPersistTurn('user', msg); } catch (_) {}
       } else {
         appendUserBubble(box, msg); // visible echo for re-runs
       }
@@ -8257,20 +8289,24 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         }
       } catch (_) {}
 
-      // Output-mode directives (Text vs Report) + optional chart type from + button.
+      // Output-mode directives — model auto-decides whether structured table/report adds value.
       var modeDirectives = [];
-      if (window._aiOutputMode === 'report') {
-        modeDirectives.push(
-          '## OUTPUT MODE: REPORT\n' +
-          'Format the reply as a structured business report:\n' +
-          '1. **Executive Summary** — 2–3 sentence headline.\n' +
-          '2. **Key Metrics** — markdown table with the relevant KPIs.\n' +
-          '3. **Breakdown** — markdown table per branch/region/employee where applicable.\n' +
-          '4. **Observations & Risks** — bullet list with concrete findings.\n' +
-          '5. **Recommendations** — 3–5 actionable next steps.\n' +
-          'Use markdown headings (##) and tables. Keep the report tight; no fluff.'
-        );
-      }
+      modeDirectives.push(
+        '## OUTPUT FORMAT — AUTO-DECIDE\n' +
+        'Decide structure case-by-case. Default to terse prose. Escalate ONLY when the answer needs it.\n' +
+        '\n' +
+        'Use a markdown TABLE when ALL apply:\n' +
+        '- 3+ rows of structured data with the SAME columns (branches, employees, products, periods).\n' +
+        '- ≥2 numeric columns OR a comparison would be hard to read in prose.\n' +
+        '- The user asked for a list / ranking / breakdown / comparison.\n' +
+        'Pick the smallest column set that answers the question. Numbers right-align.\n' +
+        '\n' +
+        'Use a structured REPORT (## headings + tables + bullets) ONLY when the user explicitly asks for a "report" / "summary doc" / "review" / "brief", or the question is open-ended enough to warrant exec-summary + key-metrics + observations + recommendations. Never inflate a one-number answer into a report.\n' +
+        '\n' +
+        'For everything else: 1–4 sentences of prose. Bold the key numbers inline. No fluff, no preamble, no apologies.\n' +
+        '\n' +
+        'Access-denied / refusal: 1 short sentence stating the scope rule. No bullet lists, no offers to help with adjacent topics.'
+      );
       if (window._aiChartRequest) {
         var ct = String(window._aiChartRequest || '').toLowerCase();
         var is3d = (ct === 'bar3d' || ct === 'scatter3d' || ct === 'surface3d');
@@ -8349,6 +8385,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
           setStatus('');
           content.innerHTML = md(buffer);
           _aiHistory.push({ role: 'assistant', content: buffer });
+          try { window._aiPersistTurn && window._aiPersistTurn('assistant', buffer); } catch (_) {}
           bindActions(row, buffer, msg);
           _aiBusy = false;
         } else if (event === 'error') {
@@ -8383,6 +8420,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
                 if (sawDelta) {
                   content.innerHTML = md(buffer);
                   _aiHistory.push({ role: 'assistant', content: buffer });
+                  try { window._aiPersistTurn && window._aiPersistTurn('assistant', buffer); } catch (_) {}
                   bindActions(row, buffer, msg);
                 } else {
                   row.remove();
@@ -8500,6 +8538,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       var paneR = document.getElementById('aiPaneR');
       if (!paneL || !paneR) { sendStream(msg, false); return; }
       _aiHistory.push({ role: 'user', content: msg });
+      try { window._aiPersistTurn && window._aiPersistTurn('user', msg); } catch (_) {}
       // Mirror user bubble in both panes.
       [paneL, paneR].forEach(function (p) {
         var row = document.createElement('div');
@@ -8625,12 +8664,14 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       if (who === 'user') {
         appendUserBubble(box, text);
         _aiHistory.push({ role: 'user', content: text });
+        try { window._aiPersistTurn && window._aiPersistTurn('user', text); } catch (_) {}
       } else {
         var row = document.createElement('div');
         row.className = 'ai-row ai-row-bot';
         row.innerHTML = botIcon + '<div class="ai-bot-col"><div class="ai-bubble ai-bubble-bot">' + md(text) + '</div></div>';
         box.appendChild(row);
         _aiHistory.push({ role: 'assistant', content: text });
+        try { window._aiPersistTurn && window._aiPersistTurn('assistant', text); } catch (_) {}
         box.scrollTop = box.scrollHeight;
       }
     }
@@ -10532,16 +10573,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       fetch('/api/ai-providers').then(function (r) { return r.ok ? r.json() : null; })
         .then(function (j) { if (j && Array.isArray(j.available)) window._aiAvailableProviders = j.available; })
         .catch(function () {});
-      // Top-right Text/Report toggle.
-      var modeBtns = document.querySelectorAll('.ai-mode-toggle .ai-mode-btn');
-      modeBtns.forEach(function (b) {
-        b.addEventListener('click', function () {
-          modeBtns.forEach(function (x) { x.classList.remove('active'); x.setAttribute('aria-selected','false'); });
-          b.classList.add('active');
-          b.setAttribute('aria-selected','true');
-          window._aiOutputMode = b.getAttribute('data-mode') || 'text';
-        });
-      });
+      // Output mode hardwired — model auto-decides whether to emit a structured table/report.
       window._aiOutputMode = 'text';
       // Apply last-picked theme on load so colors match without forcing a re-pick.
       try { window._aiApplyTheme(window._aiPickedProvider()); } catch (_) {}
@@ -10866,6 +10898,182 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       }
     };
 
+    // ── User key (phone preferred, else emp_id, else role+location) ──
+    window._aiUserKey = function () {
+      try {
+        var ph = String(localStorage.getItem('userPhone') || '').replace(/\D+/g, '');
+        if (ph && ph.length >= 10) return 'phone:' + ph;
+        var eid = String(localStorage.getItem('employeeId') || '').trim();
+        if (eid) return 'emp:' + eid;
+        var s = _aiSession();
+        if (s.role && s.location) return 'role:' + s.role + ':' + s.location;
+      } catch (_) {}
+      return 'guest:anon';
+    };
+
+    // ── Rail panel: data freshness card + user foot ──
+    window._aiRefreshRail = function () {
+      try {
+        var s = _aiSession();
+        var firstName = String(s.name || '').trim().split(/\s+/)[0] || '';
+        var lastName = String(s.name || '').trim().split(/\s+/).slice(1).join(' ');
+        var role = String(s.role || '').toUpperCase();
+        var loc = String(s.location || '').trim();
+        var ph = '';
+        try { ph = String(localStorage.getItem('userPhone') || ''); } catch (_) {}
+
+        var avEl = document.getElementById('aiRailAvatar');
+        var nmEl = document.getElementById('aiRailUserName');
+        var rlEl = document.getElementById('aiRailUserRole');
+        if (avEl) {
+          var initials = (firstName ? firstName[0] : '') + (lastName ? lastName[0] : (firstName && firstName.length > 1 ? firstName[1] : ''));
+          avEl.textContent = (initials || (loc ? loc[0] : 'NL')).toUpperCase();
+        }
+        if (nmEl) nmEl.textContent = (firstName ? (firstName + (lastName ? ' ' + lastName : '')) : (loc || 'Guest'));
+        if (rlEl) {
+          var roleLabel = role === 'CEO' ? 'CEO'
+                        : role === 'RM'  ? 'Regional Manager'
+                        : role === 'DM'  ? 'Division Manager'
+                        : role === 'BM'  ? 'Branch Manager'
+                        : role === 'FO'  ? 'Field Officer'
+                        : (role || 'Member');
+          rlEl.textContent = roleLabel + (loc ? ' · ' + loc : (ph ? ' · ' + ph : ''));
+        }
+
+        var ageEl = document.getElementById('aiRailMeterAge');
+        var fillEl = document.getElementById('aiRailMeterFill');
+        var scopeEl = document.getElementById('aiRailMeterScope');
+        var lastUpload = 0;
+        try { lastUpload = Number(localStorage.getItem('nlpl_last_upload_ts') || 0); } catch (_) {}
+        if (lastUpload > 0) {
+          var mins = Math.max(0, Math.round((Date.now() - lastUpload) / 60000));
+          if (ageEl) ageEl.textContent = mins < 60 ? (mins + 'm') : (Math.round(mins / 60) + 'h');
+          if (fillEl) fillEl.style.width = Math.max(8, Math.min(100, 100 - mins / 2)) + '%';
+        } else {
+          if (ageEl) ageEl.textContent = 'live';
+          if (fillEl) fillEl.style.width = '100%';
+        }
+        if (scopeEl) scopeEl.textContent = (loc ? loc.toLowerCase() : 'overall');
+
+        window._aiRenderRailHistory && window._aiRenderRailHistory();
+      } catch (_) {}
+    };
+
+    // ── Local conversation history (Phase A: localStorage; Phase B will sync to PG) ──
+    window._aiHistoryStoreKey = function () { return 'nlpl_ai_chats:' + window._aiUserKey(); };
+    window._aiCurrentChatKey = function () { return 'nlpl_ai_current:' + window._aiUserKey(); };
+    window._aiLoadChats = function () {
+      try {
+        var raw = localStorage.getItem(window._aiHistoryStoreKey());
+        var arr = raw ? JSON.parse(raw) : [];
+        return Array.isArray(arr) ? arr : [];
+      } catch (_) { return []; }
+    };
+    window._aiSaveChats = function (arr) {
+      try { localStorage.setItem(window._aiHistoryStoreKey(), JSON.stringify(arr || [])); } catch (_) {}
+    };
+    window._aiCurrentChatId = function () {
+      try { return localStorage.getItem(window._aiCurrentChatKey()) || ''; } catch (_) { return ''; }
+    };
+    window._aiSetCurrentChatId = function (id) {
+      try {
+        if (id) localStorage.setItem(window._aiCurrentChatKey(), id);
+        else localStorage.removeItem(window._aiCurrentChatKey());
+      } catch (_) {}
+    };
+    window._aiPersistTurn = function (role, content) {
+      if (!content) return;
+      var chats = window._aiLoadChats();
+      var id = window._aiCurrentChatId();
+      var conv = id ? chats.find(function (c) { return c.id === id; }) : null;
+      if (!conv) {
+        conv = {
+          id: 'c' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+          title: '',
+          ts: Date.now(),
+          msgs: []
+        };
+        chats.unshift(conv);
+        window._aiSetCurrentChatId(conv.id);
+      }
+      conv.msgs.push({ role: role, content: String(content).slice(0, 8000), ts: Date.now() });
+      conv.ts = Date.now();
+      if (!conv.title && role === 'user') conv.title = String(content).slice(0, 60);
+      while (chats.length > 60) chats.pop();
+      window._aiSaveChats(chats);
+      window._aiRenderRailHistory && window._aiRenderRailHistory();
+    };
+    window._aiRenderRailHistory = function () {
+      var listEl = document.getElementById('aiRailRecentList');
+      var pinnedSec = document.getElementById('aiRailPinned');
+      var pinnedListEl = document.getElementById('aiRailPinnedList');
+      if (!listEl) return;
+      var chats = window._aiLoadChats();
+      var current = window._aiCurrentChatId();
+      var pinned = chats.filter(function (c) { return c.pinned; });
+      var recent = chats.filter(function (c) { return !c.pinned; }).slice(0, 20);
+      function fmtAge(ts) {
+        var d = Math.max(0, Date.now() - (ts || 0));
+        var m = Math.floor(d / 60000);
+        if (m < 1) return 'now';
+        if (m < 60) return m + 'm';
+        var h = Math.floor(m / 60);
+        if (h < 24) return h + 'h';
+        var dd = Math.floor(h / 24);
+        if (dd < 7) return dd + 'd';
+        var dt = new Date(ts);
+        return (dt.getMonth() + 1) + '/' + dt.getDate();
+      }
+      function esc(s) {
+        return String(s || '').replace(/[<>&]/g, function (m) { return ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' })[m]; });
+      }
+      function itemHtml(c, isPinned) {
+        var act = (c.id === current) ? ' aria-current="true"' : '';
+        var cls = 'ai-rail-item' + (isPinned ? ' pinned' : '');
+        var icon = isPinned
+          ? '<svg class="ai-rail-item-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2 9 9l-7 1 5 5-1 7 6-3 6 3-1-7 5-5-7-1z"/></svg>'
+          : '<svg class="ai-rail-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>';
+        return '<button class="' + cls + '"' + act + ' data-cid="' + c.id + '">' + icon
+          + '<span class="ai-rail-item-title">' + esc(c.title || 'Untitled') + '</span>'
+          + '<span class="ai-rail-item-meta">' + fmtAge(c.ts) + '</span></button>';
+      }
+      if (pinnedSec) pinnedSec.hidden = !pinned.length;
+      if (pinnedListEl) pinnedListEl.innerHTML = pinned.map(function (c) { return itemHtml(c, true); }).join('');
+      if (recent.length === 0) listEl.innerHTML = '<div class="ai-rail-empty">No conversations yet</div>';
+      else listEl.innerHTML = recent.map(function (c) { return itemHtml(c, false); }).join('');
+      var attach = function (el) {
+        Array.prototype.forEach.call(el.querySelectorAll('.ai-rail-item'), function (b) {
+          b.addEventListener('click', function () {
+            var cid = b.getAttribute('data-cid');
+            window._aiOpenChat && window._aiOpenChat(cid);
+          });
+        });
+      };
+      attach(listEl);
+      if (pinnedListEl) attach(pinnedListEl);
+    };
+    window._aiOpenChat = function (cid) {
+      var chats = window._aiLoadChats();
+      var conv = chats.find(function (c) { return c.id === cid; });
+      if (!conv) return;
+      window._aiSetCurrentChatId(cid);
+      try { if (typeof _aiHistory !== 'undefined') _aiHistory.length = 0; } catch (_) {}
+      var box = document.getElementById('aiMessages');
+      if (box) box.innerHTML = '';
+      (conv.msgs || []).forEach(function (m) {
+        try { if (typeof _aiHistory !== 'undefined') _aiHistory.push({ role: m.role, content: m.content }); } catch (_) {}
+        if (typeof window._aiAppendBubble === 'function') {
+          window._aiAppendBubble(m.role, m.content);
+        } else if (box) {
+          var d = document.createElement('div');
+          d.className = m.role === 'user' ? 'ai-msg-user' : 'ai-msg-bot';
+          d.textContent = m.content;
+          box.appendChild(d);
+        }
+      });
+      window._aiRenderRailHistory && window._aiRenderRailHistory();
+    };
+
     window._aiRenderStarterChips = function () {
       try { window._aiUpdateGreeting && window._aiUpdateGreeting(); } catch (_) {}
       var box = document.getElementById('aiSuggestionChips');
@@ -10890,7 +11098,11 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
     var _origAiNewChat = window._aiNewChat;
     window._aiNewChat = function () {
       if (typeof _origAiNewChat === 'function') _origAiNewChat.apply(this, arguments);
-      setTimeout(function () { try { window._aiRenderStarterChips && window._aiRenderStarterChips(); } catch (_) {} }, 30);
+      try { window._aiSetCurrentChatId(''); } catch (_) {}
+      setTimeout(function () {
+        try { window._aiRenderStarterChips && window._aiRenderStarterChips(); } catch (_) {}
+        try { window._aiRefreshRail && window._aiRefreshRail(); } catch (_) {}
+      }, 30);
     };
 
     // ── Provider chooser ──
@@ -10998,7 +11210,10 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
           _aiOpenPostChooser.apply(window, []);
         }
         // Re-render chips after the panel paints (covers desktop empty state).
-        setTimeout(function () { try { window._aiRenderStarterChips && window._aiRenderStarterChips(); } catch (_) {} }, 80);
+        setTimeout(function () {
+          try { window._aiRenderStarterChips && window._aiRenderStarterChips(); } catch (_) {}
+          try { window._aiRefreshRail && window._aiRefreshRail(); } catch (_) {}
+        }, 80);
       });
     };
 
@@ -13427,8 +13642,11 @@ body.emp-dark #aiPanel {
   --nlpl-warn: #e0a040;
 }
 
-/* ── Panel chrome ────────────────────────────────────────────────── */
-#aiPanel {
+/* ── Panel grid layout: header / rail | (context+main+input) ─────── */
+#aiPanel.open {
+  display: grid !important;
+  grid-template-columns: 256px 1fr;
+  grid-template-rows: 56px auto 1fr auto;
   background: var(--nlpl-bg) !important;
   color: var(--nlpl-fg) !important;
   font-family: var(--nlpl-font-sans) !important;
@@ -13436,8 +13654,186 @@ body.emp-dark #aiPanel {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   font-feature-settings: "ss01", "cv11";
+  flex-direction: initial !important;
 }
 #aiPanel * { box-sizing: border-box; }
+
+#aiPanel .ai-panel-header { grid-column: 1 / -1; grid-row: 1; }
+#aiPanel #aiRail          { grid-column: 1; grid-row: 2 / 5; }
+#aiPanel #aiContextChipChat { grid-column: 2; grid-row: 2; }
+#aiPanel #aiMessages      { grid-column: 2; grid-row: 3; min-height: 0; }
+#aiPanel .ai-panel-input-area { grid-column: 2; grid-row: 4; }
+
+@media (max-width: 1180px) {
+  #aiPanel.open { grid-template-columns: 220px 1fr; }
+}
+@media (max-width: 760px) {
+  #aiPanel.open { grid-template-columns: 1fr; }
+  #aiPanel #aiRail { display: none !important; }
+  #aiPanel .ai-panel-header { grid-column: 1; }
+  #aiPanel #aiContextChipChat,
+  #aiPanel #aiMessages,
+  #aiPanel .ai-panel-input-area { grid-column: 1; }
+}
+
+/* Left rail */
+#aiPanel .ai-rail {
+  background: var(--nlpl-bg-elev) !important;
+  border-right: 1px solid var(--nlpl-line-soft) !important;
+  padding: 14px 10px;
+  display: flex; flex-direction: column; gap: 14px;
+  overflow-y: auto;
+  font-family: var(--nlpl-font-sans);
+  color: var(--nlpl-fg);
+}
+#aiPanel #aiRailNew {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 10px 9px 12px;
+  background: var(--nlpl-accent);
+  border: 1px solid var(--nlpl-accent);
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: var(--nlpl-font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--nlpl-accent-fg);
+  transition: background 0.15s;
+  width: 100%;
+}
+#aiPanel #aiRailNew:hover { background: var(--nlpl-accent-hover); border-color: var(--nlpl-accent-hover); }
+#aiPanel #aiRailNew svg { color: var(--nlpl-accent-fg); }
+#aiPanel #aiRailNew span:first-of-type { flex: 1; text-align: left; }
+#aiPanel .ai-rail-kbd {
+  font-family: var(--nlpl-font-mono);
+  font-size: 10.5px;
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: rgba(255,255,255,0.18);
+  color: var(--nlpl-accent-fg);
+  border: 1px solid rgba(255,255,255,0.20);
+}
+#aiPanel .ai-rail-section { display: flex; flex-direction: column; gap: 2px; }
+#aiPanel .ai-rail-label {
+  font-family: var(--nlpl-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--nlpl-fg-4);
+  padding: 8px 10px 4px;
+  font-weight: 500;
+}
+#aiPanel .ai-rail-list { display: flex; flex-direction: column; gap: 1px; }
+#aiPanel .ai-rail-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  color: var(--nlpl-fg-2);
+  cursor: pointer;
+  font-family: var(--nlpl-font-sans);
+  font-size: 13px;
+  border: 1px solid transparent;
+  position: relative;
+  background: transparent;
+  text-align: left;
+  width: 100%;
+  transition: background 0.12s, color 0.12s;
+}
+#aiPanel .ai-rail-item:hover { background: var(--nlpl-bg-card-2); color: var(--nlpl-fg); }
+#aiPanel .ai-rail-item[aria-current="true"] {
+  background: var(--nlpl-bg-card-2);
+  color: var(--nlpl-fg);
+  border-color: var(--nlpl-line);
+}
+#aiPanel .ai-rail-item[aria-current="true"]::before {
+  content: ""; position: absolute; left: -1px; top: 8px; bottom: 8px; width: 2px;
+  background: var(--nlpl-accent); border-radius: 2px;
+}
+#aiPanel .ai-rail-item-icon {
+  width: 14px; height: 14px;
+  flex-shrink: 0;
+  color: var(--nlpl-fg-4);
+}
+#aiPanel .ai-rail-item.pinned .ai-rail-item-icon { color: var(--nlpl-accent); }
+#aiPanel .ai-rail-item-title {
+  flex: 1; min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#aiPanel .ai-rail-item-meta {
+  margin-left: auto;
+  font-family: var(--nlpl-font-mono);
+  font-size: 10.5px;
+  color: var(--nlpl-fg-4);
+  flex-shrink: 0;
+}
+#aiPanel .ai-rail-empty {
+  font-family: var(--nlpl-font-mono);
+  font-size: 11px;
+  color: var(--nlpl-fg-4);
+  padding: 8px 10px;
+}
+
+#aiPanel .ai-rail-meter {
+  margin: 0 8px;
+  padding: 12px;
+  background: var(--nlpl-bg-card);
+  border: 1px solid var(--nlpl-line);
+  border-radius: 10px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+#aiPanel .ai-rail-meter-row {
+  display: flex; align-items: center; justify-content: space-between;
+  font-family: var(--nlpl-font-mono);
+  font-size: 11px;
+  color: var(--nlpl-fg-3);
+  letter-spacing: 0.04em;
+}
+#aiPanel .ai-rail-meter-row b { color: var(--nlpl-fg); font-weight: 500; }
+#aiPanel .ai-rail-meter-bar {
+  height: 4px;
+  background: var(--nlpl-bg-card-2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+#aiPanel .ai-rail-meter-bar > span {
+  display: block; height: 100%;
+  background: linear-gradient(90deg, var(--nlpl-accent), var(--nlpl-accent-hover));
+}
+#aiPanel .ai-rail-meter-live {
+  display: inline-flex; align-items: center; gap: 5px;
+  color: var(--nlpl-pos);
+}
+#aiPanel .ai-rail-meter-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--nlpl-pos);
+  box-shadow: 0 0 0 3px rgba(31,138,91,0.18);
+}
+
+#aiPanel .ai-rail-foot {
+  margin-top: auto;
+  padding: 10px;
+  display: flex; align-items: center; gap: 10px;
+  border-top: 1px solid var(--nlpl-line-soft);
+}
+#aiPanel .ai-rail-avatar {
+  width: 32px; height: 32px; border-radius: 8px;
+  background: linear-gradient(135deg, #d97a3c, #944599);
+  color: #fff; font-size: 11px; font-weight: 600;
+  display: grid; place-items: center;
+  flex-shrink: 0;
+}
+#aiPanel .ai-rail-foot-body { display: flex; flex-direction: column; min-width: 0; }
+#aiPanel .ai-rail-foot-name {
+  font-size: 13px; font-weight: 500;
+  color: var(--nlpl-fg);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#aiPanel .ai-rail-foot-role {
+  font-family: var(--nlpl-font-mono);
+  font-size: 10.5px;
+  color: var(--nlpl-fg-3);
+  letter-spacing: 0.04em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 
 #aiPanel .ai-panel-header {
   background: var(--nlpl-bg-elev) !important;
