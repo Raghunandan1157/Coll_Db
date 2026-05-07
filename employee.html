@@ -11307,9 +11307,20 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       if (/\b(compare|comparison|versus|vs\.?|today vs|yesterday vs)\b/.test(q)) {
         return 'compare';
       }
-      // Per-entity: list of employees/branches/regions with metrics — let the
-      // table do the work, but tag so we can decide tiny per-row sparks later.
-      if (/\b(per (employee|branch|fo|officer)|each employee|each branch|by employee|by branch|by region|top \d+ (employees|branches|regions)|all (employees|branches|regions))\b/.test(q)) {
+      // Per-entity ranking / breakdown — covers field officers, FOs, staff,
+      // branches, regions, employees, products. Triggers bar chart.
+      if (/\btop\s*\d+\s+(field\s+officers?|fos?|officers?|employees?|branches?|regions?|staff|teams?|products?|members?)\b/.test(q)) {
+        return 'per-row';
+      }
+      if (/\b(rank|ranking|leader\s*board|best|worst|highest|lowest|leading|underperform)\b/.test(q)) {
+        return 'per-row';
+      }
+      if (/\b(per (employee|branch|fo|officer|region|product)|each (employee|branch|fo|officer)|by (employee|branch|region|product|fo)|all (employees|branches|regions|fos))\b/.test(q)) {
+        return 'per-row';
+      }
+      // Performance / collection broken down by team/group.
+      if (/\b(performance|collection|disbursement|npa|portfolio).*\b(team|group|squad|each|every)\b/.test(q)
+       || /\b(team|group|squad).*\b(performance|collection)\b/.test(q)) {
         return 'per-row';
       }
       return null;
@@ -11322,13 +11333,12 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
           return;
         }
         var intent = window._aiVisualIntent(question);
-        if (!intent) return; // user didn't ask for a comparison / trend / per-entity view
+        if (!intent) return;
         var table = bubbleEl.querySelector('table');
         if (!table) return;
         var rows = Array.prototype.slice.call(table.querySelectorAll('tbody tr, tr'));
         rows = rows.filter(function (r) { return r.cells && r.cells.length >= 2 && !r.querySelector('th'); });
         if (rows.length < 2) return;
-        // Find numeric columns (columns where ≥half of rows parse as numbers).
         var maxCols = rows.reduce(function (m, r) { return Math.max(m, r.cells.length); }, 0);
         var numCols = [];
         for (var c = 1; c < maxCols; c++) {
@@ -11340,25 +11350,90 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
           if (n >= Math.ceil(rows.length / 2)) numCols.push(c);
         }
         if (!numCols.length) return;
-        var labels = rows.slice(0, 12).map(function (r) {
-          return String((r.cells[0] && r.cells[0].textContent) || '').trim().slice(0, 10);
+        var labelsRaw = rows.slice(0, 12).map(function (r) {
+          return String((r.cells[0] && r.cells[0].textContent) || '').trim();
         });
-        // Build up to 3 series, each with its own color.
-        var palette = ['#1f5fd1', '#1f8a5b', '#b97a0a'];
-        var series = numCols.slice(0, 3).map(function (c, idx) {
-          var col = rows.slice(0, 12).map(function (r) {
-            var t = r.cells[c] ? String(r.cells[c].textContent || '').replace(/[^\-0-9.]/g, '') : '';
-            return parseFloat(t) || 0;
-          });
-          var head = table.querySelectorAll('thead th')[c] || table.querySelectorAll('tr th')[c];
-          return { name: head ? String(head.textContent || '').trim() : ('Series ' + (idx + 1)), values: col, color: palette[idx] };
-        });
+        // Detect first-column shape: date-like (line) vs categorical (bars).
+        var dateLike = labelsRaw.filter(function (l) {
+          return /^\d{4}-\d{2}-\d{2}$/.test(l)
+              || /^\d{1,2}[\/\-]\d{1,2}([\/\-]\d{2,4})?$/.test(l)
+              || /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|mon|tue|wed|thu|fri|sat|sun)\b/i.test(l);
+        }).length;
+        var preferBars = (intent === 'per-row') || (dateLike < Math.ceil(rows.length / 2));
+        // First numeric column is the primary metric; pick the column whose
+        // header best matches "amount / collection / value / total / score".
+        var heads = Array.prototype.slice.call(table.querySelectorAll('thead th, tr th')).map(function (h) { return String(h.textContent || '').toLowerCase(); });
+        function rankCol(c) {
+          var h = heads[c] || '';
+          if (/(amount|collection|value|total|score|cr|disburs|count|cases|attain)/.test(h)) return 2;
+          if (/%|percent|attainment/.test(h)) return 1;
+          return 0;
+        }
+        var primary = numCols.slice().sort(function (a, b) { return rankCol(b) - rankCol(a); })[0];
+        var palette = ['#1f5fd1', '#1f8a5b', '#b97a0a', '#7c3aed', '#dc2626', '#0891b2', '#ea580c', '#65a30d', '#db2777', '#475569'];
         var spk = document.createElement('div');
         spk.className = 'ai-spark-wrap';
-        spk.innerHTML = window._aiBuildSeriesSvg(series, labels, { w: 360, h: 96 });
+        if (preferBars) {
+          var barRows = rows.slice(0, 10).map(function (r, idx) {
+            var t = r.cells[primary] ? String(r.cells[primary].textContent || '').replace(/[^\-0-9.]/g, '') : '';
+            return {
+              label: String((r.cells[0] && r.cells[0].textContent) || '').trim().slice(0, 22),
+              value: parseFloat(t) || 0,
+              color: palette[idx % palette.length]
+            };
+          }).sort(function (a, b) { return b.value - a.value; });
+          var headLabel = (heads[primary] || 'value').replace(/[^a-z0-9% ]/gi, '').trim() || 'value';
+          spk.innerHTML = window._aiBuildBarsSvg(barRows, { w: 360, headLabel: headLabel });
+        } else {
+          var series = numCols.slice(0, 3).map(function (c, idx) {
+            var col = rows.slice(0, 12).map(function (r) {
+              var t = r.cells[c] ? String(r.cells[c].textContent || '').replace(/[^\-0-9.]/g, '') : '';
+              return parseFloat(t) || 0;
+            });
+            var head = table.querySelectorAll('thead th')[c] || table.querySelectorAll('tr th')[c];
+            return { name: head ? String(head.textContent || '').trim() : ('Series ' + (idx + 1)), values: col, color: palette[idx] };
+          });
+          var labels = rows.slice(0, 12).map(function (r) {
+            return String((r.cells[0] && r.cells[0].textContent) || '').trim().slice(0, 10);
+          });
+          spk.innerHTML = window._aiBuildSeriesSvg(series, labels, { w: 360, h: 96 });
+        }
         bubbleEl.appendChild(spk);
         bubbleEl.__sparked = true;
       } catch (_) {}
+    };
+    // Horizontal bar chart for per-entity rankings (top N FOs, branches, etc).
+    window._aiBuildBarsSvg = function (rows, opts) {
+      opts = opts || {};
+      var w = opts.w || 360;
+      var rowH = 26;
+      var labelW = 130;
+      var valW = 56;
+      var barW = w - labelW - valW - 12;
+      if (barW < 60) barW = 60;
+      var max = Math.max.apply(null, rows.map(function (r) { return Math.abs(r.value || 0); })) || 1;
+      var h = rows.length * rowH + 12;
+      var fmt = function (v) {
+        if (Math.abs(v) >= 1e7) return (v / 1e7).toFixed(1) + ' Cr';
+        if (Math.abs(v) >= 1e5) return (v / 1e5).toFixed(1) + ' L';
+        if (Math.abs(v) >= 1000) return Math.round(v).toLocaleString('en-IN');
+        if (Number.isInteger(v)) return String(v);
+        return v.toFixed(1);
+      };
+      var svg = '<svg class="ai-spark" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="xMinYMin meet" aria-hidden="true">';
+      rows.forEach(function (r, i) {
+        var y = 6 + i * rowH;
+        var bw = (Math.abs(r.value || 0) / max) * barW;
+        var c = r.color || '#1f5fd1';
+        var label = String(r.label || '').replace(/[<>&]/g, '');
+        svg += '<text x="0" y="' + (y + 16) + '" font-size="11.5" fill="rgba(15,25,41,0.85)" font-family="Inter, system-ui, sans-serif" font-weight="500">' + (i + 1) + '. ' + label + '</text>';
+        svg += '<rect x="' + labelW + '" y="' + (y + 6) + '" width="' + barW + '" height="14" fill="rgba(15,25,41,0.06)" rx="3"/>';
+        svg += '<rect x="' + labelW + '" y="' + (y + 6) + '" width="' + Math.max(2, bw).toFixed(1) + '" height="14" fill="' + c + '" rx="3"/>';
+        svg += '<text x="' + (w - 2) + '" y="' + (y + 16) + '" font-size="11" fill="rgba(15,25,41,0.85)" font-family="ui-monospace, Menlo, monospace" text-anchor="end">' + fmt(r.value) + '</text>';
+      });
+      svg += '</svg>';
+      var legend = '<div class="ai-spark-legend"><span class="ai-spark-legend-item">' + (opts.headLabel || 'value') + ' · sorted desc</span></div>';
+      return svg + legend;
     };
     // Multi-series area+line chart used when intent is series/compare.
     window._aiBuildSeriesSvg = function (series, labels, opts) {
