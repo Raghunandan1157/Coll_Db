@@ -11250,8 +11250,8 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
 
 <script>
 var _calDates = [];
-var _calYear = 2026;
-var _calMonth = 2; // 0-indexed: March=2
+var _calYear = (new Date()).getFullYear();
+var _calMonth = (new Date()).getMonth(); // 0-indexed, current month
 var _calLoaded = false;
 
 function openCalendarPopup() {
@@ -11273,12 +11273,10 @@ function openCalendarPopup() {
     document.getElementById('calStatus').textContent = 'Loading dates...';
     fetch('/api/daily/dates').then(function(r){return r.json();}).then(function(dates){
       _calDates = (dates||[]).map(function(d){return d.substring(0,10);});
-      // Set calendar to month of most recent date
-      if (_calDates.length) {
-        var parts = _calDates[0].split('-');
-        _calYear = parseInt(parts[0]);
-        _calMonth = parseInt(parts[1]) - 1;
-      }
+      // Calendar opens on current month regardless of where data exists.
+      var _now = new Date();
+      _calYear = _now.getFullYear();
+      _calMonth = _now.getMonth();
       renderCalendar();
       document.getElementById('calStatus').textContent = _calDates.length + ' dates available';
     }).catch(function(){
