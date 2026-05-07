@@ -12210,27 +12210,100 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
           roleEl.textContent = roleLabel;
         }
 
-        // Sources used — static list for now.
+        // Sources + Activity — pull real timestamps from /api/ai-activity.
+        window._aiFetchActivity && window._aiFetchActivity();
+      } catch (_) {}
+    };
+
+    // Pull real upload timestamps from the server and re-render activity +
+    // sources cards with relative-time labels. Cached for 60s so we don't
+    // hammer the endpoint on every panel re-open.
+    window._aiActivityCache = window._aiActivityCache || { ts: 0, data: null };
+    function _aiFmtAge(iso, now) {
+      if (!iso) return '—';
+      var t = Date.parse(iso);
+      if (!isFinite(t)) return '—';
+      var diff = Math.max(0, (now || Date.now()) - t);
+      var m = Math.floor(diff / 60000);
+      if (m < 1) return 'just now';
+      if (m < 60) return m + 'm ago';
+      var h = Math.floor(m / 60);
+      if (h < 24) return h + 'h ago';
+      var d = Math.floor(h / 24);
+      if (d < 7) return d + 'd ago';
+      return new Date(t).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
+    }
+    function _aiRenderActivitySources(data) {
+      try {
+        var now = data && data.server_now ? Date.parse(data.server_now) : Date.now();
+        var dailyAge   = _aiFmtAge(data && data.daily_collection_date, now);
+        var empAge     = _aiFmtAge(data && data.employee_perf_date, now);
+        var drAge      = _aiFmtAge(data && data.daily_reports_date, now);
+        var draAge     = _aiFmtAge(data && data.achievements_date, now);
+        var branchN    = data && data.branch_count != null ? data.branch_count : 0;
+
+        // Activity feed — real entries with real ages.
+        var actEl = document.getElementById('aiInspActivity');
+        if (actEl) {
+          var activity = [
+            { body: 'Daily collection upload synced',  time: dailyAge },
+            { body: 'Daily reports filed',             time: drAge },
+            { body: 'Branch achievements logged',      time: draAge },
+            { body: 'Employee performance refreshed',  time: empAge }
+          ];
+          actEl.innerHTML = activity.map(function (a) {
+            return '<div class="ai-insp-tl-item">'
+              +   '<div class="ai-insp-tl-dot"></div>'
+              +   '<div><div class="ai-insp-tl-body">' + a.body + '</div>'
+              +   '<div class="ai-insp-tl-time">' + a.time + '</div></div>'
+              + '</div>';
+          }).join('');
+        }
+
+        // Sources used — show relative-age status next to each source name.
         var srcEl = document.getElementById('aiInspSources');
         if (srcEl) {
+          var liveCutoff = 5 * 60 * 1000; // ≤5 min counts as "live"
+          function liveStatus(iso) {
+            if (!iso) return { text: '—', live: false };
+            var diff = Math.max(0, now - Date.parse(iso));
+            if (diff <= liveCutoff) return { text: 'live', live: true };
+            return { text: _aiFmtAge(iso, now), live: false };
+          }
           var sources = [
-            { name: 'collections_daily', status: 'live' },
-            { name: 'branch_master', status: '14m' },
-            { name: 'employee_performance', status: '1h' }
+            { name: 'daily_performance',     stat: liveStatus(data && data.daily_collection_date) },
+            { name: 'daily_reports',         stat: liveStatus(data && data.daily_reports_date) },
+            { name: 'employee_performance',  stat: liveStatus(data && data.employee_perf_date) },
+            { name: 'branches (' + branchN + ')', stat: { text: 'static', live: false } }
           ];
           var fileSvg = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
           srcEl.innerHTML = sources.map(function (src) {
-            var live = src.status === 'live';
             return '<div class="ai-insp-source">'
               +   '<span class="ai-insp-source-name">' + fileSvg + '<span>' + src.name + '</span></span>'
-              +   '<span class="ai-insp-source-status' + (live ? ' live' : '') + '">'
+              +   '<span class="ai-insp-source-status' + (src.stat.live ? ' live' : '') + '">'
               +     '<span class="ai-insp-source-dot"></span>'
-              +     '<span>' + src.status + '</span>'
+              +     '<span>' + src.stat.text + '</span>'
               +   '</span>'
               + '</div>';
           }).join('');
         }
       } catch (_) {}
+    }
+    window._aiFetchActivity = function () {
+      var now = Date.now();
+      // Reuse cache if fresh (≤60s) so opening / new-chat doesn't refetch each time.
+      if (window._aiActivityCache.data && (now - window._aiActivityCache.ts) < 60000) {
+        _aiRenderActivitySources(window._aiActivityCache.data);
+        return;
+      }
+      fetch('/api/ai-activity')
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) {
+          if (!j) return;
+          window._aiActivityCache = { ts: Date.now(), data: j };
+          _aiRenderActivitySources(j);
+        })
+        .catch(function () {});
     };
 
     // ── DB-backed conversation history (Phase B). All calls keyed by user_key. ──

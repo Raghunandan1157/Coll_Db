@@ -8638,6 +8638,32 @@ app.get('/api/ai-providers', (_req, res) => {
   res.json({ available, unavailable });
 });
 
+// /api/ai-activity — real upload/refresh timestamps for the inspector activity
+// feed. Uses report_date as the upload proxy (no created_at on these tables);
+// also returns row counts so the UI can show "248 branches".
+app.get('/api/ai-activity', async (_req, res) => {
+  try {
+    const [daily, empPerf, dailyReports, dra, branches] = await Promise.all([
+      pool.query("SELECT MAX(report_date) AS d FROM daily_performance"),
+      pool.query("SELECT MAX(report_date) AS d FROM employee_performance"),
+      pool.query("SELECT MAX(date) AS d FROM daily_reports"),
+      pool.query("SELECT MAX(date) AS d FROM daily_reports_achievements"),
+      pool.query("SELECT COUNT(*)::int AS n FROM branches"),
+    ]);
+    res.json({
+      daily_collection_date: daily.rows[0]?.d || null,
+      employee_perf_date:    empPerf.rows[0]?.d || null,
+      daily_reports_date:    dailyReports.rows[0]?.d || null,
+      achievements_date:     dra.rows[0]?.d || null,
+      branch_count:          branches.rows[0]?.n || 0,
+      server_now:            new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error('ai-activity error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post("/api/ai-chat", aiLimiter, requireAiAccess, async (req, res) => {
   // Origin check: allow same-origin web traffic, plus mobile clients which
   // send no Origin/Referer but advertise themselves via x-app-origin.
