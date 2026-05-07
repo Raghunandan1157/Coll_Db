@@ -5691,7 +5691,7 @@ const AI_SCHEMA_CHEATSHEET = {
 const AI_SNAPSHOT_VERSION = 2;
 
 // Bump when AI prompt or tool surface changes — invalidates aiReplyCache keys.
-const AI_REPLY_CACHE_VERSION = 'v7-date-canonical-kannada-numbers';
+const AI_REPLY_CACHE_VERSION = 'v8-single-entity-employee-series';
 
 // Mistral function-calling tool definitions. The model picks which to call
 // when the bundled ctx isn't enough. Every tool maps to a parameterised SQL
@@ -5717,12 +5717,28 @@ const AI_TOOLS_SPEC = [
     type: 'function',
     function: {
       name: 'employee_performance',
-      description: 'Collection/demand/NPA totals for ONE employee over a date range. Default range = current FY-to-date.',
+      description: 'Collection/demand/NPA TOTALS (single aggregate row) for ONE employee over a date range. Default range = current FY-to-date. Use for "<person> performance / <person> totals / how has <person> done this FY". For a per-day TREND/series (chart), use employee_collection_series instead. NEVER substitute period_performance(group_by="employee", branch_name=...) for this — that returns the FULL branch leaderboard, not the named person.',
       parameters: {
         type: 'object',
         properties: {
           emp_id: { type: 'string' },
           start_date: { type: 'string', description: 'YYYY-MM-DD. Default = current FY start (Apr 1).' },
+          end_date: { type: 'string', description: 'YYYY-MM-DD. Default = today.' }
+        },
+        required: ['emp_id']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'employee_collection_series',
+      description: 'Per-DAY collection / demand / collection % / NPA series for ONE employee over a date range. Returns one row per report_date (the trend chart input). Use for "show <person> trend / <person> performance over time / drill on <person> / day-by-day for <person> / how is <person> doing day to day". Default range = today minus 30 days → today. NEVER substitute period_performance(group_by="employee", branch_name=...) or top_performers(branch_name=...) for this — those return the FULL branch leaderboard (every employee), not the single named person. ALWAYS canonicalise the name with find_employee first and pass the resulting emp_id.',
+      parameters: {
+        type: 'object',
+        properties: {
+          emp_id: { type: 'string', description: 'Canonical emp_id from find_employee.' },
+          start_date: { type: 'string', description: 'YYYY-MM-DD. Default = today minus 30 days.' },
           end_date: { type: 'string', description: 'YYYY-MM-DD. Default = today.' }
         },
         required: ['emp_id']
@@ -6429,6 +6445,79 @@ async function dispatchAiTool(name, args, session) {
        GROUP BY em.emp_id, em.full_name, em.role, em.branch_name,
                 em.area_name, em.division_name, em.region_name, em.mobile, em.status`;
     return await safeQuery(sql, params, 1);
+  }
+
+  if (name === 'employee_collection_series') {
+    const empId = String(args.emp_id || '').trim();
+    if (!empId) return { error: 'emp_id required' };
+    const now = new Date();
+    const todayIso = now.toISOString().slice(0, 10);
+    const dflt = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const startDate = args.start_date || dflt.toISOString().slice(0, 10);
+    const endDate = args.end_date || todayIso;
+    const params = [empId, startDate, endDate];
+    const scopeClause = _scopeWhere(session, 'em.branch_name', params);
+
+    // 1) Identity row first — confirms the emp_id is in scope, returns
+    //    branch/role/etc. so the model can label the chart even when the
+    //    series is empty (no daily_performance rows for the window).
+    const idSql = `
+      SELECT em.emp_id, em.full_name AS name, em.role,
+             em.branch_name AS branch, em.area_name AS area,
+             em.division_name AS division, em.region_name AS region,
+             em.mobile, em.status
+        FROM employee_master em
+       WHERE em.emp_id = $1
+         ${scopeClause}
+       LIMIT 1`;
+    const idRows = await safeQuery(idSql, params, 1);
+    if (!Array.isArray(idRows)) return idRows; // pass-through {error}
+    if (!idRows.length) {
+      return { error: 'employee_not_found_or_out_of_scope', message: `emp_id ${empId} not found in your scope. Re-run find_employee for the canonical emp_id.` };
+    }
+
+    // 2) Per-day series — strict INNER JOIN so 0 rows = "no daily activity in window"
+    const seriesSql = `
+      SELECT to_char(dp.report_date, 'YYYY-MM-DD') AS date,
+             COALESCE(dp.regular_demand, 0)::bigint AS demand,
+             COALESCE(dp.regular_collection, 0)::bigint AS collection,
+             CASE WHEN COALESCE(dp.regular_demand, 0) > 0
+                  THEN ROUND((dp.regular_collection::numeric / dp.regular_demand) * 100, 1)
+                  ELSE 0
+             END AS collection_pct,
+             COALESCE(dp.npa_cases, 0)::int AS npa_cases,
+             COALESCE(dp.npa_act_amt, 0)::numeric AS npa_amount
+        FROM daily_performance dp
+       WHERE dp.emp_id = $1
+         AND dp.report_date BETWEEN $2 AND $3
+       ORDER BY dp.report_date ASC
+       LIMIT ${lim}`;
+    const seriesRows = await safeQuery(seriesSql, params, lim);
+    if (!Array.isArray(seriesRows)) return seriesRows;
+
+    // 3) Window totals so the model has a headline number alongside the series.
+    let totalDemand = 0, totalCollection = 0;
+    for (const r of seriesRows) {
+      totalDemand += Number(r.demand) || 0;
+      totalCollection += Number(r.collection) || 0;
+    }
+    const totalPct = totalDemand > 0
+      ? Math.round((totalCollection / totalDemand) * 1000) / 10
+      : 0;
+
+    return {
+      employee: idRows[0],
+      start_date: startDate,
+      end_date: endDate,
+      series: seriesRows,
+      totals: {
+        demand: totalDemand,
+        collection: totalCollection,
+        collection_pct: totalPct,
+        days_reported: seriesRows.length,
+      },
+      instruction: 'This is a SINGLE-EMPLOYEE day-by-day series. Narrate the trend and totals for THIS employee only. Do NOT mix in other employees from the same branch. If series is empty, say "no daily activity for <name> in <start_date>..<end_date>" — do NOT fall back to a branch leaderboard.',
+    };
   }
 
   if (name === 'find_branch') {
@@ -7997,9 +8086,10 @@ app.post('/api/voice-stream', aiLimiter, voiceUpload.single('audio'), requireAiA
         '- The companion screen shows the raw rows you fetch — you do not need to dictate every value, just the highlight + interpretation.',
         '',
         '## Tools available — CALL THESE for any specifics',
-        '- resolve_date_range, find_employee, employee_performance, find_branch, period_performance, top_performers, disbursement_query, list_hierarchy, list_employees, headcount, npa_summary, daily_reports_query, branch_summary, hourly_collection, collection_drilldown, period_compare, plan_compliance, sql_describe',
+        '- resolve_date_range, find_employee, employee_performance, employee_collection_series, find_branch, period_performance, top_performers, disbursement_query, list_hierarchy, list_employees, headcount, npa_summary, daily_reports_query, branch_summary, hourly_collection, collection_drilldown, period_compare, plan_compliance, sql_describe',
         '',
         '## Critical tool routing',
+        '- "Show <person> trend / <person> performance over time / drill on <person> / day-by-day for <person> / how is <person> doing day to day" → call `find_employee(query=name, location_hint?)` first to get the canonical emp_id, then `employee_collection_series(emp_id, start_date?, end_date?)` for the per-day series. For TOTAL across a window (single aggregate row) use `employee_performance(emp_id, ...)`. NEVER call `period_performance(group_by="employee", branch_name=...)` or `top_performers(branch_name=...)` for a single named person — those return the WHOLE branch leaderboard, not the named person.',
         '- "How is my branch doing today / how is <branch> doing / branch health / give me a summary of <branch> / end-of-day rollup" → call `branch_summary()` (BM/ABM/BOE pass NO args — auto-resolves; CEO/RM/DM/AM pass branch_name). Returns headcount + collection (today/MTD/FYTD) + NPA + disbursement + FTOD + DPD plan-vs-actual in ONE call. Don\'t chain 5 separate tools for this.',
         '- "Why is collection low / drill down on collection / who\'s underperforming / which FOs are dragging us down" → call `collection_drilldown()`. Returns 3 worst FOs + 3 best FOs + DPD buckets + NPA + FTOD gap in ONE call. Use AFTER branch_summary for the "why" follow-up.',
         '- "MoM / WoW / vs last month / vs yesterday / this week vs last week / vs same period last year / compare X to Y" → call `period_compare(metric, scope, scope_value?, period_a_start, period_a_end, period_b_start, period_b_end)`. ALL 4 dates ISO YYYY-MM-DD. metric ∈ {collection, demand, collection_pct, npa_amount, disb_amount, disb_count, ftod}. scope="branch" + scope_value=<branch> for single-branch MoM. Server computes delta_abs + delta_pct — DO NOT call period_performance twice and do the math yourself (you mix counts vs amounts and miscompute pct-of-pct).',
@@ -8033,6 +8123,7 @@ app.post('/api/voice-stream', aiLimiter, voiceUpload.single('audio'), requireAiA
         '- Never say "data not available" without first calling the relevant tool.',
         '',
         '## Hard rules — DO NOT BREAK',
+        '- **Single-entity scope.** When the user names ONE person, branch, or region in the question (e.g. "show Manjunatha T N trend", "how is Davanagere doing", "drill on Pavan Kumar K"), the headline answer is scoped to THAT entity ONLY. For a single named PERSON: call `find_employee` → then `employee_collection_series(emp_id, …)` for trend/series, or `employee_performance(emp_id, …)` for totals. NEVER call `period_performance(group_by="employee", branch_name=…)` or `top_performers(branch_name=…)` to answer a single-person question — those return the whole branch leaderboard. For a single named BRANCH: use `branch_summary` / `collection_drilldown`. Listing peers (the rest of the branch, the rest of the region) is allowed ONLY when the user explicitly asks for a ranking, comparison, or "everyone in <branch>".',
         '- **top_performers ranks EMPLOYEES, not branches.** For "top N branches by collection / demand / disbursement / NPA", call `period_performance(group_by=\'branch\', start_date, end_date)` and pick the top N rows yourself. NEVER substitute disbursement_query for collection or vice versa.',
         '- **Never relabel one tool\'s output as a different metric.** disbursement is NOT collection; npa_activation is NOT npa_closure. If the user asks for collection and you only have disbursement, fetch collection.',
         '- **Never fabricate totals.** When a tool returns N rows, your reply must either (a) sum all N rows in the answer, or (b) explicitly say "showing top X of N — total is Y" using the actual sum. If you can\'t compute the total, say "showing first N rows" without a fake total.',
@@ -8743,7 +8834,8 @@ app.post("/api/ai-chat", aiLimiter, requireAiAccess, async (req, res) => {
       '## Tools available — CALL THESE for any specifics not in the at-a-glance JSON',
       '- resolve_date_range(expression, comparison_expression?, anchor_date?) — converts relative/spoken/slash dates to ISO YYYY-MM-DD using Asia/Kolkata. Use before data tools for today/yesterday/this month/last month/FYTD/11/04/April 11/comparison dates.',
       '- find_employee(query, limit?) — name/mobile/emp_id substring lookup.',
-      '- employee_performance(emp_id, start_date?, end_date?) — one employee\'s totals over a period (default = FY-to-date).',
+      '- employee_performance(emp_id, start_date?, end_date?) — ONE employee\'s aggregate TOTALS (single row) over a period (default = FY-to-date). Use for "<person> totals / <person> performance summary".',
+      '- employee_collection_series(emp_id, start_date?, end_date?) — ONE employee\'s per-DAY series (one row per report_date with demand/collection/collection_pct/npa). Use for "show <person> trend / <person> day-by-day / drill on <person>". Default window = today minus 30 days. NEVER substitute period_performance(group_by="employee", branch_name=...) or top_performers(branch_name=...) for this — those return the whole branch leaderboard, not the named person.',
       '- find_branch(query, limit?) — branch name lookup with hierarchy + headcount + perf.',
       '- period_performance(start_date, end_date, group_by?, branch_name?, area_name?, division_name?, region_name?, limit?) — collection/demand/NPA over a date range, group by day|month|branch|employee.',
       '- top_performers(metric, start_date, end_date, limit?) — leaderboard by collection|demand|npa_cases.',
@@ -8791,6 +8883,7 @@ app.post("/api/ai-chat", aiLimiter, requireAiAccess, async (req, res) => {
       '- **Money formatting — DO NOT do the division yourself.** disbursement_query returns each row with `amount_str` (already formatted, e.g. "₹178.96 Cr") and the wrapper has `totals.amount_str`. Copy `amount_str` VERBATIM into your reply. Do NOT divide `amount` by 10000000 yourself — past replies dropped a zero (₹178.96 Cr → ₹17.90 Cr) and gave wrong totals. If `amount_str` is present, use it exactly as-is. The total row in your table MUST equal `totals.amount_str`, not a re-summed value.',
       '- Never use the words "snapshot" or "provided data" or "JSON below" in your replies — they leak internal plumbing. Just answer with the numbers and a short label.',
       '- If a question mentions FTOD, DPD, KYC, disbursement plan, NPA closure, or "daily plan" → MUST call daily_reports_query. Do NOT say "data not available" without calling the tool first.',
+      '- If the user asks "show <person> trend / <person> performance over time / drill on <person> / day-by-day for <person>" → call `find_employee(query=<name>, location_hint?)` to canonicalise, then `employee_collection_series(emp_id, start_date?, end_date?)` for the per-day series. Use `employee_performance(emp_id, …)` only for the aggregate TOTAL across a window. NEVER call `period_performance(group_by="employee", branch_name=...)` or `top_performers(branch_name=...)` to answer a single-named-person question — those return the FULL branch leaderboard, which is what the user did NOT ask for.',
       '- If the user asks "how is my branch doing today / branch summary / give me a summary of <branch> / end-of-day rollup" → call `branch_summary()` (single tool, returns headcount + collection + NPA + disbursement + FTOD + DPD). Do NOT chain 5 separate tool calls.',
       '- If the user asks "why is collection low / drill down / who\'s underperforming / which FOs are dragging us down" → call `collection_drilldown()`. Returns the 3 worst + 3 best FOs + DPD + NPA + FTOD gap in one call. Use AFTER branch_summary for the natural "why" follow-up.',
       '- For any "MoM / WoW / vs last month / vs yesterday / this week vs last week / compare X to Y" question → call `period_compare(metric, scope, scope_value?, period_a_start, period_a_end, period_b_start, period_b_end)`. ALL 4 dates ISO YYYY-MM-DD; metric ∈ {collection, demand, collection_pct, npa_amount, disb_amount, disb_count, ftod}; scope ∈ {all, branch, region, division, area}. Server computes delta_abs + delta_pct — DO NOT call period_performance twice and do the arithmetic yourself.',
@@ -8800,6 +8893,7 @@ app.post("/api/ai-chat", aiLimiter, requireAiAccess, async (req, res) => {
       '- When a tool returns 0 rows for a specific date, ALWAYS retry the same tool with a wider window (the full month, then the full FY) to find the nearest available date(s). Then tell the user "no data for {requested date}; nearest available is {date} — here it is" and answer with that data. Do NOT just say "data not available" and stop.',
       '',
       '## Hard rules — DO NOT BREAK',
+      '- **Single-entity scope.** When the user names ONE person, branch, or region in the question (e.g. "show Manjunatha T N trend", "how is Davanagere doing", "drill on Pavan Kumar K"), the headline answer is scoped to THAT entity ONLY. For a single named PERSON: call `find_employee` → then `employee_collection_series(emp_id, …)` for trend/series, or `employee_performance(emp_id, …)` for totals. NEVER call `period_performance(group_by="employee", branch_name=…)` or `top_performers(branch_name=…)` to answer a single-person question — those return the whole branch leaderboard. For a single named BRANCH: use `branch_summary` / `collection_drilldown`. Listing peers (the rest of the branch, the rest of the region) is allowed ONLY when the user explicitly asks for a ranking, comparison, or "everyone in <branch>".',
       '- **top_performers ranks EMPLOYEES, not branches.** For "top N branches by collection / demand / disbursement / NPA", call `period_performance(group_by=\'branch\', start_date, end_date)` and sort/pick top N yourself. NEVER label disbursement_query rows as collection (or vice versa).',
       '- **Never relabel one tool\'s output as a different metric.** If the user asked for collection and you only fetched disbursement, fetch collection — do not rename columns.',
       '- **Never fabricate totals.** When summarising tool rows, your reply must either (a) sum ALL returned rows accurately, or (b) explicitly say "showing first N of M — total is X" using the actual sum. Never invent a total that doesn\'t match the rows shown.',
@@ -9013,9 +9107,10 @@ app.post("/api/ai-chat-stream", aiLimiter, requireAiAccess, async (req, res) => 
       'Collection % = regular_collection / regular_demand × 100 (count ratio, dimensionless).',
       '',
       '## Tools available — CALL THESE for any specifics not in the at-a-glance JSON',
-      '- resolve_date_range, find_employee, employee_performance, find_branch, period_performance, top_performers, disbursement_query, list_hierarchy, list_employees, headcount, npa_summary, daily_reports_query, branch_summary, hourly_collection, collection_drilldown, period_compare, plan_compliance, sql_describe',
+      '- resolve_date_range, find_employee, employee_performance, employee_collection_series, find_branch, period_performance, top_performers, disbursement_query, list_hierarchy, list_employees, headcount, npa_summary, daily_reports_query, branch_summary, hourly_collection, collection_drilldown, period_compare, plan_compliance, sql_describe',
       '',
       '## Critical tool routing',
+      '- "Show <person> trend / <person> performance over time / drill on <person> / day-by-day for <person> / how is <person> doing day to day" → call `find_employee(query=<name>, location_hint?)` first to canonicalise, then `employee_collection_series(emp_id, start_date?, end_date?)` for the per-day series. Use `employee_performance(emp_id, …)` only for the aggregate TOTAL across a window. NEVER call `period_performance(group_by="employee", branch_name=...)` or `top_performers(branch_name=...)` to answer a single-named-person question — those return the FULL branch leaderboard.',
       '- "How is my branch doing today / branch summary / branch health / give me a summary of <branch> / end-of-day rollup" → call `branch_summary()` — ONE tool returns headcount + collection (today/MTD/FYTD) + NPA + disbursement + FTOD + DPD plan-vs-actual. BM/ABM/BOE pass NO args (auto-resolves); CEO/RM/DM/AM MUST pass branch_name. Don\'t chain 5+ separate tool calls for this.',
       '- "Why is collection low / drill down on collection / who\'s underperforming / which FOs are dragging us down" → call `collection_drilldown()`. Returns 3 worst FOs + 3 best FOs + DPD buckets + NPA + FTOD gap. Use AFTER branch_summary for the natural "why" follow-up. Single-branch only — pass branch_name (CEO/RM/DM/AM) or omit it (BM/ABM/BOE auto-resolve).',
       '- "MoM / WoW / vs last month / vs yesterday / this week vs last week / vs same period last year / compare X to Y" → call `period_compare(metric, scope, scope_value?, period_a_start, period_a_end, period_b_start, period_b_end)`. ALL 4 dates ISO YYYY-MM-DD. metric ∈ {collection, demand, collection_pct, npa_amount, disb_amount, disb_count, ftod}. scope ∈ {all, branch, region, division, area} — use scope="branch" + scope_value=<branch> for "compare <branch> this month vs last month". Server computes delta_abs + delta_pct. NEVER call period_performance twice and do the arithmetic yourself.',
@@ -9032,6 +9127,7 @@ app.post("/api/ai-chat-stream", aiLimiter, requireAiAccess, async (req, res) => 
       '- list_hierarchy returns entity names + headcount metadata only — NEVER report its row count as a money/collection metric.',
       '',
       '## Hard rules — DO NOT BREAK',
+      '- **Single-entity scope.** When the user names ONE person, branch, or region in the question (e.g. "show Manjunatha T N trend", "how is Davanagere doing", "drill on Pavan Kumar K"), the headline answer is scoped to THAT entity ONLY. For a single named PERSON: call `find_employee` → then `employee_collection_series(emp_id, …)` for trend/series, or `employee_performance(emp_id, …)` for totals. NEVER call `period_performance(group_by="employee", branch_name=…)` or `top_performers(branch_name=…)` to answer a single-person question — those return the whole branch leaderboard. For a single named BRANCH: use `branch_summary` / `collection_drilldown`. Listing peers (the rest of the branch, the rest of the region) is allowed ONLY when the user explicitly asks for a ranking, comparison, or "everyone in <branch>".',
       '- **Cross-branch compare permission depends on the SESSION role above.** CEO / RM / SM / DM / DvM / AM may compare ANY two branches freely — call period_compare with scope="branch" and the two scope_values. Branch-bound roles (BM / ABM / BOE) may ONLY compare their own branch; if the user is BM/ABM/BOE in the session and they ask to compare against any OTHER branch, refuse with: "You can only access <own branch>. Cross-branch comparisons require RM or CEO access." NEVER apply the BM refusal when the session role is CEO/RM/SM/DM/DvM/AM. NEVER call period_compare with own-branch as scope_value for both windows — that silently produces a fake-parity comparison.',
       '- **regular_demand / regular_collection are COUNTS, not money.** Format as plain Indian-comma numbers (e.g. "1,335 collection accounts"), NOT ₹/L/Cr. Only columns ending in `_amt` and {disb_amount, npa_act_amt, npa_amount, npa_clo_amt} are money.',
       '- **Multi-employee period queries: ONE call, not N.** When the user asks for a LIST or TABLE of multiple employees with their performance over a period (e.g. "every FO in <branch> with their April collection", "show all my staff and their collection"), call `top_performers(metric=\'collection\', branch_name=<scope>, role=<role-if-named>, start_date, end_date, limit=200)` ONCE — top_performers ALSO accepts role/branch/area/division/region filters and returns the full leaderboard. Or `period_performance(group_by=\'employee\', branch_name=<scope>, start_date, end_date)` if no role filter. NEVER call `list_employees` then loop `employee_performance(emp_id=...)` per person — that anti-pattern wastes round-trips and fragments the output. Reserve `employee_performance` for a SINGLE named individual. Multi-axis requests (per-emp × per-day × per-product × per-DPD-bucket) — pick ONE primary axis, call once, and tell the user the secondary axis needs a follow-up question.',
