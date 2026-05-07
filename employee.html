@@ -13223,37 +13223,59 @@ body.emp-dark #voMobile .vom-full-table tr.total-row td {
             var threshold = Math.max(1, Math.min(3, headerTokens.length));
             return headerHits >= threshold;
           }
-          var proseNodes = Array.prototype.slice.call(body.children).filter(function (n) {
-            if (!n) return false;
-            var cls = (n.className || '');
-            if (typeof cls !== 'string') return false;
-            // Skip the structural blocks we've already rendered. .ai-ans-calc
-            // is the live <details> drawer — print-card builds its own static
-            // mirror later, so including it here produces a duplicate
-            // "Show calculation" block in the captured PNG.
-            if (/ai-ans-hero|ai-ans-mkpis|ai-ans-followups|ai-spark-wrap|ai-ans-calc/.test(cls)) return false;
-            if (n.tagName === 'TABLE') return false; // handled separately below
-            // Preserve any wrapper that contains the styled table.
-            if (n.querySelector && n.querySelector('table')) return false;
-            // Also skip wrappers that contain the calc drawer.
-            if (n.querySelector && n.querySelector('.ai-ans-calc')) return false;
-            if (looksLikeTableDupHeading(n)) return false;  // only drop fake-table heading row
-            return true;
-          });
-          if (proseNodes.length) {
-            var pBox = document.createElement('div');
-            pBox.style.cssText = 'font-family: ' + FONT + '; font-size: 13.5px; color: ' + FG2 + '; line-height: 1.55; margin-bottom: 14px;';
-            proseNodes.forEach(function (n) {
-              var p = document.createElement('div');
-              p.style.cssText = 'margin: 0 0 8px 0;';
-              p.innerHTML = n.innerHTML || esc(n.textContent || '');
-              // Strip residual class attrs to neutralise live styles.
-              Array.prototype.forEach.call(p.querySelectorAll('*'), function (k) {
-                if (k.removeAttribute) k.removeAttribute('class');
-              });
-              pBox.appendChild(p);
+          // Clone the body and strip structural blocks deep, then render the
+          // remaining HTML as a SINGLE inline-flow block. The previous
+          // child-by-child approach broke for two reasons:
+          //   (a) md() doesn't wrap prose in <p> — it emits <strong>/<em>/text
+          //       directly as children of .ai-ans-body, so wrapping each child
+          //       in its own <div> promoted inline emphasis chips like
+          //       "<strong>89%</strong>" to standalone block-level lines.
+          //   (b) raw text nodes between <br>s aren't enumerated by
+          //       body.children, so legitimate prose was silently dropped.
+          // Deep-querySelectorAll strip also catches any .ai-ans-calc that
+          // sits inside a md()-emitted wrapper rather than as a direct child,
+          // killing the duplicate "Show calculation / Formula / Worked rows"
+          // prose leak alongside the static CALCULATION block.
+          var bodyClone = body.cloneNode(true);
+          [
+            '.ai-ans-hero',
+            '.ai-ans-mkpis',
+            '.ai-ans-followups',
+            '.ai-spark-wrap',
+            '.ai-chart-wrap',
+            '.ai-ans-calc',
+            '.ai-table-wrap',
+            'table'
+          ].forEach(function (sel) {
+            Array.prototype.forEach.call(bodyClone.querySelectorAll(sel), function (kn) {
+              try { kn.parentNode && kn.parentNode.removeChild(kn); } catch (_) {}
             });
-            cardDiv.appendChild(pBox);
+          });
+          // Drop fake-table heading rows the LLM sometimes emits alongside
+          // the styled table.
+          Array.prototype.forEach.call(bodyClone.querySelectorAll('h1,h2,h3,h4,h5,h6'), function (h) {
+            if (looksLikeTableDupHeading(h)) {
+              try { h.parentNode && h.parentNode.removeChild(h); } catch (_) {}
+            }
+          });
+          // Trim whitespace + leading/trailing <br>s left by the strip.
+          var proseHtml = (bodyClone.innerHTML || '')
+            .replace(/^(?:\s|<br\s*\/?>)+/i, '')
+            .replace(/(?:\s|<br\s*\/?>)+$/i, '');
+          if (proseHtml) {
+            var probeDiv = document.createElement('div');
+            probeDiv.innerHTML = proseHtml;
+            // Neutralise live class-based styles so the print render is
+            // governed entirely by the inline styles below.
+            Array.prototype.forEach.call(probeDiv.querySelectorAll('*'), function (k) {
+              if (k.removeAttribute) k.removeAttribute('class');
+            });
+            if ((probeDiv.textContent || '').trim().length) {
+              var pBox = document.createElement('div');
+              pBox.style.cssText = 'font-family: ' + FONT + '; font-size: 13.5px; color: ' + FG2 + '; line-height: 1.55; margin-bottom: 14px;';
+              pBox.innerHTML = probeDiv.innerHTML;
+              cardDiv.appendChild(pBox);
+            }
           }
         }
       } catch (_) {}
