@@ -11308,6 +11308,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       try { window._aiFetchChats && window._aiFetchChats(); } catch (_) {}
       try { window._aiRefreshRail && window._aiRefreshRail(); } catch (_) {}
       try { window._aiRefreshInspector && window._aiRefreshInspector(); } catch (_) {}
+      try { window._aiRefreshComposerFoot && window._aiRefreshComposerFoot(); } catch (_) {}
     }
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', function () { setTimeout(_aiPrewarmChats, 120); });
@@ -11666,6 +11667,57 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       } catch (_) {}
     };
 
+    // ── Composer foot: scope label, current week period, suggestion handlers ──
+    window._aiRefreshComposerFoot = function () {
+      try {
+        var s = (typeof _aiSession === 'function') ? _aiSession() : {};
+        var loc = String((s && s.location) || '').trim() || 'overall';
+        var scopeEl = document.getElementById('aiCompScope');
+        if (scopeEl) {
+          // Title-case for display ("West" / "Saket" / "Overall").
+          scopeEl.textContent = loc.charAt(0).toUpperCase() + loc.slice(1);
+        }
+
+        // Current week (Mon → Sun) using pure Date arithmetic.
+        var perEl = document.getElementById('aiCompPeriod');
+        if (perEl) {
+          var today = new Date();
+          today.setHours(0, 0, 0, 0);
+          // JS getDay(): 0=Sun..6=Sat. Convert to Mon=0..Sun=6.
+          var dow = (today.getDay() + 6) % 7;
+          var mon = new Date(today.getTime());
+          mon.setDate(today.getDate() - dow);
+          var sun = new Date(mon.getTime());
+          sun.setDate(mon.getDate() + 6);
+          var fmtMon = new Intl.DateTimeFormat('en-IN', { month: 'short', day: 'numeric' });
+          var fmtDay = new Intl.DateTimeFormat('en-IN', { day: 'numeric' });
+          var label;
+          if (mon.getMonth() === sun.getMonth()) {
+            label = fmtMon.format(mon) + ' – ' + fmtDay.format(sun);
+          } else {
+            label = fmtMon.format(mon) + ' – ' + fmtMon.format(sun);
+          }
+          perEl.textContent = label;
+        }
+
+        // Wire suggestion chips: idempotent (replaceWith strips old listeners).
+        var sgs = document.querySelectorAll('#aiCompSuggest .ai-comp-sg');
+        Array.prototype.forEach.call(sgs, function (btn) {
+          var clone = btn.cloneNode(true);
+          btn.parentNode.replaceChild(clone, btn);
+          clone.addEventListener('click', function () {
+            var p = clone.getAttribute('data-prompt') || '';
+            var inp = document.getElementById('aiInput');
+            if (inp) {
+              inp.value = p;
+              try { inp.focus(); } catch (_) {}
+            }
+            try { window._aiSend && window._aiSend(); } catch (_) {}
+          });
+        });
+      } catch (_) {}
+    };
+
     // ── Right inspector panel: scope / period / refreshed / sources / activity ──
     window._aiRefreshInspector = function () {
       try {
@@ -11912,6 +11964,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         try { window._aiRenderStarterChips && window._aiRenderStarterChips(); } catch (_) {}
         try { window._aiRefreshRail && window._aiRefreshRail(); } catch (_) {}
         try { window._aiRefreshInspector && window._aiRefreshInspector(); } catch (_) {}
+        try { window._aiRefreshComposerFoot && window._aiRefreshComposerFoot(); } catch (_) {}
       }, 30);
     };
 
@@ -12032,6 +12085,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         try { window._aiRenderStarterChips && window._aiRenderStarterChips(); } catch (_) {}
         try { window._aiRefreshRail && window._aiRefreshRail(); } catch (_) {}
         try { window._aiRefreshInspector && window._aiRefreshInspector(); } catch (_) {}
+        try { window._aiRefreshComposerFoot && window._aiRefreshComposerFoot(); } catch (_) {}
       };
       refreshAll();
       setTimeout(refreshAll, 80);
@@ -15461,6 +15515,86 @@ body.emp-dark #aiPanel .ai-insp-tl-dot {
   color: var(--nlpl-fg-4);
   margin-top: 2px;
   letter-spacing: 0.04em;
+}
+
+/* ── Composer foot (scope + keyboard hints) and suggestions strip ─── */
+#aiPanel .ai-comp-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 14px 10px;
+  font-family: var(--nlpl-font-mono);
+  font-size: 10.5px;
+  color: var(--nlpl-fg-4);
+  letter-spacing: 0.04em;
+  max-width: 860px;
+  margin: 0 auto;
+}
+#aiPanel .ai-comp-foot b {
+  color: var(--nlpl-fg-2);
+  font-weight: 500;
+}
+#aiPanel .ai-comp-foot .ai-comp-kbds {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+#aiPanel .ai-comp-foot .ai-comp-kbds > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+#aiPanel .ai-comp-foot .ai-comp-kbd {
+  font-family: var(--nlpl-font-mono);
+  font-size: 10.5px;
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: var(--nlpl-bg-card-2);
+  border: 1px solid var(--nlpl-line);
+  color: var(--nlpl-fg-3);
+}
+#aiPanel .ai-comp-suggest {
+  padding: 10px 12px 0 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  max-width: 860px;
+  margin: 0 auto;
+}
+#aiPanel .ai-comp-suggest .ai-comp-suggest-label {
+  font-family: var(--nlpl-font-mono);
+  font-size: 10.5px;
+  color: var(--nlpl-fg-4);
+  letter-spacing: 0.06em;
+  margin-right: 4px;
+}
+#aiPanel .ai-comp-suggest .ai-comp-sg {
+  font-family: var(--nlpl-font-mono);
+  font-size: 11.5px;
+  color: var(--nlpl-fg-3);
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+#aiPanel .ai-comp-suggest .ai-comp-sg:hover {
+  background: var(--nlpl-bg-card-2);
+  color: var(--nlpl-fg);
+  border-color: var(--nlpl-line);
+}
+@media (max-width: 760px) {
+  #aiPanel .ai-comp-suggest {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+  #aiPanel .ai-comp-suggest .ai-comp-sg { white-space: nowrap; }
+  #aiPanel .ai-comp-foot .ai-comp-kbds { display: none; }
 }
 </style>
 </body>
