@@ -5448,6 +5448,21 @@ body.emp-dark #aiFloatingBar {
 
 /* Typing dots (initial pre-stream state) */
 .ai-typing { display: inline-flex; gap: 4px; align-items: center; height: 24px; }
+.ai-loading-row {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 28px 0; opacity: 0.7;
+}
+.ai-loading-row .ai-loading-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--nlpl-accent, #1f5fd1);
+  animation: ai-loading-bounce 1.2s ease-in-out infinite both;
+}
+.ai-loading-row .ai-loading-dot:nth-child(2) { animation-delay: -1.0s; }
+.ai-loading-row .ai-loading-dot:nth-child(3) { animation-delay: -0.8s; }
+@keyframes ai-loading-bounce {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.5; }
+  40% { transform: scale(1.0); opacity: 1; }
+}
 
 /* + button (chart insert) wrap */
 .ai-plus-wrap { position: relative; display: inline-flex; }
@@ -12053,14 +12068,37 @@ body.emp-dark #voMobile .vom-full-table tr.total-row td {
           // when "₹4 Cr collected of ₹10 Cr plan" was the data
           // (audit minor #13 — render-auditor). Whitespace before the unit
           // is now optional so "12.5cr" also styles correctly (audit #14).
+          // Track the dominant unit suffix across the primary column cells
+          // so the hero shows "487.18 Cr" instead of a unitless "487.18".
+          var heroUnitDetected = '';
           if (primaryCol > 0) {
             var sum = 0, count = 0;
+            var unitTally = { cr: 0, lakh: 0, k: 0, none: 0 };
             rows.forEach(function (r) {
-              var t = r.cells[primaryCol] ? String(r.cells[primaryCol].textContent || '').replace(/[^\-0-9.]/g, '') : '';
+              var rawCell = r.cells[primaryCol] ? String(r.cells[primaryCol].textContent || '') : '';
+              var t = rawCell.replace(/[^\-0-9.]/g, '');
               var v = parseFloat(t);
               if (isFinite(v)) { sum += v; count++; }
+              var um = rawCell.match(/(cr|crore|crores|lakh|lakhs|l|k|thousand|thousands)\b/i);
+              if (um) {
+                var u = um[1].toLowerCase();
+                if (u === 'cr' || u === 'crore' || u === 'crores') unitTally.cr++;
+                else if (u === 'lakh' || u === 'lakhs' || u === 'l') unitTally.lakh++;
+                else if (u === 'k' || u === 'thousand' || u === 'thousands') unitTally.k++;
+              } else {
+                unitTally.none++;
+              }
             });
-            if (count >= 2) heroNumText = sum.toLocaleString('en-IN');
+            if (count >= 2) {
+              heroNumText = sum.toLocaleString('en-IN', { maximumFractionDigits: 2 });
+              // Pick the unit only when it shows up in MOST cells.
+              var dominant = ['cr', 'lakh', 'k'].reduce(function (best, k) {
+                return unitTally[k] > unitTally[best] ? k : best;
+              }, 'cr');
+              if (unitTally[dominant] >= Math.ceil(count / 2)) {
+                heroUnitDetected = dominant;
+              }
+            }
           }
           if (heroNumText === null) {
             var currencyRe = /₹\s*([\d,]+(?:\.\d+)?)\s*(cr|crore|crores|lakh|lakhs|l)?/gi;
@@ -12116,19 +12154,34 @@ body.emp-dark #voMobile .vom-full-table tr.total-row td {
             }
             // Split numeric body from unit suffix. Whitespace before unit is
             // optional so "12.5cr" also matches and gets styled smaller.
+            // Falls back to heroUnitDetected (sniffed from the primary column
+            // cells) when heroNumText itself has no inline unit — fixes
+            // hero showing "₹487.18" with no Cr/L scale.
             var unitMatch = String(heroNumText).match(/^([\d,]+(?:\.\d+)?)\s*(cr|crore|crores|lakh|lakhs|l)?$/i);
+            var resolvedUnit = '';
             if (unitMatch) {
               bigNum.appendChild(document.createTextNode(unitMatch[1]));
               if (unitMatch[2]) {
                 var unitL = unitMatch[2].toLowerCase();
-                var unitText = (unitL === 'l' || unitL === 'lakh' || unitL === 'lakhs') ? 'L' : 'Cr';
-                var unitSpan = document.createElement('span');
-                unitSpan.className = 'ai-ans-hero-unit';
-                unitSpan.textContent = unitText;
-                bigNum.appendChild(unitSpan);
+                resolvedUnit = (unitL === 'l' || unitL === 'lakh' || unitL === 'lakhs') ? 'L' : 'Cr';
+              } else if (heroUnitDetected) {
+                resolvedUnit = heroUnitDetected === 'lakh' ? 'L'
+                             : heroUnitDetected === 'k'    ? 'K'
+                             :                                'Cr';
               }
             } else {
               bigNum.appendChild(document.createTextNode(heroNumText));
+              if (heroUnitDetected) {
+                resolvedUnit = heroUnitDetected === 'lakh' ? 'L'
+                             : heroUnitDetected === 'k'    ? 'K'
+                             :                                'Cr';
+              }
+            }
+            if (resolvedUnit) {
+              var unitSpan = document.createElement('span');
+              unitSpan.className = 'ai-ans-hero-unit';
+              unitSpan.textContent = resolvedUnit;
+              bigNum.appendChild(unitSpan);
             }
             // Delta block — only render when prose volunteers a "+X.X%" /
             // "-X.X%" hint. Earlier code rendered a fake-positive "↑ —" with
@@ -14397,10 +14450,11 @@ body.emp-dark #voMobile .vom-full-table tr.total-row td {
           var pinBtn = row.querySelector('[data-action="pin"]');
           var delBtn = row.querySelector('[data-action="del"]');
           var titleEl = row.querySelector('.ai-rail-item-title');
-          // Defer single-click open by 220ms so a quick double-click on the
-          // title can pre-empt the open + cancel the open. Without this the
-          // open click rerenders the rail and detaches titleEl before the
-          // dblclick handler fires (audit MAJOR — rail-auditor).
+          // Single-click opens immediately; dblclick on title preempts via
+          // openTimer + e.detail check. Now that _aiOpenChat updates aria-current
+          // inline (no rail rerender), titleEl stays attached so dblclick can
+          // race the second click. Drop the defer to ~140ms — close to the
+          // browser's native dblclick threshold but still snappy.
           var openTimer = null;
           if (openBtn) openBtn.addEventListener('click', function (e) {
             if (e.detail >= 2) return; // dblclick path takes over
@@ -14408,7 +14462,7 @@ body.emp-dark #voMobile .vom-full-table tr.total-row td {
             openTimer = setTimeout(function () {
               openTimer = null;
               window._aiOpenChat && window._aiOpenChat(cid);
-            }, 220);
+            }, 140);
           });
           if (pinBtn) pinBtn.addEventListener('click', function (e) {
             e.stopPropagation();
@@ -14566,39 +14620,60 @@ body.emp-dark #voMobile .vom-full-table tr.total-row td {
     // parallel GETs for the same chat. Re-clicking the active chat now refetches
     // (so multi-tab edits surface) but only when not already loading.
     window._aiOpenInFlight = null;
+    // Track latest open request via a counter so rapid clicks don't get
+    // blocked by an in-flight latch — stale results are simply discarded.
+    window._aiOpenSeq = 0;
     window._aiOpenChat = function (cid) {
-      if (window._aiOpenInFlight) return;
       var key = window._aiUserKey();
+      var mySeq = ++window._aiOpenSeq;
       window._aiSetCurrentChatId(cid);
-      window._aiOpenInFlight = fetch('/api/ai-chat/conversations/' + encodeURIComponent(cid) + '/messages?user_key=' + encodeURIComponent(key))
+      // Update aria-current inline so the user sees an instant click response
+      // and the original title element stays alive (so dblclick rename still
+      // works on whatever item the user picks). Avoids the full rail rerender
+      // mid-fetch which detaches DOM nodes.
+      try {
+        var rail = document.getElementById('aiRail');
+        if (rail) {
+          Array.prototype.forEach.call(rail.querySelectorAll('.ai-rail-item[aria-current]'), function (el) {
+            el.removeAttribute('aria-current');
+          });
+          var sel = rail.querySelector('.ai-rail-item[data-cid="' + String(cid).replace(/"/g, '\\"') + '"]');
+          if (sel) sel.setAttribute('aria-current', 'true');
+        }
+      } catch (_) {}
+      // Show a brief loading state on the transcript so the user gets feedback
+      // even on slow networks.
+      var box = document.getElementById('aiMessages');
+      if (box) box.innerHTML = '<div class="ai-loading-row"><span class="ai-loading-dot"></span><span class="ai-loading-dot"></span><span class="ai-loading-dot"></span></div>';
+      fetch('/api/ai-chat/conversations/' + encodeURIComponent(cid) + '/messages?user_key=' + encodeURIComponent(key))
         .then(function (r) { return r.ok ? r.json() : { messages: [] }; })
         .then(function (j) {
+          // Drop stale results — a newer click already started another fetch.
+          if (mySeq !== window._aiOpenSeq) return;
           var msgs = (j && j.messages) || [];
           try { if (typeof _aiHistory !== 'undefined') _aiHistory.length = 0; } catch (_) {}
-          var box = document.getElementById('aiMessages');
-          if (box) box.innerHTML = '';
+          var box2 = document.getElementById('aiMessages');
+          if (box2) box2.innerHTML = '';
           var priorUser = '';
           msgs.forEach(function (m) {
             try { if (typeof _aiHistory !== 'undefined') _aiHistory.push({ role: m.role, content: m.content }); } catch (_) {}
             if (typeof window._aiReplayBubble === 'function') {
               window._aiReplayBubble(m.content, m.role, m.role === 'assistant' ? priorUser : '');
-            } else if (box) {
+            } else if (box2) {
               var d = document.createElement('div');
               d.className = 'ai-row ai-row-' + (m.role === 'user' ? 'user' : 'bot');
               var bubble = document.createElement('div');
               bubble.className = m.role === 'user' ? 'ai-bubble ai-bubble-user' : 'ai-bubble ai-bubble-bot';
               bubble.textContent = m.content;
               d.appendChild(bubble);
-              box.appendChild(d);
+              box2.appendChild(d);
             }
             if (m.role === 'user') priorUser = m.content;
           });
-          window._aiRenderRailHistory && window._aiRenderRailHistory();
           // Inspector context now reflects the loaded chat.
           try { window._aiRefreshInspector && window._aiRefreshInspector(); } catch (_) {}
         })
-        .catch(function () {})
-        .finally(function () { window._aiOpenInFlight = null; });
+        .catch(function () {});
     };
 
     window._aiRenderStarterChips = function () {
