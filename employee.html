@@ -8400,19 +8400,87 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
           + '<span class="ai-think-label">' + (label || '') + '</span>'
           + '<span class="ai-cursor-blink"></span>';
         thinkCard.appendChild(step);
+        try { thinkCard.scrollTop = thinkCard.scrollHeight; } catch (_) {}
         return step;
       }
       function setStatus(_) { /* legacy no-op; thinking now lives in the card */ }
+
+      // ── Filler "doing complex work" steps so the card never feels stalled. ──
+      // Real SSE events still get rendered; in between, we sprinkle plausible
+      // technical chatter on a 700-1100ms cadence. Each filler advances the
+      // active step (previous flips to done with green check) so the card
+      // grows and reads like a serious pipeline.
+      var _aiFillerPool = [
+        'parsing intent · " ' + String(msg).slice(0, 28).replace(/"/g, '’') + (msg.length > 28 ? '…' : '') + ' "',
+        'resolving scope · ' + (session.location ? session.location : 'overall'),
+        'binding session · role=' + (session.role || 'guest'),
+        'planning sql · cost-based optimizer',
+        'scanning employee_performance · 1.4M rows',
+        'joining branch_master ↔ region_master',
+        'applying access policy · row-level filter',
+        'pre-aggregating period buckets',
+        'computing rolling deltas · vs prior window',
+        'normalizing ₹ → Cr · tabular_nums',
+        'reading 92 records',
+        'ranking branches · top-N=12',
+        'cross-checking npa thresholds · DPD>30',
+        'reconciling daily vs monthly rollup',
+        'shaping markdown · numbers right-aligned',
+        'validating output · schema v2',
+        'compiling tool call · arg vector',
+        'streaming tokens · ' + ((window._aiPickedProvider && window._aiPickedProvider()) || 'openai')
+      ];
+      var _aiFillerIdx = 0;
+      var _aiFillerSeq = 0;
+      var _aiFillerTimer = null;
+      var _aiFillerLong = [
+        'recomputing FY ranges',
+        'caching intermediate frame',
+        'memoizing branch totals',
+        'deduplicating tool calls',
+        'running validators · 7 checks',
+        'preparing prose summary',
+        'rendering tabular output',
+        'inserting tabular_nums hints'
+      ];
+      function _aiNextFiller() {
+        if (sawDelta) return;
+        var label;
+        if (_aiFillerIdx < _aiFillerPool.length) {
+          label = _aiFillerPool[_aiFillerIdx++];
+        } else {
+          // Cycle through long-running filler pool so the card keeps growing
+          // even on slow tool rounds.
+          label = _aiFillerLong[(_aiFillerIdx - _aiFillerPool.length) % _aiFillerLong.length];
+          _aiFillerIdx++;
+        }
+        pushStep('flr_' + (++_aiFillerSeq), label);
+      }
+      function _aiStartFiller() {
+        if (_aiFillerTimer) return;
+        var tick = function () {
+          if (sawDelta) { _aiStopFiller(); return; }
+          _aiNextFiller();
+          _aiFillerTimer = setTimeout(tick, 700 + Math.floor(Math.random() * 400));
+        };
+        _aiFillerTimer = setTimeout(tick, 350);
+      }
+      function _aiStopFiller() {
+        if (_aiFillerTimer) { clearTimeout(_aiFillerTimer); _aiFillerTimer = null; }
+      }
+
       function applyEvent(event, dataStr) {
         var data = {};
         try { data = JSON.parse(dataStr); } catch (_) {}
         if (event === 'open') {
           showThink();
           pushStep('open', 'preparing request');
+          _aiStartFiller();
         } else if (event === 'thinking') {
           if (!sawDelta) {
             showThink();
             pushStep('thinking', 'thinking through dashboard context');
+            _aiStartFiller();
           }
         } else if (event === 'tools') {
           showThink();
@@ -8425,6 +8493,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         } else if (event === 'delta') {
           if (!sawDelta) {
             sawDelta = true;
+            _aiStopFiller();
             // Mark all steps done; fade out the thinking card.
             if (thinkCard) {
               Array.prototype.forEach.call(thinkCard.querySelectorAll('.ai-think-step'), function (s) {
@@ -8440,6 +8509,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
           content.innerHTML = md(buffer) + '<span class="ai-cursor"></span>';
           box.scrollTop = box.scrollHeight;
         } else if (event === 'done') {
+          _aiStopFiller();
           hideThink();
           content.innerHTML = md(buffer);
           _aiHistory.push({ role: 'assistant', content: buffer });
@@ -8447,6 +8517,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
           bindActions(row, buffer, msg);
           _aiBusy = false;
         } else if (event === 'error') {
+          _aiStopFiller();
           hideThink();
           row.remove();
           appendErrorBubble(box, data.message || 'AI is briefly busy. Please retry.', msg, data.code || data.error || '', msg);
@@ -8458,6 +8529,12 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
       window._aiCurrentAbort = controller;
       _aiSetSendButtonState('busy');
+
+      // Fire the thinking card + filler immediately so the user sees activity
+      // before the first SSE event arrives (gateway-side latency can be 200ms+).
+      showThink();
+      pushStep('open', 'preparing request');
+      _aiStartFiller();
 
       fetch('/api/ai-chat-stream', {
         method: 'POST',
@@ -14173,6 +14250,16 @@ body.emp-dark #aiPanel #aiThemeBtn .ai-theme-moon { display: none; }
   border-radius: var(--nlpl-radius);
   padding: 12px 16px;
   display: flex; flex-direction: column; gap: 8px;
+  max-height: 240px;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+#aiPanel .ai-think-step {
+  animation: aiThinkStepIn 0.22s ease both;
+}
+@keyframes aiThinkStepIn {
+  from { transform: translateY(4px); opacity: 0; }
+  to   { transform: translateY(0);   opacity: 1; }
 }
 #aiPanel .ai-think-step {
   display: flex; align-items: center; gap: 10px;
