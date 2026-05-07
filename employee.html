@@ -11543,14 +11543,38 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
           .map(function (h) { return String(h.textContent || ''); });
         var maxCols = rows.reduce(function (m, r) { return Math.max(m, r.cells.length); }, 0);
         var primaryCol = -1;
-        for (var c = 1; c < maxCols; c++) {
+        function _colIsNumeric(c) {
           var hits = 0;
           rows.forEach(function (r) {
             var t = r.cells[c] ? String(r.cells[c].textContent || '').replace(/[^\-0-9.]/g, '') : '';
             if (t && isFinite(parseFloat(t))) hits++;
           });
-          if (hits >= Math.ceil(rows.length / 2)) { primaryCol = c; break; }
+          return hits >= Math.ceil(rows.length / 2);
         }
+        for (var c = 1; c < maxCols; c++) {
+          if (_colIsNumeric(c)) { primaryCol = c; break; }
+        }
+        // Detect prior-period numeric column for dual-line hero (intent === compare).
+        var priorCol = -1;
+        if (intent === 'compare' && primaryCol > 0) {
+          for (var c2 = 1; c2 < maxCols; c2++) {
+            if (c2 === primaryCol) continue;
+            if (!_colIsNumeric(c2)) continue;
+            if (/last|prior|previous|\blm\b|\bly\b/i.test(heads[c2] || '')) { priorCol = c2; break; }
+          }
+        }
+        // Locate attainment + delta columns once so hero/eyebrow/cell styling agree.
+        var attainColIndex = -1;
+        for (var c3 = 0; c3 < maxCols; c3++) {
+          if (/attainment|% of plan|attain/i.test(String(heads[c3] || ''))) { attainColIndex = c3; break; }
+        }
+        var deltaCols = [];
+        heads.forEach(function (h, i) {
+          if (/^\s*(Δ|delta|change|vs\s*lm|vs\s*last|vs\s*prior)/i.test(String(h || '').trim())) deltaCols.push(i);
+        });
+        // Detect existing rank/serial column so we don't double-prepend.
+        var firstHeaderTxt = String(heads[0] || '').toLowerCase().trim();
+        var firstColIsRank = /^#$|^rank$|^sl?\.?\s*no\.?$|^s\.?\s*no\.?$|^no\.?$/.test(firstHeaderTxt);
 
         // Prose-only text (skip table + spark) for number/KPI extraction.
         var proseText = '';
@@ -11670,7 +11694,21 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
             cur.className = 'currency';
             cur.textContent = '₹';
             bigNum.appendChild(cur);
-            bigNum.appendChild(document.createTextNode(heroNumText));
+            // Split numeric body from unit suffix so "Cr" / "L" can be styled smaller.
+            var unitMatch = String(heroNumText).match(/^([\d,]+(?:\.\d+)?)(?:\s+(cr|crore|crores|lakh|lakhs|l))?$/i);
+            if (unitMatch) {
+              bigNum.appendChild(document.createTextNode(unitMatch[1]));
+              if (unitMatch[2]) {
+                var unitL = unitMatch[2].toLowerCase();
+                var unitText = (unitL === 'l' || unitL === 'lakh' || unitL === 'lakhs') ? 'L' : 'Cr';
+                var unitSpan = document.createElement('span');
+                unitSpan.className = 'ai-ans-hero-unit';
+                unitSpan.textContent = unitText;
+                bigNum.appendChild(unitSpan);
+              }
+            } else {
+              bigNum.appendChild(document.createTextNode(heroNumText));
+            }
             // Delta block — try to lift a "+X.X%" / "-X.X%" hint from prose.
             var heroMeta = document.createElement('div');
             heroMeta.className = 'ai-ans-hero-meta';
@@ -11697,6 +11735,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
 
             var heroR = document.createElement('div');
             heroR.className = 'ai-ans-hero-chart';
+            var heroDualLegend = false;
             try {
               if (primaryCol > 0 && window._aiBuildSeriesSvg) {
                 var values = rows.slice(0, 12).map(function (r) {
@@ -11707,11 +11746,34 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
                   return String((r.cells[0] && r.cells[0].textContent) || '').trim().slice(0, 10);
                 });
                 var headName = (heads[primaryCol] || 'value').replace(/[^a-zA-Z0-9% ]/g, '').trim() || 'value';
-                heroR.innerHTML = window._aiBuildSeriesSvg(
-                  [{ name: headName, values: values, color: '#1f5fd1' }],
-                  labels,
-                  { w: 360, h: 120 }
-                );
+                var seriesArr = [{ name: headName, values: values, color: '#1f5fd1' }];
+                if (priorCol > 0) {
+                  var priorValues = rows.slice(0, 12).map(function (r) {
+                    var t = r.cells[priorCol] ? String(r.cells[priorCol].textContent || '').replace(/[^\-0-9.]/g, '') : '';
+                    return parseFloat(t) || 0;
+                  });
+                  var priorName = (heads[priorCol] || 'prior').replace(/[^a-zA-Z0-9% ]/g, '').trim() || 'prior';
+                  seriesArr.push({ name: priorName, values: priorValues, color: '#8a93a6', dashed: true });
+                  heroDualLegend = true;
+                }
+                heroR.innerHTML = window._aiBuildSeriesSvg(seriesArr, labels, { w: 360, h: 120 });
+                if (heroDualLegend) {
+                  var lg = document.createElement('div');
+                  lg.className = 'ai-ans-hero-legend';
+                  var lgThis = document.createElement('span');
+                  lgThis.className = 'lg-this';
+                  var lgThisI = document.createElement('i');
+                  lgThis.appendChild(lgThisI);
+                  lgThis.appendChild(document.createTextNode(' THIS MONTH'));
+                  var lgLast = document.createElement('span');
+                  lgLast.className = 'lg-last';
+                  var lgLastI = document.createElement('i');
+                  lgLast.appendChild(lgLastI);
+                  lgLast.appendChild(document.createTextNode(' LAST MONTH'));
+                  lg.appendChild(lgThis);
+                  lg.appendChild(lgLast);
+                  heroR.appendChild(lg);
+                }
               }
             } catch (_) {}
 
@@ -11724,10 +11786,17 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
 
         // ── Mini KPI strip (3 cols) BELOW hero ────────────────────
         var kpiCandidates = [];
-        var kpiRe = /\b(plan attainment|outstanding|active accounts|total disbursement|fytd|mtd)\b[^.\n]{0,40}?(₹?\s*[\d,]+(?:\.\d+)?\s*(?:cr|crore|crores|lakh|lakhs|l|%)?)/gi;
+        var kpiRe = /(plan attainment|outstanding|active accounts|total disbursement|disbursement|fytd|mtd|npa cases|active cases|new cases)\s*[:\-—]?\s*([₹]?[\d,.]+)\s*(%|cr|crore|crores|lakh|lakhs|l)?/gi;
         var km;
         while ((km = kpiRe.exec(proseText)) !== null && kpiCandidates.length < 3) {
-          kpiCandidates.push({ label: km[1].toUpperCase(), value: km[2].trim() });
+          var labelText = km[1].toUpperCase();
+          var valueText = (km[2] + (km[3] ? ' ' + km[3] : '')).trim();
+          // Look 30 chars beyond for a "+X.X% / -X.X pts" delta hint.
+          var tail = proseText.slice(km.index + km[0].length, km.index + km[0].length + 32);
+          var delta = null;
+          var dMatch = tail.match(/([+−\-]\s*\d+(?:\.\d+)?\s*(?:%|pts?|points?))/i);
+          if (dMatch) delta = dMatch[1].replace(/\s+/g, ' ').trim();
+          kpiCandidates.push({ label: labelText, value: valueText, delta: delta });
         }
         if (kpiCandidates.length === 0) {
           // Fallback: first up-to-3 rows of the table — label = first cell, value = primary cell.
@@ -11735,14 +11804,14 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
             var lab = String((r.cells[0] && r.cells[0].textContent) || '').trim();
             var pc = primaryCol > 0 ? primaryCol : 1;
             var val = String((r.cells[pc] && r.cells[pc].textContent) || '').trim();
-            if (lab && val) kpiCandidates.push({ label: lab.toUpperCase().slice(0, 28), value: val });
+            if (lab && val) kpiCandidates.push({ label: lab.toUpperCase().slice(0, 28), value: val, delta: null });
           });
         }
         if (kpiCandidates.length >= 1) {
           var mkpis = document.createElement('div');
           mkpis.className = 'ai-ans-mkpis';
           // Pad to 3 with em-dashes so grid stays balanced.
-          while (kpiCandidates.length < 3) kpiCandidates.push({ label: '—', value: '—' });
+          while (kpiCandidates.length < 3) kpiCandidates.push({ label: '—', value: '—', delta: null });
           kpiCandidates.slice(0, 3).forEach(function (k) {
             var col = document.createElement('div');
             col.className = 'ai-ans-mkpi';
@@ -11754,6 +11823,14 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
             val.textContent = k.value;
             col.appendChild(lab);
             col.appendChild(val);
+            if (k.delta) {
+              var dEl = document.createElement('div');
+              dEl.className = 'ai-ans-mkpi-d';
+              if (/^\s*[+]/.test(k.delta)) dEl.classList.add('pos');
+              else if (/^\s*[\-−]/.test(k.delta)) dEl.classList.add('neg');
+              dEl.textContent = k.delta;
+              col.appendChild(dEl);
+            }
             mkpis.appendChild(col);
           });
           body.appendChild(mkpis);
@@ -11769,36 +11846,172 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
           body.appendChild(bubbleEl.firstChild);
         }
 
-        // ── Attainment bars: replace cells in any column whose header
-        // matches /attainment|% of plan|attain/i with a mini bar.
+        // ── Attainment bars: replace cells under attainment header with
+        // a mini bar (track + accent fill, plus 100% marker).
         try {
-          var attainCol = -1;
-          var headerCells = Array.prototype.slice.call(table.querySelectorAll('thead th, tr th'));
-          headerCells.forEach(function (h, i) {
-            if (attainCol === -1 && /attainment|% of plan|attain/i.test(String(h.textContent || ''))) attainCol = i;
-          });
-          if (attainCol > -1) {
+          if (attainColIndex > -1) {
             var bodyRows = Array.prototype.slice.call(table.querySelectorAll('tbody tr'));
             bodyRows.forEach(function (r) {
-              var cell = r.cells[attainCol];
+              var cell = r.cells[attainColIndex];
               if (!cell) return;
               var raw2 = String(cell.textContent || '').replace(/[^\-0-9.]/g, '');
               var pct = parseFloat(raw2);
               if (!isFinite(pct)) return;
-              var w = Math.max(0, Math.min(100, pct));
+              var wpct = Math.max(0, Math.min(100, pct));
               var bar = document.createElement('div');
               bar.className = 'ai-ans-attain';
               var fill = document.createElement('span');
-              fill.style.width = w.toFixed(1) + '%';
+              fill.style.width = wpct.toFixed(1) + '%';
+              // Tier cutoffs per spec: ≥100 pos, 95–99.99 accent, <95 neg.
               if (pct >= 100) fill.className = 'pos';
-              else if (pct < 90) fill.className = 'neg';
+              else if (pct < 95) fill.className = 'neg';
               bar.appendChild(fill);
+              var marker = document.createElement('i');
+              marker.className = 'bar-marker';
+              bar.appendChild(marker);
               var cap = document.createElement('div');
               cap.className = 'ai-ans-attain-cap';
               cap.textContent = pct.toFixed(0) + '% of plan';
               cell.innerHTML = '';
               cell.appendChild(bar);
               cell.appendChild(cap);
+              cell.classList.add('ai-ans-bar-cell');
+            });
+          }
+        } catch (_) {}
+
+        // ── Delta column: color cells under any Δ / change / vs LM header.
+        try {
+          if (deltaCols.length) {
+            var dRows = Array.prototype.slice.call(table.querySelectorAll('tbody tr'));
+            dRows.forEach(function (r) {
+              deltaCols.forEach(function (di) {
+                var cell = r.cells[di];
+                if (!cell) return;
+                var txt = String(cell.textContent || '').trim();
+                if (!txt) return;
+                cell.classList.add('ai-ans-delta-cell');
+                var ch0 = txt.charAt(0);
+                if (ch0 === '-' || ch0 === '−' || /^↓/.test(txt)) cell.classList.add('neg');
+                else if (/^→/.test(txt) || /^0(?:\b|\.0+\b)/.test(txt)) cell.classList.add('warn');
+                else if (ch0 === '+' || /^↑/.test(txt) || /^\d/.test(txt)) cell.classList.add('pos');
+              });
+            });
+          }
+        } catch (_) {}
+
+        // ── Section subtitle (eyebrow) above the table for ranked answers.
+        try {
+          if (intent === 'per-row' && table.parentNode) {
+            var firstHeader = String(heads[0] || '').trim();
+            var entityWord = (function (h) {
+              var lower = h.toLowerCase();
+              if (/branch/.test(lower)) return 'BRANCHES';
+              if (/\bfo\b|field officer/.test(lower)) return 'FOs';
+              if (/officer/.test(lower)) return 'OFFICERS';
+              if (/employee|staff/.test(lower)) return 'EMPLOYEES';
+              if (/region/.test(lower)) return 'REGIONS';
+              if (/product/.test(lower)) return 'PRODUCTS';
+              if (/team|group/.test(lower)) return 'TEAMS';
+              var u = (h || 'rows').toUpperCase();
+              return /S$/.test(u) ? u : (u + 'S');
+            })(firstHeader);
+            var rankByText = '';
+            if (attainColIndex > -1) {
+              rankByText = 'RANKED BY ATTAINMENT VS PLAN';
+            } else if (primaryCol > 0) {
+              var primaryHead = String(heads[primaryCol] || 'value').toUpperCase().replace(/[^A-Z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+              rankByText = 'RANKED BY ' + primaryHead;
+            }
+            var eyebrowEl = document.createElement('div');
+            eyebrowEl.className = 'ai-ans-eyebrow';
+            eyebrowEl.textContent = '↳ ' + rows.length + ' ' + entityWord + (rankByText ? ' · ' + rankByText : '');
+            table.parentNode.insertBefore(eyebrowEl, table);
+          }
+        } catch (_) {}
+
+        // ── Inline prose highlighting: percentages + underperform pattern.
+        try {
+          var skipTagsHard = { TABLE: 1, THEAD: 1, TBODY: 1, TR: 1, TH: 1, TD: 1, CODE: 1, PRE: 1, SCRIPT: 1, STYLE: 1 };
+          var walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT, {
+            acceptNode: function (node) {
+              if (!node.nodeValue || !node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+              var p = node.parentNode;
+              while (p && p !== body) {
+                if (p.tagName && skipTagsHard[p.tagName]) return NodeFilter.FILTER_REJECT;
+                if (p.classList && (p.classList.contains('mono') || p.classList.contains('ai-spark-wrap'))) return NodeFilter.FILTER_REJECT;
+                if (p.className && typeof p.className === 'string' && /\bai-ans-/.test(p.className)) return NodeFilter.FILTER_REJECT;
+                p = p.parentNode;
+              }
+              return NodeFilter.FILTER_ACCEPT;
+            }
+          });
+          var textNodes = [];
+          var nx;
+          while ((nx = walker.nextNode())) textNodes.push(nx);
+          var triggerRe = /\b(below|under|underperform(?:ing|s|ed)?|missed|short(?:fall)?)\b/i;
+          textNodes.forEach(function (textNode) {
+            var text = textNode.nodeValue;
+            if (!/[+−\-]?\d+(?:\.\d+)?%|\d+\s+(?:branches|cases|fos|employees|officers)/i.test(text)) return;
+            var frag = document.createDocumentFragment();
+            var lastIdx = 0;
+            var re = /([+−\-]?\d+(?:\.\d+)?%)|(\b\d+\s+(?:branches|cases|fos|employees|officers)\b)/gi;
+            var mm;
+            while ((mm = re.exec(text)) !== null) {
+              if (mm.index > lastIdx) frag.appendChild(document.createTextNode(text.slice(lastIdx, mm.index)));
+              if (mm[1]) {
+                var v = mm[1];
+                var ch = v.charAt(0);
+                var isNeg = ch === '-' || ch === '−';
+                var span = document.createElement('span');
+                span.className = 'mono';
+                span.style.color = isNeg ? 'var(--nlpl-neg)' : 'var(--nlpl-pos)';
+                span.textContent = v;
+                frag.appendChild(span);
+              } else if (mm[2]) {
+                var ctx = text.slice(Math.max(0, mm.index - 40), mm.index);
+                if (triggerRe.test(ctx)) {
+                  var span2 = document.createElement('span');
+                  span2.className = 'mono';
+                  span2.style.color = 'var(--nlpl-neg)';
+                  span2.textContent = mm[2];
+                  frag.appendChild(span2);
+                } else {
+                  frag.appendChild(document.createTextNode(mm[0]));
+                }
+              }
+              lastIdx = mm.index + mm[0].length;
+            }
+            if (lastIdx < text.length) frag.appendChild(document.createTextNode(text.slice(lastIdx)));
+            textNode.parentNode.replaceChild(frag, textNode);
+          });
+        } catch (_) {}
+
+        // ── Rank column (per-row only, last so other column indices stay stable).
+        try {
+          if (intent === 'per-row' && !firstColIsRank) {
+            var thead = table.querySelector('thead');
+            if (thead) {
+              var headRow = thead.querySelector('tr');
+              if (headRow) {
+                var rankTh = document.createElement('th');
+                rankTh.className = 'ai-ans-rank-h';
+                rankTh.textContent = '#';
+                headRow.insertBefore(rankTh, headRow.firstChild);
+              }
+            }
+            var tbody = table.querySelector('tbody') || table;
+            var bodyTrs = Array.prototype.slice.call(tbody.querySelectorAll('tr'));
+            var rankIdx = 0;
+            bodyTrs.forEach(function (r) {
+              if (r.querySelector('th')) return; // skip header rows that may live in tbody
+              rankIdx++;
+              var td = document.createElement('td');
+              var s = document.createElement('span');
+              s.className = 'ai-ans-rank';
+              s.textContent = String(rankIdx).padStart(2, '0');
+              td.appendChild(s);
+              r.insertBefore(td, r.firstChild);
             });
           }
         } catch (_) {}
@@ -12009,17 +12222,23 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         var pts = (s.values || []).map(function (v, i) { return pt(i, v); });
         if (!pts.length) return;
         var d = pts.map(function (p, i) { return (i === 0 ? 'M' : 'L') + p[0].toFixed(1) + ' ' + p[1].toFixed(1); }).join(' ');
-        var fillD = d + ' L ' + pts[pts.length - 1][0].toFixed(1) + ' ' + (pad.t + ih).toFixed(1)
-                      + ' L ' + pts[0][0].toFixed(1) + ' ' + (pad.t + ih).toFixed(1) + ' Z';
         var gid = 'gs' + idx + '_' + Math.random().toString(36).slice(2, 6);
-        svg += '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0" y2="1">'
-            +    '<stop offset="0%" stop-color="' + s.color + '" stop-opacity="0.20"/>'
-            +    '<stop offset="100%" stop-color="' + s.color + '" stop-opacity="0"/>'
-            +  '</linearGradient></defs>';
-        svg += '<path d="' + fillD + '" fill="url(#' + gid + ')"/>';
-        svg += '<path d="' + d + '" fill="none" stroke="' + s.color + '" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>';
-        var last = pts[pts.length - 1];
-        svg += '<circle cx="' + last[0].toFixed(1) + '" cy="' + last[1].toFixed(1) + '" r="2.5" fill="' + s.color + '"/>';
+        if (!s.dashed) {
+          // Solid series — render gradient fill underneath for the hero look.
+          var fillD = d + ' L ' + pts[pts.length - 1][0].toFixed(1) + ' ' + (pad.t + ih).toFixed(1)
+                        + ' L ' + pts[0][0].toFixed(1) + ' ' + (pad.t + ih).toFixed(1) + ' Z';
+          svg += '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0" y2="1">'
+              +    '<stop offset="0%" stop-color="' + s.color + '" stop-opacity="0.20"/>'
+              +    '<stop offset="100%" stop-color="' + s.color + '" stop-opacity="0"/>'
+              +  '</linearGradient></defs>';
+          svg += '<path d="' + fillD + '" fill="url(#' + gid + ')"/>';
+        }
+        var dashAttr = s.dashed ? ' stroke-dasharray="4 4" opacity="0.7"' : '';
+        svg += '<path d="' + d + '" fill="none" stroke="' + s.color + '" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"' + dashAttr + '/>';
+        if (!s.dashed) {
+          var last = pts[pts.length - 1];
+          svg += '<circle cx="' + last[0].toFixed(1) + '" cy="' + last[1].toFixed(1) + '" r="2.5" fill="' + s.color + '"/>';
+        }
       });
       // x-axis label endpoints (first + last) so user knows the axis.
       if (labels && labels.length) {
@@ -16627,12 +16846,13 @@ body.emp-dark #aiPanel .ai-insp-tl-dot {
 }
 
 #aiPanel .ai-ans-attain {
+  position: relative;
   height: 6px;
   width: 100px;
   background: var(--nlpl-bg-card-2);
   border: 1px solid var(--nlpl-line-soft);
   border-radius: 99px;
-  overflow: hidden;
+  /* overflow:visible so the 100% bar-marker can poke above/below */
 }
 #aiPanel .ai-ans-attain > span {
   display: block;
@@ -16642,16 +16862,118 @@ body.emp-dark #aiPanel .ai-insp-tl-dot {
 }
 #aiPanel .ai-ans-attain > span.pos { background: var(--nlpl-pos); }
 #aiPanel .ai-ans-attain > span.neg { background: var(--nlpl-neg); }
+#aiPanel .ai-ans-attain > .bar-marker {
+  position: absolute;
+  top: -2px; bottom: -2px;
+  left: 100%;
+  width: 1.5px;
+  background: var(--nlpl-fg-4);
+  transform: translateX(-0.75px);
+  pointer-events: none;
+  border-radius: 0;
+}
 #aiPanel .ai-ans-attain-cap {
   font-family: var(--nlpl-font-mono);
   font-size: 10px;
   color: var(--nlpl-fg-4);
   margin-top: 4px;
+  letter-spacing: 0.04em;
 }
+#aiPanel .ai-ans-bar-cell {
+  width: 100px;
+  padding: 6px 12px;
+}
+
+/* hero number unit suffix (Cr / L) */
+#aiPanel .ai-ans-hero-num .ai-ans-hero-unit {
+  color: var(--nlpl-fg-3);
+  font-size: 28px;
+  margin-left: 6px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  vertical-align: baseline;
+}
+
+/* hero dual-line legend */
+#aiPanel .ai-ans-hero-legend {
+  display: flex;
+  gap: 14px;
+  margin-top: 6px;
+  font-family: var(--nlpl-font-mono);
+  font-size: 10.5px;
+  color: var(--nlpl-fg-4);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+#aiPanel .ai-ans-hero-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+#aiPanel .ai-ans-hero-legend .lg-this i {
+  width: 12px;
+  height: 2px;
+  background: var(--nlpl-accent);
+  border-radius: 2px;
+  display: inline-block;
+}
+#aiPanel .ai-ans-hero-legend .lg-last i {
+  width: 12px;
+  height: 0;
+  border-top: 2px dashed var(--nlpl-fg-4);
+  display: inline-block;
+}
+
+/* Section subtitle above ranked tables */
+#aiPanel .ai-ans-eyebrow {
+  font-family: var(--nlpl-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--nlpl-fg-3);
+  margin: 0 0 8px;
+}
+
+/* Mono helper for inline highlighted percentages */
+#aiPanel .ai-ans-body .mono {
+  font-family: var(--nlpl-font-mono);
+  font-feature-settings: "tnum" 1, "zero" 1;
+  letter-spacing: -0.01em;
+}
+
+/* Rank column */
+#aiPanel .ai-ans-body table th.ai-ans-rank-h {
+  width: 28px;
+  font-family: var(--nlpl-font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--nlpl-fg-4);
+}
+#aiPanel .ai-ans-rank {
+  display: inline-block;
+  width: 18px;
+  text-align: center;
+  font-family: var(--nlpl-font-mono);
+  font-size: 10.5px;
+  color: var(--nlpl-fg-4);
+}
+
+/* Delta column coloring */
+#aiPanel .ai-ans-delta-cell {
+  font-family: var(--nlpl-font-mono);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+#aiPanel .ai-ans-delta-cell.pos { color: var(--nlpl-pos); }
+#aiPanel .ai-ans-delta-cell.neg { color: var(--nlpl-neg); }
+#aiPanel .ai-ans-delta-cell.warn { color: var(--nlpl-warn); }
 
 @media (max-width: 760px) {
   #aiPanel .ai-ans-hero { grid-template-columns: 1fr; gap: 14px; }
   #aiPanel .ai-ans-hero-num { font-size: 44px; }
+  #aiPanel .ai-ans-hero-num .ai-ans-hero-unit { font-size: 22px; }
   #aiPanel .ai-ans-mkpis { grid-template-columns: 1fr 1fr; }
 }
 </style>
