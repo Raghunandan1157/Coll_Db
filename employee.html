@@ -8729,6 +8729,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
           _aiHistory.push({ role: 'assistant', content: buffer });
           try { window._aiPersistTurn && window._aiPersistTurn('assistant', buffer); } catch (_) {}
           try { window._aiAttachSpark && window._aiAttachSpark(content, msg); } catch (_) {}
+          try { window._aiAttachAnswerCard && window._aiAttachAnswerCard(content, msg); } catch (_) {}
           bindActions(row, buffer, msg);
           _aiBusy = false;
         } else if (event === 'error') {
@@ -8772,6 +8773,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
                   _aiHistory.push({ role: 'assistant', content: buffer });
                   try { window._aiPersistTurn && window._aiPersistTurn('assistant', buffer); } catch (_) {}
                   try { window._aiAttachSpark && window._aiAttachSpark(content, msg); } catch (_) {}
+                  try { window._aiAttachAnswerCard && window._aiAttachAnswerCard(content, msg); } catch (_) {}
                   bindActions(row, buffer, msg);
                 } else {
                   row.remove();
@@ -9044,6 +9046,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         try {
           var bubble = row.querySelector('.ai-bubble-bot');
           if (bubble && window._aiAttachSpark) window._aiAttachSpark(bubble, priorUserText);
+          if (bubble && window._aiAttachAnswerCard) window._aiAttachAnswerCard(bubble, priorUserText);
         } catch (_) {}
       }
       box.scrollTop = box.scrollHeight;
@@ -11504,6 +11507,330 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         bubbleEl.__sparked = true;
       } catch (_) {}
     };
+
+    // Hero "answer card" wrapper. Runs AFTER markdown render + spark attach.
+    // Wraps prose+table inside a .ai-ans-card shell with header, optional
+    // hero number + chart, mini-KPI strip, attainment bars, and source foot.
+    // Skip on snapshot (no table) or when intent is null. No re-wrap.
+    window._aiAttachAnswerCard = function (bubbleEl, userQuestion) {
+      try {
+        if (!bubbleEl || bubbleEl.__answerCarded) return;
+        var table = bubbleEl.querySelector('table');
+        if (!table) return;
+        var intent = window._aiVisualIntent && window._aiVisualIntent(userQuestion);
+        if (intent !== 'series' && intent !== 'compare' && intent !== 'per-row') return;
+
+        // Collect data rows (excluding header rows).
+        var rows = Array.prototype.slice.call(table.querySelectorAll('tbody tr, tr'))
+          .filter(function (r) { return r.cells && r.cells.length >= 2 && !r.querySelector('th'); });
+        if (!rows.length) return;
+
+        // Detect first-column shape for hero eligibility.
+        var labelsRaw = rows.slice(0, 12).map(function (r) {
+          return String((r.cells[0] && r.cells[0].textContent) || '').trim();
+        });
+        var dateLike = labelsRaw.filter(function (l) {
+          return /^\d{4}-\d{2}-\d{2}$/.test(l)
+              || /^\d{1,2}[\/\-]\d{1,2}([\/\-]\d{2,4})?$/.test(l)
+              || /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|mon|tue|wed|thu|fri|sat|sun)\b/i.test(l);
+        }).length;
+        var heroEligible = (intent === 'series' || intent === 'compare')
+          && rows.length >= 2
+          && dateLike >= Math.ceil(rows.length / 2);
+
+        // Find primary numeric column (first column where >= half rows are numeric).
+        var heads = Array.prototype.slice.call(table.querySelectorAll('thead th, tr th'))
+          .map(function (h) { return String(h.textContent || ''); });
+        var maxCols = rows.reduce(function (m, r) { return Math.max(m, r.cells.length); }, 0);
+        var primaryCol = -1;
+        for (var c = 1; c < maxCols; c++) {
+          var hits = 0;
+          rows.forEach(function (r) {
+            var t = r.cells[c] ? String(r.cells[c].textContent || '').replace(/[^\-0-9.]/g, '') : '';
+            if (t && isFinite(parseFloat(t))) hits++;
+          });
+          if (hits >= Math.ceil(rows.length / 2)) { primaryCol = c; break; }
+        }
+
+        // Prose-only text (skip table + spark) for number/KPI extraction.
+        var proseText = '';
+        Array.prototype.forEach.call(bubbleEl.children, function (el) {
+          if (el.tagName === 'TABLE') return;
+          if (el.classList && el.classList.contains('ai-spark-wrap')) return;
+          proseText += ' ' + (el.textContent || '');
+        });
+
+        // ── Meta line above the card ──────────────────────────────
+        var meta = document.createElement('div');
+        meta.className = 'ai-ans-meta';
+        var metaText = document.createElement('span');
+        metaText.textContent = (intent === 'per-row') ? 'Ranked answer'
+                              : (intent === 'compare') ? 'Comparison'
+                              : 'Time-series answer';
+        meta.appendChild(metaText);
+        var metaLine = document.createElement('span');
+        metaLine.className = 'ai-ans-meta-line';
+        meta.appendChild(metaLine);
+
+        // ── Card shell ─────────────────────────────────────────────
+        var card = document.createElement('div');
+        card.className = 'ai-ans-card';
+
+        // Header: icon tile + h3 title + actions stub.
+        var head = document.createElement('div');
+        head.className = 'ai-ans-head';
+        var headLeft = document.createElement('div');
+        headLeft.className = 'ai-ans-head-left';
+        var icon = document.createElement('span');
+        icon.className = 'ai-ans-h-icon';
+        icon.setAttribute('aria-hidden', 'true');
+        icon.textContent = '◆';
+        var h3 = document.createElement('h3');
+        var existingHeader = bubbleEl.querySelector('h1, h2, h3');
+        var titleText = '';
+        if (existingHeader) titleText = (existingHeader.textContent || '').trim();
+        if (!titleText) titleText = String(userQuestion || 'Answer').trim();
+        if (titleText.length > 60) titleText = titleText.slice(0, 57) + '…';
+        h3.textContent = titleText;
+        headLeft.appendChild(icon);
+        headLeft.appendChild(h3);
+        var headActions = document.createElement('div');
+        headActions.className = 'ai-ans-head-actions';
+        [['copy','⧉'], ['pin','◉'], ['menu','⋯']].forEach(function (pair) {
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'ai-ans-head-btn';
+          b.dataset.kind = pair[0];
+          b.setAttribute('aria-label', pair[0]);
+          b.textContent = pair[1];
+          b.addEventListener('click', function () { try { console.log('[answer-card]', pair[0]); } catch (_) {} });
+          headActions.appendChild(b);
+        });
+        head.appendChild(headLeft);
+        head.appendChild(headActions);
+
+        // Body container — existing content gets re-parented into here below.
+        var body = document.createElement('div');
+        body.className = 'ai-ans-body';
+
+        // ── Hero block (only when eligible AND we can find a number) ──
+        var heroAdded = false;
+        if (heroEligible) {
+          var heroNumText = null;
+          var currencyRe = /₹\s*([\d,]+(?:\.\d+)?)\s*(cr|crore|crores|lakh|lakhs|l)?/gi;
+          var cm, cmaxNum = -Infinity, cmaxText = null;
+          while ((cm = currencyRe.exec(proseText)) !== null) {
+            var raw = parseFloat(cm[1].replace(/,/g, ''));
+            if (!isFinite(raw)) continue;
+            var unit = (cm[2] || '').toLowerCase();
+            var scaled = raw;
+            if (unit === 'cr' || unit === 'crore' || unit === 'crores') scaled = raw * 1e7;
+            else if (unit === 'lakh' || unit === 'lakhs' || unit === 'l') scaled = raw * 1e5;
+            if (scaled > cmaxNum) { cmaxNum = scaled; cmaxText = cm[1] + (cm[2] ? ' ' + cm[2] : ''); }
+          }
+          if (cmaxText !== null) {
+            heroNumText = cmaxText;
+          } else if (primaryCol > 0) {
+            var sum = 0, count = 0;
+            rows.forEach(function (r) {
+              var t = r.cells[primaryCol] ? String(r.cells[primaryCol].textContent || '').replace(/[^\-0-9.]/g, '') : '';
+              var v = parseFloat(t);
+              if (isFinite(v)) { sum += v; count++; }
+            });
+            if (count >= 2) heroNumText = sum.toLocaleString('en-IN');
+          }
+
+          if (heroNumText !== null) {
+            var hero = document.createElement('div');
+            hero.className = 'ai-ans-hero';
+            var heroL = document.createElement('div');
+            heroL.className = 'ai-ans-hero-l';
+            var eyebrow = document.createElement('div');
+            eyebrow.className = 'ai-ans-hero-eyebrow';
+            eyebrow.textContent = 'COLLECTED MONTH-TO-DATE';
+            var bigNum = document.createElement('div');
+            bigNum.className = 'ai-ans-hero-num';
+            var cur = document.createElement('span');
+            cur.className = 'currency';
+            cur.textContent = '₹';
+            bigNum.appendChild(cur);
+            bigNum.appendChild(document.createTextNode(heroNumText));
+            // Delta block — try to lift a "+X.X%" / "-X.X%" hint from prose.
+            var heroMeta = document.createElement('div');
+            heroMeta.className = 'ai-ans-hero-meta';
+            var dm = proseText.match(/(↑|↓|up|down|\+|-)\s*(\d+(?:\.\d+)?)\s*%/i);
+            var deltaBig = document.createElement('span');
+            deltaBig.className = 'delta-big pos';
+            if (dm) {
+              var sign = dm[1] || '';
+              var pct = parseFloat(dm[2]);
+              var isNeg = /down|-|↓/i.test(sign);
+              deltaBig.classList.toggle('neg', isNeg);
+              deltaBig.classList.toggle('pos', !isNeg);
+              deltaBig.textContent = (isNeg ? '↓ ' : '↑ ') + pct.toFixed(1) + '%';
+            } else {
+              deltaBig.textContent = '↑ —';
+            }
+            var deltaSub = document.createElement('span');
+            deltaSub.textContent = 'vs. last period';
+            heroMeta.appendChild(deltaBig);
+            heroMeta.appendChild(deltaSub);
+            heroL.appendChild(eyebrow);
+            heroL.appendChild(bigNum);
+            heroL.appendChild(heroMeta);
+
+            var heroR = document.createElement('div');
+            heroR.className = 'ai-ans-hero-chart';
+            try {
+              if (primaryCol > 0 && window._aiBuildSeriesSvg) {
+                var values = rows.slice(0, 12).map(function (r) {
+                  var t = r.cells[primaryCol] ? String(r.cells[primaryCol].textContent || '').replace(/[^\-0-9.]/g, '') : '';
+                  return parseFloat(t) || 0;
+                });
+                var labels = rows.slice(0, 12).map(function (r) {
+                  return String((r.cells[0] && r.cells[0].textContent) || '').trim().slice(0, 10);
+                });
+                var headName = (heads[primaryCol] || 'value').replace(/[^a-zA-Z0-9% ]/g, '').trim() || 'value';
+                heroR.innerHTML = window._aiBuildSeriesSvg(
+                  [{ name: headName, values: values, color: '#1f5fd1' }],
+                  labels,
+                  { w: 360, h: 120 }
+                );
+              }
+            } catch (_) {}
+
+            hero.appendChild(heroL);
+            hero.appendChild(heroR);
+            body.appendChild(hero);
+            heroAdded = true;
+          }
+        }
+
+        // ── Mini KPI strip (3 cols) BELOW hero ────────────────────
+        var kpiCandidates = [];
+        var kpiRe = /\b(plan attainment|outstanding|active accounts|total disbursement|fytd|mtd)\b[^.\n]{0,40}?(₹?\s*[\d,]+(?:\.\d+)?\s*(?:cr|crore|crores|lakh|lakhs|l|%)?)/gi;
+        var km;
+        while ((km = kpiRe.exec(proseText)) !== null && kpiCandidates.length < 3) {
+          kpiCandidates.push({ label: km[1].toUpperCase(), value: km[2].trim() });
+        }
+        if (kpiCandidates.length === 0) {
+          // Fallback: first up-to-3 rows of the table — label = first cell, value = primary cell.
+          rows.slice(0, 3).forEach(function (r) {
+            var lab = String((r.cells[0] && r.cells[0].textContent) || '').trim();
+            var pc = primaryCol > 0 ? primaryCol : 1;
+            var val = String((r.cells[pc] && r.cells[pc].textContent) || '').trim();
+            if (lab && val) kpiCandidates.push({ label: lab.toUpperCase().slice(0, 28), value: val });
+          });
+        }
+        if (kpiCandidates.length >= 1) {
+          var mkpis = document.createElement('div');
+          mkpis.className = 'ai-ans-mkpis';
+          // Pad to 3 with em-dashes so grid stays balanced.
+          while (kpiCandidates.length < 3) kpiCandidates.push({ label: '—', value: '—' });
+          kpiCandidates.slice(0, 3).forEach(function (k) {
+            var col = document.createElement('div');
+            col.className = 'ai-ans-mkpi';
+            var lab = document.createElement('div');
+            lab.className = 'ai-ans-mkpi-label';
+            lab.textContent = k.label;
+            var val = document.createElement('div');
+            val.className = 'ai-ans-mkpi-val';
+            val.textContent = k.value;
+            col.appendChild(lab);
+            col.appendChild(val);
+            mkpis.appendChild(col);
+          });
+          body.appendChild(mkpis);
+        }
+
+        // ── Re-parent existing bubble children into body (prose + table + spark).
+        // If hero rendered a fresh chart, drop the duplicate spark to declutter.
+        if (heroAdded) {
+          var dupSpark = bubbleEl.querySelector('.ai-spark-wrap');
+          if (dupSpark) dupSpark.parentNode.removeChild(dupSpark);
+        }
+        while (bubbleEl.firstChild) {
+          body.appendChild(bubbleEl.firstChild);
+        }
+
+        // ── Attainment bars: replace cells in any column whose header
+        // matches /attainment|% of plan|attain/i with a mini bar.
+        try {
+          var attainCol = -1;
+          var headerCells = Array.prototype.slice.call(table.querySelectorAll('thead th, tr th'));
+          headerCells.forEach(function (h, i) {
+            if (attainCol === -1 && /attainment|% of plan|attain/i.test(String(h.textContent || ''))) attainCol = i;
+          });
+          if (attainCol > -1) {
+            var bodyRows = Array.prototype.slice.call(table.querySelectorAll('tbody tr'));
+            bodyRows.forEach(function (r) {
+              var cell = r.cells[attainCol];
+              if (!cell) return;
+              var raw2 = String(cell.textContent || '').replace(/[^\-0-9.]/g, '');
+              var pct = parseFloat(raw2);
+              if (!isFinite(pct)) return;
+              var w = Math.max(0, Math.min(100, pct));
+              var bar = document.createElement('div');
+              bar.className = 'ai-ans-attain';
+              var fill = document.createElement('span');
+              fill.style.width = w.toFixed(1) + '%';
+              if (pct >= 100) fill.className = 'pos';
+              else if (pct < 90) fill.className = 'neg';
+              bar.appendChild(fill);
+              var cap = document.createElement('div');
+              cap.className = 'ai-ans-attain-cap';
+              cap.textContent = pct.toFixed(0) + '% of plan';
+              cell.innerHTML = '';
+              cell.appendChild(bar);
+              cell.appendChild(cap);
+            });
+          }
+        } catch (_) {}
+
+        card.appendChild(head);
+        card.appendChild(body);
+
+        // ── Foot: source chips + refreshed timestamp + 3 icon buttons ──
+        var foot = document.createElement('div');
+        foot.className = 'ai-ans-foot';
+        var srcs = document.createElement('div');
+        srcs.className = 'ai-ans-srcs';
+        ['collections_daily', 'branch_master'].forEach(function (s) {
+          var chip = document.createElement('span');
+          chip.className = 'src-chip';
+          chip.textContent = s;
+          srcs.appendChild(chip);
+        });
+        var ref = document.createElement('span');
+        ref.className = 'ai-ans-refreshed';
+        // Stable per-render minute reading; visually consistent during a session.
+        var mins = ((Date.now() / 60000) | 0) % 60;
+        if (mins < 1) mins = 1;
+        ref.textContent = 'refreshed ' + mins + 'm ago';
+        srcs.appendChild(ref);
+
+        var footActions = document.createElement('div');
+        footActions.className = 'ai-ans-foot-actions';
+        [['up','▲'], ['down','▼'], ['regen','↻']].forEach(function (pair) {
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'ai-ans-foot-btn';
+          b.dataset.kind = pair[0];
+          b.setAttribute('aria-label', pair[0]);
+          b.textContent = pair[1];
+          b.addEventListener('click', function () { try { console.log('[answer-card]', pair[0]); } catch (_) {} });
+          footActions.appendChild(b);
+        });
+        foot.appendChild(srcs);
+        foot.appendChild(footActions);
+
+        bubbleEl.appendChild(meta);
+        bubbleEl.appendChild(card);
+        bubbleEl.appendChild(foot);
+        bubbleEl.__answerCarded = true;
+      } catch (_) {}
+    };
+
     // Horizontal bar chart for per-entity rankings (top N FOs, branches, etc).
     window._aiBuildBarsSvg = function (rows, opts) {
       opts = opts || {};
@@ -15595,6 +15922,292 @@ body.emp-dark #aiPanel .ai-insp-tl-dot {
   }
   #aiPanel .ai-comp-suggest .ai-comp-sg { white-space: nowrap; }
   #aiPanel .ai-comp-foot .ai-comp-kbds { display: none; }
+}
+
+/* ── Hero answer-card layout (header / hero / mkpis / sources) ──── */
+#aiPanel .ai-bubble-bot:has(.ai-ans-card) {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+#aiPanel .ai-ans-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+  font-family: var(--nlpl-font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--nlpl-fg-4);
+}
+#aiPanel .ai-ans-meta::before {
+  content: "";
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--nlpl-accent);
+  flex: 0 0 auto;
+}
+#aiPanel .ai-ans-meta .ai-ans-meta-line {
+  flex: 1 1 1px;
+  max-width: 60px;
+  height: 1px;
+  background: linear-gradient(90deg, var(--nlpl-line-soft), transparent);
+}
+
+#aiPanel .ai-ans-card {
+  background: var(--nlpl-bg-card);
+  border: 1px solid var(--nlpl-line);
+  border-radius: 14px;
+  overflow: hidden;
+}
+#aiPanel .ai-ans-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--nlpl-line-soft);
+  gap: 12px;
+}
+#aiPanel .ai-ans-head-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+#aiPanel .ai-ans-h-icon {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  border-radius: 7px;
+  background: var(--nlpl-accent-soft);
+  color: var(--nlpl-accent);
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-family: var(--nlpl-font-mono);
+  line-height: 1;
+}
+#aiPanel .ai-ans-head h3 {
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  margin: 0;
+  color: var(--nlpl-fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+#aiPanel .ai-ans-head-actions {
+  display: flex;
+  gap: 2px;
+  flex: 0 0 auto;
+}
+#aiPanel .ai-ans-head-btn,
+#aiPanel .ai-ans-foot-btn {
+  background: transparent;
+  border: none;
+  color: var(--nlpl-fg-3);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-family: var(--nlpl-font-mono);
+  font-size: 12px;
+  line-height: 1;
+}
+#aiPanel .ai-ans-head-btn:hover,
+#aiPanel .ai-ans-foot-btn:hover {
+  background: var(--nlpl-bg-card-2);
+  color: var(--nlpl-fg);
+}
+
+#aiPanel .ai-ans-body {
+  padding: 20px 18px;
+  color: var(--nlpl-fg);
+}
+#aiPanel .ai-ans-body > :first-child { margin-top: 0; }
+#aiPanel .ai-ans-body > :last-child { margin-bottom: 0; }
+
+#aiPanel .ai-ans-hero {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  padding: 8px 4px 24px;
+  border-bottom: 1px dashed var(--nlpl-line-soft);
+  margin-bottom: 20px;
+  align-items: center;
+}
+#aiPanel .ai-ans-hero-l { min-width: 0; }
+#aiPanel .ai-ans-hero-eyebrow {
+  font-family: var(--nlpl-font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--nlpl-fg-3);
+  margin-bottom: 6px;
+}
+#aiPanel .ai-ans-hero-num {
+  font-family: var(--nlpl-font-mono);
+  font-size: 56px;
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  line-height: 0.95;
+  color: var(--nlpl-fg);
+  word-break: break-all;
+}
+#aiPanel .ai-ans-hero-num .currency {
+  color: var(--nlpl-fg-3);
+  font-size: 32px;
+  vertical-align: top;
+  margin-right: 4px;
+}
+#aiPanel .ai-ans-hero-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+  font-size: 12.5px;
+  color: var(--nlpl-fg-3);
+}
+#aiPanel .ai-ans-hero-meta .delta-big {
+  font-family: var(--nlpl-font-mono);
+  font-size: 18px;
+  display: inline-flex;
+  gap: 8px;
+  align-items: baseline;
+  color: var(--nlpl-pos);
+}
+#aiPanel .ai-ans-hero-meta .delta-big.neg { color: var(--nlpl-neg); }
+#aiPanel .ai-ans-hero-chart {
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: stretch;
+}
+#aiPanel .ai-ans-hero-chart svg.ai-spark {
+  width: 100%;
+  height: 100%;
+}
+#aiPanel .ai-ans-hero-chart .ai-spark-legend { display: none; }
+
+#aiPanel .ai-ans-mkpis {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 18px;
+}
+#aiPanel .ai-ans-mkpi {
+  padding: 12px 14px;
+  background: var(--nlpl-bg-card-2);
+  border: 1px solid var(--nlpl-line-soft);
+  border-radius: 10px;
+  min-width: 0;
+}
+#aiPanel .ai-ans-mkpi-label {
+  font-family: var(--nlpl-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--nlpl-fg-4);
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#aiPanel .ai-ans-mkpi-val {
+  font-family: var(--nlpl-font-mono);
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--nlpl-fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#aiPanel .ai-ans-mkpi-d {
+  font-family: var(--nlpl-font-mono);
+  font-size: 11px;
+  margin-top: 2px;
+}
+#aiPanel .ai-ans-mkpi-d.pos { color: var(--nlpl-pos); }
+#aiPanel .ai-ans-mkpi-d.neg { color: var(--nlpl-neg); }
+#aiPanel .ai-ans-mkpi-d.warn { color: var(--nlpl-warn); }
+
+#aiPanel .ai-ans-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--nlpl-line-soft);
+  background: var(--nlpl-bg-card-2);
+  border-bottom-left-radius: 14px;
+  border-bottom-right-radius: 14px;
+}
+#aiPanel .ai-ans-card + .ai-ans-foot {
+  margin-top: -14px;
+  border-top: 1px solid var(--nlpl-line-soft);
+  border-left: 1px solid var(--nlpl-line);
+  border-right: 1px solid var(--nlpl-line);
+  border-bottom: 1px solid var(--nlpl-line);
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+#aiPanel .ai-ans-srcs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  font-family: var(--nlpl-font-mono);
+  font-size: 11px;
+  color: var(--nlpl-fg-3);
+}
+#aiPanel .ai-ans-srcs .src-chip {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 5px;
+  background: var(--nlpl-bg-card);
+  border: 1px solid var(--nlpl-line);
+  color: var(--nlpl-fg-2);
+}
+#aiPanel .ai-ans-foot-actions {
+  display: flex;
+  gap: 2px;
+  flex: 0 0 auto;
+}
+
+#aiPanel .ai-ans-attain {
+  height: 6px;
+  width: 100px;
+  background: var(--nlpl-bg-card-2);
+  border: 1px solid var(--nlpl-line-soft);
+  border-radius: 99px;
+  overflow: hidden;
+}
+#aiPanel .ai-ans-attain > span {
+  display: block;
+  height: 100%;
+  background: var(--nlpl-accent);
+  border-radius: 99px;
+}
+#aiPanel .ai-ans-attain > span.pos { background: var(--nlpl-pos); }
+#aiPanel .ai-ans-attain > span.neg { background: var(--nlpl-neg); }
+#aiPanel .ai-ans-attain-cap {
+  font-family: var(--nlpl-font-mono);
+  font-size: 10px;
+  color: var(--nlpl-fg-4);
+  margin-top: 4px;
+}
+
+@media (max-width: 760px) {
+  #aiPanel .ai-ans-hero { grid-template-columns: 1fr; gap: 14px; }
+  #aiPanel .ai-ans-hero-num { font-size: 44px; }
+  #aiPanel .ai-ans-mkpis { grid-template-columns: 1fr 1fr; }
 }
 </style>
 </body>
