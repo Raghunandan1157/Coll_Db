@@ -8536,7 +8536,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
           content.innerHTML = md(buffer);
           _aiHistory.push({ role: 'assistant', content: buffer });
           try { window._aiPersistTurn && window._aiPersistTurn('assistant', buffer); } catch (_) {}
-          try { window._aiAttachSpark && window._aiAttachSpark(content); } catch (_) {}
+          try { window._aiAttachSpark && window._aiAttachSpark(content, msg); } catch (_) {}
           bindActions(row, buffer, msg);
           _aiBusy = false;
         } else if (event === 'error') {
@@ -8579,7 +8579,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
                   content.innerHTML = md(buffer);
                   _aiHistory.push({ role: 'assistant', content: buffer });
                   try { window._aiPersistTurn && window._aiPersistTurn('assistant', buffer); } catch (_) {}
-                  try { window._aiAttachSpark && window._aiAttachSpark(content); } catch (_) {}
+                  try { window._aiAttachSpark && window._aiAttachSpark(content, msg); } catch (_) {}
                   bindActions(row, buffer, msg);
                 } else {
                   row.remove();
@@ -8837,7 +8837,8 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
 
     // History replay path — renders markdown like live, but never re-persists
     // (parent caller already loaded from DB) and never duplicates _aiHistory.
-    window._aiReplayBubble = function (text, who) {
+    // Caller may pass `priorUserText` so the visual gate can read intent.
+    window._aiReplayBubble = function (text, who, priorUserText) {
       var box = document.getElementById('aiMessages');
       if (!box) return;
       try { hideSuggestionChips && hideSuggestionChips(); } catch (_) {}
@@ -8850,7 +8851,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         box.appendChild(row);
         try {
           var bubble = row.querySelector('.ai-bubble-bot');
-          if (bubble && window._aiAttachSpark) window._aiAttachSpark(bubble);
+          if (bubble && window._aiAttachSpark) window._aiAttachSpark(bubble, priorUserText);
         } catch (_) {}
       }
       box.scrollTop = box.scrollHeight;
@@ -11201,21 +11202,123 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       }
       return nums.slice(0, 12);
     };
-    window._aiAttachSpark = function (bubbleEl) {
+    // Intent gate — only emit a visual when the user asked for something
+    // that benefits from one. Single-snapshot answers stay table+prose.
+    window._aiVisualIntent = function (question) {
+      var q = String(question || '').toLowerCase();
+      if (!q) return null;
+      // Time-series: day-by-day, MTD, FYTD, this/last week/month, trend, till date.
+      if (/\b(day[-\s]?by[-\s]?day|trend|over time|each day|daily breakdown|first of (the )?month|till date|mtd|fytd|ytd|this (week|month|year)|last (\d+\s+)?(days?|weeks?|months?))\b/.test(q)) {
+        return 'series';
+      }
+      // Comparison: vs / versus / compare / today vs yesterday / X vs Y.
+      if (/\b(compare|comparison|versus|vs\.?|today vs|yesterday vs)\b/.test(q)) {
+        return 'compare';
+      }
+      // Per-entity: list of employees/branches/regions with metrics — let the
+      // table do the work, but tag so we can decide tiny per-row sparks later.
+      if (/\b(per (employee|branch|fo|officer)|each employee|each branch|by employee|by branch|by region|top \d+ (employees|branches|regions)|all (employees|branches|regions))\b/.test(q)) {
+        return 'per-row';
+      }
+      return null;
+    };
+    window._aiAttachSpark = function (bubbleEl, question) {
       try {
         if (!bubbleEl) return;
         if (bubbleEl.querySelector('.ai-spark, .chartjs-render-monitor, .plotly')) {
           bubbleEl.__sparked = true;
           return;
         }
-        var nums = window._aiExtractNumbers(bubbleEl);
-        if (!nums || nums.length < 2) return; // not enough data — don't lock the bubble; try again later
+        var intent = window._aiVisualIntent(question);
+        if (!intent) return; // user didn't ask for a comparison / trend / per-entity view
+        var table = bubbleEl.querySelector('table');
+        if (!table) return;
+        var rows = Array.prototype.slice.call(table.querySelectorAll('tbody tr, tr'));
+        rows = rows.filter(function (r) { return r.cells && r.cells.length >= 2 && !r.querySelector('th'); });
+        if (rows.length < 2) return;
+        // Find numeric columns (columns where ≥half of rows parse as numbers).
+        var maxCols = rows.reduce(function (m, r) { return Math.max(m, r.cells.length); }, 0);
+        var numCols = [];
+        for (var c = 1; c < maxCols; c++) {
+          var n = 0;
+          rows.forEach(function (r) {
+            var t = r.cells[c] ? String(r.cells[c].textContent || '').replace(/[^\-0-9.]/g, '') : '';
+            if (t && isFinite(parseFloat(t))) n++;
+          });
+          if (n >= Math.ceil(rows.length / 2)) numCols.push(c);
+        }
+        if (!numCols.length) return;
+        var labels = rows.slice(0, 12).map(function (r) {
+          return String((r.cells[0] && r.cells[0].textContent) || '').trim().slice(0, 10);
+        });
+        // Build up to 3 series, each with its own color.
+        var palette = ['#1f5fd1', '#1f8a5b', '#b97a0a'];
+        var series = numCols.slice(0, 3).map(function (c, idx) {
+          var col = rows.slice(0, 12).map(function (r) {
+            var t = r.cells[c] ? String(r.cells[c].textContent || '').replace(/[^\-0-9.]/g, '') : '';
+            return parseFloat(t) || 0;
+          });
+          var head = table.querySelectorAll('thead th')[c] || table.querySelectorAll('tr th')[c];
+          return { name: head ? String(head.textContent || '').trim() : ('Series ' + (idx + 1)), values: col, color: palette[idx] };
+        });
         var spk = document.createElement('div');
         spk.className = 'ai-spark-wrap';
-        spk.innerHTML = window._aiBuildSparkSvg(nums, { w: 240, h: 40 });
+        spk.innerHTML = window._aiBuildSeriesSvg(series, labels, { w: 360, h: 96 });
         bubbleEl.appendChild(spk);
         bubbleEl.__sparked = true;
       } catch (_) {}
+    };
+    // Multi-series area+line chart used when intent is series/compare.
+    window._aiBuildSeriesSvg = function (series, labels, opts) {
+      opts = opts || {};
+      var w = opts.w || 360, h = opts.h || 96;
+      var pad = { l: 8, r: 8, t: 6, b: 18 };
+      var iw = w - pad.l - pad.r, ih = h - pad.t - pad.b;
+      var all = [];
+      series.forEach(function (s) { (s.values || []).forEach(function (v) { if (isFinite(v)) all.push(v); }); });
+      if (all.length < 2) return '';
+      var min = Math.min.apply(null, all), max = Math.max.apply(null, all);
+      var span = (max - min) || Math.abs(max) || 1;
+      var n = Math.max.apply(null, series.map(function (s) { return (s.values || []).length; }));
+      function pt(i, v) {
+        var x = pad.l + (n === 1 ? iw / 2 : (i / (n - 1)) * iw);
+        var y = pad.t + (1 - (v - min) / span) * ih;
+        return [x, y];
+      }
+      var svg = '<svg class="ai-spark" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" aria-hidden="true">';
+      // Light horizontal guides.
+      [0, 0.5, 1].forEach(function (p) {
+        var y = pad.t + p * ih;
+        svg += '<line x1="' + pad.l + '" x2="' + (pad.l + iw) + '" y1="' + y.toFixed(1) + '" y2="' + y.toFixed(1) + '" stroke="rgba(0,0,0,0.06)" stroke-dasharray="2 4"/>';
+      });
+      series.forEach(function (s, idx) {
+        var pts = (s.values || []).map(function (v, i) { return pt(i, v); });
+        if (!pts.length) return;
+        var d = pts.map(function (p, i) { return (i === 0 ? 'M' : 'L') + p[0].toFixed(1) + ' ' + p[1].toFixed(1); }).join(' ');
+        var fillD = d + ' L ' + pts[pts.length - 1][0].toFixed(1) + ' ' + (pad.t + ih).toFixed(1)
+                      + ' L ' + pts[0][0].toFixed(1) + ' ' + (pad.t + ih).toFixed(1) + ' Z';
+        var gid = 'gs' + idx + '_' + Math.random().toString(36).slice(2, 6);
+        svg += '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0" y2="1">'
+            +    '<stop offset="0%" stop-color="' + s.color + '" stop-opacity="0.20"/>'
+            +    '<stop offset="100%" stop-color="' + s.color + '" stop-opacity="0"/>'
+            +  '</linearGradient></defs>';
+        svg += '<path d="' + fillD + '" fill="url(#' + gid + ')"/>';
+        svg += '<path d="' + d + '" fill="none" stroke="' + s.color + '" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>';
+        var last = pts[pts.length - 1];
+        svg += '<circle cx="' + last[0].toFixed(1) + '" cy="' + last[1].toFixed(1) + '" r="2.5" fill="' + s.color + '"/>';
+      });
+      // x-axis label endpoints (first + last) so user knows the axis.
+      if (labels && labels.length) {
+        var first = labels[0], lastLabel = labels[Math.min(labels.length, n) - 1];
+        svg += '<text x="' + pad.l + '" y="' + (h - 4) + '" font-size="9" fill="rgba(0,0,0,0.45)" font-family="ui-monospace, Menlo, monospace">' + (first || '') + '</text>';
+        svg += '<text x="' + (pad.l + iw) + '" y="' + (h - 4) + '" font-size="9" fill="rgba(0,0,0,0.45)" font-family="ui-monospace, Menlo, monospace" text-anchor="end">' + (lastLabel || '') + '</text>';
+      }
+      svg += '</svg>';
+      // Mini legend.
+      var legend = '<div class="ai-spark-legend">' + series.map(function (s) {
+        return '<span class="ai-spark-legend-item"><span class="ai-spark-swatch" style="background:' + s.color + '"></span>' + (s.name || '').replace(/[<>&]/g, '') + '</span>';
+      }).join('') + '</div>';
+      return svg + legend;
     };
     // Watch #aiMessages for new bot bubbles + late streaming completion.
     document.addEventListener('DOMContentLoaded', function () {
@@ -11421,10 +11524,11 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
           try { if (typeof _aiHistory !== 'undefined') _aiHistory.length = 0; } catch (_) {}
           var box = document.getElementById('aiMessages');
           if (box) box.innerHTML = '';
+          var priorUser = '';
           msgs.forEach(function (m) {
             try { if (typeof _aiHistory !== 'undefined') _aiHistory.push({ role: m.role, content: m.content }); } catch (_) {}
             if (typeof window._aiReplayBubble === 'function') {
-              window._aiReplayBubble(m.content, m.role);
+              window._aiReplayBubble(m.content, m.role, m.role === 'assistant' ? priorUser : '');
             } else if (box) {
               var d = document.createElement('div');
               d.className = 'ai-row ai-row-' + (m.role === 'user' ? 'user' : 'bot');
@@ -11434,6 +11538,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
               d.appendChild(bubble);
               box.appendChild(d);
             }
+            if (m.role === 'user') priorUser = m.content;
           });
           window._aiRenderRailHistory && window._aiRenderRailHistory();
         })
@@ -14357,18 +14462,38 @@ body.emp-dark #aiPanel #aiThemeBtn .ai-theme-moon { display: none; }
 }
 @keyframes aiCursorBlink { 50% { opacity: 0; } }
 
-/* Auto-spark — tiny SVG area chart appended to bot bubbles. */
+/* Auto-chart — appears only when the user asked for a comparison /
+   trend / per-entity view (intent gate). Never on snapshot answers. */
 #aiPanel .ai-spark-wrap {
-  margin: 10px 0 2px;
+  margin: 12px 0 2px;
   color: var(--nlpl-accent);
   display: block;
+  background: var(--nlpl-bg-card);
+  border: 1px solid var(--nlpl-line);
+  border-radius: 10px;
+  padding: 10px 12px;
 }
 #aiPanel .ai-spark {
   display: block;
   width: 100%;
-  max-width: 240px;
-  height: 40px;
+  max-width: 100%;
+  height: auto;
   color: inherit;
+}
+#aiPanel .ai-spark-legend {
+  display: flex; flex-wrap: wrap; gap: 12px;
+  margin-top: 6px;
+  font-family: var(--nlpl-font-mono);
+  font-size: 10.5px;
+  color: var(--nlpl-fg-3);
+  letter-spacing: 0.04em;
+}
+#aiPanel .ai-spark-legend-item {
+  display: inline-flex; align-items: center; gap: 6px;
+}
+#aiPanel .ai-spark-swatch {
+  width: 8px; height: 8px; border-radius: 2px;
+  display: inline-block;
 }
 
 /* Text/Report seg toggle (pill) */
