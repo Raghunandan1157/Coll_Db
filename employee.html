@@ -8147,11 +8147,13 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       var s = esc(src);
 
       // GitHub-style tables: detect blocks of |...| lines with a separator row.
-      s = s.replace(/(^|\n)((?:\|[^\n]+\|\n)+)/g, function(_m, lead, block){
-        var rows = block.trim().split('\n').map(function(r){ return r.trim(); });
+      // Match a trailing newline OR end-of-string so the last row at buffer end isn't dropped.
+      s = s.replace(/(^|\n)((?:\|[^\n]+\|(?:\n|$))+)/g, function(_m, lead, block){
+        var rows = block.replace(/\n$/, '').split('\n').map(function(r){ return r.trim(); }).filter(Boolean);
         if (rows.length < 2) return lead + block;
         var sep = rows[1];
-        if (!/^\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?$/.test(sep)) return lead + block;
+        // Allow single-column separators (`|---|`) — the trailing dash group is optional.
+        if (!/^\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?$/.test(sep)) return lead + block;
         function cells(r){
           return r.replace(/^\||\|$/g, '').split('|').map(function(c){ return c.trim(); });
         }
