@@ -7050,7 +7050,7 @@ body.emp-dark #voMobile .vom-full-table tr.total-row td {
     radial-gradient(1200px 320px at -10% -20%, rgba(16,163,127,.08), transparent 60%),
     radial-gradient(1000px 300px at 110% 110%, rgba(99,102,241,.10), transparent 60%);
 }
-body.emp-dark #aiProviderChooser .aipc-modal {
+#aiPanel.ai-dark #aiProviderChooser .aipc-modal {
   background: #0B1220; color: #E5E7EB;
   background-image:
     radial-gradient(1200px 320px at -10% -20%, rgba(16,163,127,.18), transparent 60%),
@@ -7072,7 +7072,7 @@ body.emp-dark #aiProviderChooser .aipc-modal {
   cursor: help; line-height: 1;
 }
 #aiProviderChooser .aipc-help:hover { background: #F1F5F9; color: #0F172A; }
-body.emp-dark #aiProviderChooser .aipc-help { border-color: rgba(255,255,255,.18); color: rgba(255,255,255,.55); }
+#aiPanel.ai-dark #aiProviderChooser .aipc-help { border-color: rgba(255,255,255,.18); color: rgba(255,255,255,.55); }
 #aiProviderChooser .aipc-close {
   width: 28px; height: 28px; border-radius: 8px;
   border: 1px solid #E5E7EB; background: transparent;
@@ -7080,11 +7080,11 @@ body.emp-dark #aiProviderChooser .aipc-help { border-color: rgba(255,255,255,.18
   display: inline-flex; align-items: center; justify-content: center;
 }
 #aiProviderChooser .aipc-close:hover { background: #F3F4F6; }
-body.emp-dark #aiProviderChooser .aipc-close { border-color: rgba(255,255,255,.14); color: rgba(255,255,255,.6); }
+#aiPanel.ai-dark #aiProviderChooser .aipc-close { border-color: rgba(255,255,255,.14); color: rgba(255,255,255,.6); }
 #aiProviderChooser .aipc-sub {
   margin: 2px 0 16px; font-size: 13px; color: #6B7280;
 }
-body.emp-dark #aiProviderChooser .aipc-sub { color: rgba(255,255,255,.55); }
+#aiPanel.ai-dark #aiProviderChooser .aipc-sub { color: rgba(255,255,255,.55); }
 #aiProviderChooser .aipc-cards {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 12px;
@@ -7099,7 +7099,7 @@ body.emp-dark #aiProviderChooser .aipc-sub { color: rgba(255,255,255,.55); }
 }
 #aiProviderChooser .aipc-chip-flash { background: rgba(99,102,241,.14); color: #4338CA; border: 1px solid rgba(99,102,241,.3); }
 #aiProviderChooser .aipc-chip-pro   { background: linear-gradient(135deg, #4D6BFE, #6366F1); color: #fff; border: 1px solid rgba(255,255,255,.12); box-shadow: 0 2px 6px rgba(77,107,254,.32); }
-body.emp-dark #aiProviderChooser .aipc-chip-flash { background: rgba(167,139,250,.18); color: #C7D2FE; border-color: rgba(167,139,250,.32); }
+#aiPanel.ai-dark #aiProviderChooser .aipc-chip-flash { background: rgba(167,139,250,.18); color: #C7D2FE; border-color: rgba(167,139,250,.32); }
 #aiProviderChooser .aipc-card {
   position: relative; text-align: center;
   padding: 22px 16px 18px;
@@ -7126,7 +7126,7 @@ body.emp-dark #aiProviderChooser .aipc-chip-flash { background: rgba(167,139,250
 #aiProviderChooser .aipc-card.aipc-gemini   { --card-glow: radial-gradient(circle at 50% 0%, rgba(66,133,244,.18), transparent 70%); }
 #aiProviderChooser .aipc-card.aipc-deepseek { --card-glow: radial-gradient(circle at 50% 0%, rgba(77,107,254,.20), transparent 70%); }
 #aiProviderChooser .aipc-card:hover:not([disabled])::before { opacity: 1; }
-body.emp-dark #aiProviderChooser .aipc-card {
+#aiPanel.ai-dark #aiProviderChooser .aipc-card {
   background: linear-gradient(180deg, #131C2E, #101827);
   border-color: rgba(255,255,255,.08);
 }
@@ -7150,7 +7150,7 @@ body.emp-dark #aiProviderChooser .aipc-card {
   background: rgba(77,107,254,.10);
   border: 1px solid rgba(77,107,254,.22);
 }
-body.emp-dark #aiProviderChooser .aipc-variant-row {
+#aiPanel.ai-dark #aiProviderChooser .aipc-variant-row {
   background: rgba(77,107,254,.16); border-color: rgba(167,139,250,.30);
 }
 #aiProviderChooser .aipc-variant-btn {
@@ -7162,7 +7162,7 @@ body.emp-dark #aiProviderChooser .aipc-variant-row {
   line-height: 1.1;
   transition: background .15s ease, color .15s ease, transform .12s ease;
 }
-body.emp-dark #aiProviderChooser .aipc-variant-btn { color: #C7D2FE; }
+#aiPanel.ai-dark #aiProviderChooser .aipc-variant-btn { color: #C7D2FE; }
 #aiProviderChooser .aipc-variant-btn .aipc-variant-name { font-size: 12px; font-weight: 700; }
 #aiProviderChooser .aipc-variant-btn .aipc-variant-sub { font-size: 9.5px; opacity: .72; letter-spacing: .04em; text-transform: uppercase; }
 #aiProviderChooser .aipc-variant-btn:hover { background: rgba(77,107,254,.16); }
@@ -7180,7 +7180,7 @@ body.emp-dark #aiProviderChooser .aipc-variant-btn { color: #C7D2FE; }
   margin-bottom: 4px;
 }
 #aiProviderChooser .aipc-card.aipc-openai .aipc-logo { color: #0F172A; }
-body.emp-dark #aiProviderChooser .aipc-card.aipc-openai .aipc-logo { color: #F9FAFB; }
+#aiPanel.ai-dark #aiProviderChooser .aipc-card.aipc-openai .aipc-logo { color: #F9FAFB; }
 #aiProviderChooser .aipc-logo svg { display: block; }
 
 #aiProviderChooser .aipc-card-name { font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
@@ -7190,15 +7190,15 @@ body.emp-dark #aiProviderChooser .aipc-card.aipc-openai .aipc-logo { color: #F9F
   padding: 2px 8px; border-radius: 999px;
   background: #ECFDF5; color: #047857; letter-spacing: .04em; text-transform: uppercase;
 }
-body.emp-dark #aiProviderChooser .aipc-card-status { background: rgba(16,163,127,.16); color: #6EE7B7; }
+#aiPanel.ai-dark #aiProviderChooser .aipc-card-status { background: rgba(16,163,127,.16); color: #6EE7B7; }
 #aiProviderChooser .aipc-card[disabled] .aipc-card-status {
   background: #FEE2E2; color: #B91C1C;
 }
-body.emp-dark #aiProviderChooser .aipc-card[disabled] .aipc-card-status { background: rgba(220,38,38,.18); color: #FCA5A5; }
+#aiPanel.ai-dark #aiProviderChooser .aipc-card[disabled] .aipc-card-status { background: rgba(220,38,38,.18); color: #FCA5A5; }
 #aiProviderChooser .aipc-card-model { font-size: 12.5px; color: #6B7280; margin-top: -2px; }
-body.emp-dark #aiProviderChooser .aipc-card-model { color: rgba(255,255,255,.6); }
+#aiPanel.ai-dark #aiProviderChooser .aipc-card-model { color: rgba(255,255,255,.6); }
 #aiProviderChooser .aipc-card-tag { font-size: 13px; font-weight: 500; color: #111827; margin-top: 2px; }
-body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
+#aiPanel.ai-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
 @media (max-width: 767px) {
   #aiProviderChooser .aipc-modal { top: 0; left: 0; transform: none; width: 100vw; height: 100vh; max-width: 100vw; max-height: 100vh; border-radius: 0; padding: 18px 16px; display: flex; flex-direction: column; overflow-y: auto; }
   #aiProviderChooser .aipc-cards { grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -11275,8 +11275,17 @@ body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
       var firstName = String(s.name || '').trim().split(/\s+/)[0] || '';
       var role = String(s.role || '').toUpperCase();
       var loc = String(s.location || '').trim();
+      // Locale-aware greeting (audit minor #19 — copy-auditor). Reads
+      // session.lang or browser locale; supports Kannada.
+      var lang = (s.lang || (navigator.language || '').slice(0, 2) || '').toLowerCase();
+      var KN_GREET = { morning: 'ಶುಭೋದಯ', afternoon: 'ಶುಭ ಮಧ್ಯಾಹ್ನ', evening: 'ಶುಭ ಸಂಜೆ', night: 'ಶುಭ ರಾತ್ರಿ' };
       if (greetEl) {
-        var freshness = 'LIVE · GOOD ' + partOfDay.toUpperCase() + (firstName ? ', ' + firstName.toUpperCase() : '');
+        var freshness;
+        if (lang === 'kn') {
+          freshness = 'ಲೈವ್ · ' + (KN_GREET[partOfDay] || KN_GREET.morning) + (firstName ? ', ' + firstName : '');
+        } else {
+          freshness = 'LIVE · GOOD ' + partOfDay.toUpperCase() + (firstName ? ', ' + firstName.toUpperCase() : '');
+        }
         greetEl.textContent = freshness;
       }
       if (titleEl) {
@@ -11322,16 +11331,19 @@ body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
 
     // One-shot relink: emp:* → phone:* when both identifiers exist on this device.
     // Prevents user-key drift (older sessions wrote under emp:, post-OTP under phone:).
+    // Returns a promise that resolves once the relink has completed (or no-op'd)
+    // so the prewarm fetch doesn't paint an empty rail under the new key
+    // before the relink lands (audit minor #11 — rail-auditor).
     function _aiRelinkOnceIfNeeded() {
       try {
         var phone = String(localStorage.getItem('userPhone') || '').replace(/\D+/g, '');
         var eid = String(localStorage.getItem('employeeId') || '').trim();
-        if (!phone || phone.length < 10 || !eid) return;
-        if (localStorage.getItem('nlpl_ai_relinked_v1')) return;
+        if (!phone || phone.length < 10 || !eid) return Promise.resolve();
+        if (localStorage.getItem('nlpl_ai_relinked_v1')) return Promise.resolve();
         var from = 'emp:' + eid;
         var to = 'phone:' + phone;
-        if (from === to) { localStorage.setItem('nlpl_ai_relinked_v1', '1'); return; }
-        fetch('/api/ai-chat/relink', {
+        if (from === to) { localStorage.setItem('nlpl_ai_relinked_v1', '1'); return Promise.resolve(); }
+        return fetch('/api/ai-chat/relink', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ from: from, to: to })
@@ -11339,21 +11351,32 @@ body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
           .then(function (r) { return r.ok ? r.json() : null; })
           .then(function () {
             try { localStorage.setItem('nlpl_ai_relinked_v1', '1'); } catch (_) {}
-            try { window._aiFetchChats && window._aiFetchChats(); } catch (_) {}
+            // Drop the orphaned current-chat-id under the old user_key so
+            // _aiCurrentChatId doesn't return a stale id (audit minor #10).
+            try { localStorage.removeItem('nlpl_ai_current_db:' + from); } catch (_) {}
           })
           .catch(function () {});
-      } catch (_) {}
+      } catch (_) { return Promise.resolve(); }
     }
 
     // Pre-warm the chat cache as soon as the page is ready so the rail
     // isn't waiting on a network roundtrip when the panel opens.
     function _aiPrewarmChats() {
-      try { _aiRelinkOnceIfNeeded(); } catch (_) {}
-      try { window._aiFetchChats && window._aiFetchChats(); } catch (_) {}
+      // Sequence: relink first → fetch chats. Otherwise the fetch races with
+      // the relink POST and paints empty rail until the relink finishes.
+      var relinkP = Promise.resolve();
+      try { relinkP = _aiRelinkOnceIfNeeded() || Promise.resolve(); } catch (_) {}
+      relinkP.then(function () {
+        try { window._aiFetchChats && window._aiFetchChats(); } catch (_) {}
+      });
       try { window._aiRefreshRail && window._aiRefreshRail(); } catch (_) {}
       try { window._aiRefreshInspector && window._aiRefreshInspector(); } catch (_) {}
       try { window._aiRefreshComposerFoot && window._aiRefreshComposerFoot(); } catch (_) {}
     }
+    // Cancel any pending debounced rail fetch on navigation away (audit minor #9).
+    window.addEventListener('beforeunload', function () {
+      try { if (typeof _aiFetchChatsTimer !== 'undefined' && _aiFetchChatsTimer) clearTimeout(_aiFetchChatsTimer); } catch (_) {}
+    });
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', function () { setTimeout(_aiPrewarmChats, 120); });
     } else {
@@ -11765,6 +11788,14 @@ body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
           return v;
         }
 
+        // Detect "lower is better" metrics so chip semantics don't invert.
+        // For NPA / overdue / delinquent / default tables, ranked[0] is the
+        // WORST performer, not the best (audit minor #16 — render-auditor).
+        var primaryHeadLow = String((heads[primaryCol] || '')).toLowerCase();
+        var lowerIsBetter = /\bnpa\b|delinquen|overdue|default|missed|bounce|fraud|complaint|drop[\s-]?off|attrition/.test(primaryHeadLow);
+        var best = lowerIsBetter ? bot : top;
+        var worst = lowerIsBetter ? top : bot;
+
         var picks = [];
         if (intent === 'snapshot' && firstEntity) {
           picks.push('Show ' + firstEntity + ' trend');
@@ -11774,10 +11805,10 @@ body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
           } else {
             picks.push('Top 5 contributors');
           }
-        } else if (intent === 'per-row' && top && bot && top !== bot) {
-          picks.push('Why is ' + bot + ' below plan?');
-          picks.push("Show " + top + "'s performance trend");
-          picks.push('Compare ' + top + ' vs ' + bot + ' this week');
+        } else if (intent === 'per-row' && best && worst && best !== worst) {
+          picks.push('Why is ' + worst + ' ' + (lowerIsBetter ? 'highest?' : 'below plan?'));
+          picks.push("Show " + best + "'s performance trend");
+          picks.push('Compare ' + best + ' vs ' + worst + ' this week');
         } else if (intent === 'compare') {
           if (mover) picks.push('Drill into ' + mover);
           picks.push("What's driving the gap?");
@@ -11952,8 +11983,11 @@ body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
           pin:  '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg>',
           menu: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>'
         };
-        var HEAD_LABEL = { copy: 'Copy as image', pin: 'Pin to dashboard', menu: 'More' };
-        [['copy'], ['pin'], ['menu']].forEach(function (pair) {
+        var HEAD_LABEL = { copy: 'Copy as image', menu: 'More' };
+        // Pin button removed (audit minor #5 — copy-auditor): the click handler
+        // only toggled a class + console.log. The "Pin to dashboard" feature
+        // was never wired. Conversation pinning lives in the sidebar rail.
+        [['copy'], ['menu']].forEach(function (pair) {
           var b = document.createElement('button');
           b.type = 'button';
           b.className = 'ai-ans-head-btn';
@@ -11964,9 +11998,6 @@ body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
           b.addEventListener('click', function () {
             if (pair[0] === 'copy') {
               window._aiCopyAnswerCardAsImage && window._aiCopyAnswerCardAsImage(bubbleEl, b);
-            } else if (pair[0] === 'pin') {
-              b.classList.toggle('is-on');
-              try { console.log('[answer-card] pin'); } catch (_) {}
             } else {
               try { window._aiOpenCardMenu && window._aiOpenCardMenu(bubbleEl, b); } catch (_) {}
             }
@@ -11984,20 +12015,12 @@ body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
         var heroAdded = false;
         if (heroEligible) {
           var heroNumText = null;
-          var currencyRe = /₹\s*([\d,]+(?:\.\d+)?)\s*(cr|crore|crores|lakh|lakhs|l)?/gi;
-          var cm, cmaxNum = -Infinity, cmaxText = null;
-          while ((cm = currencyRe.exec(proseText)) !== null) {
-            var raw = parseFloat(cm[1].replace(/,/g, ''));
-            if (!isFinite(raw)) continue;
-            var unit = (cm[2] || '').toLowerCase();
-            var scaled = raw;
-            if (unit === 'cr' || unit === 'crore' || unit === 'crores') scaled = raw * 1e7;
-            else if (unit === 'lakh' || unit === 'lakhs' || unit === 'l') scaled = raw * 1e5;
-            if (scaled > cmaxNum) { cmaxNum = scaled; cmaxText = cm[1] + (cm[2] ? ' ' + cm[2] : ''); }
-          }
-          if (cmaxText !== null) {
-            heroNumText = cmaxText;
-          } else if (primaryCol > 0) {
+          // Prefer summing the primary numeric column over picking the max ₹
+          // value from prose. The prose-max approach grabbed plan ("₹10 Cr")
+          // when "₹4 Cr collected of ₹10 Cr plan" was the data
+          // (audit minor #13 — render-auditor). Whitespace before the unit
+          // is now optional so "12.5cr" also styles correctly (audit #14).
+          if (primaryCol > 0) {
             var sum = 0, count = 0;
             rows.forEach(function (r) {
               var t = r.cells[primaryCol] ? String(r.cells[primaryCol].textContent || '').replace(/[^\-0-9.]/g, '') : '';
@@ -12006,23 +12029,53 @@ body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
             });
             if (count >= 2) heroNumText = sum.toLocaleString('en-IN');
           }
+          if (heroNumText === null) {
+            var currencyRe = /₹\s*([\d,]+(?:\.\d+)?)\s*(cr|crore|crores|lakh|lakhs|l)?/gi;
+            var cm, cmaxNum = -Infinity, cmaxText = null;
+            while ((cm = currencyRe.exec(proseText)) !== null) {
+              var raw = parseFloat(cm[1].replace(/,/g, ''));
+              if (!isFinite(raw)) continue;
+              var unit = (cm[2] || '').toLowerCase();
+              var scaled = raw;
+              if (unit === 'cr' || unit === 'crore' || unit === 'crores') scaled = raw * 1e7;
+              else if (unit === 'lakh' || unit === 'lakhs' || unit === 'l') scaled = raw * 1e5;
+              if (scaled > cmaxNum) { cmaxNum = scaled; cmaxText = cm[1] + (cm[2] ? ' ' + cm[2] : ''); }
+            }
+            if (cmaxText !== null) heroNumText = cmaxText;
+          }
 
           if (heroNumText !== null) {
             var hero = document.createElement('div');
             hero.className = 'ai-ans-hero';
             var heroL = document.createElement('div');
             heroL.className = 'ai-ans-hero-l';
+            // Dynamic eyebrow — derive from the primary numeric column header
+            // and the user's question. Falls back to the metric word in the
+            // header (DISBURSEMENT / NPA / COLLECTION / etc.) instead of the
+            // hard-coded "COLLECTED MONTH-TO-DATE" (audit MAJOR — render-auditor).
             var eyebrow = document.createElement('div');
             eyebrow.className = 'ai-ans-hero-eyebrow';
-            eyebrow.textContent = 'COLLECTED MONTH-TO-DATE';
+            (function () {
+              var headTxt = String((heads[primaryCol] || '')).trim();
+              var ql = String(userQuestion || '').toLowerCase();
+              var period = /fytd/.test(ql) ? 'FYTD'
+                         : /mtd|month/.test(ql) ? 'MONTH-TO-DATE'
+                         : /this week|wtd/.test(ql) ? 'WEEK-TO-DATE'
+                         : /today/.test(ql) ? 'TODAY'
+                         : /yesterday/.test(ql) ? 'YESTERDAY'
+                         : '';
+              var label = headTxt ? headTxt.toUpperCase().replace(/[_\-]+/g, ' ').trim() : 'TOTAL';
+              eyebrow.textContent = period ? (label + ' · ' + period) : label;
+            })();
             var bigNum = document.createElement('div');
             bigNum.className = 'ai-ans-hero-num';
             var cur = document.createElement('span');
             cur.className = 'currency';
             cur.textContent = '₹';
             bigNum.appendChild(cur);
-            // Split numeric body from unit suffix so "Cr" / "L" can be styled smaller.
-            var unitMatch = String(heroNumText).match(/^([\d,]+(?:\.\d+)?)(?:\s+(cr|crore|crores|lakh|lakhs|l))?$/i);
+            // Split numeric body from unit suffix. Whitespace before unit is
+            // optional so "12.5cr" also matches and gets styled smaller.
+            var unitMatch = String(heroNumText).match(/^([\d,]+(?:\.\d+)?)\s*(cr|crore|crores|lakh|lakhs|l)?$/i);
             if (unitMatch) {
               bigNum.appendChild(document.createTextNode(unitMatch[1]));
               if (unitMatch[2]) {
@@ -12212,7 +12265,11 @@ body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
             var isHeading = /^H[1-6]$/i.test(n.tagName || '');
             if (!isHeading) return;
             var headerHits = hdrTokens.filter(function (h) { return h && txt.indexOf(h) !== -1; }).length;
-            if (headerHits >= 3 && txt.length < 300) {
+            // Threshold scales with column count so 1-/2-col tables still
+            // dedupe (audit minor #2 — copy-auditor). 1 col → require 1 hit,
+            // 2 cols → require 2, 3+ cols → require 3.
+            var threshold = Math.max(1, Math.min(3, hdrTokens.length));
+            if (headerHits >= threshold && txt.length < 300) {
               if (n.parentNode) n.parentNode.removeChild(n);
             }
           });
@@ -12278,7 +12335,9 @@ body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
         // ── Section subtitle (eyebrow) above the table for ranked answers.
         try {
           if (intent === 'per-row' && table.parentNode) {
-            var firstHeader = String(heads[0] || '').trim();
+            // When col 0 is a rank/serial, the entity name lives in heads[1]
+            // (audit minor #15 — render-auditor).
+            var firstHeader = String((firstColIsRank ? heads[1] : heads[0]) || '').trim();
             var entityWord = (function (h) {
               var lower = h.toLowerCase();
               if (/branch/.test(lower)) return 'BRANCHES';
@@ -12633,16 +12692,24 @@ body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
       return window._aiHtml2CanvasReady;
     };
 
-    // ── Toast bubble (bottom-right of #aiPanel). Shared helper. ──
+    // ── Toast bubble (bottom-right of #aiPanel). Shared helper.
+    // Falls back to document.body when the panel is closed/hidden so
+    // capture-failure toasts still surface (audit minor #18 — copy-auditor).
     window._aiToast = function (text, opts) {
       opts = opts || {};
       var panel = document.getElementById('aiPanel');
-      if (!panel) return;
-      var host = panel.querySelector('.ai-toast-host');
+      var panelOpen = panel && panel.classList && panel.classList.contains('open');
+      var hostParent = panelOpen ? panel : document.body;
+      var host = hostParent.querySelector(':scope > .ai-toast-host');
       if (!host) {
         host = document.createElement('div');
         host.className = 'ai-toast-host';
-        panel.appendChild(host);
+        // When attached to body, force fixed positioning so the toast is visible
+        // outside the panel context.
+        if (hostParent === document.body) {
+          host.style.cssText = 'position: fixed; right: 16px; bottom: 16px; z-index: 99999; display: flex; flex-direction: column; gap: 8px;';
+        }
+        hostParent.appendChild(host);
       }
       var t = document.createElement('div');
       t.className = 'ai-toast' + (opts.error ? ' is-error' : '');
@@ -12742,14 +12809,24 @@ body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
     //    flex / grid containers. Caller is responsible for appending +
     //    removing it.
     window._aiBuildPrintCard = function (srcCard) {
+      // Walk only as long as we haven't crossed into another bubble. Earlier
+      // version short-circuited on any ancestor that contained a .ai-ans-card
+      // — when srcCard had no .ai-bubble-bot ancestor it could land on a
+      // sibling bubble and pull THAT card's meta/foot, polluting the capture
+      // (audit minor #17 — copy-auditor).
       var bubble = srcCard;
       while (bubble && !(bubble.classList && bubble.classList.contains('ai-bubble-bot')) && bubble.parentNode) {
         bubble = bubble.parentNode;
-        if (bubble && bubble.querySelector && bubble.querySelector('.ai-ans-card')) break;
+        if (bubble === document.body) { bubble = null; break; }
       }
-      var card = (bubble && bubble.querySelector && bubble.querySelector('.ai-ans-card')) || srcCard;
-      var meta = (bubble && bubble.querySelector && bubble.querySelector('.ai-ans-meta')) || null;
-      var foot = (bubble && bubble.querySelector && bubble.querySelector('.ai-ans-foot')) || null;
+      // If walk failed, scope queries to srcCard itself rather than to a
+      // sibling bubble's ancestor.
+      var scope = bubble || srcCard;
+      var card = (scope.querySelector && scope.querySelector('.ai-ans-card')) || srcCard;
+      // meta/foot are siblings of .ai-ans-card inside the bubble — only
+      // resolve them when we successfully landed on .ai-bubble-bot.
+      var meta = bubble ? bubble.querySelector('.ai-ans-meta') : null;
+      var foot = bubble ? bubble.querySelector('.ai-ans-foot') : null;
 
       // ── Tokens. Resolve --nlpl-* to literals via getComputedStyle on a
       //    panel-rooted node so dark-mode picks the dark palette.
@@ -12791,10 +12868,26 @@ body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
           try { color = window.getComputedStyle(srcSvg.parentNode || srcSvg).color || ''; } catch (_) {}
         }
         if (!color) color = ACCENT;
+        // Snapshot computed fill/stroke for every source node BEFORE cloning,
+        // so SVGs painted via class-based CSS retain their colors when classes
+        // are stripped (audit minor #3 — copy-auditor).
+        var srcNodes = [srcSvg].concat(Array.prototype.slice.call(srcSvg.querySelectorAll('*')));
+        var resolvedFills = [];
+        var resolvedStrokes = [];
+        srcNodes.forEach(function (sn, i) {
+          try {
+            var cs = window.getComputedStyle(sn);
+            resolvedFills[i] = cs.fill || '';
+            resolvedStrokes[i] = cs.stroke || '';
+          } catch (_) {
+            resolvedFills[i] = '';
+            resolvedStrokes[i] = '';
+          }
+        });
         var clone = srcSvg.cloneNode(true);
         if (!clone.getAttribute('xmlns')) clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
         var nodes = [clone].concat(Array.prototype.slice.call(clone.querySelectorAll('*')));
-        nodes.forEach(function (n) {
+        nodes.forEach(function (n, i) {
           ['stroke', 'fill'].forEach(function (attr) {
             var v = n.getAttribute && n.getAttribute(attr);
             if (v && v.toLowerCase() === 'currentcolor') n.setAttribute(attr, color);
@@ -12802,6 +12895,23 @@ body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
           if (n.style) {
             if ((n.style.stroke || '').toLowerCase() === 'currentcolor') n.style.stroke = color;
             if ((n.style.fill || '').toLowerCase() === 'currentcolor') n.style.fill = color;
+          }
+          // Inline computed fill/stroke if the node has neither an inline style
+          // nor an attribute. Skips 'none' / 'rgba(0,0,0,0)' / 'currentcolor'
+          // so we don't fight the existing currentColor handling above.
+          var hasFill = (n.getAttribute && n.getAttribute('fill')) || (n.style && n.style.fill);
+          if (!hasFill) {
+            var rf = resolvedFills[i] || '';
+            if (rf && rf !== 'none' && rf !== 'rgba(0, 0, 0, 0)' && rf.toLowerCase() !== 'currentcolor') {
+              n.setAttribute('fill', rf);
+            }
+          }
+          var hasStroke = (n.getAttribute && n.getAttribute('stroke')) || (n.style && n.style.stroke);
+          if (!hasStroke) {
+            var rs = resolvedStrokes[i] || '';
+            if (rs && rs !== 'none' && rs !== 'rgba(0, 0, 0, 0)' && rs.toLowerCase() !== 'currentcolor') {
+              n.setAttribute('stroke', rs);
+            }
           }
           // Drop class refs so external CSS can't recolor.
           if (n.removeAttribute) n.removeAttribute('class');
@@ -13009,15 +13119,15 @@ body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
           }
           function looksLikeTableDupHeading(node) {
             if (!node) return false;
-            // Only consider H1..H6 — body-cell heuristic was too aggressive
-            // and wiped real analytical prose.
             if (!/^H[1-6]$/i.test(node.tagName || '')) return false;
             var txt = String(node.textContent || '').toLowerCase();
             if (!txt || txt.length > 300) return false;
             var headerHits = headerTokens.filter(function (h) {
               return h && txt.indexOf(h) !== -1;
             }).length;
-            return headerHits >= 3;
+            // Scale threshold with column count so 1-/2-col tables dedupe.
+            var threshold = Math.max(1, Math.min(3, headerTokens.length));
+            return headerHits >= threshold;
           }
           var proseNodes = Array.prototype.slice.call(body.children).filter(function (n) {
             if (!n) return false;
@@ -13617,8 +13727,21 @@ body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
         var ageEl = document.getElementById('aiRailMeterAge');
         var fillEl = document.getElementById('aiRailMeterFill');
         var scopeEl = document.getElementById('aiRailMeterScope');
+        // Prefer server activity cache over localStorage so the rail meter
+        // and inspector "Refreshed" line tell the same story (audit minor
+        // #12 — rail-auditor). Falls back to nlpl_last_upload_ts only when
+        // /api/ai-activity hasn't been fetched yet.
         var lastUpload = 0;
-        try { lastUpload = Number(localStorage.getItem('nlpl_last_upload_ts') || 0); } catch (_) {}
+        try {
+          var actCache = (window._aiActivityCache && window._aiActivityCache.data) || null;
+          if (actCache && actCache.last_upload_ts) {
+            lastUpload = Number(actCache.last_upload_ts) * 1000;
+          } else if (actCache && actCache.last_upload) {
+            lastUpload = Date.parse(actCache.last_upload);
+          } else {
+            lastUpload = Number(localStorage.getItem('nlpl_last_upload_ts') || 0);
+          }
+        } catch (_) {}
         if (lastUpload > 0) {
           var mins = Math.max(0, Math.round((Date.now() - lastUpload) / 60000));
           if (ageEl) ageEl.textContent = mins < 60 ? (mins + 'm') : (Math.round(mins / 60) + 'h');
@@ -14109,7 +14232,10 @@ body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
     window._aiCreateChat = function (firstContent) {
       var key = window._aiUserKey();
       var prov = window._aiPickedProvider ? window._aiPickedProvider() : null;
-      var title = String(firstContent || 'New conversation').replace(/\s+/g, ' ').trim().slice(0, 80) || 'New conversation';
+      // Grapheme-safe slice so emoji / surrogate pairs don't get split.
+      var rawTitle = String(firstContent || 'New conversation').replace(/\s+/g, ' ').trim();
+      var graphemes = Array.from(rawTitle);
+      var title = graphemes.slice(0, 80).join('') || 'New conversation';
       return fetch('/api/ai-chat/conversations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -14284,6 +14410,24 @@ body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
         .catch(function () { try { window._aiToast && window._aiToast('Delete failed'); } catch (_) {} });
     };
 
+    // Sort cache to match server ordering: pinned DESC, updated_at DESC.
+    // Used after optimistic mutations so a freshly-pinned item jumps to the
+    // top instead of staying in the Recent slot until the next fetch
+    // (audit minor #6 — rail-auditor).
+    window._aiSortChatsCache = function () {
+      try {
+        var cache = window._aiChatsCache || [];
+        cache.sort(function (a, b) {
+          var pa = a.pinned ? 1 : 0;
+          var pb = b.pinned ? 1 : 0;
+          if (pa !== pb) return pb - pa;
+          var ta = a.updated_at ? Date.parse(a.updated_at) : 0;
+          var tb = b.updated_at ? Date.parse(b.updated_at) : 0;
+          return tb - ta;
+        });
+      } catch (_) {}
+    };
+
     window._aiPinChat = function (cid, pinned) {
       var key = window._aiUserKey();
       return fetch('/api/ai-chat/conversations/' + encodeURIComponent(cid), {
@@ -14291,20 +14435,32 @@ body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_key: key, pinned: !!pinned })
       })
-        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (r) {
+          if (!r.ok) throw new Error('pin patch failed: ' + r.status);
+          return r.json();
+        })
         .then(function (j) {
           var c = j && j.conversation;
+          // Only mutate cache when server confirmed the change. Previously a
+          // failed PATCH still flipped the local pinned bit, lying to the UI
+          // until reload (audit minor #7 — rail-auditor).
+          if (!c) return;
           window._aiChatsCache = (window._aiChatsCache || []).map(function (x) {
-            if (String(x.id) !== String(cid)) return x;
-            return Object.assign({}, x, c ? c : { pinned: !!pinned });
+            return String(x.id) === String(cid) ? Object.assign({}, x, c) : x;
           });
+          window._aiSortChatsCache();
           window._aiRenderRailHistory && window._aiRenderRailHistory();
         })
-        .catch(function () {});
+        .catch(function () {
+          try { window._aiToast && window._aiToast('Pin failed'); } catch (_) {}
+        });
     };
 
     window._aiRenameChat = function (cid, newTitle) {
-      var t = String(newTitle || '').trim().slice(0, 80);
+      // Slice on grapheme units so emoji / surrogate pairs aren't split
+      // mid-codepoint (audit minor #21 — rail-auditor).
+      var graphemes = Array.from(String(newTitle || '').trim());
+      var t = graphemes.slice(0, 80).join('');
       if (!t) return Promise.resolve(null);
       var key = window._aiUserKey();
       return fetch('/api/ai-chat/conversations/' + encodeURIComponent(cid), {
@@ -14312,16 +14468,22 @@ body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_key: key, title: t })
       })
-        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (r) {
+          if (!r.ok) throw new Error('rename patch failed: ' + r.status);
+          return r.json();
+        })
         .then(function (j) {
           var c = j && j.conversation;
+          if (!c) return;
           window._aiChatsCache = (window._aiChatsCache || []).map(function (x) {
-            if (String(x.id) !== String(cid)) return x;
-            return Object.assign({}, x, c ? c : { title: t });
+            return String(x.id) === String(cid) ? Object.assign({}, x, c) : x;
           });
+          window._aiSortChatsCache();
           window._aiRenderRailHistory && window._aiRenderRailHistory();
         })
-        .catch(function () {});
+        .catch(function () {
+          try { window._aiToast && window._aiToast('Rename failed'); } catch (_) {}
+        });
     };
 
     // Inline rename: swap title span for input, commit on Enter/blur, cancel on Esc.
@@ -14359,12 +14521,15 @@ body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
       input.addEventListener('dblclick', function (e) { e.stopPropagation(); });
     };
 
+    // In-flight guard: prevents accidental double-clicks from issuing two
+    // parallel GETs for the same chat. Re-clicking the active chat now refetches
+    // (so multi-tab edits surface) but only when not already loading.
+    window._aiOpenInFlight = null;
     window._aiOpenChat = function (cid) {
-      // Skip if already active — avoid wasted GET + DOM thrash.
-      if (String(window._aiCurrentChatId() || '') === String(cid)) return;
+      if (window._aiOpenInFlight) return;
       var key = window._aiUserKey();
       window._aiSetCurrentChatId(cid);
-      fetch('/api/ai-chat/conversations/' + encodeURIComponent(cid) + '/messages?user_key=' + encodeURIComponent(key))
+      window._aiOpenInFlight = fetch('/api/ai-chat/conversations/' + encodeURIComponent(cid) + '/messages?user_key=' + encodeURIComponent(key))
         .then(function (r) { return r.ok ? r.json() : { messages: [] }; })
         .then(function (j) {
           var msgs = (j && j.messages) || [];
@@ -14388,10 +14553,11 @@ body.emp-dark #aiProviderChooser .aipc-card-tag { color: #F1F5F9; }
             if (m.role === 'user') priorUser = m.content;
           });
           window._aiRenderRailHistory && window._aiRenderRailHistory();
-          // Bug #10 — inspector frozen on prior chat. Refresh now that messages reloaded.
+          // Inspector context now reflects the loaded chat.
           try { window._aiRefreshInspector && window._aiRefreshInspector(); } catch (_) {}
         })
-        .catch(function () {});
+        .catch(function () {})
+        .finally(function () { window._aiOpenInFlight = null; });
     };
 
     window._aiRenderStarterChips = function () {
@@ -17841,7 +18007,7 @@ document.addEventListener('keydown', function(e) {
   color: #0f1929 !important;
   font-family: "Inter", system-ui, sans-serif !important;
 }
-body.emp-dark #aiProviderChooser .aipc-modal {
+#aiPanel.ai-dark #aiProviderChooser .aipc-modal {
   background: #161b2c !important;
   border-color: #2c3450 !important;
   color: #eef1f7 !important;
@@ -17852,7 +18018,7 @@ body.emp-dark #aiProviderChooser .aipc-modal {
   border-radius: 14px !important;
   color: #0f1929 !important;
 }
-body.emp-dark #aiProviderChooser .aipc-card {
+#aiPanel.ai-dark #aiProviderChooser .aipc-card {
   background: #1a2034 !important;
   border-color: #2c3450 !important;
   color: #eef1f7 !important;
@@ -17863,7 +18029,7 @@ body.emp-dark #aiProviderChooser .aipc-card {
   transform: translateY(-2px);
   box-shadow: 0 12px 24px rgba(15,25,41,0.10);
 }
-body.emp-dark #aiProviderChooser .aipc-card:hover {
+#aiPanel.ai-dark #aiProviderChooser .aipc-card:hover {
   background: #1f2740 !important;
 }
 #aiProviderChooser .aipc-card.is-active {
@@ -17881,9 +18047,9 @@ body.emp-dark #aiProviderChooser .aipc-card:hover {
   font-family: "IBM Plex Mono", monospace !important;
   color: #5d6b82 !important;
 }
-body.emp-dark #aiProviderChooser .aipc-card-tag,
-body.emp-dark #aiProviderChooser .aipc-card-model,
-body.emp-dark #aiProviderChooser .aipc-card-status {
+#aiPanel.ai-dark #aiProviderChooser .aipc-card-tag,
+#aiPanel.ai-dark #aiProviderChooser .aipc-card-model,
+#aiPanel.ai-dark #aiProviderChooser .aipc-card-status {
   color: #8b94a8 !important;
 }
 
