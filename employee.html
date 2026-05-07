@@ -8536,6 +8536,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
           content.innerHTML = md(buffer);
           _aiHistory.push({ role: 'assistant', content: buffer });
           try { window._aiPersistTurn && window._aiPersistTurn('assistant', buffer); } catch (_) {}
+          try { window._aiAttachSpark && window._aiAttachSpark(content); } catch (_) {}
           bindActions(row, buffer, msg);
           _aiBusy = false;
         } else if (event === 'error') {
@@ -8578,6 +8579,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
                   content.innerHTML = md(buffer);
                   _aiHistory.push({ role: 'assistant', content: buffer });
                   try { window._aiPersistTurn && window._aiPersistTurn('assistant', buffer); } catch (_) {}
+                  try { window._aiAttachSpark && window._aiAttachSpark(content); } catch (_) {}
                   bindActions(row, buffer, msg);
                 } else {
                   row.remove();
@@ -8832,6 +8834,27 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         box.scrollTop = box.scrollHeight;
       }
     }
+
+    // History replay path — renders markdown like live, but never re-persists
+    // (parent caller already loaded from DB) and never duplicates _aiHistory.
+    window._aiReplayBubble = function (text, who) {
+      var box = document.getElementById('aiMessages');
+      if (!box) return;
+      try { hideSuggestionChips && hideSuggestionChips(); } catch (_) {}
+      if (who === 'user') {
+        appendUserBubble(box, text);
+      } else {
+        var row = document.createElement('div');
+        row.className = 'ai-row ai-row-bot';
+        row.innerHTML = botIcon + '<div class="ai-bot-col"><div class="ai-bubble ai-bubble-bot">' + md(String(text || '')) + '</div></div>';
+        box.appendChild(row);
+        try {
+          var bubble = row.querySelector('.ai-bubble-bot');
+          if (bubble && window._aiAttachSpark) window._aiAttachSpark(bubble);
+        } catch (_) {}
+      }
+      box.scrollTop = box.scrollHeight;
+    };
 
     var _vo = {
       el: null, stage: null, hint: null, status: null, errorEl: null, bars: null,
@@ -11180,15 +11203,18 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
     };
     window._aiAttachSpark = function (bubbleEl) {
       try {
-        if (!bubbleEl || bubbleEl.__sparked) return;
-        bubbleEl.__sparked = true;
-        if (bubbleEl.querySelector('.ai-spark, .chartjs-render-monitor, .plotly')) return;
+        if (!bubbleEl) return;
+        if (bubbleEl.querySelector('.ai-spark, .chartjs-render-monitor, .plotly')) {
+          bubbleEl.__sparked = true;
+          return;
+        }
         var nums = window._aiExtractNumbers(bubbleEl);
-        if (!nums || nums.length < 3) return;
+        if (!nums || nums.length < 2) return; // not enough data — don't lock the bubble; try again later
         var spk = document.createElement('div');
         spk.className = 'ai-spark-wrap';
         spk.innerHTML = window._aiBuildSparkSvg(nums, { w: 240, h: 40 });
         bubbleEl.appendChild(spk);
+        bubbleEl.__sparked = true;
       } catch (_) {}
     };
     // Watch #aiMessages for new bot bubbles + late streaming completion.
@@ -11397,12 +11423,15 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
           if (box) box.innerHTML = '';
           msgs.forEach(function (m) {
             try { if (typeof _aiHistory !== 'undefined') _aiHistory.push({ role: m.role, content: m.content }); } catch (_) {}
-            if (typeof window._aiAppendBubble === 'function') {
-              window._aiAppendBubble(m.content, m.role);
+            if (typeof window._aiReplayBubble === 'function') {
+              window._aiReplayBubble(m.content, m.role);
             } else if (box) {
               var d = document.createElement('div');
-              d.className = m.role === 'user' ? 'ai-msg-user' : 'ai-msg-bot';
-              d.textContent = m.content;
+              d.className = 'ai-row ai-row-' + (m.role === 'user' ? 'user' : 'bot');
+              var bubble = document.createElement('div');
+              bubble.className = m.role === 'user' ? 'ai-bubble ai-bubble-user' : 'ai-bubble ai-bubble-bot';
+              bubble.textContent = m.content;
+              d.appendChild(bubble);
               box.appendChild(d);
             }
           });
