@@ -6396,64 +6396,86 @@ body.emp-dark #voMobile .vom-full-table tr.total-row td {
 
 /* ──────────────────────────────────────────────────────────────────────
    FINAL TABLE OVERRIDE — guarantees readable cells in chat panel.
-   Scoped to #aiPanel for highest specificity. Forces background AND
-   foreground on every nested element so <strong>/<em>/<span> can't
-   inherit a stray near-white color from the bubble theme. Applies in
-   dark mode (default body class) — light-mode equivalent below.
+   Every dark rule is scoped to body.emp-dark so it can't bleed into
+   light theme; light theme gets its own block.
    ────────────────────────────────────────────────────────────────────── */
-#aiPanel .ai-bubble .ai-table,
-#aiPanel .ai-bubble .ai-table-wrap {
-  background: #0B1220 !important;
-  border-color: #334155 !important;
+/* Light mode (default) */
+body:not(.emp-dark) #aiPanel .ai-bubble .ai-table,
+body:not(.emp-dark) #aiPanel .ai-bubble .ai-table-wrap {
+  background: #FFFFFF !important;
+  border-color: #C9C9C9 !important;
 }
-#aiPanel .ai-bubble .ai-table thead th,
-#aiPanel .ai-bubble .ai-table thead th * {
-  background: #8B1A2D !important;
-  color: #FFFFFF !important;
-  border-color: #6E1422 !important;
-}
-#aiPanel .ai-bubble .ai-table tbody td {
-  background: #111827 !important;
-  color: #F1F5F9 !important;
-  border-color: #334155 !important;
-}
-#aiPanel .ai-bubble .ai-table tbody td,
-#aiPanel .ai-bubble .ai-table tbody td * {
-  color: #F1F5F9 !important;
-}
-#aiPanel .ai-bubble .ai-table tbody tr:nth-child(even) td:not(:first-child) {
-  background: #0F172A !important;
-}
-#aiPanel .ai-bubble .ai-table tbody tr td:first-child,
-#aiPanel .ai-bubble .ai-table tbody tr td:first-child * {
-  background: #422006 !important;
-  color: #FCD34D !important;
-  font-weight: 600 !important;
-}
-#aiPanel .ai-bubble .ai-table tbody tr:hover td:not(:first-child) {
-  background: #1E293B !important;
-}
-#aiPanel .ai-bubble .ai-table tr.total-row td,
-#aiPanel .ai-bubble .ai-table tr.total-row td * {
-  background: #78350F !important;
-  color: #FEF3C7 !important;
-  border-top-color: #F59E0B !important;
-}
-/* Light-mode counterpart, in case body.emp-dark is ever stripped */
 body:not(.emp-dark) #aiPanel .ai-bubble .ai-table thead th,
 body:not(.emp-dark) #aiPanel .ai-bubble .ai-table thead th * {
   background: #8B1A2D !important;
   color: #FFFFFF !important;
+  border-color: #6E1422 !important;
 }
 body:not(.emp-dark) #aiPanel .ai-bubble .ai-table tbody td,
 body:not(.emp-dark) #aiPanel .ai-bubble .ai-table tbody td * {
   background: #FFFFFF !important;
+  color: #1F2937 !important;
+  border-color: #E5E7EB !important;
+}
+body:not(.emp-dark) #aiPanel .ai-bubble .ai-table tbody tr:nth-child(even) td:not(:first-child),
+body:not(.emp-dark) #aiPanel .ai-bubble .ai-table tbody tr:nth-child(even) td:not(:first-child) * {
+  background: #F8FAFC !important;
   color: #1F2937 !important;
 }
 body:not(.emp-dark) #aiPanel .ai-bubble .ai-table tbody tr td:first-child,
 body:not(.emp-dark) #aiPanel .ai-bubble .ai-table tbody tr td:first-child * {
   background: #FAD9B8 !important;
   color: #1F2937 !important;
+  font-weight: 600 !important;
+}
+body:not(.emp-dark) #aiPanel .ai-bubble .ai-table tbody tr:hover td:not(:first-child) {
+  background: #FFF5EB !important;
+}
+body:not(.emp-dark) #aiPanel .ai-bubble .ai-table tr.total-row td,
+body:not(.emp-dark) #aiPanel .ai-bubble .ai-table tr.total-row td * {
+  background: #FAD9B8 !important;
+  color: #1F2937 !important;
+  border-top: 2px solid #6E1422 !important;
+  font-weight: 700 !important;
+}
+
+/* Dark mode */
+body.emp-dark #aiPanel .ai-bubble .ai-table,
+body.emp-dark #aiPanel .ai-bubble .ai-table-wrap {
+  background: #0B1220 !important;
+  border-color: #334155 !important;
+}
+body.emp-dark #aiPanel .ai-bubble .ai-table thead th,
+body.emp-dark #aiPanel .ai-bubble .ai-table thead th * {
+  background: #8B1A2D !important;
+  color: #FFFFFF !important;
+  border-color: #6E1422 !important;
+}
+body.emp-dark #aiPanel .ai-bubble .ai-table tbody td,
+body.emp-dark #aiPanel .ai-bubble .ai-table tbody td * {
+  background: #111827 !important;
+  color: #F1F5F9 !important;
+  border-color: #334155 !important;
+}
+body.emp-dark #aiPanel .ai-bubble .ai-table tbody tr:nth-child(even) td:not(:first-child),
+body.emp-dark #aiPanel .ai-bubble .ai-table tbody tr:nth-child(even) td:not(:first-child) * {
+  background: #0F172A !important;
+  color: #F1F5F9 !important;
+}
+body.emp-dark #aiPanel .ai-bubble .ai-table tbody tr td:first-child,
+body.emp-dark #aiPanel .ai-bubble .ai-table tbody tr td:first-child * {
+  background: #422006 !important;
+  color: #FCD34D !important;
+  font-weight: 600 !important;
+}
+body.emp-dark #aiPanel .ai-bubble .ai-table tbody tr:hover td:not(:first-child) {
+  background: #1E293B !important;
+}
+body.emp-dark #aiPanel .ai-bubble .ai-table tr.total-row td,
+body.emp-dark #aiPanel .ai-bubble .ai-table tr.total-row td * {
+  background: #78350F !important;
+  color: #FEF3C7 !important;
+  border-top-color: #F59E0B !important;
 }
 
 /* ===== Mobile Voice Cockpit (≤767px only) ============================== */
