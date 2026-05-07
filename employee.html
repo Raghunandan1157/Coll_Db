@@ -12677,10 +12677,25 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       try {
         var srcTable = card && card.querySelector('table');
         if (srcTable) {
+          // Wrap the rebuilt table in .ai-bubble > .ai-table-wrap so the
+          // !important burgundy theme (header #8B1A2D / first-col #FAD9B8 /
+          // border #C9C9C9) cascades onto the rebuilt cells. Inline styles
+          // below are the neutral fallback if the cascade doesn't apply
+          // (capture mounted outside #aiPanel, dark mode, etc).
+          var bubbleWrap = document.createElement('div');
+          bubbleWrap.className = 'ai-bubble';
+          bubbleWrap.style.cssText = 'background: transparent; padding: 0; margin: 0 0 16px 0;';
+          var tableWrap = document.createElement('div');
+          tableWrap.className = 'ai-table-wrap';
+          bubbleWrap.appendChild(tableWrap);
+
           var rebuilt = document.createElement('table');
+          rebuilt.className = 'ai-table';
           rebuilt.setAttribute('cellpadding', '0');
           rebuilt.setAttribute('cellspacing', '0');
-          rebuilt.style.cssText = 'border-collapse: collapse; width: 100%; margin-bottom: 16px; font-family: ' + FONT + '; font-size: 12.5px;';
+          rebuilt.style.cssText = 'border-collapse: collapse; width: 100%; font-family: ' + FONT + '; font-size: 12.5px;';
+          tableWrap.appendChild(rebuilt);
+
           var thead = srcTable.querySelector('thead');
           if (thead) {
             var thHtml = '';
@@ -12702,14 +12717,19 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
                   else if (td.classList.contains('pos')) tdColor = POS;
                   else if (td.classList.contains('warn')) tdColor = WARN;
                 }
+                // Mirror live `.num` class so cascade right-aligns numeric
+                // cells (live table sets it; we read presence by header
+                // alignment hint or the source cell's own class list).
+                var srcClass = (td.className || '');
+                var numCls = (/\bnum\b/.test(srcClass) ? ' class="num"' : '');
                 var monoFam = (ci === 0) ? FONT : FONT_MONO;
-                tdHtml += '<td style="padding: 7px 10px; border-bottom: 1px solid ' + LINE_SOFT + '; font-family: ' + monoFam + '; font-size: 12.5px; color: ' + tdColor + ';">' + esc(raw) + '</td>';
+                tdHtml += '<td' + numCls + ' style="padding: 7px 10px; border-bottom: 1px solid ' + LINE_SOFT + '; font-family: ' + monoFam + '; font-size: 12.5px; color: ' + tdColor + ';">' + esc(raw) + '</td>';
               });
               bodyHtml += '<tr>' + tdHtml + '</tr>';
             });
             rebuilt.innerHTML += '<tbody>' + bodyHtml + '</tbody>';
           }
-          cardDiv.appendChild(rebuilt);
+          cardDiv.appendChild(bubbleWrap);
         }
       } catch (_) {}
 
@@ -12782,11 +12802,15 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         return;
       }
 
-      // Mount offscreen so html2canvas can read its layout.
+      // Mount offscreen so html2canvas can read its layout. Prefer the
+      // #aiPanel root so panel-scoped CSS rules (burgundy table theme, etc.)
+      // apply. position:fixed escapes #aiPanel's overflow:hidden, so the
+      // capture isn't clipped.
       clip.style.position = 'fixed';
       clip.style.left = '-99999px';
       clip.style.top = '0';
-      document.body.appendChild(clip);
+      var mountHost = document.getElementById('aiPanel') || document.body;
+      mountHost.appendChild(clip);
 
       var setBtn = function (icon, label, ms) {
         if (!btn) return;
