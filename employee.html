@@ -4524,7 +4524,7 @@
     <button id="aiRailNew" type="button" onclick="window._aiNewChat && window._aiNewChat()">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       <span>New conversation</span>
-      <span class="ai-rail-kbd">⌘ K</span>
+      <span class="ai-rail-kbd" id="aiRailNewKbd">⌘ K</span>
     </button>
     <div class="ai-rail-section" id="aiRailPinned" hidden>
       <div class="ai-rail-label">Pinned</div>
@@ -11314,9 +11314,35 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
     };
     try { window._aiApplyStoredTheme(); } catch (_) {}
 
+    // One-shot relink: emp:* → phone:* when both identifiers exist on this device.
+    // Prevents user-key drift (older sessions wrote under emp:, post-OTP under phone:).
+    function _aiRelinkOnceIfNeeded() {
+      try {
+        var phone = String(localStorage.getItem('userPhone') || '').replace(/\D+/g, '');
+        var eid = String(localStorage.getItem('employeeId') || '').trim();
+        if (!phone || phone.length < 10 || !eid) return;
+        if (localStorage.getItem('nlpl_ai_relinked_v1')) return;
+        var from = 'emp:' + eid;
+        var to = 'phone:' + phone;
+        if (from === to) { localStorage.setItem('nlpl_ai_relinked_v1', '1'); return; }
+        fetch('/api/ai-chat/relink', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ from: from, to: to })
+        })
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function () {
+            try { localStorage.setItem('nlpl_ai_relinked_v1', '1'); } catch (_) {}
+            try { window._aiFetchChats && window._aiFetchChats(); } catch (_) {}
+          })
+          .catch(function () {});
+      } catch (_) {}
+    }
+
     // Pre-warm the chat cache as soon as the page is ready so the rail
     // isn't waiting on a network roundtrip when the panel opens.
     function _aiPrewarmChats() {
+      try { _aiRelinkOnceIfNeeded(); } catch (_) {}
       try { window._aiFetchChats && window._aiFetchChats(); } catch (_) {}
       try { window._aiRefreshRail && window._aiRefreshRail(); } catch (_) {}
       try { window._aiRefreshInspector && window._aiRefreshInspector(); } catch (_) {}
@@ -11327,6 +11353,37 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
     } else {
       setTimeout(_aiPrewarmChats, 120);
     }
+
+    // Bug #5 — rail meta times go stale ("now" sticks). Re-render every 60s
+    // so "now" → "1m" → "2m" without a manual refresh.
+    setInterval(function () {
+      try { window._aiRenderRailHistory && window._aiRenderRailHistory(); } catch (_) {}
+    }, 60000);
+
+    // Bug #1/#13 — wire ⌘K (Mac) / Ctrl+K (Win/Linux) to start a new chat,
+    // and rewrite the kbd hint label per platform.
+    (function () {
+      try {
+        var isMac = /Mac|iPhone|iPad|iPod/.test((navigator.platform || '') + ' ' + (navigator.userAgent || ''));
+        var kbdEl = document.getElementById('aiRailNewKbd');
+        if (kbdEl) kbdEl.textContent = isMac ? '⌘ K' : 'Ctrl K';
+        document.addEventListener('keydown', function (e) {
+          if (e.defaultPrevented) return;
+          var mod = isMac ? e.metaKey : e.ctrlKey;
+          if (!mod) return;
+          if ((e.key || '').toLowerCase() !== 'k') return;
+          // Only intercept when the AI panel is open. Otherwise let the browser/editor handle it.
+          var panel = document.getElementById('aiPanel');
+          if (!panel || !panel.classList.contains('open')) return;
+          e.preventDefault();
+          try { window._aiNewChat && window._aiNewChat(); } catch (_) {}
+          try {
+            var inp = document.getElementById('aiInput');
+            if (inp) inp.focus();
+          } catch (_) {}
+        });
+      } catch (_) {}
+    })();
 
     // ── Auto-spark: tiny SVG area chart appended to bot turns. ──
     // Extracts up to 12 numeric values from a markdown table or inline numbers
@@ -11619,8 +11676,28 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
             .filter(function (r) { return r.cells && r.cells.length >= 2 && !r.querySelector('th'); });
         }
         var maxCols = rows.reduce(function (m, r) { return Math.max(m, r.cells.length); }, 0);
+        // Detect rank/serial column so chip labels use the entity name, not "01"/"02".
+        // The card builder may have prepended a rank column already; or the LLM may emit one.
+        var heads = [];
+        if (table) {
+          heads = Array.prototype.slice.call(table.querySelectorAll('thead th, tr th'))
+            .map(function (h) { return String(h.textContent || '').toLowerCase().trim(); });
+        }
+        var labelCol = 0;
+        var firstHead = heads[0] || '';
+        var firstHeadIsRank = /^#$|^rank$|^sl?\.?\s*no\.?$|^s\.?\s*no\.?$|^no\.?$/.test(firstHead);
+        // Heuristic fallback: if every cells[0] is a small integer and cells[1] is a non-numeric string, treat col 0 as rank.
+        var col0AllInt = rows.length > 0 && rows.every(function (r) {
+          var t = String((r.cells[0] && r.cells[0].textContent) || '').trim();
+          return /^\d{1,3}$/.test(t);
+        });
+        var col1NonNumeric = rows.length > 0 && rows.every(function (r) {
+          var t = String((r.cells[1] && r.cells[1].textContent) || '').trim();
+          return t && !/^[\d,.\-₹%\s]+$/.test(t);
+        });
+        if ((firstHeadIsRank || col0AllInt) && col1NonNumeric && maxCols >= 3) labelCol = 1;
         var primaryCol = -1;
-        for (var c = 1; c < maxCols; c++) {
+        for (var c = labelCol + 1; c < maxCols; c++) {
           var hits = 0;
           rows.forEach(function (r) {
             var t = r.cells[c] ? String(r.cells[c].textContent || '').replace(/[^\-0-9.]/g, '') : '';
@@ -11631,7 +11708,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         var ranked = (primaryCol > 0) ? rows.slice().map(function (r) {
           var t = String((r.cells[primaryCol] && r.cells[primaryCol].textContent) || '').replace(/[^\-0-9.]/g, '');
           return {
-            label: String((r.cells[0] && r.cells[0].textContent) || '').trim(),
+            label: String((r.cells[labelCol] && r.cells[labelCol].textContent) || '').trim(),
             value: parseFloat(t) || 0
           };
         }).filter(function (r) { return r.label && isFinite(r.value); })
@@ -13667,7 +13744,11 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
     window._aiFetchChats = function () {
       var key = window._aiUserKey();
       return fetch('/api/ai-chat/conversations?user_key=' + encodeURIComponent(key))
-        .then(function (r) { return r.ok ? r.json() : { conversations: [] }; })
+        .then(function (r) {
+          // Bug #6 — preserve prior cache on transient failure rather than wiping rail.
+          if (!r.ok) throw new Error('fetch failed: ' + r.status);
+          return r.json();
+        })
         .then(function (j) {
           window._aiChatsCache = (j && j.conversations) || [];
           window._aiRenderRailHistory && window._aiRenderRailHistory();
@@ -13679,7 +13760,21 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
           }, 0);
           return window._aiChatsCache;
         })
-        .catch(function () { return []; });
+        .catch(function () {
+          // Keep last-known cache and re-render so existing rows remain visible.
+          window._aiRenderRailHistory && window._aiRenderRailHistory();
+          return window._aiChatsCache || [];
+        });
+    };
+    // Bug #7 — debounce post-turn fetches. user-write + assistant-write fire within
+    // ~3s; collapse to a single rail refresh.
+    var _aiFetchChatsTimer = null;
+    window._aiFetchChatsDebounced = function () {
+      if (_aiFetchChatsTimer) clearTimeout(_aiFetchChatsTimer);
+      _aiFetchChatsTimer = setTimeout(function () {
+        _aiFetchChatsTimer = null;
+        try { window._aiFetchChats && window._aiFetchChats(); } catch (_) {}
+      }, 500);
     };
     window._aiCreateChat = function (firstContent) {
       var key = window._aiUserKey();
@@ -13695,7 +13790,8 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
           var c = j && j.conversation;
           if (c) {
             window._aiSetCurrentChatId(c.id);
-            window._aiChatsCache.unshift({ ...c, msg_count: 0 });
+            // Bug #12 — Object.assign is consistent with the rest of this file.
+            window._aiChatsCache.unshift(Object.assign({}, c, { msg_count: 0 }));
           }
           return c;
         })
@@ -13713,8 +13809,8 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         })
           .then(function (r) { return r.ok ? r.json() : null; })
           .then(function () {
-            // Refresh rail to bump updated_at + auto-title.
-            window._aiFetchChats && window._aiFetchChats();
+            // Coalesce the inevitable user+assistant pair into a single rail refresh.
+            window._aiFetchChatsDebounced && window._aiFetchChatsDebounced();
           })
           .catch(function () {});
       };
@@ -13747,34 +13843,166 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         return (dt.getMonth() + 1) + '/' + dt.getDate();
       }
       function esc(s) {
-        return String(s || '').replace(/[<>&]/g, function (m) { return ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' })[m]; });
+        return String(s || '').replace(/[<>&"]/g, function (m) { return ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' })[m]; });
       }
+      var pinSvgFilled = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2 9 9l-7 1 5 5-1 7 6-3 6 3-1-7 5-5-7-1z"/></svg>';
+      var pinSvgOutline = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2 9 9l-7 1 5 5-1 7 6-3 6 3-1-7 5-5-7-1z"/></svg>';
+      var clockSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>';
+      var trashSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>';
       function itemHtml(c, isPinned) {
-        var act = (String(c.id) === current) ? ' aria-current="true"' : '';
+        var aria = (String(c.id) === current) ? ' aria-current="true"' : '';
         var cls = 'ai-rail-item' + (isPinned ? ' pinned' : '');
-        var icon = isPinned
-          ? '<svg class="ai-rail-item-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2 9 9l-7 1 5 5-1 7 6-3 6 3-1-7 5-5-7-1z"/></svg>'
-          : '<svg class="ai-rail-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>';
-        return '<button class="' + cls + '"' + act + ' data-cid="' + c.id + '">' + icon
-          + '<span class="ai-rail-item-title">' + esc(c.title || 'Untitled') + '</span>'
-          + '<span class="ai-rail-item-meta">' + fmtAge(c.updated_at) + '</span></button>';
+        var leadIcon = '<span class="ai-rail-item-icon">' + (isPinned ? pinSvgFilled : clockSvg) + '</span>';
+        var pinTitle = isPinned ? 'Unpin' : 'Pin';
+        var actions =
+          '<span class="ai-rail-item-actions">'
+          +   '<button type="button" class="ai-rail-item-iconbtn" data-action="pin" title="' + pinTitle + '" aria-label="' + pinTitle + '">' + pinSvgOutline + '</button>'
+          +   '<button type="button" class="ai-rail-item-iconbtn" data-action="del" title="Delete" aria-label="Delete">' + trashSvg + '</button>'
+          + '</span>';
+        return '<div class="' + cls + '"' + aria + ' data-cid="' + esc(c.id) + '">'
+          +   '<button type="button" class="ai-rail-item-body" data-action="open" title="' + esc(c.title || 'Untitled') + '">'
+          +     leadIcon
+          +     '<span class="ai-rail-item-title" data-cid="' + esc(c.id) + '">' + esc(c.title || 'Untitled') + '</span>'
+          +     '<span class="ai-rail-item-meta">' + fmtAge(c.updated_at) + '</span>'
+          +   '</button>'
+          +   actions
+          + '</div>';
       }
       if (pinnedSec) pinnedSec.hidden = !pinned.length;
       if (pinnedListEl) pinnedListEl.innerHTML = pinned.map(function (c) { return itemHtml(c, true); }).join('');
-      if (recent.length === 0) listEl.innerHTML = '<div class="ai-rail-empty">No conversations yet</div>';
-      else listEl.innerHTML = recent.map(function (c) { return itemHtml(c, false); }).join('');
+      if (recent.length === 0 && pinned.length === 0) {
+        listEl.innerHTML = '<div class="ai-rail-empty">No conversations yet</div>';
+      } else if (recent.length === 0) {
+        listEl.innerHTML = '<div class="ai-rail-empty">All chats pinned</div>';
+      } else {
+        listEl.innerHTML = recent.map(function (c) { return itemHtml(c, false); }).join('');
+      }
       var attach = function (el) {
-        Array.prototype.forEach.call(el.querySelectorAll('.ai-rail-item'), function (b) {
-          b.addEventListener('click', function () {
-            var cid = b.getAttribute('data-cid');
-            window._aiOpenChat && window._aiOpenChat(cid);
+        Array.prototype.forEach.call(el.querySelectorAll('.ai-rail-item'), function (row) {
+          var cid = row.getAttribute('data-cid');
+          var openBtn = row.querySelector('[data-action="open"]');
+          var pinBtn = row.querySelector('[data-action="pin"]');
+          var delBtn = row.querySelector('[data-action="del"]');
+          var titleEl = row.querySelector('.ai-rail-item-title');
+          if (openBtn) openBtn.addEventListener('click', function () { window._aiOpenChat && window._aiOpenChat(cid); });
+          if (pinBtn) pinBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            var c = (window._aiChatsCache || []).filter(function (x) { return String(x.id) === String(cid); })[0];
+            window._aiPinChat && window._aiPinChat(cid, !(c && c.pinned));
+          });
+          if (delBtn) delBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            var c = (window._aiChatsCache || []).filter(function (x) { return String(x.id) === String(cid); })[0];
+            var t = (c && c.title) || 'this conversation';
+            if (!window.confirm('Delete "' + t + '"? This cannot be undone.')) return;
+            window._aiDeleteChat && window._aiDeleteChat(cid);
+          });
+          if (titleEl) titleEl.addEventListener('dblclick', function (e) {
+            e.stopPropagation(); e.preventDefault();
+            window._aiBeginRename && window._aiBeginRename(cid, titleEl);
           });
         });
       };
       attach(listEl);
       if (pinnedListEl) attach(pinnedListEl);
     };
+    // ── Conversation mutations: delete / pin / rename. ──
+    window._aiDeleteChat = function (cid) {
+      var key = window._aiUserKey();
+      var url = '/api/ai-chat/conversations/' + encodeURIComponent(cid) + '?user_key=' + encodeURIComponent(key);
+      return fetch(url, { method: 'DELETE' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function () {
+          window._aiChatsCache = (window._aiChatsCache || []).filter(function (c) { return String(c.id) !== String(cid); });
+          // If we deleted the active chat, drop selection + reset transcript.
+          if (String(window._aiCurrentChatId() || '') === String(cid)) {
+            window._aiSetCurrentChatId('');
+            try { window._aiNewChat && window._aiNewChat(); } catch (_) {}
+          }
+          window._aiRenderRailHistory && window._aiRenderRailHistory();
+          try { window._aiToast && window._aiToast('Conversation deleted'); } catch (_) {}
+        })
+        .catch(function () { try { window._aiToast && window._aiToast('Delete failed'); } catch (_) {} });
+    };
+
+    window._aiPinChat = function (cid, pinned) {
+      var key = window._aiUserKey();
+      return fetch('/api/ai-chat/conversations/' + encodeURIComponent(cid), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_key: key, pinned: !!pinned })
+      })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) {
+          var c = j && j.conversation;
+          window._aiChatsCache = (window._aiChatsCache || []).map(function (x) {
+            if (String(x.id) !== String(cid)) return x;
+            return Object.assign({}, x, c ? c : { pinned: !!pinned });
+          });
+          window._aiRenderRailHistory && window._aiRenderRailHistory();
+        })
+        .catch(function () {});
+    };
+
+    window._aiRenameChat = function (cid, newTitle) {
+      var t = String(newTitle || '').trim().slice(0, 80);
+      if (!t) return Promise.resolve(null);
+      var key = window._aiUserKey();
+      return fetch('/api/ai-chat/conversations/' + encodeURIComponent(cid), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_key: key, title: t })
+      })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) {
+          var c = j && j.conversation;
+          window._aiChatsCache = (window._aiChatsCache || []).map(function (x) {
+            if (String(x.id) !== String(cid)) return x;
+            return Object.assign({}, x, c ? c : { title: t });
+          });
+          window._aiRenderRailHistory && window._aiRenderRailHistory();
+        })
+        .catch(function () {});
+    };
+
+    // Inline rename: swap title span for input, commit on Enter/blur, cancel on Esc.
+    window._aiBeginRename = function (cid, titleEl) {
+      if (!titleEl || titleEl.__renaming) return;
+      titleEl.__renaming = true;
+      var prev = titleEl.textContent;
+      var input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'ai-rail-item-rename';
+      input.value = prev;
+      input.maxLength = 80;
+      var parent = titleEl.parentNode;
+      parent.replaceChild(input, titleEl);
+      try { input.focus(); input.select(); } catch (_) {}
+      var done = false;
+      function finish(commit) {
+        if (done) return; done = true;
+        var v = String(input.value || '').trim();
+        var nextEl = titleEl;
+        nextEl.textContent = (commit && v) ? v : prev;
+        if (input.parentNode) input.parentNode.replaceChild(nextEl, input);
+        nextEl.__renaming = false;
+        if (commit && v && v !== prev) {
+          window._aiRenameChat && window._aiRenameChat(cid, v);
+        }
+      }
+      input.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+        else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+      });
+      input.addEventListener('blur', function () { finish(true); });
+      // Block parent button click while renaming.
+      input.addEventListener('click', function (e) { e.stopPropagation(); });
+      input.addEventListener('dblclick', function (e) { e.stopPropagation(); });
+    };
+
     window._aiOpenChat = function (cid) {
+      // Skip if already active — avoid wasted GET + DOM thrash.
+      if (String(window._aiCurrentChatId() || '') === String(cid)) return;
       var key = window._aiUserKey();
       window._aiSetCurrentChatId(cid);
       fetch('/api/ai-chat/conversations/' + encodeURIComponent(cid) + '/messages?user_key=' + encodeURIComponent(key))
@@ -13801,6 +14029,8 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
             if (m.role === 'user') priorUser = m.content;
           });
           window._aiRenderRailHistory && window._aiRenderRailHistory();
+          // Bug #10 — inspector frozen on prior chat. Refresh now that messages reloaded.
+          try { window._aiRefreshInspector && window._aiRefreshInspector(); } catch (_) {}
         })
         .catch(function () {});
     };
@@ -16478,11 +16708,10 @@ document.addEventListener('keydown', function(e) {
 }
 #aiPanel .ai-rail-list { display: flex; flex-direction: column; gap: 1px; }
 #aiPanel .ai-rail-item {
-  display: flex; align-items: center; gap: 10px;
-  padding: 7px 10px;
+  display: flex; align-items: center; gap: 4px;
+  padding: 0 4px 0 0;
   border-radius: 8px;
   color: var(--nlpl-fg-2);
-  cursor: pointer;
   font-family: var(--nlpl-font-sans);
   font-size: 13px;
   border: 1px solid transparent;
@@ -16502,11 +16731,25 @@ document.addEventListener('keydown', function(e) {
   content: ""; position: absolute; left: -1px; top: 8px; bottom: 8px; width: 2px;
   background: var(--nlpl-accent); border-radius: 2px;
 }
+#aiPanel .ai-rail-item-body {
+  flex: 1; min-width: 0;
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 4px 7px 10px;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+#aiPanel .ai-rail-item-body:focus { outline: none; }
 #aiPanel .ai-rail-item-icon {
   width: 14px; height: 14px;
   flex-shrink: 0;
   color: var(--nlpl-fg-4);
+  display: inline-flex; align-items: center; justify-content: center;
 }
+#aiPanel .ai-rail-item-icon svg { width: 14px; height: 14px; display: block; }
 #aiPanel .ai-rail-item.pinned .ai-rail-item-icon { color: var(--nlpl-accent); }
 #aiPanel .ai-rail-item-title {
   flex: 1; min-width: 0;
@@ -16518,6 +16761,48 @@ document.addEventListener('keydown', function(e) {
   font-size: 10.5px;
   color: var(--nlpl-fg-4);
   flex-shrink: 0;
+}
+#aiPanel .ai-rail-item-actions {
+  display: none;
+  align-items: center; gap: 2px;
+  flex-shrink: 0;
+}
+#aiPanel .ai-rail-item:hover .ai-rail-item-actions,
+#aiPanel .ai-rail-item:focus-within .ai-rail-item-actions {
+  display: inline-flex;
+}
+#aiPanel .ai-rail-item:hover .ai-rail-item-meta,
+#aiPanel .ai-rail-item:focus-within .ai-rail-item-meta {
+  display: none;
+}
+#aiPanel .ai-rail-item-iconbtn {
+  width: 22px; height: 22px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
+  color: var(--nlpl-fg-4);
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.12s, color 0.12s;
+}
+#aiPanel .ai-rail-item-iconbtn svg { width: 13px; height: 13px; display: block; }
+#aiPanel .ai-rail-item-iconbtn:hover {
+  background: var(--nlpl-bg);
+  color: var(--nlpl-fg);
+}
+#aiPanel .ai-rail-item-iconbtn[data-action="del"]:hover { color: var(--nlpl-neg, #c0392b); }
+#aiPanel .ai-rail-item.pinned .ai-rail-item-iconbtn[data-action="pin"] { color: var(--nlpl-accent); }
+#aiPanel .ai-rail-item-rename {
+  flex: 1; min-width: 0;
+  font-family: var(--nlpl-font-sans);
+  font-size: 13px;
+  color: var(--nlpl-fg);
+  background: var(--nlpl-bg);
+  border: 1px solid var(--nlpl-accent);
+  border-radius: 5px;
+  padding: 2px 6px;
+  outline: none;
 }
 #aiPanel .ai-rail-empty {
   font-family: var(--nlpl-font-mono);

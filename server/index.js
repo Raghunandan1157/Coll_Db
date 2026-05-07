@@ -10507,6 +10507,26 @@ app.delete('/api/ai-chat/conversations/:id', async (req, res) => {
   }
 });
 
+// POST /api/ai-chat/relink  body: {from, to}
+// One-shot migration when a user gains a more durable user_key (e.g. emp:X → phone:Y).
+// Moves all conversations + messages from `from` to `to`, then deletes the `from` row.
+app.post('/api/ai-chat/relink', async (req, res) => {
+  try {
+    const from = String((req.body && req.body.from) || '').trim();
+    const to = String((req.body && req.body.to) || '').trim();
+    if (!from || !to) return res.status(400).json({ error: 'from and to required' });
+    if (from === to) return res.json({ moved: 0, note: 'noop' });
+    const r = await pool.query(
+      `UPDATE ai_chat_conversations SET user_key = $1 WHERE user_key = $2`,
+      [to, from]
+    );
+    res.json({ moved: r.rowCount });
+  } catch (err) {
+    console.error('ai-chat relink error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/ai-chat/conversations/:id/messages?user_key=...
 app.get('/api/ai-chat/conversations/:id/messages', async (req, res) => {
   try {
