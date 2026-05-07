@@ -12145,6 +12145,9 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
           perEl.textContent = label;
         }
 
+        // Personalize TRY chips from history+role (heuristic, no LLM calls).
+        try { window._aiPickSuggestionChips && window._aiPickSuggestionChips(); } catch (_) {}
+
         // Wire suggestion chips: idempotent (replaceWith strips old listeners).
         var sgs = document.querySelectorAll('#aiCompSuggest .ai-comp-sg');
         Array.prototype.forEach.call(sgs, function (btn) {
@@ -12160,6 +12163,217 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
             try { window._aiSend && window._aiSend(); } catch (_) {}
           });
         });
+      } catch (_) {}
+    };
+
+    // ── Personalize TRY chips: history + role heuristic (no LLM tokens). ──
+    // Cache: { [cid]: { ts: <updated_at>, msgs: [<userMsg>, ...] } }
+    window._aiSuggestionMsgCache = window._aiSuggestionMsgCache || {};
+    window._aiSuggestionPendingFetch = false;
+
+    // Curated template pool. Each entry: tpl, role ('all' | string[]), topics[], needsBranch.
+    window._aiSuggestionPool = [
+      { id: 't1',  tpl: 'Compare {branch} vs adjacent branches this week', role: 'all',                topics: ['compare','collection'], needsBranch: true },
+      { id: 't2',  tpl: 'Why is {branch} below plan?',                      role: 'all',                topics: ['plan'],                  needsBranch: true },
+      { id: 't3',  tpl: 'Top 5 FOs by collection this week',                role: 'all',                topics: ['ranking','collection'] },
+      { id: 't4',  tpl: 'Top 5 FOs by collection FYTD',                     role: 'all',                topics: ['ranking','collection','fytd'] },
+      { id: 't5',  tpl: 'Disbursement by product · last 30 days',           role: 'all',                topics: ['disburse'] },
+      { id: 't6',  tpl: 'NPA activations · MTD',                            role: 'all',                topics: ['npa','mtd'] },
+      { id: 't7',  tpl: 'DPD bucket trend · last 4 weeks',                  role: 'all',                topics: ['dpd'] },
+      { id: 't8',  tpl: 'Compare today vs yesterday for {branch}',          role: 'all',                topics: ['compare','recency'],     needsBranch: true },
+      { id: 't9',  tpl: 'Forecast disbursement for next 30 days',           role: 'all',                topics: ['forecast','disburse'] },
+      { id: 't10', tpl: 'Branches below 90% plan attainment',               role: ['RM','DM','CEO'],    topics: ['plan','ranking'] },
+      { id: 't11', tpl: 'FOs with NPA cases > 30 in {branch}',              role: 'all',                topics: ['npa'],                   needsBranch: true },
+      { id: 't12', tpl: 'KYC pending · {branch}',                           role: 'all',                topics: ['kyc'],                   needsBranch: true },
+      { id: 't13', tpl: 'Region-wise collection · MTD',                     role: ['RM','DM','CEO'],    topics: ['collection','mtd'] },
+      { id: 't14', tpl: 'FYTD ranking by region',                           role: ['RM','DM','CEO'],    topics: ['ranking','fytd'] },
+      { id: 't15', tpl: 'Plan vs actual · today',                           role: ['BM'],               topics: ['plan','recency'] },
+      { id: 't16', tpl: 'Org collections · MTD vs last month',              role: ['CEO','RM'],         topics: ['collection','mtd','compare'] },
+      { id: 't17', tpl: 'Portfolio POS by branch · MTD',                    role: 'all',                topics: ['portfolio','mtd'] },
+      { id: 't18', tpl: 'FTOD trend · this week',                           role: 'all',                topics: ['ftod'] }
+    ];
+
+    // Topic regexes (case-insensitive). Tested against user message bodies + chat titles.
+    window._aiSuggestionTopics = {
+      collection: /\b(collection|demand)\b/i,
+      npa:        /\b(npa|delinqu)/i,
+      disburse:   /\bdisburs/i,
+      portfolio:  /\b(portfolio|pos)\b/i,
+      dpd:        /\b(dpd|bucket)\b/i,
+      kyc:        /\bkyc\b/i,
+      ftod:       /\bftod\b/i,
+      plan:       /\b(plan|target)\b/i,
+      forecast:   /\bforecast/i,
+      compare:    /\b(compare|vs\.?)\b/i,
+      recency:    /\b(today|yesterday)\b/i,
+      mtd:        /\b(mtd|month)\b/i,
+      fytd:       /\b(fy|fytd)\b/i,
+      ranking:    /\b(top\s+\d+|rank|best|worst)\b/i
+    };
+
+    // Recency-weighted topic scoring. messages = newest first.
+    window._aiSuggestionSignals = function (messages) {
+      var topics = window._aiSuggestionTopics || {};
+      var signals = {};
+      Object.keys(topics).forEach(function (k) { signals[k] = 0; });
+      (messages || []).forEach(function (msg, idx) {
+        if (!msg) return;
+        var w = Math.pow(0.7, idx);
+        Object.keys(topics).forEach(function (k) {
+          if (topics[k].test(msg)) signals[k] += w;
+        });
+      });
+      return signals;
+    };
+
+    function _aiResolveTpl(tpl, branchLabel, role) {
+      if (!/\{branch\}/.test(tpl)) return tpl;
+      var label = branchLabel || (role === 'BM' ? 'my branch' : '');
+      if (!label) return null;
+      return tpl.replace(/\{branch\}/g, label);
+    }
+
+    function _aiRoleMatches(allowed, role) {
+      if (allowed === 'all' || !allowed) return true;
+      if (Array.isArray(allowed)) return allowed.indexOf(role) !== -1;
+      return false;
+    }
+
+    function _aiFallbackPickIds(role) {
+      if (role === 'BM')                  return ['t2', 't3', 't15'];
+      if (role === 'RM' || role === 'DM') return ['t10', 't13', 't14'];
+      if (role === 'CEO')                 return ['t16', 't14', 't9'];
+      return ['t1', 't2', 't9'];
+    }
+
+    function _aiCapChip(s) {
+      return (s.length > 60) ? (s.slice(0, 57).trim() + '…') : s;
+    }
+
+    // Render top-3 picks into #aiCompSuggest, replacing existing .ai-comp-sg buttons.
+    function _aiRenderChips(picks) {
+      var host = document.getElementById('aiCompSuggest');
+      if (!host) return;
+      Array.prototype.forEach.call(host.querySelectorAll('.ai-comp-sg'), function (b) { b.remove(); });
+      picks.forEach(function (p) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'ai-comp-sg';
+        btn.setAttribute('data-prompt', p.prompt);
+        btn.textContent = p.prompt;
+        host.appendChild(btn);
+      });
+    }
+
+    window._aiPickSuggestionChips = function () {
+      try {
+        var s = (typeof _aiSession === 'function') ? _aiSession() : {};
+        var role = String((s && s.role) || '').toUpperCase();
+        var loc = String((s && s.location) || '').trim();
+        var branchLabel = loc ? (loc.charAt(0).toUpperCase() + loc.slice(1)) : '';
+
+        // Top-3 conversations from cache (already sorted newest-first by API).
+        var chats = (window._aiChatsCache || []).slice(0, 3);
+
+        // Gather signal corpus: cached user msgs (newest first) + chat titles.
+        var corpus = [];
+        var staleIds = [];
+        chats.forEach(function (c) {
+          var entry = window._aiSuggestionMsgCache[c.id];
+          if (entry && entry.ts === c.updated_at && Array.isArray(entry.msgs)) {
+            corpus = corpus.concat(entry.msgs);
+          } else {
+            staleIds.push(c.id);
+          }
+          if (c.title) corpus.push(String(c.title));
+        });
+
+        var signals = window._aiSuggestionSignals(corpus);
+        var hasSignal = Object.keys(signals).some(function (k) { return signals[k] > 0; });
+
+        var pool = window._aiSuggestionPool || [];
+        var scored = pool
+          .filter(function (t) { return _aiRoleMatches(t.role, role); })
+          .map(function (t) {
+            var resolved = _aiResolveTpl(t.tpl, branchLabel, role);
+            if (!resolved) return null;
+            var score = 0;
+            (t.topics || []).forEach(function (topic) { score += (signals[topic] || 0); });
+            // Role-fit bonus when a template is explicitly tagged for this role.
+            if (Array.isArray(t.role) && t.role.indexOf(role) !== -1) score += 0.15;
+            // Scope-fit bonus when {branch} resolves from real session location.
+            if (/\{branch\}/.test(t.tpl) && branchLabel) score += 0.1;
+            return { id: t.id, prompt: resolved, score: score, topic: (t.topics || [])[0] || '' };
+          })
+          .filter(Boolean);
+
+        var picks;
+        if (hasSignal) {
+          scored.sort(function (a, b) { return b.score - a.score; });
+          // Dedupe by primary topic so 3 chips don't collapse to one theme.
+          var seen = {};
+          var top = [];
+          for (var i = 0; i < scored.length && top.length < 3; i++) {
+            var it = scored[i];
+            if (it.topic && seen[it.topic]) continue;
+            if (it.topic) seen[it.topic] = 1;
+            top.push(it);
+          }
+          // Refill if dedupe starved us.
+          for (var j = 0; j < scored.length && top.length < 3; j++) {
+            if (top.indexOf(scored[j]) === -1) top.push(scored[j]);
+          }
+          picks = top;
+        } else {
+          // Cold start → role-aware static fallback.
+          var fbIds = _aiFallbackPickIds(role);
+          picks = fbIds.map(function (id) {
+            var t = pool.find(function (x) { return x.id === id; });
+            if (!t) return null;
+            var resolved = _aiResolveTpl(t.tpl, branchLabel, role);
+            return resolved ? { id: id, prompt: resolved } : null;
+          }).filter(Boolean);
+          // Top-up if a fallback got skipped (e.g. branch missing).
+          for (var k = 0; k < pool.length && picks.length < 3; k++) {
+            var t2 = pool[k];
+            if (!_aiRoleMatches(t2.role, role)) continue;
+            if (picks.find(function (p) { return p.id === t2.id; })) continue;
+            var resolved2 = _aiResolveTpl(t2.tpl, branchLabel, role);
+            if (resolved2) picks.push({ id: t2.id, prompt: resolved2 });
+          }
+        }
+
+        picks = picks.slice(0, 3).map(function (p) {
+          return { id: p.id, prompt: _aiCapChip(p.prompt) };
+        });
+
+        _aiRenderChips(picks);
+
+        // Async: refresh stale conversation messages, then re-pick + re-wire once.
+        if (staleIds.length && !window._aiSuggestionPendingFetch) {
+          window._aiSuggestionPendingFetch = true;
+          var key = (typeof window._aiUserKey === 'function') ? window._aiUserKey() : '';
+          Promise.all(staleIds.map(function (cid) {
+            var chat = chats.find(function (c) { return c.id === cid; });
+            var ts = chat ? chat.updated_at : '';
+            return fetch('/api/ai-chat/conversations/' + encodeURIComponent(cid) + '/messages?user_key=' + encodeURIComponent(key))
+              .then(function (r) { return r.ok ? r.json() : { messages: [] }; })
+              .then(function (j) {
+                // API returns oldest→newest; we want newest first for recency weighting.
+                var arr = ((j && j.messages) || [])
+                  .filter(function (m) { return m && m.role === 'user' && String(m.content || '').trim(); })
+                  .map(function (m) { return String(m.content); })
+                  .reverse();
+                window._aiSuggestionMsgCache[cid] = { ts: ts, msgs: arr };
+              })
+              .catch(function () { window._aiSuggestionMsgCache[cid] = { ts: ts, msgs: [] }; });
+          })).then(function () {
+            window._aiSuggestionPendingFetch = false;
+            // Re-pick (cache hit now → no-fetch re-render) and re-wire click handlers.
+            try { window._aiPickSuggestionChips(); } catch (_) {}
+            try { window._aiRefreshComposerFoot && window._aiRefreshComposerFoot(); } catch (_) {}
+          });
+        }
       } catch (_) {}
     };
 
@@ -12325,6 +12539,12 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         .then(function (j) {
           window._aiChatsCache = (j && j.conversations) || [];
           window._aiRenderRailHistory && window._aiRenderRailHistory();
+          // History changed (post-turn or initial load) → re-personalize TRY chips.
+          // Wrapped in setTimeout so the rail render is not blocked by chip work.
+          setTimeout(function () {
+            try { window._aiPickSuggestionChips && window._aiPickSuggestionChips(); } catch (_) {}
+            try { window._aiRefreshComposerFoot && window._aiRefreshComposerFoot(); } catch (_) {}
+          }, 0);
           return window._aiChatsCache;
         })
         .catch(function () { return []; });
