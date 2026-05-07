@@ -12583,7 +12583,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         heroTbl.style.cssText = 'border-collapse: collapse; margin-bottom: 18px; width: 100%;';
         var leftHtml = ''
           + (ebText ? '<div style="font-family: ' + FONT_MONO + '; font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase; color: ' + FG4 + '; margin-bottom: 8px;">' + esc(ebText) + '</div>' : '')
-          + (numText ? '<div style="font-family: ' + FONT_MONO + '; font-size: 44px; font-weight: 600; color: ' + FG + '; line-height: 1.05; margin-bottom: 8px; font-variant-numeric: tabular-nums; font-feature-settings: \\'tnum\\' 1, \\'zero\\' 1;">' + esc(numText) + '</div>' : '')
+          + (numText ? '<div style="font-family: ' + FONT_MONO + '; font-size: 44px; font-weight: 600; color: ' + FG + '; line-height: 1.05; margin-bottom: 8px; font-variant-numeric: tabular-nums; font-feature-settings: \'tnum\' 1, \'zero\' 1;">' + esc(numText) + '</div>' : '')
           + (deltaText
               ? '<div style="font-family: ' + FONT + '; font-size: 12px; color: ' + FG3 + ';">'
                 + '<span style="display: inline-block; padding: 2px 8px; border-radius: 6px; font-weight: 500; '
@@ -12633,8 +12633,8 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
             trH += '<td style="width: 33.33%; padding: 0; vertical-align: top;">'
               + '<div style="border: 1px solid ' + LINE + '; border-radius: 10px; padding: 12px; background: ' + BG + ';">'
               +   '<div style="font-family: ' + FONT_MONO + '; font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: ' + FG4 + '; margin-bottom: 6px;">' + esc(lab) + '</div>'
-              +   '<div style="font-family: ' + FONT_MONO + '; font-size: 18px; font-weight: 600; color: ' + FG + '; margin-bottom: ' + (dTxt ? '4' : '0') + 'px; font-variant-numeric: tabular-nums; font-feature-settings: \\'tnum\\' 1, \\'zero\\' 1;">' + esc(val) + '</div>'
-              +   (dTxt ? '<div style="font-family: ' + FONT_MONO + '; font-size: 11px; color: ' + dColor + '; font-variant-numeric: tabular-nums; font-feature-settings: \\'tnum\\' 1, \\'zero\\' 1;">' + esc(dTxt) + '</div>' : '')
+              +   '<div style="font-family: ' + FONT_MONO + '; font-size: 18px; font-weight: 600; color: ' + FG + '; margin-bottom: ' + (dTxt ? '4' : '0') + 'px; font-variant-numeric: tabular-nums; font-feature-settings: \'tnum\' 1, \'zero\' 1;">' + esc(val) + '</div>'
+              +   (dTxt ? '<div style="font-family: ' + FONT_MONO + '; font-size: 11px; color: ' + dColor + '; font-variant-numeric: tabular-nums; font-feature-settings: \'tnum\' 1, \'zero\' 1;">' + esc(dTxt) + '</div>' : '')
               + '</div>'
               + '</td>';
           });
@@ -12755,7 +12755,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
                 var numCls = (hasNumCls ? ' class="num"' : '');
                 var monoFam = (ci === 0 && !isNumericCol) ? FONT : FONT_MONO;
                 var tnumExtra = isNumericCol
-                  ? ' font-variant-numeric: tabular-nums; font-feature-settings: \\'tnum\\' 1, \\'zero\\' 1;'
+                  ? ' font-variant-numeric: tabular-nums; font-feature-settings: \'tnum\' 1, \'zero\' 1;'
                   : '';
                 tdHtml += '<td' + numCls + ' style="padding: 7px 10px; border-bottom: 1px solid ' + LINE_SOFT + '; font-family: ' + monoFam + '; font-size: 12.5px; color: ' + tdColor + ';' + tnumExtra + '">' + esc(raw) + '</td>';
               });
