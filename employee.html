@@ -5371,6 +5371,8 @@ body.emp-dark .ai-stopped-tag { background: rgba(220,38,38,.18); color: #FCA5A5;
 .ai-bubble h2.ai-h { font-size: 17px; }
 .ai-bubble h3.ai-h { font-size: 15.5px; }
 .ai-bubble h4.ai-h { font-size: 14.5px; color:#374151; }
+.ai-bubble h5.ai-h { font-size: 13.5px; color:#374151; text-transform: uppercase; letter-spacing: 0.04em; }
+.ai-bubble h6.ai-h { font-size: 12px; color:#4b5563; text-transform: uppercase; letter-spacing: 0.06em; }
 .ai-bubble strong { color: #0f172a; font-weight: 600; }
 .ai-bubble em { color: #374151; }
 .ai-bubble .ai-ul, .ai-bubble .ai-ol {
@@ -8169,10 +8171,12 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         return lead + html;
       });
 
-      // Headings #, ##, ### at start of line.
-      s = s.replace(/^###\s+(.+)$/gm, '<h4 class="ai-h">$1</h4>');
-      s = s.replace(/^##\s+(.+)$/gm,  '<h3 class="ai-h">$1</h3>');
-      s = s.replace(/^#\s+(.+)$/gm,   '<h2 class="ai-h">$1</h2>');
+      // Headings #..###### at start of line. # → h2, ## → h3, ### → h4, #### → h5,
+      // ##### / ###### → h6 (capped). Longest-first match implicit via length capture.
+      s = s.replace(/^(#{1,6})\s+(.+)$/gm, function (_m, hashes, txt) {
+        var lvl = Math.min(hashes.length + 1, 6);
+        return '<h' + lvl + ' class="ai-h">' + txt + '</h' + lvl + '>';
+      });
 
       // Blockquotes.
       s = s.replace(/^&gt;\s?(.+)$/gm, '<blockquote class="ai-bq">$1</blockquote>');
@@ -11769,12 +11773,20 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         var table = bubbleEl.querySelector('table');
         if (!table) return;
         var intent = window._aiVisualIntent && window._aiVisualIntent(userQuestion);
-        if (intent !== 'series' && intent !== 'compare' && intent !== 'per-row' && intent !== 'breakdown') return;
 
         // Collect data rows (excluding header rows).
         var rows = Array.prototype.slice.call(table.querySelectorAll('tbody tr, tr'))
           .filter(function (r) { return r.cells && r.cells.length >= 2 && !r.querySelector('th'); });
         if (!rows.length) return;
+
+        // Snapshot fallback: when no narrow intent matches but the answer is a
+        // multi-row structured table, still wrap with the card shell (header +
+        // body + follow-ups + source foot). Hero/chart gates further down still
+        // require series/compare so we do not invent a chart for snapshots.
+        if (intent !== 'series' && intent !== 'compare' && intent !== 'per-row' && intent !== 'breakdown') {
+          if (rows.length >= 2) intent = 'snapshot';
+          else return;
+        }
 
         // Detect first-column shape for hero eligibility.
         var labelsRaw = rows.slice(0, 12).map(function (r) {
