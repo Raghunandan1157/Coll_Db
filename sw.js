@@ -1,4 +1,4 @@
-var CACHE_NAME = 'coll-report-v127';
+var CACHE_NAME = 'coll-report-v129';
 var NAV_FALLBACKS = ['./employee.html', './index.html'];
 var ASSETS = [
   './',

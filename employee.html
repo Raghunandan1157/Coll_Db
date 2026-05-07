@@ -11420,7 +11420,12 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       }
       // Explicit ranking → per-row (downstream may still fall to line if first
       // column is ordered, e.g. "top 5 days").
-      if (/\btop\s*\d+\s+(field\s+officers?|fos?|officers?|employees?|branches?|regions?|staff|teams?|products?|members?|days?|weeks?|months?)\b/.test(q)) {
+      if (/\btop\s*\d+\s+(field\s+officers?|fos?|officers?|employees?|branches?|regions?|staff|teams?|products?|members?|days?|weeks?|months?|contributors?|performers?|collectors?|managers?|bms?|rms?|dms?|districts?|areas?|dpd|buckets?|states?|users?|loans?|cases?|customers?)\b/.test(q)) {
+        return 'per-row';
+      }
+      // "top N" without an entity word (e.g. "top 5", "top 10 contributors")
+      // — assume ranking. The follow-up clarifier may still rephrase.
+      if (/\btop\s*\d+\b/.test(q) || /\bbottom\s*\d+\b/.test(q)) {
         return 'per-row';
       }
       if (/\b(rank|ranking|leader\s*board|best|worst|highest|lowest|leading|underperform)\b/.test(q)) {
@@ -12476,6 +12481,18 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
           // Drop class refs so external CSS can't recolor.
           if (n.removeAttribute) n.removeAttribute('class');
         });
+        // Force Plex Mono on every <text> (legends, ticks, value labels)
+        // — html2canvas captures whatever the SVG declares, so explicit
+        // font-family beats any cascaded sans fallback.
+        var texts = clone.querySelectorAll('text, tspan');
+        Array.prototype.forEach.call(texts, function (t) {
+          t.setAttribute('font-family', "'IBM Plex Mono', 'SF Mono', ui-monospace, Menlo, monospace");
+          if (t.style) {
+            t.style.fontFamily = "'IBM Plex Mono', 'SF Mono', ui-monospace, Menlo, monospace";
+            t.style.fontVariantNumeric = 'tabular-nums';
+            t.style.fontFeatureSettings = "'tnum' 1, 'zero' 1";
+          }
+        });
         return clone.outerHTML;
       };
 
@@ -12566,7 +12583,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         heroTbl.style.cssText = 'border-collapse: collapse; margin-bottom: 18px; width: 100%;';
         var leftHtml = ''
           + (ebText ? '<div style="font-family: ' + FONT_MONO + '; font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase; color: ' + FG4 + '; margin-bottom: 8px;">' + esc(ebText) + '</div>' : '')
-          + (numText ? '<div style="font-family: ' + FONT + '; font-size: 44px; font-weight: 600; color: ' + FG + '; line-height: 1.05; margin-bottom: 8px;">' + esc(numText) + '</div>' : '')
+          + (numText ? '<div style="font-family: ' + FONT_MONO + '; font-size: 44px; font-weight: 600; color: ' + FG + '; line-height: 1.05; margin-bottom: 8px; font-variant-numeric: tabular-nums; font-feature-settings: \\'tnum\\' 1, \\'zero\\' 1;">' + esc(numText) + '</div>' : '')
           + (deltaText
               ? '<div style="font-family: ' + FONT + '; font-size: 12px; color: ' + FG3 + ';">'
                 + '<span style="display: inline-block; padding: 2px 8px; border-radius: 6px; font-weight: 500; '
@@ -12616,8 +12633,8 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
             trH += '<td style="width: 33.33%; padding: 0; vertical-align: top;">'
               + '<div style="border: 1px solid ' + LINE + '; border-radius: 10px; padding: 12px; background: ' + BG + ';">'
               +   '<div style="font-family: ' + FONT_MONO + '; font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: ' + FG4 + '; margin-bottom: 6px;">' + esc(lab) + '</div>'
-              +   '<div style="font-family: ' + FONT + '; font-size: 18px; font-weight: 600; color: ' + FG + '; margin-bottom: ' + (dTxt ? '4' : '0') + 'px;">' + esc(val) + '</div>'
-              +   (dTxt ? '<div style="font-family: ' + FONT_MONO + '; font-size: 11px; color: ' + dColor + ';">' + esc(dTxt) + '</div>' : '')
+              +   '<div style="font-family: ' + FONT_MONO + '; font-size: 18px; font-weight: 600; color: ' + FG + '; margin-bottom: ' + (dTxt ? '4' : '0') + 'px; font-variant-numeric: tabular-nums; font-feature-settings: \\'tnum\\' 1, \\'zero\\' 1;">' + esc(val) + '</div>'
+              +   (dTxt ? '<div style="font-family: ' + FONT_MONO + '; font-size: 11px; color: ' + dColor + '; font-variant-numeric: tabular-nums; font-feature-settings: \\'tnum\\' 1, \\'zero\\' 1;">' + esc(dTxt) + '</div>' : '')
               + '</div>'
               + '</td>';
           });
@@ -12696,14 +12713,25 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
           rebuilt.style.cssText = 'border-collapse: collapse; width: 100%; font-family: ' + FONT + '; font-size: 12.5px;';
           tableWrap.appendChild(rebuilt);
 
+          // Header-regex scan: any column whose header reads like a numeric
+          // field (amount / cr / count / cases / attain / % / value / score
+          // / fytd / mtd / delta / change / vs) gets Plex Mono + tnum on
+          // every body cell. First column is always treated as a label.
+          var numericRe = /amount|\bcr\b|crore|count|cases|attain|%|value|score|fytd|mtd|delta|change|\bvs\b|total|amt|sum|target|achieved|disbursed|outstanding|npa|plan/i;
+          var headerTexts = [];
           var thead = srcTable.querySelector('thead');
           if (thead) {
             var thHtml = '';
-            Array.prototype.forEach.call(thead.querySelectorAll('th'), function (th) {
-              thHtml += '<th style="text-align: left; padding: 8px 10px; background: ' + BG_ALT + '; border-bottom: 1px solid ' + LINE + '; font-family: ' + FONT_MONO + '; font-size: 10.5px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: ' + FG3 + ';">' + esc(th.textContent || '') + '</th>';
+            Array.prototype.forEach.call(thead.querySelectorAll('th'), function (th, ci) {
+              var ht = (th.textContent || '').trim();
+              headerTexts.push(ht);
+              thHtml += '<th style="text-align: left; padding: 8px 10px; background: ' + BG_ALT + '; border-bottom: 1px solid ' + LINE + '; font-family: ' + FONT_MONO + '; font-size: 10.5px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: ' + FG3 + ';">' + esc(ht) + '</th>';
             });
             rebuilt.innerHTML += '<thead><tr>' + thHtml + '</tr></thead>';
           }
+          var numericCols = headerTexts.map(function (h, ci) {
+            return ci > 0 && numericRe.test(h);
+          });
           var tbody = srcTable.querySelector('tbody');
           if (tbody) {
             var bodyHtml = '';
@@ -12717,13 +12745,19 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
                   else if (td.classList.contains('pos')) tdColor = POS;
                   else if (td.classList.contains('warn')) tdColor = WARN;
                 }
-                // Mirror live `.num` class so cascade right-aligns numeric
-                // cells (live table sets it; we read presence by header
-                // alignment hint or the source cell's own class list).
                 var srcClass = (td.className || '');
-                var numCls = (/\bnum\b/.test(srcClass) ? ' class="num"' : '');
-                var monoFam = (ci === 0) ? FONT : FONT_MONO;
-                tdHtml += '<td' + numCls + ' style="padding: 7px 10px; border-bottom: 1px solid ' + LINE_SOFT + '; font-family: ' + monoFam + '; font-size: 12.5px; color: ' + tdColor + ';">' + esc(raw) + '</td>';
+                var hasNumCls = /\bnum\b/.test(srcClass);
+                // Mono if: source cell has .num, OR header matches the
+                // numeric regex, OR (fallback) cell is non-first AND
+                // value parses as a number with optional %/Cr/L suffix.
+                var looksNumeric = ci > 0 && /^[₹\s\-\+]*[\d,.\s%]+(?:\s*(?:cr|crore|crores|lakh|lakhs|l|pts?|points?))?$/i.test(raw);
+                var isNumericCol = hasNumCls || numericCols[ci] || looksNumeric;
+                var numCls = (hasNumCls ? ' class="num"' : '');
+                var monoFam = (ci === 0 && !isNumericCol) ? FONT : FONT_MONO;
+                var tnumExtra = isNumericCol
+                  ? ' font-variant-numeric: tabular-nums; font-feature-settings: \\'tnum\\' 1, \\'zero\\' 1;'
+                  : '';
+                tdHtml += '<td' + numCls + ' style="padding: 7px 10px; border-bottom: 1px solid ' + LINE_SOFT + '; font-family: ' + monoFam + '; font-size: 12.5px; color: ' + tdColor + ';' + tnumExtra + '">' + esc(raw) + '</td>';
               });
               bodyHtml += '<tr>' + tdHtml + '</tr>';
             });
@@ -12830,10 +12864,27 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
       var captureH = Math.max(clip.scrollHeight, 200);
 
       var fontReady = function () {
-        if (document.fonts && document.fonts.ready && typeof document.fonts.ready.then === 'function') {
-          return document.fonts.ready;
-        }
-        return Promise.resolve();
+        // Force-load IBM Plex Mono 400/500 (used by every numeric field
+        // in the print render). document.fonts.ready alone resolves once
+        // the *currently-used* fonts are loaded — the offscreen clip may
+        // reference Plex Mono before any visible node did, so we have to
+        // ask for it explicitly. Inter 500/600 is preloaded too because
+        // the title + KPI label rely on it.
+        var loads = [];
+        try {
+          if (document.fonts && typeof document.fonts.load === 'function') {
+            loads.push(document.fonts.load("400 14px 'IBM Plex Mono'"));
+            loads.push(document.fonts.load("500 14px 'IBM Plex Mono'"));
+            loads.push(document.fonts.load("600 14px 'IBM Plex Mono'"));
+            loads.push(document.fonts.load("500 14px 'Inter'"));
+            loads.push(document.fonts.load("600 14px 'Inter'"));
+          }
+        } catch (_) {}
+        var readyP = (document.fonts && document.fonts.ready && typeof document.fonts.ready.then === 'function')
+          ? document.fonts.ready
+          : Promise.resolve();
+        // Wait for both: the explicit loads AND the global ready promise.
+        return Promise.all(loads).then(function () { return readyP; }, function () { return readyP; });
       };
 
       var doCapture = function (h2c) {
