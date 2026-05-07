@@ -11448,7 +11448,14 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         var table = bubbleEl.querySelector('table');
         if (!table) return;
         var rows = Array.prototype.slice.call(table.querySelectorAll('tbody tr, tr'));
-        rows = rows.filter(function (r) { return r.cells && r.cells.length >= 2 && !r.querySelector('th'); });
+        rows = rows.filter(function (r) {
+          if (!r.cells || r.cells.length < 2) return false;
+          if (r.querySelector('th')) return false;
+          // Drop totals/summary rows so they don't pollute the chart.
+          var firstCell = String((r.cells[0] && r.cells[0].textContent) || '').trim().toLowerCase();
+          if (/^(total|grand\s*total|sum|subtotal|overall)\b/.test(firstCell)) return false;
+          return true;
+        });
         if (rows.length < 2) return;
         var maxCols = rows.reduce(function (m, r) { return Math.max(m, r.cells.length); }, 0);
         var numCols = [];
@@ -12147,6 +12154,19 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
               fuWrap.appendChild(btn);
             });
             body.appendChild(fuWrap);
+          }
+        } catch (_) {}
+
+        // Hoist the chart (spark/pie/bars) to the very top of the body so
+        // every answer leads with its visual, then prose + table + followups
+        // follow underneath. The hero block (when it ran) already lives at
+        // the top, so only move sparks that aren't already inside the hero.
+        try {
+          var allCharts = body.querySelectorAll('.ai-spark-wrap');
+          for (var ci = allCharts.length - 1; ci >= 0; ci--) {
+            var ch = allCharts[ci];
+            if (ch.closest && ch.closest('.ai-ans-hero')) continue;
+            if (body.firstChild !== ch) body.insertBefore(ch, body.firstChild);
           }
         } catch (_) {}
 
