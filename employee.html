@@ -12348,61 +12348,393 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
     // NEVER falls back to text — on capture failure or clipboard rejection
     // the file is downloaded and a toast surfaces the result.
     //   opts.mode: 'clipboard' (default) | 'download'
+    // ── Build a print-mode render of an answer card. Reads the live card's
+    //    structured data and emits a fresh DOM tree that uses ONLY <table>
+    //    layouts + inline styles + explicit-color SVGs. Designed to feed
+    //    html2canvas without losing flex spacing or web-font metrics.
+    //
+    //    Input: any node inside the bubble (the bubble itself, the meta, the
+    //    card, or the foot). The function walks to the bubble and reads from
+    //    every sibling.
+    //    Output: a detached <div> with width 720px, white background, zero
+    //    flex / grid containers. Caller is responsible for appending +
+    //    removing it.
+    window._aiBuildPrintCard = function (srcCard) {
+      var bubble = srcCard;
+      while (bubble && !(bubble.classList && bubble.classList.contains('ai-bubble-bot')) && bubble.parentNode) {
+        bubble = bubble.parentNode;
+        if (bubble && bubble.querySelector && bubble.querySelector('.ai-ans-card')) break;
+      }
+      var card = (bubble && bubble.querySelector && bubble.querySelector('.ai-ans-card')) || srcCard;
+      var meta = (bubble && bubble.querySelector && bubble.querySelector('.ai-ans-meta')) || null;
+      var foot = (bubble && bubble.querySelector && bubble.querySelector('.ai-ans-foot')) || null;
+
+      // ── Tokens. Resolve --nlpl-* to literals via getComputedStyle on a
+      //    panel-rooted node so dark-mode picks the dark palette.
+      var probe = document.getElementById('aiPanel') || document.body;
+      var cs = window.getComputedStyle(probe);
+      var tok = function (name, fallback) {
+        var v = (cs.getPropertyValue(name) || '').trim();
+        return v || fallback;
+      };
+      var BG       = tok('--nlpl-bg-card', '#ffffff');
+      var BG_ALT   = tok('--nlpl-bg-card-2', '#f8f9fb');
+      var FG       = tok('--nlpl-fg', '#0f1929');
+      var FG2      = tok('--nlpl-fg-2', '#34415a');
+      var FG3      = tok('--nlpl-fg-3', '#5d6b82');
+      var FG4      = tok('--nlpl-fg-4', '#8a93a6');
+      var LINE     = tok('--nlpl-line', '#e3e6eb');
+      var LINE_SOFT= tok('--nlpl-line-soft', '#edeff3');
+      var ACCENT   = tok('--nlpl-accent', '#1f5fd1');
+      var ACCENT_S = tok('--nlpl-accent-soft', '#e8efff');
+      var POS      = tok('--nlpl-pos', '#1f8a5b');
+      var NEG      = tok('--nlpl-neg', '#c43d3d');
+      var WARN     = tok('--nlpl-warn', '#b97a0a');
+      var FONT     = "'Inter', 'Helvetica Neue', Arial, sans-serif";
+      var FONT_MONO = "'IBM Plex Mono', 'SF Mono', Menlo, Consolas, monospace";
+
+      var esc = function (s) {
+        return String(s == null ? '' : s)
+          .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+      };
+
+      // ── SVG sanitizer. Clone, set xmlns, resolve currentColor against
+      //    the source node's computed color so the icon paints correctly.
+      var sanitizeSvg = function (srcSvg) {
+        if (!srcSvg) return '';
+        var color = '';
+        try { color = window.getComputedStyle(srcSvg).color || ''; } catch (_) {}
+        if (!color || color === 'rgb(0, 0, 0)' || color === 'rgba(0, 0, 0, 0)') {
+          try { color = window.getComputedStyle(srcSvg.parentNode || srcSvg).color || ''; } catch (_) {}
+        }
+        if (!color) color = ACCENT;
+        var clone = srcSvg.cloneNode(true);
+        if (!clone.getAttribute('xmlns')) clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        var nodes = [clone].concat(Array.prototype.slice.call(clone.querySelectorAll('*')));
+        nodes.forEach(function (n) {
+          ['stroke', 'fill'].forEach(function (attr) {
+            var v = n.getAttribute && n.getAttribute(attr);
+            if (v && v.toLowerCase() === 'currentcolor') n.setAttribute(attr, color);
+          });
+          if (n.style) {
+            if ((n.style.stroke || '').toLowerCase() === 'currentcolor') n.style.stroke = color;
+            if ((n.style.fill || '').toLowerCase() === 'currentcolor') n.style.fill = color;
+          }
+          // Drop class refs so external CSS can't recolor.
+          if (n.removeAttribute) n.removeAttribute('class');
+        });
+        return clone.outerHTML;
+      };
+
+      // ── Root container. Width fixed at 720, white, padded.
+      var root = document.createElement('div');
+      root.style.cssText = [
+        'width: 720px',
+        'box-sizing: border-box',
+        'background: #ffffff',
+        'color: ' + FG,
+        'font-family: ' + FONT,
+        'font-size: 14px',
+        'line-height: 1.5',
+        'padding: 24px',
+        'border-radius: 14px'
+      ].join('; ') + ';';
+
+      // ── Meta line ("Time-series answer", etc.) ──────────────────────
+      if (meta) {
+        var metaText = '';
+        var firstSpan = meta.querySelector('span');
+        if (firstSpan) metaText = (firstSpan.textContent || '').trim();
+        var metaTbl = document.createElement('table');
+        metaTbl.setAttribute('cellpadding', '0');
+        metaTbl.setAttribute('cellspacing', '0');
+        metaTbl.style.cssText = 'border-collapse: collapse; margin-bottom: 14px; width: 100%;';
+        metaTbl.innerHTML = '<tr>'
+          + '<td style="vertical-align: middle; padding: 0; font-family: ' + FONT_MONO + '; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: ' + FG4 + ';">'
+          + '<span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: ' + ACCENT + '; margin-right: 8px; vertical-align: middle;"></span>'
+          + esc(metaText)
+          + '</td></tr>';
+        root.appendChild(metaTbl);
+      }
+
+      // ── Card shell.
+      var cardDiv = document.createElement('div');
+      cardDiv.style.cssText = [
+        'background: ' + BG,
+        'border: 1px solid ' + LINE,
+        'border-radius: 14px',
+        'padding: 20px',
+        'color: ' + FG
+      ].join('; ') + ';';
+      root.appendChild(cardDiv);
+
+      // ── Title row (icon tile + text), table layout.
+      var titleText = '';
+      var h3 = card && card.querySelector('.ai-ans-head h3');
+      if (h3) titleText = (h3.textContent || '').trim();
+      if (titleText) {
+        var titleTbl = document.createElement('table');
+        titleTbl.setAttribute('cellpadding', '0');
+        titleTbl.setAttribute('cellspacing', '0');
+        titleTbl.style.cssText = 'border-collapse: collapse; margin-bottom: 18px; width: 100%;';
+        titleTbl.innerHTML = '<tr>'
+          + '<td style="vertical-align: middle; width: 32px; padding: 0;">'
+          +   '<div style="width: 24px; height: 24px; border-radius: 6px; background: ' + ACCENT + '; display: inline-block;"></div>'
+          + '</td>'
+          + '<td style="vertical-align: middle; padding: 0 0 0 12px;">'
+          +   '<div style="font-family: ' + FONT + '; font-size: 17px; font-weight: 600; color: ' + FG + ';">' + esc(titleText) + '</div>'
+          + '</td>'
+          + '</tr>';
+        cardDiv.appendChild(titleTbl);
+      }
+
+      // ── Hero block: eyebrow + big number + delta + chart SVG.
+      var hero = card && card.querySelector('.ai-ans-hero');
+      if (hero) {
+        var eyebrow = hero.querySelector('.ai-ans-hero-eyebrow');
+        var bigNum = hero.querySelector('.ai-ans-hero-num');
+        var heroMeta = hero.querySelector('.ai-ans-hero-meta');
+        var heroChart = hero.querySelector('.ai-ans-hero-chart svg');
+        var heroLegend = hero.querySelector('.ai-ans-hero-legend');
+
+        var ebText = eyebrow ? (eyebrow.textContent || '').trim() : '';
+        var numText = bigNum ? (bigNum.textContent || '').trim() : '';
+        var deltaText = '', deltaIsNeg = false;
+        if (heroMeta) {
+          var dB = heroMeta.querySelector('.delta-big');
+          if (dB) {
+            deltaText = (dB.textContent || '').trim();
+            deltaIsNeg = dB.classList.contains('neg');
+          }
+        }
+        var heroTbl = document.createElement('table');
+        heroTbl.setAttribute('cellpadding', '0');
+        heroTbl.setAttribute('cellspacing', '0');
+        heroTbl.style.cssText = 'border-collapse: collapse; margin-bottom: 18px; width: 100%;';
+        var leftHtml = ''
+          + (ebText ? '<div style="font-family: ' + FONT_MONO + '; font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase; color: ' + FG4 + '; margin-bottom: 8px;">' + esc(ebText) + '</div>' : '')
+          + (numText ? '<div style="font-family: ' + FONT + '; font-size: 44px; font-weight: 600; color: ' + FG + '; line-height: 1.05; margin-bottom: 8px;">' + esc(numText) + '</div>' : '')
+          + (deltaText
+              ? '<div style="font-family: ' + FONT + '; font-size: 12px; color: ' + FG3 + ';">'
+                + '<span style="display: inline-block; padding: 2px 8px; border-radius: 6px; font-weight: 500; '
+                + 'color: ' + (deltaIsNeg ? NEG : POS) + '; '
+                + 'background: ' + (deltaIsNeg ? '#fbecec' : '#e8f5ee') + '; '
+                + 'margin-right: 8px;">' + esc(deltaText) + '</span>'
+                + '<span style="color: ' + FG4 + ';">vs. last period</span>'
+                + '</div>'
+              : '');
+        var rightHtml = '';
+        if (heroChart) {
+          rightHtml += '<div style="text-align: right;">' + sanitizeSvg(heroChart) + '</div>';
+          if (heroLegend) {
+            rightHtml += '<div style="margin-top: 6px; text-align: right; font-family: ' + FONT_MONO + '; font-size: 10px; letter-spacing: 0.04em; color: ' + FG4 + ';">'
+              + '<span style="display: inline-block; margin-right: 14px;"><span style="display: inline-block; width: 14px; height: 2px; background: ' + ACCENT + '; vertical-align: middle; margin-right: 5px;"></span>THIS MONTH</span>'
+              + '<span style="display: inline-block;"><span style="display: inline-block; width: 14px; height: 2px; background: ' + FG4 + '; vertical-align: middle; margin-right: 5px;"></span>LAST MONTH</span>'
+              + '</div>';
+          }
+        }
+        heroTbl.innerHTML = '<tr>'
+          + '<td style="vertical-align: middle; padding: 0; width: 50%;">' + leftHtml + '</td>'
+          + '<td style="vertical-align: middle; padding: 0 0 0 16px; width: 50%;">' + rightHtml + '</td>'
+          + '</tr>';
+        cardDiv.appendChild(heroTbl);
+      }
+
+      // ── Mini KPI strip — 3-column table, equal widths.
+      var mkpis = card && card.querySelector('.ai-ans-mkpis');
+      if (mkpis) {
+        var cols = Array.prototype.slice.call(mkpis.querySelectorAll('.ai-ans-mkpi'));
+        if (cols.length) {
+          var kTbl = document.createElement('table');
+          kTbl.setAttribute('cellpadding', '0');
+          kTbl.setAttribute('cellspacing', '0');
+          kTbl.style.cssText = 'border-collapse: separate; border-spacing: 8px 0; width: 100%; margin: 0 -8px 18px -8px;';
+          var trH = '';
+          cols.forEach(function (c) {
+            var lab = (c.querySelector('.ai-ans-mkpi-label') || {}).textContent || '';
+            var val = (c.querySelector('.ai-ans-mkpi-val') || {}).textContent || '';
+            var dEl = c.querySelector('.ai-ans-mkpi-d');
+            var dTxt = dEl ? (dEl.textContent || '').trim() : '';
+            var dColor = FG4;
+            if (dEl) {
+              if (dEl.classList.contains('pos')) dColor = POS;
+              else if (dEl.classList.contains('neg')) dColor = NEG;
+            }
+            trH += '<td style="width: 33.33%; padding: 0; vertical-align: top;">'
+              + '<div style="border: 1px solid ' + LINE + '; border-radius: 10px; padding: 12px; background: ' + BG + ';">'
+              +   '<div style="font-family: ' + FONT_MONO + '; font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: ' + FG4 + '; margin-bottom: 6px;">' + esc(lab) + '</div>'
+              +   '<div style="font-family: ' + FONT + '; font-size: 18px; font-weight: 600; color: ' + FG + '; margin-bottom: ' + (dTxt ? '4' : '0') + 'px;">' + esc(val) + '</div>'
+              +   (dTxt ? '<div style="font-family: ' + FONT_MONO + '; font-size: 11px; color: ' + dColor + ';">' + esc(dTxt) + '</div>' : '')
+              + '</div>'
+              + '</td>';
+          });
+          kTbl.innerHTML = '<tr>' + trH + '</tr>';
+          cardDiv.appendChild(kTbl);
+        }
+      }
+
+      // ── Top-of-card chart wrap (.ai-spark-wrap that's not inside hero).
+      try {
+        var topCharts = (card && card.querySelectorAll) ? card.querySelectorAll('.ai-ans-body > .ai-spark-wrap, .ai-ans-body .ai-spark-wrap') : [];
+        Array.prototype.forEach.call(topCharts, function (wrap) {
+          if (wrap.closest && wrap.closest('.ai-ans-hero')) return;
+          var sv = wrap.querySelector('svg');
+          if (!sv) return;
+          var chartTbl = document.createElement('table');
+          chartTbl.setAttribute('cellpadding', '0');
+          chartTbl.setAttribute('cellspacing', '0');
+          chartTbl.style.cssText = 'border-collapse: collapse; width: 100%; margin-bottom: 16px;';
+          chartTbl.innerHTML = '<tr><td style="padding: 0; text-align: center;">' + sanitizeSvg(sv) + '</td></tr>';
+          cardDiv.appendChild(chartTbl);
+        });
+      } catch (_) {}
+
+      // ── Prose paragraphs (re-parented children that aren't structural).
+      try {
+        var body = card && card.querySelector('.ai-ans-body');
+        if (body) {
+          var proseNodes = Array.prototype.slice.call(body.children).filter(function (n) {
+            if (!n) return false;
+            var cls = (n.className || '');
+            if (typeof cls !== 'string') return false;
+            // Skip the structural blocks we've already rendered.
+            if (/ai-ans-hero|ai-ans-mkpis|ai-ans-followups|ai-spark-wrap/.test(cls)) return false;
+            if (n.tagName === 'TABLE') return false; // handled separately below
+            return true;
+          });
+          if (proseNodes.length) {
+            var pBox = document.createElement('div');
+            pBox.style.cssText = 'font-family: ' + FONT + '; font-size: 13.5px; color: ' + FG2 + '; line-height: 1.55; margin-bottom: 14px;';
+            proseNodes.forEach(function (n) {
+              var p = document.createElement('div');
+              p.style.cssText = 'margin: 0 0 8px 0;';
+              p.innerHTML = n.innerHTML || esc(n.textContent || '');
+              // Strip residual class attrs to neutralise live styles.
+              Array.prototype.forEach.call(p.querySelectorAll('*'), function (k) {
+                if (k.removeAttribute) k.removeAttribute('class');
+              });
+              pBox.appendChild(p);
+            });
+            cardDiv.appendChild(pBox);
+          }
+        }
+      } catch (_) {}
+
+      // ── Table (re-rendered with table-only inline styles).
+      try {
+        var srcTable = card && card.querySelector('table');
+        if (srcTable) {
+          var rebuilt = document.createElement('table');
+          rebuilt.setAttribute('cellpadding', '0');
+          rebuilt.setAttribute('cellspacing', '0');
+          rebuilt.style.cssText = 'border-collapse: collapse; width: 100%; margin-bottom: 16px; font-family: ' + FONT + '; font-size: 12.5px;';
+          var thead = srcTable.querySelector('thead');
+          if (thead) {
+            var thHtml = '';
+            Array.prototype.forEach.call(thead.querySelectorAll('th'), function (th) {
+              thHtml += '<th style="text-align: left; padding: 8px 10px; background: ' + BG_ALT + '; border-bottom: 1px solid ' + LINE + '; font-family: ' + FONT_MONO + '; font-size: 10.5px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: ' + FG3 + ';">' + esc(th.textContent || '') + '</th>';
+            });
+            rebuilt.innerHTML += '<thead><tr>' + thHtml + '</tr></thead>';
+          }
+          var tbody = srcTable.querySelector('tbody');
+          if (tbody) {
+            var bodyHtml = '';
+            Array.prototype.forEach.call(tbody.querySelectorAll('tr'), function (tr, ri) {
+              var tdHtml = '';
+              Array.prototype.forEach.call(tr.children, function (td, ci) {
+                var raw = (td.textContent || '').trim();
+                var tdColor = FG;
+                if (td.classList && td.classList.contains('ai-ans-delta-cell')) {
+                  if (td.classList.contains('neg')) tdColor = NEG;
+                  else if (td.classList.contains('pos')) tdColor = POS;
+                  else if (td.classList.contains('warn')) tdColor = WARN;
+                }
+                var monoFam = (ci === 0) ? FONT : FONT_MONO;
+                tdHtml += '<td style="padding: 7px 10px; border-bottom: 1px solid ' + LINE_SOFT + '; font-family: ' + monoFam + '; font-size: 12.5px; color: ' + tdColor + ';">' + esc(raw) + '</td>';
+              });
+              bodyHtml += '<tr>' + tdHtml + '</tr>';
+            });
+            rebuilt.innerHTML += '<tbody>' + bodyHtml + '</tbody>';
+          }
+          cardDiv.appendChild(rebuilt);
+        }
+      } catch (_) {}
+
+      // ── Follow-up chip text (one row, inline-blocks for spacing).
+      try {
+        var fu = card && card.querySelector('.ai-ans-followups');
+        if (fu) {
+          var fuChips = Array.prototype.slice.call(fu.querySelectorAll('.ai-ans-fu')).map(function (b) {
+            var t = b.querySelector('.ai-ans-fu-text');
+            return (t ? t.textContent : (b.getAttribute('data-prompt') || b.textContent || '')).trim();
+          }).filter(Boolean);
+          if (fuChips.length) {
+            var fuBox = document.createElement('div');
+            fuBox.style.cssText = 'border-top: 1px dashed ' + LINE_SOFT + '; padding-top: 12px; margin-top: 4px;';
+            fuBox.innerHTML = '<div style="font-family: ' + FONT_MONO + '; font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: ' + FG4 + '; margin-bottom: 8px;">FOLLOW UP</div>'
+              + fuChips.map(function (c) {
+                  return '<span style="display: inline-block; margin: 0 8px 6px 0; padding: 5px 10px; border: 1px solid ' + LINE + '; border-radius: 999px; background: ' + BG + '; font-family: ' + FONT + '; font-size: 12px; color: ' + FG2 + ';">' + esc(c) + '</span>';
+                }).join('');
+            cardDiv.appendChild(fuBox);
+          }
+        }
+      } catch (_) {}
+
+      // ── Foot: sources + refreshed (inline-block, explicit margin-right
+      //    so html2canvas can't collapse spacing). Action buttons skipped.
+      if (foot) {
+        var srcs = Array.prototype.slice.call(foot.querySelectorAll('.src-chip')).map(function (s) {
+          return (s.textContent || '').trim();
+        }).filter(Boolean);
+        var refEl = foot.querySelector('.ai-ans-refreshed');
+        var refText = refEl ? (refEl.textContent || '').trim() : '';
+        var ftBox = document.createElement('div');
+        ftBox.style.cssText = 'margin-top: 16px; padding-top: 14px; border-top: 1px solid ' + LINE_SOFT + '; font-family: ' + FONT_MONO + '; font-size: 11px; color: ' + FG4 + ';';
+        var bits = '<span style="display: inline-block; margin-right: 8px; color: ' + FG3 + '; letter-spacing: 0.04em;">SOURCES:</span>';
+        srcs.forEach(function (s, i) {
+          bits += '<span style="display: inline-block; margin-right: 12px; padding: 2px 8px; border: 1px solid ' + LINE + '; border-radius: 6px; background: ' + BG_ALT + '; color: ' + FG2 + ';">' + esc(s) + '</span>';
+        });
+        if (refText) {
+          bits += '<span style="display: inline-block; margin-left: 4px; color: ' + FG4 + ';">' + esc(refText) + '</span>';
+        }
+        ftBox.innerHTML = bits;
+        root.appendChild(ftBox);
+      }
+
+      return root;
+    };
+
+    // Copy the entire answer card as a PNG. Builds a print-mode render
+    // (table layout, inline styles, explicit-color SVGs) and captures THAT
+    // with html2canvas. Never falls back to plain text — on capture failure
+    // saves the print-mode HTML so the user can open + screenshot it.
+    //   opts.mode: 'clipboard' (default) | 'download'
     window._aiCopyAnswerCardAsImage = function (bubbleEl, btn, opts) {
       opts = opts || {};
       var mode = opts.mode === 'download' ? 'download' : 'clipboard';
       var card = bubbleEl.querySelector('.ai-ans-card');
-      var meta = bubbleEl.querySelector('.ai-ans-meta');
-      var foot = bubbleEl.querySelector('.ai-ans-foot');
+      if (!card && bubbleEl.classList && bubbleEl.classList.contains('ai-ans-card')) card = bubbleEl;
+      if (!card) {
+        window._aiToast && window._aiToast('Nothing to capture on this answer', { error: true });
+        return;
+      }
 
-      // Anchor sizing on the original card so the captured layout matches.
-      var srcRect = (card || bubbleEl).getBoundingClientRect();
-      var srcWidth = Math.round(srcRect.width);
+      // Build the print-mode render.
+      var clip;
+      try {
+        clip = window._aiBuildPrintCard(card);
+      } catch (e) {
+        try { console.warn('[copy-as-image] print build failed:', e); } catch (_) {}
+        window._aiToast && window._aiToast('Couldn\'t render — try again', { error: true });
+        return;
+      }
 
-      // Compose temporary capture container — meta + card + foot in one image.
-      var clip = document.createElement('div');
+      // Mount offscreen so html2canvas can read its layout.
       clip.style.position = 'fixed';
       clip.style.left = '-99999px';
       clip.style.top = '0';
-      clip.style.width = srcWidth + 'px';
-      clip.style.background = '#ffffff';
-      clip.style.padding = '20px';
-      clip.style.borderRadius = '14px';
-      clip.style.fontFamily = '"Inter", system-ui, sans-serif';
-      clip.style.color = '#0f1929';
-      if (meta) clip.appendChild(meta.cloneNode(true));
-      if (card) clip.appendChild(card.cloneNode(true));
-      if (foot) {
-        var footClone = foot.cloneNode(true);
-        // Drop the action buttons from the captured image — only sources stay.
-        var fa = footClone.querySelector('.ai-ans-foot-actions');
-        if (fa) fa.remove();
-        clip.appendChild(footClone);
-      }
       document.body.appendChild(clip);
-
-      // Walk every SVG in the clip — set xmlns + resolve currentColor so
-      // html2canvas doesn't render strokes/fills as black/transparent.
-      try {
-        var svgs = clip.querySelectorAll('svg');
-        Array.prototype.forEach.call(svgs, function (svg) {
-          if (!svg.getAttribute('xmlns')) svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-          var color = '';
-          try { color = window.getComputedStyle(svg).color || window.getComputedStyle(svg.parentNode || svg).color || ''; } catch (_) {}
-          if (!color) color = '#1f5fd1';
-          var nodes = [svg].concat(Array.prototype.slice.call(svg.querySelectorAll('*')));
-          nodes.forEach(function (n) {
-            ['stroke', 'fill'].forEach(function (attr) {
-              var v = n.getAttribute && n.getAttribute(attr);
-              if (v && v.toLowerCase() === 'currentcolor') n.setAttribute(attr, color);
-            });
-            if (n.style) {
-              if ((n.style.stroke || '').toLowerCase() === 'currentcolor') n.style.stroke = color;
-              if ((n.style.fill || '').toLowerCase() === 'currentcolor') n.style.fill = color;
-            }
-          });
-        });
-      } catch (_) {}
 
       var setBtn = function (icon, label, ms) {
         if (!btn) return;
@@ -12413,15 +12745,27 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         setTimeout(function () { btn.innerHTML = orig; btn.classList.remove('is-flash'); btn.title = 'Copy as image'; }, ms || 1800);
       };
 
-      var captureH = Math.max(clip.scrollHeight, 200);
-      var captureW = Math.max(srcWidth, 200);
       var cleanup = function () { try { if (clip.parentNode) clip.parentNode.removeChild(clip); } catch (_) {} };
+
+      // Force a synchronous layout flush so scrollHeight is accurate.
+      // eslint-disable-next-line no-unused-expressions
+      var _h = clip.offsetHeight;
+      var captureW = 720;
+      var captureH = Math.max(clip.scrollHeight, 200);
+
+      var fontReady = function () {
+        if (document.fonts && document.fonts.ready && typeof document.fonts.ready.then === 'function') {
+          return document.fonts.ready;
+        }
+        return Promise.resolve();
+      };
 
       var doCapture = function (h2c) {
         return h2c(clip, {
           scale: 2,
           backgroundColor: '#ffffff',
           useCORS: true,
+          allowTaint: false,
           logging: false,
           width: captureW,
           height: captureH,
@@ -12430,7 +12774,7 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         });
       };
 
-      var triggerDownload = function (blob) {
+      var triggerPngDownload = function (blob) {
         var fname = 'nlpl-answer-' + Date.now() + '.png';
         var a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
@@ -12442,31 +12786,54 @@ body.emp-dark .ai-error-cta:hover { background: rgba(220,38,38,.20); border-colo
         window._aiToast && window._aiToast('Saved ' + fname + ' — open it from Downloads to share');
       };
 
+      var triggerHtmlDownload = function () {
+        try {
+          var html = '<!doctype html><html><head><meta charset="utf-8">'
+            + '<title>NLPL answer</title>'
+            + '<style>body{margin:0;padding:24px;background:#f5f6f8;font-family:Inter,Arial,sans-serif;}</style>'
+            + '</head><body>' + clip.outerHTML + '</body></html>';
+          var blob = new Blob([html], { type: 'text/html' });
+          var fname = 'nlpl-answer-' + Date.now() + '.html';
+          var a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = fname;
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(function () { try { URL.revokeObjectURL(a.href); a.remove(); } catch (_) {} }, 1500);
+          window._aiToast && window._aiToast('Couldn\'t render — saved as HTML', { error: true });
+        } catch (_) {
+          window._aiToast && window._aiToast('Couldn\'t render — try again later', { error: true });
+        }
+      };
+
       window._aiPreloadHtml2Canvas()
-        .then(function (h2c) { return doCapture(h2c); })
+        .then(function (h2c) {
+          return fontReady().then(function () { return doCapture(h2c); });
+        })
         .then(function (canvas) {
           return new Promise(function (resolve, reject) {
             canvas.toBlob(function (blob) { blob ? resolve(blob) : reject(new Error('toBlob returned null')); }, 'image/png');
           });
         })
         .then(function (blob) {
-          if (mode === 'download') { triggerDownload(blob); return; }
+          if (mode === 'download') { triggerPngDownload(blob); return; }
           var canWrite = (typeof ClipboardItem === 'function')
             && navigator.clipboard
             && typeof navigator.clipboard.write === 'function';
-          if (!canWrite) { triggerDownload(blob); return; }
+          if (!canWrite) { triggerPngDownload(blob); return; }
           navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
             .then(function () {
               setBtn('<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>', 'Copied!', 1800);
               window._aiToast && window._aiToast('Answer card copied — paste anywhere');
             })
-            .catch(function () { triggerDownload(blob); });
+            .catch(function () { triggerPngDownload(blob); });
         })
         .catch(function (err) {
           try { console.warn('[copy-as-image] capture failed:', err); } catch (_) {}
           setBtn('<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>', 'Capture failed', 1500);
-          window._aiToast && window._aiToast('Couldn\'t capture this card — try the menu\'s Save image option', { error: true });
-          // Hard stop — never fall back to text.
+          // Save the print-mode HTML so the user can still get something
+          // useful out of it. Never fall back to text.
+          triggerHtmlDownload();
         })
         .then(function () { cleanup(); }, function () { cleanup(); });
     };
