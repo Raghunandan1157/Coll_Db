@@ -3272,11 +3272,41 @@ app.post("/api/portfolio/upload", dashboardAuth, upload.single("file"), async (r
 
     // Parse POS sheet into branch_pos table
     console.log("POS check: sheets=" + JSON.stringify(wb.SheetNames));
+    // Map header text to canonical POS bucket key. Accepts variants like
+    // "Regular POS", "SMA-0", "SMA 1", "PNPA", "NPA POS", "Total".
+    function detectPosKey(header) {
+      var h = String(header || '').trim().toLowerCase().replace(/[\s_\-]+/g, '');
+      if (!h) return null;
+      if (h.indexOf('total') !== -1) return 'total_pos';
+      if (h.indexOf('regular') !== -1 || h === 'reg' || h === 'regpos') return 'regular_pos';
+      if (h.indexOf('sma0') !== -1 || h.indexOf('sma00') !== -1) return 'sma0_pos';
+      if (h.indexOf('sma1') !== -1) return 'sma1_pos';
+      if (h.indexOf('sma2') !== -1 || h.indexOf('pnpa') !== -1) return 'pnpa_pos';
+      if (h.indexOf('npa') !== -1) return 'npa_pos';
+      return null;
+    }
+    function buildPosColMap(headerRow, expectedKeys) {
+      var map = {};
+      if (!Array.isArray(headerRow)) return map;
+      for (var i = 0; i < headerRow.length; i++) {
+        var k = detectPosKey(headerRow[i]);
+        if (k && expectedKeys.indexOf(k) !== -1 && map[k] === undefined) map[k] = i;
+      }
+      return map;
+    }
     if (wb.SheetNames.includes('POS')) {
       try {
         await portfolioPool.query("DELETE FROM branch_pos WHERE month_id=$1", [monthId]);
         const posWs = wb.Sheets['POS'];
         const posRows = XLSX.utils.sheet_to_json(posWs, { header: 1 });
+        const posKeys = ['regular_pos','sma0_pos','sma1_pos','pnpa_pos','npa_pos','total_pos'];
+        const posColMap = buildPosColMap(posRows[0] || [], posKeys);
+        const posMappedCount = Object.keys(posColMap).length;
+        const posUseHeaderMap = posMappedCount >= 5;
+        if (!posUseHeaderMap) {
+          const missing = posKeys.filter(k => posColMap[k] === undefined);
+          console.warn("POS header missing/ambiguous, falling back to positional for: " + missing.join(','));
+        }
         let posInserted = 0;
         for (let r = 1; r < posRows.length; r++) {
           const row = posRows[r];
@@ -3285,11 +3315,11 @@ app.post("/api/portfolio/upload", dashboardAuth, upload.single("file"), async (r
           const district = String(row[1] || '').trim();
           const branch = String(row[2] || '').trim();
           const productName = String(row[3] || 'ALL').trim();
-          const vals = [];
-          for (let c = 4; c < 10; c++) {
-            const v = Number(row[c]);
-            vals.push(Number.isFinite(v) ? v : 0);
-          }
+          const vals = posKeys.map(function(k, i) {
+            var colIdx = posUseHeaderMap && posColMap[k] !== undefined ? posColMap[k] : (4 + i);
+            var v = Number(row[colIdx]);
+            return Number.isFinite(v) ? v : 0;
+          });
           await portfolioPool.query(
             `INSERT INTO branch_pos (month_id, region_name, district_name, branch_name, product_name,
               regular_pos, sma0_pos, sma1_pos, pnpa_pos, npa_pos, total_pos)
@@ -3302,7 +3332,7 @@ app.post("/api/portfolio/upload", dashboardAuth, upload.single("file"), async (r
           );
           posInserted++;
         }
-        console.log("POS sheet: " + posInserted + " branches inserted into branch_pos");
+        console.log("POS sheet: " + posInserted + " branches into branch_pos (headerMap=" + posUseHeaderMap + ")");
       } catch(posErr) {
         console.error("POS sheet parse error:", posErr.message);
       }
@@ -3314,18 +3344,25 @@ app.post("/api/portfolio/upload", dashboardAuth, upload.single("file"), async (r
         await portfolioPool.query("DELETE FROM employee_pos WHERE month_id=$1", [monthId]);
         const empPosWs = wb.Sheets['EMP_POS'];
         const empPosRows = XLSX.utils.sheet_to_json(empPosWs, { header: 1 });
+        const empKeys = ['regular_pos','sma0_pos','sma1_pos','pnpa_pos','npa_pos','total_pos'];
+        const empColMap = buildPosColMap(empPosRows[0] || [], empKeys);
+        const empMappedCount = Object.keys(empColMap).length;
+        const empUseHeaderMap = empMappedCount >= 5;
+        if (!empUseHeaderMap) {
+          const missing = empKeys.filter(k => empColMap[k] === undefined);
+          console.warn("EMP_POS header missing/ambiguous, falling back to positional for: " + missing.join(','));
+        }
         let empPosInserted = 0;
         for (let r = 1; r < empPosRows.length; r++) {
           const row = empPosRows[r];
           if (!row || !row[0]) continue;
           const empId = String(row[0]).trim();
           if (!empId) continue;
-          const vals = [];
-          for (let c = 1; c < 7; c++) {
-            const v = Number(row[c]);
-            vals.push(Number.isFinite(v) ? v : 0);
-          }
-          while (vals.length < 6) vals.push(0);
+          const vals = empKeys.map(function(k, i) {
+            var colIdx = empUseHeaderMap && empColMap[k] !== undefined ? empColMap[k] : (1 + i);
+            var v = Number(row[colIdx]);
+            return Number.isFinite(v) ? v : 0;
+          });
           await portfolioPool.query(
             `INSERT INTO employee_pos (month_id, emp_id, regular_pos, sma0_pos, sma1_pos, pnpa_pos, npa_pos, total_pos)
             VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
@@ -3336,7 +3373,7 @@ app.post("/api/portfolio/upload", dashboardAuth, upload.single("file"), async (r
           );
           empPosInserted++;
         }
-        console.log("EMP_POS sheet: " + empPosInserted + " employees into employee_pos");
+        console.log("EMP_POS sheet: " + empPosInserted + " employees into employee_pos (headerMap=" + empUseHeaderMap + ")");
       } catch(e) {
         console.error("EMP_POS parse error:", e.message);
       }
