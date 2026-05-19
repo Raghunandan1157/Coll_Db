@@ -116,6 +116,71 @@ function normalizeDistrict(name) {
   return DISTRICT_NORMALIZE[n] || n;
 }
 
+// ========== EOD METRIC HEADER MAP ==========
+// EOD report sheets (IGL/FIG/VVY/*_FY) have 29 metric columns including 4
+// "1-90 Demand/Collection" + "1-90 Demand/Collection Amt" buckets that are
+// not part of the DB schema. A positional 25-col read shifts indexes 8-24
+// into the wrong DB columns (e.g. npa_cases got "1-90 Demand", every amount
+// column was off by two). Helpers below map each DB column by header name
+// and fall back to the original positional layout with a warning if the
+// header row is missing or unrecognisable. Same fix pattern as 91e068f
+// (POS column header map).
+const EOD_METRIC_HEADERS = [
+  ['regular_demand',          'regular demand'],
+  ['regular_collection',      'regular collection'],
+  ['demand_1_30',             '1-30 demand'],
+  ['collection_1_30',         '1-30 collection'],
+  ['demand_31_60',            '31-60 demand'],
+  ['collection_31_60',        '31-60 collection'],
+  ['pnpa_demand',             'pnpa demand'],
+  ['pnpa_collection',         'pnpa collection'],
+  ['npa_cases',               'npa cases'],
+  ['npa_act_acc',             'npa act acc'],
+  ['npa_act_amt',             'npa act amt'],
+  ['npa_clo_acc',             'npa clo acc'],
+  ['npa_clo_amt',             'npa clo amt'],
+  ['on_date_demand',          'on-date demand'],
+  ['on_date_collection',      'on-date collection'],
+  ['regular_demand_amt',      'regular demand amt'],
+  ['regular_collection_amt',  'regular collection amt'],
+  ['demand_1_30_amt',         '1-30 demand amt'],
+  ['collection_1_30_amt',     '1-30 collection amt'],
+  ['demand_31_60_amt',        '31-60 demand amt'],
+  ['collection_31_60_amt',    '31-60 collection amt'],
+  ['pnpa_demand_amt',         'pnpa demand amt'],
+  ['pnpa_collection_amt',     'pnpa collection amt'],
+  ['on_date_demand_amt',      'on-date demand amt'],
+  ['on_date_collection_amt',  'on-date collection amt'],
+];
+const EOD_METRIC_DB_COLS = EOD_METRIC_HEADERS.map(p => p[0]);
+function _normEodHeader(h) {
+  return String(h || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+function buildEodMetricColMap(headerRow) {
+  const map = {};
+  if (!Array.isArray(headerRow)) return map;
+  const idx = {};
+  for (let i = 0; i < headerRow.length; i++) {
+    const k = _normEodHeader(headerRow[i]);
+    if (k && !(k in idx)) idx[k] = i;
+  }
+  for (const [dbCol, headerText] of EOD_METRIC_HEADERS) {
+    if (headerText in idx) map[dbCol] = idx[headerText];
+  }
+  return map;
+}
+function readEodMetrics(row, colMap, useHeaderMap, fallbackStart) {
+  return EOD_METRIC_DB_COLS.map((dbCol, i) => {
+    const colIdx = useHeaderMap && colMap[dbCol] !== undefined
+      ? colMap[dbCol]
+      : (fallbackStart + i);
+    const raw = row[colIdx];
+    if (raw == null || raw === '') return 0;
+    const num = Number(raw);
+    return Number.isFinite(num) ? num : 0;
+  });
+}
+
 // ========== BRANCH V2 MAP (ESAF hierarchy: state → division → area) ==========
 const BRANCH_V2_MAP = {
   'AFZALPUR': {state: 'KALBURGI', division: 'KALBURGI', area: 'KALBURGI'},
@@ -696,6 +761,17 @@ app.post("/api/upload", uploadLimiter, upload.single("file"), async (req, res) =
         colRegion = empIdIdx >= 4 ? 0 : 0; // Region is always first
       }
 
+      // Build header-name → column-index map for metrics. Falls back to the
+      // positional layout (colMetricsStart + i) when the header row is
+      // missing or under-mapped (<20 of 25 cols recognised).
+      const metricColMap = buildEodMetricColMap(header);
+      const metricMappedCount = Object.keys(metricColMap).length;
+      const useMetricHeaderMap = metricMappedCount >= 20;
+      if (!useMetricHeaderMap) {
+        const missing = EOD_METRIC_DB_COLS.filter(c => metricColMap[c] === undefined);
+        console.warn(`/api/upload sheet "${sheetName}" metric header missing/ambiguous (${metricMappedCount}/25), falling back to positional for: ${missing.join(',')}`);
+      }
+
       for (let r = 1; r < rows.length; r++) {
         const row = rows[r];
         if (!row || !row[colRegion] || !row[colEmpId]) { skippedRows++; continue; }
@@ -737,16 +813,9 @@ app.post("/api/upload", uploadLimiter, upload.single("file"), async (req, res) =
           employees[empId] = true;
         }
 
-        // Performance metrics — safely parse each value
-        const metrics = [];
-        for (let c = colMetricsStart; c < colMetricsStart + 25; c++) {
-          const raw = row[c];
-          if (raw == null || raw === "") { metrics.push(0); continue; }
-          const num = Number(raw);
-          metrics.push(Number.isFinite(num) ? num : 0);
-        }
-        // Pad to 25 if fewer columns
-        while (metrics.length < 25) metrics.push(0);
+        // Performance metrics — map each DB column by Excel header name
+        // (or fall back to positional read when the header row is unusable).
+        const metrics = readEodMetrics(row, metricColMap, useMetricHeaderMap, colMetricsStart);
 
         await client.query(
           `INSERT INTO employee_performance (emp_id, product_type_id,
@@ -2609,20 +2678,23 @@ app.post("/api/upload-daily", uploadLimiter, upload.single("file"), async (req, 
       const eidx = hdr.findIndex(h => h === "emp id" || h === "empid" || h === "emp_id");
       if (eidx >= 0) { dEmpId = eidx; dMetrics = eidx + 2; }
 
+      // Header-name → column-index map for metrics. Avoids the off-by-2
+      // shift caused by 4 extra "1-90" cols in the EOD report.
+      const dMetricColMap = buildEodMetricColMap(rows[0] || []);
+      const dMetricMappedCount = Object.keys(dMetricColMap).length;
+      const useDMetricHeaderMap = dMetricMappedCount >= 20;
+      if (!useDMetricHeaderMap) {
+        const missing = EOD_METRIC_DB_COLS.filter(c => dMetricColMap[c] === undefined);
+        console.warn(`/api/upload-daily sheet "${sheetName}" metric header missing/ambiguous (${dMetricMappedCount}/25), falling back to positional for: ${missing.join(',')}`);
+      }
+
       for (let r = 1; r < rows.length; r++) {
         const row = rows[r];
         if (!row || !row[0] || !row[dEmpId]) { skipped++; continue; }
         const empId = String(row[dEmpId]).trim();
         if (!empId) { skipped++; continue; }
 
-        const metrics = [];
-        for (let c = dMetrics; c < dMetrics + 25; c++) {
-          const raw = row[c];
-          if (raw == null || raw === '') { metrics.push(0); continue; }
-          const num = Number(raw);
-          metrics.push(Number.isFinite(num) ? num : 0);
-        }
-        while (metrics.length < 25) metrics.push(0);
+        const metrics = readEodMetrics(row, dMetricColMap, useDMetricHeaderMap, dMetrics);
 
         await client.query(
           `INSERT INTO daily_performance (report_date, emp_id, product_type_id,
