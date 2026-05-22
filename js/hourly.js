@@ -454,8 +454,8 @@
   }
 
   function onDateSectionHtml(data) {
-    var odDem = numVal(data.on_date_demand);
-    var odCol = numVal(data.on_date_collection);
+    var odDem = numVal(data.on_date_demand_amt);
+    var odCol = numVal(data.on_date_collection_amt);
     var odPct = odDem > 0 ? (odCol / odDem) : 0;
 
     var html = '<div class="emp-section-title" style="margin-top:20px;">On-Date Status</div>' +
