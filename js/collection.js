@@ -93,10 +93,9 @@
       if ((r === 'RM' || r === 'SM') && session.location) {
         params.push('region=' + encodeURIComponent(session.location));
       } else if ((r === 'DM' || r === 'DvM') && session.location) {
-        params.push('district=' + encodeURIComponent(session.location));
+        params.push('division=' + encodeURIComponent(session.location));
       } else if (r === 'AM' && session.location) {
-        // AM maps to district level in daily API
-        params.push('district=' + encodeURIComponent(session.location));
+        params.push('area=' + encodeURIComponent(session.location));
       } else if (r === 'BM' && session.location) {
         params.push('branch=' + encodeURIComponent(session.location));
       } else if ((!r || r === 'FO') && session.id) {
@@ -148,7 +147,7 @@
         return dailyBase + '/by-district?' + dateParam + rp.join('&');
       }
       if ((r === 'DvM' || r === 'DM' || r === 'AM') && session.location) {
-        var dp = [ptParam, 'district=' + encodeURIComponent(session.location)].filter(Boolean);
+        var dp = [ptParam, 'division=' + encodeURIComponent(session.location)].filter(Boolean);
         return dailyBase + '/by-branch?' + dateParam + dp.join('&');
       }
       if (r === 'BM' && session.location) {
@@ -193,8 +192,8 @@
       var rp = [ptParam, 'region=' + encodeURIComponent(session.location)].filter(Boolean);
       return apiBase + '/by-district?' + dateParam + rp.join('&');
     }
-    if (session.role === 'DM' && session.location) {
-      var dp = [ptParam, 'district=' + encodeURIComponent(session.location)].filter(Boolean);
+    if ((session.role === 'DM' || session.role === 'DvM') && session.location) {
+      var dp = [ptParam, 'division=' + encodeURIComponent(session.location)].filter(Boolean);
       return apiBase + '/by-branch?' + dateParam + dp.join('&');
     }
     if (session.role === 'BM' && session.location) {

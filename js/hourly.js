@@ -77,8 +77,8 @@
     } else {
       if (session.role === 'RM' && session.location) {
         params.push('region=' + encodeURIComponent(session.location));
-      } else if (session.role === 'DM' && session.location) {
-        params.push('district=' + encodeURIComponent(session.location));
+      } else if ((session.role === 'DM' || session.role === 'DvM') && session.location) {
+        params.push('division=' + encodeURIComponent(session.location));
       } else if (session.role === 'BM' && session.location) {
         params.push('branch=' + encodeURIComponent(session.location));
       } else if ((!session.role || session.role === 'FO') && session.id) {
@@ -125,8 +125,8 @@
       var p = [ptParam, 'region=' + encodeURIComponent(session.location)].filter(Boolean);
       return '/api/hourly/by-district?' + p.join('&');
     }
-    if (session.role === 'DM' && session.location) {
-      var p2 = [ptParam, 'district=' + encodeURIComponent(session.location)].filter(Boolean);
+    if ((session.role === 'DM' || session.role === 'DvM') && session.location) {
+      var p2 = [ptParam, 'division=' + encodeURIComponent(session.location)].filter(Boolean);
       return '/api/hourly/by-branch?' + p2.join('&');
     }
     if (session.role === 'BM' && session.location) {

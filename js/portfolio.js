@@ -81,7 +81,7 @@
       else if ((!r || r === 'FO') && session.id) p.push('emp_id=' + encodeURIComponent(session.id));
     } else {
       if (session.role === 'RM' && session.location) p.push('region=' + encodeURIComponent(session.location));
-      else if (session.role === 'DM' && session.location) p.push('district=' + encodeURIComponent(session.location));
+      else if ((session.role === 'DM' || session.role === 'DvM') && session.location) p.push('division=' + encodeURIComponent(session.location));
       else if (session.role === 'BM' && session.location) p.push('branch=' + encodeURIComponent(session.location));
       else if ((!session.role || session.role === 'FO') && session.id) p.push('emp_id=' + encodeURIComponent(session.id));
     }
@@ -123,8 +123,8 @@
       base.push('region=' + encodeURIComponent(session.location));
       return apiBase + '/by-district?' + base.join('&');
     }
-    if (session.role === 'DM' && session.location) {
-      base.push('district=' + encodeURIComponent(session.location));
+    if ((session.role === 'DM' || session.role === 'DvM') && session.location) {
+      base.push('division=' + encodeURIComponent(session.location));
       return apiBase + '/by-branch?' + base.join('&');
     }
     if (session.role === 'BM' && session.location) {
@@ -204,12 +204,12 @@
       var posParams = [];
       if (isNewStructure()) {
         if ((session.role === 'SM' || session.role === 'RM') && session.location) posParams.push('state=' + encodeURIComponent(session.location));
-        else if (session.role === 'DvM' && session.location) posParams.push('division=' + encodeURIComponent(session.location));
+        else if ((session.role === 'DvM' || session.role === 'DM') && session.location) posParams.push('division=' + encodeURIComponent(session.location));
         else if (session.role === 'AM' && session.location) posParams.push('area=' + encodeURIComponent(session.location));
         else if (session.role === 'BM' && session.location) posParams.push('branch=' + encodeURIComponent(session.location));
       } else {
         if (session.role === 'RM' && session.location) posParams.push('region=' + encodeURIComponent(session.location));
-        else if (session.role === 'DM' && session.location) posParams.push('district=' + encodeURIComponent(session.location));
+        else if ((session.role === 'DM' || session.role === 'DvM') && session.location) posParams.push('division=' + encodeURIComponent(session.location));
         else if (session.role === 'BM' && session.location) posParams.push('branch=' + encodeURIComponent(session.location));
       }
       // POS always at company/branch level — no emp_id filter
@@ -225,12 +225,12 @@
         var posMParam2 = posM2 ? 'month=' + encodeURIComponent(posM2) : '';
         if (session.role === 'CEO') posChildUrl = posV2Base + '/pos-by-state' + (posMParam2 ? '?' + posMParam2 : '');
         else if ((session.role === 'SM' || session.role === 'RM') && session.location) posChildUrl = posV2Base + '/pos-by-division?' + (posMParam2 ? posMParam2 + '&' : '') + 'state=' + encodeURIComponent(session.location);
-        else if (session.role === 'DvM' && session.location) posChildUrl = posV2Base + '/pos-by-area?' + (posMParam2 ? posMParam2 + '&' : '') + 'division=' + encodeURIComponent(session.location);
+        else if ((session.role === 'DvM' || session.role === 'DM') && session.location) posChildUrl = posV2Base + '/pos-by-area?' + (posMParam2 ? posMParam2 + '&' : '') + 'division=' + encodeURIComponent(session.location);
         else if (session.role === 'AM' && session.location) posChildUrl = posV2Base + '/pos-by-branch?' + (posMParam2 ? posMParam2 + '&' : '') + 'area=' + encodeURIComponent(session.location);
       } else {
         if (session.role === 'CEO') posChildUrl = '/api/portfolio/pos-by-region' + (function(){ var m = _pf.view === 'fy' ? (_pf.months.length ? _pf.months[_pf.months.length-1].month_label : '') : _pf.month; return m ? '?month=' + encodeURIComponent(m) : ''; })();
         else if (session.role === 'RM' && session.location) posChildUrl = '/api/portfolio/pos-by-district?'+ ((function(){ var m = _pf.view === 'fy' ? (_pf.months.length ? _pf.months[_pf.months.length-1].month_label : '') : _pf.month; return m ? 'month=' + encodeURIComponent(m) + '&' : ''; })()) + 'region=' + encodeURIComponent(session.location);
-        else if (session.role === 'DM' && session.location) posChildUrl = '/api/portfolio/pos-by-branch?' + ((function(){ var m = _pf.view === 'fy' ? (_pf.months.length ? _pf.months[_pf.months.length-1].month_label : '') : _pf.month; return m ? 'month=' + encodeURIComponent(m) + '&' : ''; })()) + 'district=' + encodeURIComponent(session.location);
+        else if ((session.role === 'DM' || session.role === 'DvM') && session.location) posChildUrl = '/api/portfolio/pos-by-branch?' + ((function(){ var m = _pf.view === 'fy' ? (_pf.months.length ? _pf.months[_pf.months.length-1].month_label : '') : _pf.month; return m ? 'month=' + encodeURIComponent(m) + '&' : ''; })()) + 'division=' + encodeURIComponent(session.location);
       }
       if (posChildUrl) promises.push(apiFetch(posChildUrl));
       else promises.push(Promise.resolve([]));

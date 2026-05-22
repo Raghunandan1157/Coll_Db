@@ -2494,18 +2494,22 @@ app.get("/api/daily/check-date", async (req, res) => {
 });
 
 // Daily collection queries (same as collection but filtered by date)
-function buildDailyQuery(groupCol) {
-  // Simple query directly from daily_performance — no hierarchy joins needed
-  // The upload-daily stores all data with emp_id and product_type_id
-  // For summary (no groupCol): just SUM everything
-  // For grouping: LEFT JOIN through hierarchy tables (tolerant of missing employees)
-  // Always add hierarchy joins — they're needed for WHERE filters too (branch, district, region)
+function buildDailyQuery(groupCol, useOld) {
+  // When useOld=false (default): join through V2 hierarchy tables.
+  // When useOld=true: fall back to legacy v1 tables.
   var needsHierarchy = true;
+  if (useOld === undefined) useOld = (groupCol && !/^(em\.|s\.|dv\.|a\.)/.test(groupCol));
   var joins = needsHierarchy
-    ? ` LEFT JOIN employees e ON dp.emp_id = e.emp_id
-        LEFT JOIN branches b ON e.branch_id = b.branch_id
-        LEFT JOIN districts d ON b.district_id = d.district_id
-        LEFT JOIN regions r ON d.region_id = r.region_id`
+    ? (useOld
+      ? ` LEFT JOIN employees e ON dp.emp_id = e.emp_id
+          LEFT JOIN branches b ON e.branch_id = b.branch_id
+          LEFT JOIN districts d ON b.district_id = d.district_id
+          LEFT JOIN regions r ON d.region_id = r.region_id`
+      : ` LEFT JOIN v2_employees e ON dp.emp_id = e.emp_id
+          LEFT JOIN v2_branches b ON e.branch_id = b.branch_id
+          LEFT JOIN v2_areas a ON b.area_id = a.area_id
+          LEFT JOIN v2_divisions dv ON a.division_id = dv.division_id
+          LEFT JOIN v2_states s ON dv.state_id = s.state_id`)
     : '';
   return `SELECT ${groupCol ? groupCol + ',' : ''}
     SUM(dp.regular_demand)::int AS regular_demand, SUM(dp.regular_collection)::int AS regular_collection,
@@ -2523,10 +2527,11 @@ function buildDailyQuery(groupCol) {
   FROM daily_performance dp` + joins;
 }
 
-function buildDailyWhere(filters) {
+function buildDailyWhere(filters, useOld) {
   var where = [];
   var params = [];
   var idx = 1;
+  if (useOld === undefined) useOld = (filters.structure === 'old');
   if (filters.date) { where.push("dp.report_date=$" + idx++); params.push(filters.date); }
   if (filters.date_from) { where.push("dp.report_date >= $" + idx++); params.push(filters.date_from); }
   if (filters.date_to)   { where.push("dp.report_date <= $" + idx++); params.push(filters.date_to); }
@@ -2541,22 +2546,41 @@ function buildDailyWhere(filters) {
   if (filters.product_type && filters.product_type !== "All") {
     where.push("dp.product_type_id IN (SELECT product_type_id FROM product_types WHERE product_type_name=$" + idx++ + ")"); params.push(filters.product_type);
   }
-  // Hierarchy filters — resolve via employee_master by emp_id (same key as grouping)
-  if (filters.region || filters.state) {
-    where.push("dp.emp_id IN (SELECT emp_id FROM employee_master WHERE TRIM(region_name) ILIKE TRIM($" + (idx++) + "))");
-    params.push(filters.region || filters.state);
-  }
-  if (filters.division) {
-    where.push("dp.emp_id IN (SELECT emp_id FROM employee_master WHERE TRIM(division_name) ILIKE TRIM($" + (idx++) + "))");
-    params.push(filters.division);
-  }
-  if (filters.district || filters.area) {
-    where.push("dp.emp_id IN (SELECT emp_id FROM employee_master WHERE TRIM(area_name) ILIKE TRIM($" + (idx++) + "))");
-    params.push(filters.district || filters.area);
-  }
-  if (filters.branch) {
-    where.push("dp.emp_id IN (SELECT emp_id FROM employee_master WHERE UPPER(branch_name) = UPPER($" + (idx++) + "))");
-    params.push(filters.branch);
+  // Hierarchy filters — V2 direct-column when new, employee_master subquery fallback when old
+  if (useOld) {
+    if (filters.region || filters.state) {
+      where.push("dp.emp_id IN (SELECT emp_id FROM employee_master WHERE TRIM(region_name) ILIKE TRIM($" + (idx++) + "))");
+      params.push(filters.region || filters.state);
+    }
+    if (filters.division) {
+      where.push("dp.emp_id IN (SELECT emp_id FROM employee_master WHERE TRIM(division_name) ILIKE TRIM($" + (idx++) + "))");
+      params.push(filters.division);
+    }
+    if (filters.district || filters.area) {
+      where.push("dp.emp_id IN (SELECT emp_id FROM employee_master WHERE TRIM(area_name) ILIKE TRIM($" + (idx++) + "))");
+      params.push(filters.district || filters.area);
+    }
+    if (filters.branch) {
+      where.push("dp.emp_id IN (SELECT emp_id FROM employee_master WHERE UPPER(branch_name) = UPPER($" + (idx++) + "))");
+      params.push(filters.branch);
+    }
+  } else {
+    if (filters.region || filters.state) {
+      where.push("TRIM(s.state_name) ILIKE TRIM($" + (idx++) + ")");
+      params.push(filters.region || filters.state);
+    }
+    if (filters.division) {
+      where.push("TRIM(dv.division_name) ILIKE TRIM($" + (idx++) + ")");
+      params.push(filters.division);
+    }
+    if (filters.district || filters.area) {
+      where.push("TRIM(a.area_name) ILIKE TRIM($" + (idx++) + ")");
+      params.push(filters.district || filters.area);
+    }
+    if (filters.branch) {
+      where.push("UPPER(b.branch_name) = UPPER($" + (idx++) + ")");
+      params.push(filters.branch);
+    }
   }
   if (filters.emp_id) { where.push("dp.emp_id=$" + idx++); params.push(filters.emp_id); }
   return { clause: where.length ? " WHERE " + where.join(" AND ") : "", params };
@@ -2564,8 +2588,9 @@ function buildDailyWhere(filters) {
 
 app.get("/api/daily/summary", async (req, res) => {
   try {
-    const base = buildDailyQuery(null);
-    const { clause, params } = buildDailyWhere(req.query);
+    var useOld = req.query.structure === 'old';
+    const base = buildDailyQuery(null, useOld);
+    const { clause, params } = buildDailyWhere(req.query, useOld);
     const sql = base.replace("SELECT ,", "SELECT ") + clause;
     const result = await pool.query(sql, params);
     res.json(result.rows[0] || {});
@@ -2575,11 +2600,11 @@ app.get("/api/daily/summary", async (req, res) => {
 app.get("/api/daily/by-region", async (req, res) => {
   try {
     var useOld = req.query.structure === 'old';
-    var regionCol = useOld ? "b.old_region AS region_name" : "r.region_name";
-    var groupCol = useOld ? "b.old_region" : "r.region_name";
-    var nullFilter = useOld ? " AND b.old_region IS NOT NULL" : " AND r.region_name IS NOT NULL";
-    const base = buildDailyQuery(regionCol);
-    const { clause, params } = buildDailyWhere(req.query);
+    var regionCol = useOld ? "r.region_name" : "s.state_name";
+    var groupCol = useOld ? "r.region_name" : "s.state_name";
+    var nullFilter = useOld ? " AND r.region_name IS NOT NULL" : " AND s.state_name IS NOT NULL";
+    const base = buildDailyQuery(regionCol, useOld);
+    const { clause, params } = buildDailyWhere(req.query, useOld);
     const result = await pool.query(base + clause + nullFilter + " GROUP BY " + groupCol + " ORDER BY " + groupCol, params);
     res.json(result.rows);
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -2587,58 +2612,79 @@ app.get("/api/daily/by-region", async (req, res) => {
 
 app.get("/api/daily/by-district", async (req, res) => {
   try {
-    const base = buildDailyQuery("d.district_name, r.region_name");
-    const { clause, params } = buildDailyWhere(req.query);
-    const result = await pool.query(base + clause + " GROUP BY d.district_name, r.region_name ORDER BY d.district_name", params);
+    var useOld = req.query.structure === 'old';
+    var col = useOld ? "d.district_name, r.region_name" : "a.area_name AS district_name, dv.division_name";
+    var gcol = useOld ? "d.district_name, r.region_name" : "a.area_name, dv.division_name";
+    const base = buildDailyQuery(col, useOld);
+    const { clause, params } = buildDailyWhere(req.query, useOld);
+    const result = await pool.query(base + clause + " GROUP BY " + gcol + " ORDER BY a.area_name", params);
     res.json(result.rows);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get("/api/daily/by-branch", async (req, res) => {
   try {
-    const base = buildDailyQuery("b.branch_name, d.district_name");
-    const { clause, params } = buildDailyWhere(req.query);
-    const result = await pool.query(base + clause + " GROUP BY b.branch_name, d.district_name ORDER BY b.branch_name", params);
+    var useOld = req.query.structure === 'old';
+    var col = useOld ? "b.branch_name, d.district_name" : "b.branch_name, a.area_name";
+    var gcol = useOld ? "b.branch_name, d.district_name" : "b.branch_name, a.area_name";
+    const base = buildDailyQuery(col, useOld);
+    const { clause, params } = buildDailyWhere(req.query, useOld);
+    const result = await pool.query(base + clause + " GROUP BY " + gcol + " ORDER BY b.branch_name", params);
     res.json(result.rows);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get("/api/daily/by-employee", async (req, res) => {
   try {
-    const base = buildDailyQuery("e.emp_id, e.officer_name AS name, b.branch_name");
-    const { clause, params } = buildDailyWhere(req.query);
-    const result = await pool.query(base + clause + " GROUP BY e.emp_id, e.officer_name, b.branch_name ORDER BY e.officer_name", params);
+    var useOld = req.query.structure === 'old';
+    var col = useOld ? "e.emp_id, e.officer_name AS name, b.branch_name" : "e.emp_id, e.officer_name AS name, b.branch_name";
+    var gcol = useOld ? "e.emp_id, e.officer_name, b.branch_name" : "e.emp_id, e.officer_name, b.branch_name";
+    const base = buildDailyQuery(col, useOld);
+    const { clause, params } = buildDailyWhere(req.query, useOld);
+    const result = await pool.query(base + clause + " GROUP BY " + gcol + " ORDER BY e.officer_name", params);
     res.json(result.rows);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// New employee_master-driven hierarchy endpoints (used by Priority Panel)
+// Hierarchy endpoints — V2 direct joins default, employee_master fallback with ?structure=old
 app.get("/api/daily/by-area", async (req, res) => {
   try {
-    const base = buildDailyQuery("em.area_name, em.division_name") + " LEFT JOIN employee_master em ON dp.emp_id = em.emp_id";
-    const { clause, params } = buildDailyWhere(req.query);
-    const extra = (clause ? " AND " : " WHERE ") + "em.area_name IS NOT NULL";
-    const result = await pool.query(base + clause + extra + " GROUP BY em.area_name, em.division_name ORDER BY em.area_name", params);
+    var useOld = req.query.structure === 'old';
+    const base = useOld
+      ? buildDailyQuery("em.area_name, em.division_name", true) + " LEFT JOIN employee_master em ON dp.emp_id = em.emp_id"
+      : buildDailyQuery("a.area_name, dv.division_name", false);
+    const { clause, params } = buildDailyWhere(req.query, useOld);
+    const extra = (clause ? " AND " : " WHERE ") + (useOld ? "em.area_name IS NOT NULL" : "a.area_name IS NOT NULL");
+    var gcol = useOld ? "em.area_name, em.division_name" : "a.area_name, dv.division_name";
+    const result = await pool.query(base + clause + extra + " GROUP BY " + gcol + " ORDER BY " + (useOld ? "em.area_name" : "a.area_name"), params);
     res.json(result.rows);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get("/api/daily/by-division", async (req, res) => {
   try {
-    const base = buildDailyQuery("em.division_name, em.region_name") + " LEFT JOIN employee_master em ON dp.emp_id = em.emp_id";
-    const { clause, params } = buildDailyWhere(req.query);
-    const extra = (clause ? " AND " : " WHERE ") + "em.division_name IS NOT NULL";
-    const result = await pool.query(base + clause + extra + " GROUP BY em.division_name, em.region_name ORDER BY em.division_name", params);
+    var useOld = req.query.structure === 'old';
+    const base = useOld
+      ? buildDailyQuery("em.division_name, em.region_name", true) + " LEFT JOIN employee_master em ON dp.emp_id = em.emp_id"
+      : buildDailyQuery("dv.division_name, s.state_name AS region_name", false);
+    const { clause, params } = buildDailyWhere(req.query, useOld);
+    const extra = (clause ? " AND " : " WHERE ") + (useOld ? "em.division_name IS NOT NULL" : "dv.division_name IS NOT NULL");
+    var gcol = useOld ? "em.division_name, em.region_name" : "dv.division_name, s.state_name";
+    const result = await pool.query(base + clause + extra + " GROUP BY " + gcol + " ORDER BY " + (useOld ? "em.division_name" : "dv.division_name"), params);
     res.json(result.rows);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get("/api/daily/by-state", async (req, res) => {
   try {
-    const base = buildDailyQuery("em.region_name AS state_name") + " LEFT JOIN employee_master em ON dp.emp_id = em.emp_id";
-    const { clause, params } = buildDailyWhere(req.query);
-    const extra = (clause ? " AND " : " WHERE ") + "em.region_name IS NOT NULL";
-    const result = await pool.query(base + clause + extra + " GROUP BY em.region_name ORDER BY em.region_name", params);
+    var useOld = req.query.structure === 'old';
+    const base = useOld
+      ? buildDailyQuery("em.region_name AS state_name", true) + " LEFT JOIN employee_master em ON dp.emp_id = em.emp_id"
+      : buildDailyQuery("s.state_name", false);
+    const { clause, params } = buildDailyWhere(req.query, useOld);
+    const extra = (clause ? " AND " : " WHERE ") + (useOld ? "em.region_name IS NOT NULL" : "s.state_name IS NOT NULL");
+    var gcol = useOld ? "em.region_name" : "s.state_name";
+    const result = await pool.query(base + clause + extra + " GROUP BY " + gcol + " ORDER BY " + (useOld ? "em.region_name" : "s.state_name"), params);
     res.json(result.rows);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -2791,25 +2837,56 @@ app.get("/api/disbursement/months", async (req, res) => {
 // Route all hierarchy filters through employee_master via branch_name.
 // Case-insensitive, whitespace-trimmed. Works for region/division/area/branch
 // regardless of casing differences between disbursement table and employee_master.
-function buildDisbWhere(filters) {
+function buildDisbWhere(filters, useOld) {
   var where = [];
   var params = [];
   var idx = 1;
+  if (useOld === undefined) useOld = (filters.structure === 'old');
   if (filters.month) { where.push("d.db_month=$" + idx++); params.push(filters.month); }
   if (filters.product_name && filters.product_name !== 'All') {
     where.push("d.product_name=$" + idx++); params.push(filters.product_name);
   }
-  if (filters.region || filters.state) {
-    where.push("UPPER(d.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(region_name) ILIKE TRIM($" + (idx++) + "))");
-    params.push(filters.region || filters.state);
-  }
-  if (filters.division) {
-    where.push("UPPER(d.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(division_name) ILIKE TRIM($" + (idx++) + "))");
-    params.push(filters.division);
-  }
-  if (filters.district || filters.area) {
-    where.push("UPPER(d.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(area_name) ILIKE TRIM($" + (idx++) + "))");
-    params.push(filters.district || filters.area);
+  if (useOld) {
+    if (filters.region || filters.state) {
+      where.push("UPPER(d.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(region_name) ILIKE TRIM($" + (idx++) + "))");
+      params.push(filters.region || filters.state);
+    }
+    if (filters.division) {
+      where.push("UPPER(d.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(division_name) ILIKE TRIM($" + (idx++) + "))");
+      params.push(filters.division);
+    }
+    if (filters.district || filters.area) {
+      where.push("UPPER(d.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(area_name) ILIKE TRIM($" + (idx++) + "))");
+      params.push(filters.district || filters.area);
+    }
+  } else {
+    if (filters.region || filters.state) {
+      where.push("UPPER(d.branch_name) IN (" +
+        "SELECT UPPER(b.branch_name) FROM v2_branches b " +
+        "JOIN v2_areas a ON b.area_id = a.area_id " +
+        "JOIN v2_divisions dv ON a.division_id = dv.division_id " +
+        "JOIN v2_states s ON dv.state_id = s.state_id " +
+        "WHERE TRIM(s.state_name) ILIKE TRIM($" + (idx++) + ")" +
+      ")");
+      params.push(filters.region || filters.state);
+    }
+    if (filters.division) {
+      where.push("UPPER(d.branch_name) IN (" +
+        "SELECT UPPER(b.branch_name) FROM v2_branches b " +
+        "JOIN v2_areas a ON b.area_id = a.area_id " +
+        "JOIN v2_divisions dv ON a.division_id = dv.division_id " +
+        "WHERE TRIM(dv.division_name) ILIKE TRIM($" + (idx++) + ")" +
+      ")");
+      params.push(filters.division);
+    }
+    if (filters.district || filters.area) {
+      where.push("UPPER(d.branch_name) IN (" +
+        "SELECT UPPER(b.branch_name) FROM v2_branches b " +
+        "JOIN v2_areas a ON b.area_id = a.area_id " +
+        "WHERE TRIM(a.area_name) ILIKE TRIM($" + (idx++) + ")" +
+      ")");
+      params.push(filters.district || filters.area);
+    }
   }
   if (filters.branch) {
     where.push("UPPER(d.branch_name) = UPPER($" + (idx++) + ")");
@@ -2821,7 +2898,8 @@ function buildDisbWhere(filters) {
 
 app.get("/api/disbursement/summary", async (req, res) => {
   try {
-    const { clause, params } = buildDisbWhere(req.query);
+    var useOld = req.query.structure === 'old';
+    const { clause, params } = buildDisbWhere(req.query, useOld);
     const result = await pool.query(
       DISB_CTE + "SELECT SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount FROM d" + clause, params
     );
@@ -2831,7 +2909,8 @@ app.get("/api/disbursement/summary", async (req, res) => {
 
 app.get("/api/disbursement/by-product", async (req, res) => {
   try {
-    const { clause, params } = buildDisbWhere(req.query);
+    var useOld = req.query.structure === 'old';
+    const { clause, params } = buildDisbWhere(req.query, useOld);
     const result = await pool.query(
       DISB_CTE + "SELECT d.product_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount FROM d" + clause + " GROUP BY d.product_name ORDER BY total_amount DESC", params
     );
@@ -2841,7 +2920,8 @@ app.get("/api/disbursement/by-product", async (req, res) => {
 
 app.get("/api/disbursement/by-region", async (req, res) => {
   try {
-    const { clause, params } = buildDisbWhere(req.query);
+    var useOld = req.query.structure === 'old';
+    const { clause, params } = buildDisbWhere(req.query, useOld);
     const result = await pool.query(
       DISB_CTE + "SELECT d.region_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount FROM d" + clause + " GROUP BY d.region_name ORDER BY total_amount DESC", params
     );
@@ -2851,7 +2931,8 @@ app.get("/api/disbursement/by-region", async (req, res) => {
 
 app.get("/api/disbursement/by-district", async (req, res) => {
   try {
-    const { clause, params } = buildDisbWhere(req.query);
+    var useOld = req.query.structure === 'old';
+    const { clause, params } = buildDisbWhere(req.query, useOld);
     const result = await pool.query(
       DISB_CTE + "SELECT d.district_name, d.region_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount FROM d" + clause + " GROUP BY d.district_name, d.region_name ORDER BY total_amount DESC", params
     );
@@ -2861,7 +2942,8 @@ app.get("/api/disbursement/by-district", async (req, res) => {
 
 app.get("/api/disbursement/by-branch", async (req, res) => {
   try {
-    const { clause, params } = buildDisbWhere(req.query);
+    var useOld = req.query.structure === 'old';
+    const { clause, params } = buildDisbWhere(req.query, useOld);
     const result = await pool.query(
       DISB_CTE + "SELECT d.branch_name, d.district_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount FROM d" + clause + " GROUP BY d.branch_name, d.district_name ORDER BY total_amount DESC", params
     );
@@ -2871,7 +2953,8 @@ app.get("/api/disbursement/by-branch", async (req, res) => {
 
 app.get("/api/disbursement/by-employee", async (req, res) => {
   try {
-    const { clause, params } = buildDisbWhere(req.query);
+    var useOld = req.query.structure === 'old';
+    const { clause, params } = buildDisbWhere(req.query, useOld);
     const result = await pool.query(
       DISB_CTE + "SELECT d.emp_id, d.officer_name AS name, d.branch_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount FROM d" + clause + " GROUP BY d.emp_id, d.officer_name, d.branch_name ORDER BY total_amount DESC", params
     );
@@ -2879,49 +2962,91 @@ app.get("/api/disbursement/by-employee", async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// New-structure endpoints (join employee_master for state/division/area)
+// New-structure endpoints (join V2 hierarchy via branch_name for direct lookups)
 app.get("/api/disbursement/by-state", async (req, res) => {
   try {
-    const { clause, params } = buildDisbWhere(req.query);
-    const extra = (clause ? " AND " : " WHERE ") + "em.region_name IS NOT NULL";
-    const result = await pool.query(
-      DISB_CTE + "SELECT em.region_name AS state_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount " +
-      "FROM d LEFT JOIN employee_master em ON UPPER(d.branch_name)=UPPER(em.branch_name)" +
-      clause + extra + " GROUP BY em.region_name ORDER BY em.region_name", params
-    );
+    var useOld = req.query.structure === 'old';
+    const { clause, params } = buildDisbWhere(req.query, useOld);
+    if (useOld) {
+      const extra = (clause ? " AND " : " WHERE ") + "em.region_name IS NOT NULL";
+      const result = await pool.query(
+        DISB_CTE + "SELECT em.region_name AS state_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount " +
+        "FROM d LEFT JOIN employee_master em ON UPPER(d.branch_name)=UPPER(em.branch_name)" +
+        clause + extra + " GROUP BY em.region_name ORDER BY em.region_name", params
+      );
+      return res.json(result.rows);
+    }
+    const extra = (clause ? " AND " : " WHERE ") + "s.state_name IS NOT NULL";
+    const sql = DISB_CTE +
+      "SELECT s.state_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount " +
+      "FROM d " +
+      "LEFT JOIN v2_branches b ON UPPER(d.branch_name) = UPPER(b.branch_name) " +
+      "LEFT JOIN v2_areas a ON b.area_id = a.area_id " +
+      "LEFT JOIN v2_divisions dv ON a.division_id = dv.division_id " +
+      "LEFT JOIN v2_states s ON dv.state_id = s.state_id" +
+      clause + extra + " GROUP BY s.state_name ORDER BY s.state_name";
+    const result = await pool.query(sql, params);
     res.json(result.rows);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get("/api/disbursement/by-division", async (req, res) => {
   try {
-    const { clause, params } = buildDisbWhere(req.query);
-    const extra = (clause ? " AND " : " WHERE ") + "em.division_name IS NOT NULL";
-    const result = await pool.query(
-      DISB_CTE + "SELECT em.division_name, em.region_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount " +
-      "FROM d LEFT JOIN employee_master em ON UPPER(d.branch_name)=UPPER(em.branch_name)" +
-      clause + extra + " GROUP BY em.division_name, em.region_name ORDER BY total_amount DESC", params
-    );
+    var useOld = req.query.structure === 'old';
+    const { clause, params } = buildDisbWhere(req.query, useOld);
+    if (useOld) {
+      const extra = (clause ? " AND " : " WHERE ") + "em.division_name IS NOT NULL";
+      const result = await pool.query(
+        DISB_CTE + "SELECT em.division_name, em.region_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount " +
+        "FROM d LEFT JOIN employee_master em ON UPPER(d.branch_name)=UPPER(em.branch_name)" +
+        clause + extra + " GROUP BY em.division_name, em.region_name ORDER BY total_amount DESC", params
+      );
+      return res.json(result.rows);
+    }
+    const extra = (clause ? " AND " : " WHERE ") + "dv.division_name IS NOT NULL";
+    const sql = DISB_CTE +
+      "SELECT dv.division_name, s.state_name AS region_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount " +
+      "FROM d " +
+      "LEFT JOIN v2_branches b ON UPPER(d.branch_name) = UPPER(b.branch_name) " +
+      "LEFT JOIN v2_areas a ON b.area_id = a.area_id " +
+      "LEFT JOIN v2_divisions dv ON a.division_id = dv.division_id " +
+      "LEFT JOIN v2_states s ON dv.state_id = s.state_id" +
+      clause + extra + " GROUP BY dv.division_name, s.state_name ORDER BY total_amount DESC";
+    const result = await pool.query(sql, params);
     res.json(result.rows);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get("/api/disbursement/by-area", async (req, res) => {
   try {
-    const { clause, params } = buildDisbWhere(req.query);
-    const extra = (clause ? " AND " : " WHERE ") + "em.area_name IS NOT NULL";
-    const result = await pool.query(
-      DISB_CTE + "SELECT em.area_name, em.division_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount " +
-      "FROM d LEFT JOIN employee_master em ON UPPER(d.branch_name)=UPPER(em.branch_name)" +
-      clause + extra + " GROUP BY em.area_name, em.division_name ORDER BY total_amount DESC", params
-    );
+    var useOld = req.query.structure === 'old';
+    const { clause, params } = buildDisbWhere(req.query, useOld);
+    if (useOld) {
+      const extra = (clause ? " AND " : " WHERE ") + "em.area_name IS NOT NULL";
+      const result = await pool.query(
+        DISB_CTE + "SELECT em.area_name, em.division_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount " +
+        "FROM d LEFT JOIN employee_master em ON UPPER(d.branch_name)=UPPER(em.branch_name)" +
+        clause + extra + " GROUP BY em.area_name, em.division_name ORDER BY total_amount DESC", params
+      );
+      return res.json(result.rows);
+    }
+    const extra = (clause ? " AND " : " WHERE ") + "a.area_name IS NOT NULL";
+    const sql = DISB_CTE +
+      "SELECT a.area_name, dv.division_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount " +
+      "FROM d " +
+      "LEFT JOIN v2_branches b ON UPPER(d.branch_name) = UPPER(b.branch_name) " +
+      "LEFT JOIN v2_areas a ON b.area_id = a.area_id " +
+      "LEFT JOIN v2_divisions dv ON a.division_id = dv.division_id" +
+      clause + extra + " GROUP BY a.area_name, dv.division_name ORDER BY total_amount DESC";
+    const result = await pool.query(sql, params);
     res.json(result.rows);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get("/api/disbursement/by-month", async (req, res) => {
   try {
-    const { clause, params } = buildDisbWhere(req.query);
+    var useOld = req.query.structure === 'old';
+    const { clause, params } = buildDisbWhere(req.query, useOld);
     const result = await pool.query(
       DISB_CTE + "SELECT d.db_month, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount FROM d" + clause + " GROUP BY d.db_month", params
     );
@@ -2936,10 +3061,11 @@ app.get("/api/disbursement/by-month", async (req, res) => {
 });
 
 // ========== DISBURSEMENT DAILY API (date-grain) ==========
-function buildDisbDailyWhere(filters) {
+function buildDisbDailyWhere(filters, useOld) {
   var where = [];
   var params = [];
   var idx = 1;
+  if (useOld === undefined) useOld = (filters.structure === 'old');
   if (filters.from && filters.to) {
     where.push("d.disb_date BETWEEN $" + idx++ + " AND $" + idx++);
     params.push(filters.from, filters.to);
@@ -2947,17 +3073,47 @@ function buildDisbDailyWhere(filters) {
   if (filters.product_name && filters.product_name !== 'All') {
     where.push("d.product_name=$" + idx++); params.push(filters.product_name);
   }
-  if (filters.region || filters.state) {
-    where.push("UPPER(d.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(region_name) ILIKE TRIM($" + (idx++) + "))");
-    params.push(filters.region || filters.state);
-  }
-  if (filters.division) {
-    where.push("UPPER(d.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(division_name) ILIKE TRIM($" + (idx++) + "))");
-    params.push(filters.division);
-  }
-  if (filters.district || filters.area) {
-    where.push("UPPER(d.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(area_name) ILIKE TRIM($" + (idx++) + "))");
-    params.push(filters.district || filters.area);
+  if (useOld) {
+    if (filters.region || filters.state) {
+      where.push("UPPER(d.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(region_name) ILIKE TRIM($" + (idx++) + "))");
+      params.push(filters.region || filters.state);
+    }
+    if (filters.division) {
+      where.push("UPPER(d.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(division_name) ILIKE TRIM($" + (idx++) + "))");
+      params.push(filters.division);
+    }
+    if (filters.district || filters.area) {
+      where.push("UPPER(d.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(area_name) ILIKE TRIM($" + (idx++) + "))");
+      params.push(filters.district || filters.area);
+    }
+  } else {
+    if (filters.region || filters.state) {
+      where.push("UPPER(d.branch_name) IN (" +
+        "SELECT UPPER(b.branch_name) FROM v2_branches b " +
+        "JOIN v2_areas a ON b.area_id = a.area_id " +
+        "JOIN v2_divisions dv ON a.division_id = dv.division_id " +
+        "JOIN v2_states s ON dv.state_id = s.state_id " +
+        "WHERE TRIM(s.state_name) ILIKE TRIM($" + (idx++) + ")" +
+      ")");
+      params.push(filters.region || filters.state);
+    }
+    if (filters.division) {
+      where.push("UPPER(d.branch_name) IN (" +
+        "SELECT UPPER(b.branch_name) FROM v2_branches b " +
+        "JOIN v2_areas a ON b.area_id = a.area_id " +
+        "JOIN v2_divisions dv ON a.division_id = dv.division_id " +
+        "WHERE TRIM(dv.division_name) ILIKE TRIM($" + (idx++) + ")" +
+      ")");
+      params.push(filters.division);
+    }
+    if (filters.district || filters.area) {
+      where.push("UPPER(d.branch_name) IN (" +
+        "SELECT UPPER(b.branch_name) FROM v2_branches b " +
+        "JOIN v2_areas a ON b.area_id = a.area_id " +
+        "WHERE TRIM(a.area_name) ILIKE TRIM($" + (idx++) + ")" +
+      ")");
+      params.push(filters.district || filters.area);
+    }
   }
   if (filters.branch) {
     where.push("UPPER(d.branch_name) = UPPER($" + (idx++) + ")");
@@ -2969,9 +3125,10 @@ function buildDisbDailyWhere(filters) {
 
 app.get("/api/disbursement/daily/dates", async (req, res) => {
   try {
+    var useOld = req.query.structure === 'old';
     // Allow scope filtering but ignore `date`/`from`/`to` themselves for the list
     var q = Object.assign({}, req.query); delete q.date; delete q.from; delete q.to;
-    const { clause, params } = buildDisbDailyWhere(q);
+    const { clause, params } = buildDisbDailyWhere(q, useOld);
     const result = await pool.query(
       "SELECT DISTINCT d.disb_date FROM disbursement_daily d" + clause + " ORDER BY d.disb_date DESC", params
     );
@@ -2988,7 +3145,8 @@ app.get("/api/disbursement/daily/dates", async (req, res) => {
 
 app.get("/api/disbursement/daily/summary", async (req, res) => {
   try {
-    const { clause, params } = buildDisbDailyWhere(req.query);
+    var useOld = req.query.structure === 'old';
+    const { clause, params } = buildDisbDailyWhere(req.query, useOld);
     const result = await pool.query(
       "SELECT SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount FROM disbursement_daily d" + clause, params
     );
@@ -2998,7 +3156,8 @@ app.get("/api/disbursement/daily/summary", async (req, res) => {
 
 app.get("/api/disbursement/daily/by-product", async (req, res) => {
   try {
-    const { clause, params } = buildDisbDailyWhere(req.query);
+    var useOld = req.query.structure === 'old';
+    const { clause, params } = buildDisbDailyWhere(req.query, useOld);
     const result = await pool.query(
       "SELECT d.product_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount FROM disbursement_daily d" + clause + " GROUP BY d.product_name ORDER BY total_amount DESC", params
     );
@@ -3008,7 +3167,8 @@ app.get("/api/disbursement/daily/by-product", async (req, res) => {
 
 app.get("/api/disbursement/daily/by-region", async (req, res) => {
   try {
-    const { clause, params } = buildDisbDailyWhere(req.query);
+    var useOld = req.query.structure === 'old';
+    const { clause, params } = buildDisbDailyWhere(req.query, useOld);
     const result = await pool.query(
       "SELECT d.region_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount FROM disbursement_daily d" + clause + " GROUP BY d.region_name ORDER BY total_amount DESC", params
     );
@@ -3018,7 +3178,8 @@ app.get("/api/disbursement/daily/by-region", async (req, res) => {
 
 app.get("/api/disbursement/daily/by-district", async (req, res) => {
   try {
-    const { clause, params } = buildDisbDailyWhere(req.query);
+    var useOld = req.query.structure === 'old';
+    const { clause, params } = buildDisbDailyWhere(req.query, useOld);
     const result = await pool.query(
       "SELECT d.district_name, d.region_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount FROM disbursement_daily d" + clause + " GROUP BY d.district_name, d.region_name ORDER BY total_amount DESC", params
     );
@@ -3028,7 +3189,8 @@ app.get("/api/disbursement/daily/by-district", async (req, res) => {
 
 app.get("/api/disbursement/daily/by-branch", async (req, res) => {
   try {
-    const { clause, params } = buildDisbDailyWhere(req.query);
+    var useOld = req.query.structure === 'old';
+    const { clause, params } = buildDisbDailyWhere(req.query, useOld);
     const result = await pool.query(
       "SELECT d.branch_name, d.district_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount FROM disbursement_daily d" + clause + " GROUP BY d.branch_name, d.district_name ORDER BY total_amount DESC", params
     );
@@ -3038,7 +3200,8 @@ app.get("/api/disbursement/daily/by-branch", async (req, res) => {
 
 app.get("/api/disbursement/daily/by-employee", async (req, res) => {
   try {
-    const { clause, params } = buildDisbDailyWhere(req.query);
+    var useOld = req.query.structure === 'old';
+    const { clause, params } = buildDisbDailyWhere(req.query, useOld);
     const result = await pool.query(
       "SELECT d.emp_id, d.officer_name AS name, d.branch_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount FROM disbursement_daily d" + clause + " GROUP BY d.emp_id, d.officer_name, d.branch_name ORDER BY total_amount DESC", params
     );
@@ -3046,31 +3209,54 @@ app.get("/api/disbursement/daily/by-employee", async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// Daily disbursement aggregated by state (new-structure CEO view).
-// disbursement_daily only carries branch_name; we derive state via employee_master.
+// Daily disbursement aggregated by state. V2 direct joins default; ?structure=old for employee_master fallback.
 app.get("/api/disbursement/daily/by-state", async (req, res) => {
   try {
-    const { clause, params } = buildDisbDailyWhere(req.query);
+    var useOld = req.query.structure === 'old';
+    const { clause, params } = buildDisbDailyWhere(req.query, useOld);
+    if (useOld) {
+      const sql = "SELECT em.region_name AS state_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount " +
+        "FROM disbursement_daily d LEFT JOIN employee_master em ON UPPER(d.branch_name)=UPPER(em.branch_name)" +
+        clause + (clause ? " AND " : " WHERE ") + "em.region_name IS NOT NULL " +
+        "GROUP BY em.region_name ORDER BY em.region_name";
+      const result = await pool.query(sql, params);
+      return res.json(result.rows);
+    }
     const sql =
-      "SELECT em.region_name AS state_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount " +
-      "FROM disbursement_daily d LEFT JOIN employee_master em ON UPPER(d.branch_name)=UPPER(em.branch_name)" +
-      clause + (clause ? " AND " : " WHERE ") + "em.region_name IS NOT NULL " +
-      "GROUP BY em.region_name ORDER BY em.region_name";
+      "SELECT s.state_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount " +
+      "FROM disbursement_daily d " +
+      "LEFT JOIN v2_branches b ON UPPER(d.branch_name) = UPPER(b.branch_name) " +
+      "LEFT JOIN v2_areas a ON b.area_id = a.area_id " +
+      "LEFT JOIN v2_divisions dv ON a.division_id = dv.division_id " +
+      "LEFT JOIN v2_states s ON dv.state_id = s.state_id" +
+      clause + (clause ? " AND " : " WHERE ") + "s.state_name IS NOT NULL " +
+      "GROUP BY s.state_name ORDER BY s.state_name";
     const result = await pool.query(sql, params);
     res.json(result.rows);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// Daily disbursement aggregated by area / division (joined via employee_master since
-// disbursement_daily only carries region/district/branch labels).
+// Daily disbursement by area. V2 direct joins default; ?structure=old for employee_master fallback.
 app.get("/api/disbursement/daily/by-area", async (req, res) => {
   try {
-    const { clause, params } = buildDisbDailyWhere(req.query);
+    var useOld = req.query.structure === 'old';
+    const { clause, params } = buildDisbDailyWhere(req.query, useOld);
+    if (useOld) {
+      const sql = "SELECT em.area_name, em.division_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount " +
+        "FROM disbursement_daily d LEFT JOIN employee_master em ON UPPER(d.branch_name)=UPPER(em.branch_name)" +
+        clause + (clause ? " AND " : " WHERE ") + "em.area_name IS NOT NULL " +
+        "GROUP BY em.area_name, em.division_name ORDER BY total_amount DESC";
+      const result = await pool.query(sql, params);
+      return res.json(result.rows);
+    }
     const sql =
-      "SELECT em.area_name, em.division_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount " +
-      "FROM disbursement_daily d LEFT JOIN employee_master em ON UPPER(d.branch_name)=UPPER(em.branch_name)" +
-      clause + (clause ? " AND " : " WHERE ") + "em.area_name IS NOT NULL " +
-      "GROUP BY em.area_name, em.division_name ORDER BY total_amount DESC";
+      "SELECT a.area_name, dv.division_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount " +
+      "FROM disbursement_daily d " +
+      "LEFT JOIN v2_branches b ON UPPER(d.branch_name) = UPPER(b.branch_name) " +
+      "LEFT JOIN v2_areas a ON b.area_id = a.area_id " +
+      "LEFT JOIN v2_divisions dv ON a.division_id = dv.division_id" +
+      clause + (clause ? " AND " : " WHERE ") + "a.area_name IS NOT NULL " +
+      "GROUP BY a.area_name, dv.division_name ORDER BY total_amount DESC";
     const result = await pool.query(sql, params);
     res.json(result.rows);
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -3078,12 +3264,25 @@ app.get("/api/disbursement/daily/by-area", async (req, res) => {
 
 app.get("/api/disbursement/daily/by-division", async (req, res) => {
   try {
-    const { clause, params } = buildDisbDailyWhere(req.query);
+    var useOld = req.query.structure === 'old';
+    const { clause, params } = buildDisbDailyWhere(req.query, useOld);
+    if (useOld) {
+      const sql = "SELECT em.division_name, em.region_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount " +
+        "FROM disbursement_daily d LEFT JOIN employee_master em ON UPPER(d.branch_name)=UPPER(em.branch_name)" +
+        clause + (clause ? " AND " : " WHERE ") + "em.division_name IS NOT NULL " +
+        "GROUP BY em.division_name, em.region_name ORDER BY total_amount DESC";
+      const result = await pool.query(sql, params);
+      return res.json(result.rows);
+    }
     const sql =
-      "SELECT em.division_name, em.region_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount " +
-      "FROM disbursement_daily d LEFT JOIN employee_master em ON UPPER(d.branch_name)=UPPER(em.branch_name)" +
-      clause + (clause ? " AND " : " WHERE ") + "em.division_name IS NOT NULL " +
-      "GROUP BY em.division_name, em.region_name ORDER BY total_amount DESC";
+      "SELECT dv.division_name, s.state_name AS region_name, SUM(d.disb_count)::int AS total_count, SUM(d.disb_amount) AS total_amount " +
+      "FROM disbursement_daily d " +
+      "LEFT JOIN v2_branches b ON UPPER(d.branch_name) = UPPER(b.branch_name) " +
+      "LEFT JOIN v2_areas a ON b.area_id = a.area_id " +
+      "LEFT JOIN v2_divisions dv ON a.division_id = dv.division_id " +
+      "LEFT JOIN v2_states s ON dv.state_id = s.state_id" +
+      clause + (clause ? " AND " : " WHERE ") + "dv.division_name IS NOT NULL " +
+      "GROUP BY dv.division_name, s.state_name ORDER BY total_amount DESC";
     const result = await pool.query(sql, params);
     res.json(result.rows);
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -3094,9 +3293,10 @@ app.get("/api/disbursement/daily/by-date-range", async (req, res) => {
     const from = req.query.from, to = req.query.to;
     if (!from || !to) return res.status(400).json({ error: "from and to are required (YYYY-MM-DD)" });
 
+    var useOld = req.query.structure === 'old';
     // Reuse scope filters — strip date so it doesn't collide with range
     var q = Object.assign({}, req.query); delete q.date; delete q.from; delete q.to;
-    const { clause, params } = buildDisbDailyWhere(q);
+    const { clause, params } = buildDisbDailyWhere(q, useOld);
 
     // Prepend the range predicates; shift existing $N by 2
     var shifted = clause.replace(/\$(\d+)/g, function(_, n) { return "$" + (parseInt(n,10) + 2); });
@@ -3498,8 +3698,8 @@ function buildV2CollectionQuery(groupCol) {
   return `SELECT ${groupCol ? groupCol + "," : ""} ${V2_SELECT_METRICS} ${V2_JOIN}`;
 }
 
-// Resolve a hierarchy filter (state/region, division, area, branch) to a set of
-// v2_branches via employee_master — single source of truth, case-insensitive.
+// Resolve a hierarchy filter (state, division, area, branch) directly on V2 table
+// aliases (s, dv, a, b) instead of fragile employee_master subqueries.
 function buildV2Where(filters) {
   const where = [];
   const params = [];
@@ -3507,17 +3707,17 @@ function buildV2Where(filters) {
   if (filters.product_type && filters.product_type !== "All") {
     where.push(`pt.product_type_name = $${idx++}`); params.push(filters.product_type);
   }
-  // Hierarchy filters — resolve via employee_master
+  // Hierarchy filters — filter directly on V2 table aliases
   if (filters.state || filters.region) {
-    where.push(`UPPER(b.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(region_name) ILIKE TRIM($${idx++}))`);
+    where.push(`s.state_name ILIKE TRIM($${idx++})`);
     params.push(filters.state || filters.region);
   }
   if (filters.division) {
-    where.push(`UPPER(b.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(division_name) ILIKE TRIM($${idx++}))`);
+    where.push(`dv.division_name ILIKE TRIM($${idx++})`);
     params.push(filters.division);
   }
   if (filters.area || filters.district) {
-    where.push(`UPPER(b.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(area_name) ILIKE TRIM($${idx++}))`);
+    where.push(`a.area_name ILIKE TRIM($${idx++})`);
     params.push(filters.area || filters.district);
   }
   if (filters.branch) {
@@ -4248,6 +4448,17 @@ app.get("/api/employees/names", async (req, res) => {
 // ========== COMPARISON API ==========
 app.get("/api/comparison", async (req, res) => {
   try {
+    var useOld = req.query.structure === 'old';
+    var joins = useOld
+      ? ` LEFT JOIN employees e ON dp.emp_id = e.emp_id
+      LEFT JOIN branches b ON e.branch_id = b.branch_id
+      LEFT JOIN districts d ON b.district_id = d.district_id
+      LEFT JOIN regions r ON d.region_id = r.region_id`
+      : ` LEFT JOIN v2_employees e ON dp.emp_id = e.emp_id
+      LEFT JOIN v2_branches b ON e.branch_id = b.branch_id
+      LEFT JOIN v2_areas a ON b.area_id = a.area_id
+      LEFT JOIN v2_divisions dv ON a.division_id = dv.division_id
+      LEFT JOIN v2_states s ON dv.state_id = s.state_id`;
     const base = `SELECT dp.report_date,
         SUM(dp.regular_demand)::int AS regular_demand,
         SUM(dp.regular_collection)::int AS regular_collection,
@@ -4260,12 +4471,8 @@ app.get("/api/comparison", async (req, res) => {
         SUM(dp.npa_cases)::int AS npa_cases,
         SUM(dp.npa_act_acc)::int AS npa_act_acc,
         SUM(dp.npa_act_amt) AS npa_act_amt
-      FROM daily_performance dp
-      LEFT JOIN employees e ON dp.emp_id = e.emp_id
-      LEFT JOIN branches b ON e.branch_id = b.branch_id
-      LEFT JOIN districts d ON b.district_id = d.district_id
-      LEFT JOIN regions r ON d.region_id = r.region_id`;
-    const { clause, params } = buildDailyWhere({...req.query, date: undefined, scope: req.query.scope || 'oa'});
+      FROM daily_performance dp` + joins;
+    const { clause, params } = buildDailyWhere({...req.query, date: undefined, scope: req.query.scope || 'oa'}, useOld);
     const sql = base + clause + " GROUP BY dp.report_date ORDER BY dp.report_date";
     const result = await pool.query(sql, params);
     res.json(result.rows);

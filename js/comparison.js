@@ -567,8 +567,15 @@
     var session = typeof getEmployeeSession === 'function' ? getEmployeeSession() : {};
     var params = [];
     var r = session.role;
+    // Check new-structure flag for DM/DvM to send correct filter param
+    var _isNew = typeof isNewStructure === 'function' ? isNewStructure() : (window.getDataStructure && window.getDataStructure() === 'new');
+    if (!_isNew) params.push('structure=old');
     if ((r === 'RM' || r === 'SM') && session.location) params.push('region=' + encodeURIComponent(session.location));
-    else if ((r === 'DM' || r === 'DvM' || r === 'AM') && session.location) params.push('district=' + encodeURIComponent(session.location));
+    else if ((r === 'DM' || r === 'DvM') && session.location) {
+      if (_isNew) params.push('division=' + encodeURIComponent(session.location));
+      else params.push('division=' + encodeURIComponent(session.location)); // backend resolves via employee_master.division_name
+    }
+    else if (r === 'AM' && session.location) params.push('area=' + encodeURIComponent(session.location));
     else if (r === 'BM' && session.location) params.push('branch=' + encodeURIComponent(session.location));
     else if (r === 'FO' && session.id) params.push('emp_id=' + encodeURIComponent(session.id));
     var url = '/api/comparison' + (params.length ? '?' + params.join('&') : '');

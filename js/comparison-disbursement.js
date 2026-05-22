@@ -26,6 +26,8 @@
     var s = typeof getEmployeeSession === 'function' ? getEmployeeSession() : {};
     var p = [];
     var r = s.role;
+    var _isNew = typeof isNewStructure === 'function' ? isNewStructure() : (window.getDataStructure && window.getDataStructure() === 'new');
+    if (!_isNew) p.push('structure=old');
     if ((r === 'RM' || r === 'SM') && s.location) p.push('region=' + encodeURIComponent(s.location));
     else if ((r === 'DM' || r === 'DvM') && s.location) p.push('division=' + encodeURIComponent(s.location));
     else if (r === 'AM' && s.location) p.push('area=' + encodeURIComponent(s.location));

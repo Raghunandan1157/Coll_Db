@@ -37,6 +37,8 @@
 
   function scopeOnlyParams() {
     var p = [];
+    var _isNew = typeof isNewStructure === 'function' ? isNewStructure() : (window.getDataStructure && window.getDataStructure() === 'new');
+    if (!_isNew) p.push('structure=old');
     if ((session.role === 'RM' || session.role === 'SM') && session.location) p.push('region=' + encodeURIComponent(session.location));
     else if ((session.role === 'DM' || session.role === 'DvM') && session.location) p.push('division=' + encodeURIComponent(session.location));
     else if (session.role === 'AM' && session.location) p.push('area=' + encodeURIComponent(session.location));
@@ -82,6 +84,8 @@
     var r = activeMonthRange();
     if (!r) return null;
     var p = ['from=' + encodeURIComponent(r.from), 'to=' + encodeURIComponent(r.to)];
+    var _isNew = typeof isNewStructure === 'function' ? isNewStructure() : (window.getDataStructure && window.getDataStructure() === 'new');
+    if (!_isNew) p.push('structure=old');
     if (_db.product && _db.product !== 'all') p.push('product_name=' + encodeURIComponent(_db.product.toUpperCase()));
     if ((session.role === 'RM' || session.role === 'SM') && session.location) p.push('region=' + encodeURIComponent(session.location));
     else if ((session.role === 'DM' || session.role === 'DvM') && session.location) p.push('division=' + encodeURIComponent(session.location));
@@ -95,6 +99,8 @@
 
   function queryParams() {
     var p = [];
+    var _isNew = typeof isNewStructure === 'function' ? isNewStructure() : (window.getDataStructure && window.getDataStructure() === 'new');
+    if (!_isNew) p.push('structure=old');
     if (_db.date) {
       if (_db.dateMode === 'mtd') {
         p.push('from=' + encodeURIComponent(monthStartIso(_db.date)));
@@ -116,6 +122,8 @@
 
   function childrenUrl() {
     var base = [];
+    var _isNew = typeof isNewStructure === 'function' ? isNewStructure() : (window.getDataStructure && window.getDataStructure() === 'new');
+    if (!_isNew) base.push('structure=old');
     if (_db.date) {
       if (_db.dateMode === 'mtd') {
         base.push('from=' + encodeURIComponent(monthStartIso(_db.date)));
@@ -128,7 +136,7 @@
     if (_db.product && _db.product !== 'all') base.push('product_name=' + encodeURIComponent(_db.product.toUpperCase()));
 
     var root = dbBase();
-    if (isNewStructure()) {
+    if (_isNew) {
       if (session.role === 'CEO') return root + '/by-state' + (base.length ? '?' + base.join('&') : '');
       if ((session.role === 'RM' || session.role === 'SM') && session.location) {
         base.push('state=' + encodeURIComponent(session.location));
