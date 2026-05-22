@@ -202,7 +202,7 @@ const BRANCH_V2_MAP = {
   'BIDAR': {state: 'KALBURGI', division: 'BIDAR', area: 'BIDAR'},
   'BIDAR-2': {state: 'KALBURGI', division: 'BIDAR', area: 'BIDAR'},
   'BILAGI': {state: 'DHARWAD', division: 'BELAGAVI', area: 'BAGALKOT'},
-  'BUDWAL': {state: 'ANDRA PRADESH', division: 'ANDRA PRADESH', area: 'KADAPA'},
+  'BUDWAL': {state: 'AP', division: 'KADAPPA', area: 'KADAPA'},
   'CHADCHAN': {state: 'KALBURGI', division: 'KALBURGI', area: 'INDI'},
   'CHALLAKERE': {state: 'CHITRADURGA', division: 'CHITRADURGA', area: 'CHITRADURGA'},
   'CHANDAPURA': {state: 'TUMKUR', division: 'DODDABALLAPURA', area: 'BANGALORE URBAN'},
@@ -214,15 +214,16 @@ const BRANCH_V2_MAP = {
   'CHINCHOLI': {state: 'KALBURGI', division: 'BIDAR', area: 'SEDAM'},
   'CHINTAMANI': {state: 'TUMKUR', division: 'DODDABALLAPURA', area: 'CHIKBALLAPURA'},
   'CHITRADURGA': {state: 'CHITRADURGA', division: 'CHITRADURGA', area: 'CHITRADURGA'},
+  'CORPORATE OFFICE': {state: 'CORPORATE OFFICE', division: 'CORPORATE OFFICE', area: 'CORPORATE OFFICE'},
   'DABUSPET': {state: 'TUMKUR', division: 'TUMKUR', area: 'TUMKUR'},
   'DAVANAGERE': {state: 'CHITRADURGA', division: 'CHITRADURGA', area: 'DAVANAGERE'},
   'DEVADURGA': {state: 'KALBURGI', division: 'KALBURGI', area: 'SHAHAPUR'},
   'DEVANAHALLI': {state: 'TUMKUR', division: 'DODDABALLAPURA', area: 'DODDABALLAPURA'},
-  'DHARMAVARAM': {state: 'ANDRA PRADESH', division: 'ANDRA PRADESH', area: 'KADAPA'},
+  'DHARMAVARAM': {state: 'AP', division: 'KADAPPA', area: 'KADAPA'},
   'DHARWAD': {state: 'DHARWAD', division: 'HUBLI', area: 'DHARWAD'},
   'DODDABALLAPURA': {state: 'TUMKUR', division: 'DODDABALLAPURA', area: 'DODDABALLAPURA'},
   'GADAG': {state: 'DHARWAD', division: 'HUBLI', area: 'GADAG'},
-  'GADWAL': {state: 'TELANGANA', division: 'TELANGANA', area: 'MAHABOOBNAGAR'},
+  'GADWAL': {state: 'TS', division: 'SANGAREDDY', area: 'MAHABUB NAGAR'},
   'GAJENDRAGAD': {state: 'DHARWAD', division: 'HUBLI', area: 'BADAMI'},
   'GANGAVATHI': {state: 'DHARWAD', division: 'HUBLI', area: 'KUSHTAGI'},
   'GOKAK': {state: 'DHARWAD', division: 'BELAGAVI', area: 'BELAGAVI'},
@@ -231,6 +232,7 @@ const BRANCH_V2_MAP = {
   'HAGARIBOMMANAHALLI': {state: 'CHITRADURGA', division: 'HOSPET', area: 'HOSPET'},
   'HARAPANAHALLI': {state: 'CHITRADURGA', division: 'HOSPET', area: 'KOTTURU'},
   'HARIHARA': {state: 'CHITRADURGA', division: 'CHITRADURGA', area: 'DAVANAGERE'},
+  'HEAD OFFICE': {state: 'HEAD OFFICE', division: 'HEAD OFFICE', area: 'HEAD OFFICE'},
   'HEBBAL': {state: 'TUMKUR', division: 'DODDABALLAPURA', area: 'BANGALORE URBAN'},
   'HIRIYUR': {state: 'CHITRADURGA', division: 'CHITRADURGA', area: 'CHITRADURGA'},
   'HOLAKERE': {state: 'CHITRADURGA', division: 'CHITRADURGA', area: 'CHITRADURGA'},
@@ -249,8 +251,8 @@ const BRANCH_V2_MAP = {
   'JAGALORE': {state: 'CHITRADURGA', division: 'HOSPET', area: 'KOTTURU'},
   'JAMAKHANDI': {state: 'DHARWAD', division: 'BELAGAVI', area: 'BAGALKOT'},
   'JEVARGI': {state: 'KALBURGI', division: 'KALBURGI', area: 'KALBURGI'},
-  'KADAPA': {state: 'ANDRA PRADESH', division: 'ANDRA PRADESH', area: 'KADAPA'},
-  'KADIRI': {state: 'ANDRA PRADESH', division: 'ANDRA PRADESH', area: 'KADAPA'},
+  'KADAPA': {state: 'AP', division: 'KADAPPA', area: 'KADAPA'},
+  'KADIRI': {state: 'AP', division: 'KADAPPA', area: 'KADAPA'},
   'KADUR': {state: 'CHITRADURGA', division: 'CHITRADURGA', area: 'KADUR'},
   'KALABURAGI': {state: 'KALBURGI', division: 'KALBURGI', area: 'KALBURGI'},
   'KALAGI': {state: 'KALBURGI', division: 'BIDAR', area: 'SEDAM'},
@@ -260,7 +262,8 @@ const BRANCH_V2_MAP = {
   'KENGERI': {state: 'TUMKUR', division: 'DODDABALLAPURA', area: 'BANGALORE URBAN'},
   'KHANAHOSAHALLI': {state: 'CHITRADURGA', division: 'HOSPET', area: 'KOTTURU'},
   'KITTUR': {state: 'DHARWAD', division: 'BELAGAVI', area: 'BELAGAVI'},
-  'KODANGAL': {state: 'TELANGANA', division: 'TELANGANA', area: 'SANGAREDDY'},
+  'KODANGAL': {state: 'TS', division: 'SANGAREDDY', area: 'SANGAREDDY'},
+  'KODANGAL(VIKARABAD)': {state: 'TS', division: 'SANGAREDDY', area: 'SANGAREDDY'},
   'KOLAR': {state: 'TUMKUR', division: 'DODDABALLAPURA', area: 'KOLAR'},
   'KOPPAL': {state: 'DHARWAD', division: 'HUBLI', area: 'KUSHTAGI'},
   'KORATAGERE': {state: 'TUMKUR', division: 'TUMKUR', area: 'TUMKUR'},
@@ -270,26 +273,26 @@ const BRANCH_V2_MAP = {
   'KUNIGAL': {state: 'TUMKUR', division: 'TUMKUR', area: 'TUMKUR'},
   'KUSHTAGI': {state: 'DHARWAD', division: 'HUBLI', area: 'KUSHTAGI'},
   'LAXMESHWAR': {state: 'DHARWAD', division: 'HUBLI', area: 'GADAG'},
-  'LINGSUGUR': {state: 'KALBURGI', division: 'BIDAR', area: 'LINGSUGUR'},
+  'LINGSUGUR': {state: 'KALBURGI', division: 'KALBURGI', area: 'LINGSUGUR'},
   'LOKAPUR': {state: 'DHARWAD', division: 'BELAGAVI', area: 'BAGALKOT'},
   'MADHUGIRI': {state: 'TUMKUR', division: 'TUMKUR', area: 'TUMKUR'},
-  'MAHABUB NAGAR': {state: 'TELANGANA', division: 'TELANGANA', area: 'MAHABOOBNAGAR'},
+  'MAHABUB NAGAR': {state: 'TS', division: 'SANGAREDDY', area: 'MAHABUB NAGAR'},
   'MALUR': {state: 'TUMKUR', division: 'DODDABALLAPURA', area: 'KOLAR'},
   'MANVI': {state: 'KALBURGI', division: 'BIDAR', area: 'LINGSUGUR'},
-  'MARIKAL': {state: 'TELANGANA', division: 'TELANGANA', area: 'MAHABOOBNAGAR'},
+  'MARIKAL': {state: 'TS', division: 'SANGAREDDY', area: 'MAHABUB NAGAR'},
   'MUDALAGI': {state: 'DHARWAD', division: 'BELAGAVI', area: 'CHIKKODI'},
   'MUDDEBIHAL': {state: 'KALBURGI', division: 'KALBURGI', area: 'VIJAYAPUR'},
   'MUDIGERE': {state: 'TUMKUR', division: 'TUMKUR', area: 'CHIKKAMAGALURU'},
   'MUNDARAGI': {state: 'DHARWAD', division: 'HUBLI', area: 'GADAG'},
   'NARAGUNDA': {state: 'DHARWAD', division: 'HUBLI', area: 'BADAMI'},
-  'NARAYANKHED': {state: 'TELANGANA', division: 'TELANGANA', area: 'SANGAREDDY'},
+  'NARAYANKHED': {state: 'TS', division: 'SANGAREDDY', area: 'SANGAREDDY'},
   'NIPPANI': {state: 'DHARWAD', division: 'BELAGAVI', area: 'CHIKKODI'},
   'NR PURA': {state: 'TUMKUR', division: 'TUMKUR', area: 'CHIKKAMAGALURU'},
   'PANCHANHALLI': {state: 'CHITRADURGA', division: 'CHITRADURGA', area: 'KADUR'},
   'RAICHUR': {state: 'KALBURGI', division: 'BIDAR', area: 'LINGSUGUR'},
   'RAMDURGA': {state: 'DHARWAD', division: 'HUBLI', area: 'BADAMI'},
   'SANDURU': {state: 'CHITRADURGA', division: 'HOSPET', area: 'BALLARI'},
-  'SANGAREDDY': {state: 'TELANGANA', division: 'TELANGANA', area: 'SANGAREDDY'},
+  'SANGAREDDY': {state: 'TS', division: 'SANGAREDDY', area: 'SANGAREDDY'},
   'SANTHEBENNURU': {state: 'CHITRADURGA', division: 'CHITRADURGA', area: 'DAVANAGERE'},
   'SEDAM': {state: 'KALBURGI', division: 'BIDAR', area: 'SEDAM'},
   'SHAHAPUR': {state: 'KALBURGI', division: 'KALBURGI', area: 'SHAHAPUR'},
@@ -300,16 +303,16 @@ const BRANCH_V2_MAP = {
   'SIRWAR': {state: 'KALBURGI', division: 'BIDAR', area: 'LINGSUGUR'},
   'SRINIVASPURA': {state: 'TUMKUR', division: 'DODDABALLAPURA', area: 'CHIKBALLAPURA'},
   'TALIKOTI': {state: 'KALBURGI', division: 'KALBURGI', area: 'VIJAYAPUR'},
-  'TANDUR': {state: 'TELANGANA', division: 'TELANGANA', area: 'MAHABOOBNAGAR'},
+  'TANDUR': {state: 'TS', division: 'SANGAREDDY', area: 'MAHABUB NAGAR'},
   'TARIKERE': {state: 'CHITRADURGA', division: 'CHITRADURGA', area: 'KADUR'},
   'TIKOTA': {state: 'KALBURGI', division: 'KALBURGI', area: 'VIJAYAPUR'},
   'TIPTUR': {state: 'TUMKUR', division: 'TUMKUR', area: 'TIPTUR'},
   'TUMKUR': {state: 'TUMKUR', division: 'TUMKUR', area: 'TUMKUR'},
   'TUREVEKERE': {state: 'TUMKUR', division: 'TUMKUR', area: 'TIPTUR'},
   'VIJAYAPUR': {state: 'KALBURGI', division: 'KALBURGI', area: 'VIJAYAPUR'},
-  'YADGIR': {state: 'KALBURGI', division: 'KALBURGI', area: 'SHAHAPUR'},
+  'YADGIR': {state: 'KALBURGI', division: 'BIDAR', area: 'SHAHAPUR'},
   'YARAGATTI': {state: 'DHARWAD', division: 'BELAGAVI', area: 'BELAGAVI'},
-  'ZAHEERABAD': {state: 'TELANGANA', division: 'TELANGANA', area: 'SANGAREDDY'}
+  'ZAHEERABAD': {state: 'TS', division: 'SANGAREDDY', area: 'SANGAREDDY'}
 };
 
 // ========== V2 TABLE POPULATION HELPERS ==========
@@ -4452,19 +4455,25 @@ app.post("/api/upload-hourly", upload.single("file"), async (req, res) => {
         const ws = wb.Sheets[sheetName];
         if (!ws) { skippedRows++; continue; }
         const rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
+
+        // Header-name → column-index map for metrics. Excludes the 4 extra
+        // "1-90 Demand/Collection" buckets and avoids the off-by-2 positional
+        // shift. Falls back to positional (col 5 + i) only if the header row
+        // is missing/unrecognisable. Same fix as /api/upload.
+        const hMetricColMap = buildEodMetricColMap(rows[0] || []);
+        const hMetricMappedCount = Object.keys(hMetricColMap).length;
+        const useHMetricHeaderMap = hMetricMappedCount >= 20;
+        if (!useHMetricHeaderMap) {
+          const missing = EOD_METRIC_DB_COLS.filter(c => hMetricColMap[c] === undefined);
+          console.warn(`/api/upload-hourly (legacy) sheet "${sheetName}" metric header missing/ambiguous (${hMetricMappedCount}/25), falling back to positional for: ${missing.join(',')}`);
+        }
+
         for (let r = 1; r < rows.length; r++) {
           const row = rows[r];
           if (!row || !row[3]) { skippedRows++; continue; }
           const empId = String(row[3]).trim();
           if (!empId || !empSet.has(empId)) { skippedRows++; continue; }
-          const metrics = [];
-          for (let c = 5; c < 30; c++) {
-            const raw = row[c];
-            if (raw == null || raw === "") { metrics.push(0); continue; }
-            const num = Number(raw);
-            metrics.push(Number.isFinite(num) ? num : 0);
-          }
-          while (metrics.length < 25) metrics.push(0);
+          const metrics = readEodMetrics(row, hMetricColMap, useHMetricHeaderMap, 5);
           await client.query(
             `INSERT INTO hourly_performance (emp_id, product_type_id,
               regular_demand, regular_collection, demand_1_30, collection_1_30,
@@ -4565,12 +4574,16 @@ app.post("/api/upload-hourly", upload.single("file"), async (req, res) => {
     }
 
     // 3. Extract employee metrics from Branch+Officer section
-    // Quick Report column layout (0-indexed):
+    // Quick Report column layout (0-indexed) — verified against the actual
+    // OverAll sheet header (Quick_Report_Latest.xlsx). The report DOES include
+    // a "1-90 DPD" group between PNPA and NPA, so NPA sits at cols 22-24, NOT
+    // 18-20. Reading 18-20 corrupts npa_cases with "1-90 DPD Demand", etc.
     //   0=EMP ID  1=Name  2=Reg Demand  3=Reg Collection  4=FTOD  5=Coll%
     //   6=130 Demand  7=130 Collection  8=130 Balance  9=130 Coll%
     //   10=3160 Demand  11=3160 Collection  12=3160 Balance  13=3160 Coll%
     //   14=PNPA Demand  15=PNPA Collection  16=PNPA Balance  17=PNPA Coll%
-    //   18=NPA Cases  19=NPA 90+ Acc  20=NPA 90+ Amt
+    //   18=1-90 Demand  19=1-90 Collection  20=1-90 Balance  21=1-90 Coll%
+    //   22=NPA Cases  23=NPA 90+ Acc  24=NPA 90+ Amt
     const employeeMetrics = {};
 
     const safeNum = (v) => {
@@ -4602,9 +4615,9 @@ app.post("/api/upload-hourly", upload.single("file"), async (req, res) => {
         collection_31_60: safeNum(row[11]),
         pnpa_demand: safeNum(row[14]),
         pnpa_collection: safeNum(row[15]),
-        npa_cases: safeNum(row[18]),
-        npa_act_acc: safeNum(row[19]),
-        npa_act_amt: safeNum(row[20]),
+        npa_cases: safeNum(row[22]),
+        npa_act_acc: safeNum(row[23]),
+        npa_act_amt: safeNum(row[24]),
         npa_clo_acc: 0,
         npa_clo_amt: 0,
         on_date_demand: onDate.demand,
