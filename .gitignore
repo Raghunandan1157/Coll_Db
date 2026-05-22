@@ -11,3 +11,10 @@ node_modules/
 *.xlsx
 *.xls
 !data/*.xlsx
+
+# Data dumps / DB backups / exports — keep out of public repo
+.claude/
+*.sql
+data/db-backup/
+data/*.csv
+data/report.xlsx
