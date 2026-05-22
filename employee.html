@@ -7902,7 +7902,7 @@ body.emp-dark #voMobile .vom-full-table tr.total-row td {
   <script src="js/auth.js?v=49"></script>
   <script src="js/settings.js?v=49"></script>
   <script src="js/portfolio.js?v=52"></script>
-  <script src="js/collection.js?v=56"></script>
+  <script src="js/collection.js?v=57"></script>
   <script src="js/analytical.js?v=4"></script>
   <script src="js/npa-activation.js?v=1"></script>
   <script src="js/hourly.js?v=52"></script>
@@ -15186,7 +15186,7 @@ function renderCalendar() {
     var cls = 'calendar-day';
     if (hasData) cls += ' has-data';
     if (isToday) cls += ' today';
-    if (isSelected) cls += ' selected';
+    if (isSelected && hasData) cls += ' selected';
     if (hasData) {
       html += '<button class="'+cls+'" onclick="selectCalDate(this.dataset.d)" data-d="'+dateStr+'">'+d+'</button>';
     } else {

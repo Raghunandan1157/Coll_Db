@@ -990,6 +990,11 @@
       apiFetch('/api/daily/dates').then(function(dates) {
         if (dates && dates.length) {
           _collState.availableDates = dates.map(function(d) { return d.substring(0, 10); });
+          // If saved date no longer has data (deleted/missing), fall back to latest
+          if (_collState.date && _collState.availableDates.indexOf(_collState.date) === -1) {
+            _collState.date = _collState.availableDates[0];
+            try { localStorage.setItem('collSelectedDate', _collState.date); } catch(_){}
+          }
           // If no saved date, use latest
           if (!_collState.date) {
             _collState.date = _collState.availableDates[0];
