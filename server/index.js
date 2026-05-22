@@ -1413,21 +1413,21 @@ function buildWhere(filters) {
   if (filters.product_type && filters.product_type !== "All") {
     where.push(`pt.product_type_name = $${idx++}`); params.push(filters.product_type);
   }
-  // Hierarchy filters — resolve via employee_master
+  // Hierarchy filters — resolve via employee_master by emp_id (same key as grouping)
   if (filters.region || filters.state) {
-    where.push(`UPPER(b.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(region_name) ILIKE TRIM($${idx++}))`);
+    where.push(`ep.emp_id IN (SELECT emp_id FROM employee_master WHERE TRIM(region_name) ILIKE TRIM($${idx++}))`);
     params.push(filters.region || filters.state);
   }
   if (filters.division) {
-    where.push(`UPPER(b.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(division_name) ILIKE TRIM($${idx++}))`);
+    where.push(`ep.emp_id IN (SELECT emp_id FROM employee_master WHERE TRIM(division_name) ILIKE TRIM($${idx++}))`);
     params.push(filters.division);
   }
   if (filters.district || filters.area) {
-    where.push(`UPPER(b.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(area_name) ILIKE TRIM($${idx++}))`);
+    where.push(`ep.emp_id IN (SELECT emp_id FROM employee_master WHERE TRIM(area_name) ILIKE TRIM($${idx++}))`);
     params.push(filters.district || filters.area);
   }
   if (filters.branch) {
-    where.push(`UPPER(b.branch_name) = UPPER($${idx++})`);
+    where.push(`ep.emp_id IN (SELECT emp_id FROM employee_master WHERE UPPER(branch_name) = UPPER($${idx++}))`);
     params.push(filters.branch);
   }
   if (filters.emp_id) { where.push(`ep.emp_id = $${idx++}`); params.push(filters.emp_id); }
@@ -2541,21 +2541,21 @@ function buildDailyWhere(filters) {
   if (filters.product_type && filters.product_type !== "All") {
     where.push("dp.product_type_id IN (SELECT product_type_id FROM product_types WHERE product_type_name=$" + idx++ + ")"); params.push(filters.product_type);
   }
-  // Hierarchy filters — resolve via employee_master
+  // Hierarchy filters — resolve via employee_master by emp_id (same key as grouping)
   if (filters.region || filters.state) {
-    where.push("UPPER(b.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(region_name) ILIKE TRIM($" + (idx++) + "))");
+    where.push("dp.emp_id IN (SELECT emp_id FROM employee_master WHERE TRIM(region_name) ILIKE TRIM($" + (idx++) + "))");
     params.push(filters.region || filters.state);
   }
   if (filters.division) {
-    where.push("UPPER(b.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(division_name) ILIKE TRIM($" + (idx++) + "))");
+    where.push("dp.emp_id IN (SELECT emp_id FROM employee_master WHERE TRIM(division_name) ILIKE TRIM($" + (idx++) + "))");
     params.push(filters.division);
   }
   if (filters.district || filters.area) {
-    where.push("UPPER(b.branch_name) IN (SELECT UPPER(branch_name) FROM employee_master WHERE TRIM(area_name) ILIKE TRIM($" + (idx++) + "))");
+    where.push("dp.emp_id IN (SELECT emp_id FROM employee_master WHERE TRIM(area_name) ILIKE TRIM($" + (idx++) + "))");
     params.push(filters.district || filters.area);
   }
   if (filters.branch) {
-    where.push("UPPER(b.branch_name) = UPPER($" + (idx++) + ")");
+    where.push("dp.emp_id IN (SELECT emp_id FROM employee_master WHERE UPPER(branch_name) = UPPER($" + (idx++) + "))");
     params.push(filters.branch);
   }
   if (filters.emp_id) { where.push("dp.emp_id=$" + idx++); params.push(filters.emp_id); }
