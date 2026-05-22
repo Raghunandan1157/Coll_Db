@@ -2617,7 +2617,7 @@ app.get("/api/daily/by-district", async (req, res) => {
     var gcol = useOld ? "d.district_name, r.region_name" : "a.area_name, dv.division_name";
     const base = buildDailyQuery(col, useOld);
     const { clause, params } = buildDailyWhere(req.query, useOld);
-    const result = await pool.query(base + clause + " GROUP BY " + gcol + " ORDER BY a.area_name", params);
+    const result = await pool.query(base + clause + " GROUP BY " + gcol + " ORDER BY " + (useOld ? "d.district_name" : "a.area_name"), params);
     res.json(result.rows);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
