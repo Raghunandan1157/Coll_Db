@@ -7982,6 +7982,12 @@ const OPENAI_LLM = process.env.OPENAI_LLM_MODEL || 'gpt-4o';
 const OPENAI_STT = process.env.OPENAI_STT_MODEL || 'gpt-4o-mini-transcribe';
 const OPENAI_TTS = process.env.OPENAI_TTS_MODEL || 'gpt-4o-mini-tts';
 const OPENAI_VOICE = process.env.OPENAI_TTS_VOICE || 'ash';
+const DALLE_MODEL = process.env.DALLE_MODEL || 'dall-e-3';
+const DALLE_SIZE = process.env.DALLE_SIZE || '1024x1024';
+const DALLE_QUALITY = process.env.DALLE_QUALITY || 'standard'; // 'standard' | 'hd'
+const DALLE_COST = DALLE_SIZE === '1024x1792' || DALLE_SIZE === '1792x1024'
+  ? (DALLE_QUALITY === 'hd' ? 0.120 : 0.080)
+  : (DALLE_QUALITY === 'hd' ? 0.080 : 0.040);
 
 const voiceUpload = multer({
   storage: multer.memoryStorage(),
@@ -8222,6 +8228,85 @@ function openaiTts(text) {
     req.end();
   });
 }
+
+// ========== OpenAI Image Generation (DALL-E) ==========
+function openaiImageGen(prompt, size, quality) {
+  const sz = size || DALLE_SIZE;
+  const q = quality || DALLE_QUALITY;
+  const payload = JSON.stringify({
+    model: DALLE_MODEL,
+    prompt,
+    n: 1,
+    size: sz,
+    quality: q,
+    response_format: 'url',
+  });
+  return new Promise((resolve, reject) => {
+    const req = https.request({
+      hostname: 'api.openai.com',
+      path: '/v1/images/generations',
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + OPENAI_KEY,
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(payload),
+      },
+    }, (resp) => {
+      let buf = '';
+      resp.on('data', (d) => (buf += d));
+      resp.on('end', () => {
+        if (resp.statusCode >= 200 && resp.statusCode < 300) {
+          try {
+            const j = JSON.parse(buf);
+            const url = j?.data?.[0]?.url;
+            if (url) return resolve({ url, revised_prompt: j?.data?.[0]?.revised_prompt || null });
+            return reject(new Error('image_gen: no url in response'));
+          } catch (e) { return reject(new Error('image_parse: ' + e.message)); }
+        }
+        reject(new Error('image_http_' + resp.statusCode + ': ' + buf.slice(0, 240)));
+      });
+    });
+    req.on('error', reject);
+    req.setTimeout(60000, () => req.destroy(new Error('image_timeout')));
+    req.write(payload);
+    req.end();
+  });
+}
+
+// POST /api/image — generate image via DALL-E
+// Body: { prompt, size?, quality? }
+// Returns: { url, prompt, size, quality, cost, model }
+app.post('/api/image', aiLimiter, async (req, res) => {
+  if (!OPENAI_KEY) return res.status(503).json({ error: 'ai_not_configured' });
+
+  const { prompt, size, quality } = req.body || {};
+  if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
+    return res.status(400).json({ error: 'prompt is required' });
+  }
+
+  const sz = size || DALLE_SIZE;
+  const q = quality || DALLE_QUALITY;
+  const cost = sz === '1024x1792' || sz === '1792x1024'
+    ? (q === 'hd' ? 0.120 : 0.080)
+    : (q === 'hd' ? 0.080 : 0.040);
+
+  try {
+    const result = await openaiImageGen(prompt, sz, q);
+    console.log(`[ai-activity] image_gen model=${DALLE_MODEL} size=${sz} quality=${q} cost=$${cost} prompt="${prompt.slice(0, 80)}"`);
+    res.json({
+      url: result.url,
+      prompt,
+      revised_prompt: result.revised_prompt,
+      size: sz,
+      quality: q,
+      cost,
+      model: DALLE_MODEL,
+    });
+  } catch (e) {
+    console.error('image generation error:', e.message);
+    res.status(500).json({ error: 'image_generation_failed', detail: e.message.slice(0, 240) });
+  }
+});
 
 // POST /api/transcribe — STT-only (no LLM, no TTS). Used by chat-input mic
 // so the user can dictate into the textarea without invoking voice cockpit.
