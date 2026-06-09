@@ -4480,6 +4480,10 @@ app.get("/api/comparison", async (req, res) => {
 });
 
 
+// ===== /hr_team staff-sync routes (EC2 employee_master + Supabase Grow_With_Me) =====
+require("./routes/hrTeam")(app, pool, upload);
+
+
 server.listen(PORT, "0.0.0.0", async () => {
   await startPgListener();
   console.log("Server running on http://0.0.0.0:" + PORT);
