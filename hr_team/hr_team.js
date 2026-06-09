@@ -97,6 +97,16 @@
         stat("del", "Deactivate", s.deactivate_count ?? 0);
     }
 
+    const s2 = d.supabase2;
+    if (!d.supabase2_configured || !s2) {
+      $("sb2Stats").innerHTML = `<li><span class="lbl">Not configured</span><span class="num">—</span></li>`;
+    } else {
+      $("sb2Stats").innerHTML =
+        stat("add", "Insert (new)", s2.insert_count ?? 0) +
+        stat("upd", "Update", s2.update_count ?? 0) +
+        stat("warn", "Departed (kept)", s2.departed_count ?? 0);
+    }
+
     // New master-data
     const newRoles = (s && s.new_roles) || [];
     const newDesig = (s && s.new_designations) || [];
@@ -170,6 +180,7 @@
 
     const ec2 = (d.result && d.result.ec2) || d.ec2;
     const sb = (d.result && d.result.supabase) || d.supabase;
+    const sb2 = (d.result && d.result.supabase2) || d.supabase2;
     const bak = (d.result && d.result.backup) || d.backup;
 
     if (ec2) lines.push(line("EC2 — final / working", `${ec2.total} / ${ec2.working}`));
@@ -180,6 +191,10 @@
       lines.push(line("Supabase — deactivated", sb.deactivated));
       const nm = (sb.new_roles || 0) + (sb.new_designations || 0) + (sb.new_branches || 0);
       lines.push(line("Supabase — new master-data", nm));
+    }
+    if (sb2) {
+      lines.push(line("Project 2 — inserted", sb2.inserted));
+      lines.push(line("Project 2 — updated", sb2.updated));
     }
     if (bak) lines.push(line("EC2 backup table", bak.table));
 

@@ -1,0 +1,686 @@
+/* ============================================================================
+   HR Staff Sync — "neo-brutal" variant
+   Refined neo-brutalism: high contrast, chunky offset borders, hard shadows,
+   oversized monospace data, bold color blocks, satisfying translate+shadow
+   hover/active shifts. Deliberate and confident, never sloppy.
+
+   Works with the EXISTING index.html + hr_team.js unchanged. Every class name
+   and id below is one the markup/JS already relies on. The HTML already links
+   DM Sans + DM Mono; we add Space Grotesk for display headers via @import.
+   ============================================================================ */
+
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&display=swap");
+
+/* ---------------------------------------------------------------------------
+   1 · Tokens
+   --------------------------------------------------------------------------- */
+:root {
+  /* surface + ink */
+  --paper:       #f4f1e9;   /* warm bone, not pure white */
+  --paper-2:     #ebe6d8;
+  --ink:         #14130f;   /* near-black */
+  --ink-soft:    #45413a;
+
+  /* bold colour blocks */
+  --yellow:      #ffd23f;   /* primary accent / unlock */
+  --blue:        #2b59ff;   /* EC2 db */
+  --violet:      #7b5cff;   /* supabase db */
+  --green:       #18c08f;   /* add / success */
+  --red:         #ff4d3d;   /* delete / danger */
+  --orange:      #ff8a1e;   /* update / warn */
+
+  /* brutalist border + shadow system */
+  --bd:          3px;                 /* standard chunky border */
+  --bd-thick:    4px;
+  --shadow-col:  var(--ink);
+  --off:         6px;                 /* default hard-shadow offset */
+  --off-lg:      10px;
+
+  /* type */
+  --sans:  "DM Sans", system-ui, sans-serif;
+  --mono:  "DM Mono", ui-monospace, "SFMono-Regular", monospace;
+  --disp:  "Space Grotesk", "DM Sans", system-ui, sans-serif;
+
+  --radius: 0px;                      /* brutalism: hard corners */
+
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* hard-shadow helper (offset solid block) */
+/* used inline via box-shadow: var(--off) var(--off) 0 var(--ink) */
+
+/* ---------------------------------------------------------------------------
+   2 · Reset + the [hidden] safety net (CRITICAL)
+   The JS toggles `hidden` on #gate, the stage panels, .err, .callout, .reveal,
+   etc. A stray `display:` on any of those would defeat the UA [hidden] rule and
+   render every stage at once. Lock it down globally, AND keep the literal rule
+   the task demands.
+   --------------------------------------------------------------------------- */
+*, *::before, *::after { box-sizing: border-box; }
+
+[hidden] { display: none !important; }
+.overlay[hidden] { display: none; }   /* required verbatim */
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: var(--sans);
+  color: var(--ink);
+  background: var(--paper);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ---------------------------------------------------------------------------
+   3 · Atmosphere — fixed graph-paper grid behind everything
+   --------------------------------------------------------------------------- */
+.bg-grid {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-color: var(--paper);
+  background-image:
+    linear-gradient(to right,  rgba(20, 19, 15, 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(20, 19, 15, 0.06) 1px, transparent 1px),
+    linear-gradient(to right,  rgba(20, 19, 15, 0.12) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(20, 19, 15, 0.12) 1px, transparent 1px);
+  background-size:
+    28px 28px, 28px 28px,
+    140px 140px, 140px 140px;
+}
+
+/* ---------------------------------------------------------------------------
+   4 · Shell + masthead
+   --------------------------------------------------------------------------- */
+.shell {
+  width: min(100% - 2rem, 880px);
+  margin-inline: auto;
+  padding-block: clamp(1.5rem, 1rem + 3vw, 3.25rem) 4rem;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1.25rem, 0.8rem + 2vw, 2rem);
+}
+
+.masthead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.brand { display: flex; align-items: baseline; gap: 0.65rem; }
+
+.brand-mark {
+  font-family: var(--mono);
+  font-weight: 500;
+  font-size: clamp(1rem, 0.9rem + 0.5vw, 1.2rem);
+  letter-spacing: 0.06em;
+  background: var(--ink);
+  color: var(--yellow);
+  padding: 0.28em 0.55em;
+  border: var(--bd) solid var(--ink);
+  box-shadow: 4px 4px 0 var(--yellow);
+}
+
+.brand-sub {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  color: var(--ink-soft);
+}
+
+.back {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  font-weight: 500;
+  text-decoration: none;
+  color: var(--ink);
+  background: var(--paper);
+  padding: 0.5rem 0.85rem;
+  border: var(--bd) solid var(--ink);
+  box-shadow: 4px 4px 0 var(--ink);
+  transition: transform 0.12s var(--ease), box-shadow 0.12s var(--ease),
+              background 0.12s var(--ease);
+}
+.back:hover { background: var(--yellow); }
+.back:hover,
+.back:focus-visible { transform: translate(-2px, -2px); box-shadow: 6px 6px 0 var(--ink); }
+.back:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink); }
+
+/* ---------------------------------------------------------------------------
+   5 · Panel — the core brutalist card (offset hard shadow)
+   --------------------------------------------------------------------------- */
+.panel {
+  position: relative;
+  background: var(--paper);
+  border: var(--bd-thick) solid var(--ink);
+  box-shadow: var(--off-lg) var(--off-lg) 0 var(--ink);
+  padding: clamp(1.25rem, 0.9rem + 2.2vw, 2.25rem);
+}
+
+/* corner registration tick — small editorial atmosphere detail */
+.panel::before {
+  content: "";
+  position: absolute;
+  top: 10px; right: 10px;
+  width: 10px; height: 10px;
+  background: var(--yellow);
+  border: 2px solid var(--ink);
+}
+
+/* ---------------------------------------------------------------------------
+   6 · Typography — scale-contrast hierarchy
+   --------------------------------------------------------------------------- */
+.display {
+  font-family: var(--disp);
+  font-weight: 700;
+  font-size: clamp(2.6rem, 1.4rem + 6vw, 5.25rem);
+  line-height: 0.92;
+  letter-spacing: -0.02em;
+  margin: 0 0 0.5rem;
+  text-transform: uppercase;
+  /* layered ink + colour offset for depth */
+  color: var(--ink);
+  text-shadow: 4px 4px 0 var(--yellow);
+}
+
+.section-title {
+  font-family: var(--disp);
+  font-weight: 600;
+  font-size: clamp(1.1rem, 0.9rem + 1vw, 1.55rem);
+  letter-spacing: 0.01em;
+  margin: 0 0 1rem;
+  display: inline-block;
+  background: var(--ink);
+  color: var(--paper);
+  padding: 0.25em 0.6em;
+  text-transform: uppercase;
+}
+
+.lede {
+  font-size: clamp(0.95rem, 0.9rem + 0.3vw, 1.1rem);
+  color: var(--ink-soft);
+  max-width: 52ch;
+  margin: 0 0 1.75rem;
+}
+
+.preview-meta {
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  margin: 0 0 1.5rem;
+  padding: 0.55rem 0.75rem;
+  border-left: var(--bd) solid var(--ink);
+  background: var(--paper-2);
+}
+
+/* ---------------------------------------------------------------------------
+   7 · Gate form
+   --------------------------------------------------------------------------- */
+.gate-form { display: grid; gap: 0.7rem; max-width: 360px; }
+
+.gate-form label {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-weight: 500;
+}
+
+#passcode {
+  font-family: var(--mono);
+  font-size: 1.15rem;
+  letter-spacing: 0.3em;
+  padding: 0.7rem 0.9rem;
+  color: var(--ink);
+  background: var(--paper);
+  border: var(--bd) solid var(--ink);
+  border-radius: var(--radius);
+  box-shadow: inset 0 0 0 0 var(--yellow);
+  transition: box-shadow 0.15s var(--ease);
+}
+#passcode::placeholder { color: #bdb6a4; }
+#passcode:focus { outline: none; box-shadow: inset 0 0 0 100px transparent, 5px 5px 0 var(--ink); }
+#passcode:focus-visible { outline: var(--bd) solid var(--blue); outline-offset: 2px; }
+
+/* ---------------------------------------------------------------------------
+   8 · Buttons — the satisfying translate+shadow shift
+   --------------------------------------------------------------------------- */
+.btn {
+  font-family: var(--mono);
+  font-weight: 500;
+  font-size: 0.92rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  cursor: pointer;
+  padding: 0.8rem 1.3rem;
+  border: var(--bd) solid var(--ink);
+  border-radius: var(--radius);
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: var(--off) var(--off) 0 var(--ink);
+  transition: transform 0.12s var(--ease), box-shadow 0.12s var(--ease),
+              background 0.12s var(--ease), filter 0.12s var(--ease);
+}
+.btn:hover:not(:disabled)        { transform: translate(-2px, -2px); box-shadow: 9px 9px 0 var(--ink); }
+.btn:active:not(:disabled)       { transform: translate(4px, 4px);   box-shadow: 1px 1px 0 var(--ink); }
+.btn:focus-visible               { outline: var(--bd) solid var(--blue); outline-offset: 3px; }
+.btn:disabled                    { opacity: 0.45; cursor: not-allowed; box-shadow: 3px 3px 0 var(--ink-soft); }
+
+.btn-primary { background: var(--yellow); }
+.btn-primary:hover:not(:disabled) { background: #ffdc66; }
+
+.btn-danger  { background: var(--red); color: var(--paper); }
+.btn-danger:hover:not(:disabled)  { background: #ff6655; }
+
+.btn-ghost   { background: var(--paper); }
+.btn-ghost:hover:not(:disabled)   { background: var(--paper-2); }
+
+/* ---------------------------------------------------------------------------
+   9 · Dropzone
+   --------------------------------------------------------------------------- */
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  text-align: center;
+  padding: clamp(1.5rem, 1rem + 3vw, 2.75rem);
+  margin-bottom: 1.25rem;
+  cursor: pointer;
+  background:
+    repeating-linear-gradient(45deg, transparent 0 14px, rgba(43,89,255,0.05) 14px 16px),
+    var(--paper-2);
+  border: var(--bd) dashed var(--ink);
+  box-shadow: var(--off) var(--off) 0 var(--ink);
+  transition: transform 0.12s var(--ease), box-shadow 0.12s var(--ease),
+              background 0.12s var(--ease), border-color 0.12s var(--ease);
+}
+.dropzone:hover { transform: translate(-2px, -2px); box-shadow: 8px 8px 0 var(--ink); }
+.dropzone:focus-within { outline: var(--bd) solid var(--blue); outline-offset: 3px; }
+
+/* JS adds .drag on dragover — strong colour-block feedback */
+.dropzone.drag {
+  background: var(--yellow);
+  border-style: solid;
+  border-color: var(--ink);
+  transform: translate(-3px, -3px);
+  box-shadow: 11px 11px 0 var(--blue);
+}
+
+.drop-ico {
+  width: 42px; height: 42px;
+  color: var(--blue);
+  background: var(--paper);
+  padding: 6px;
+  border: var(--bd) solid var(--ink);
+}
+.dropzone.drag .drop-ico { color: var(--ink); }
+
+.drop-main { font-weight: 700; font-size: 1.02rem; }
+.drop-main strong {
+  font-family: var(--mono);
+  background: var(--ink);
+  color: var(--yellow);
+  padding: 0.05em 0.35em;
+}
+.drop-sub {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+}
+
+/* ---------------------------------------------------------------------------
+   10 · Diff grid — two bold db cards (semantic colour: EC2=blue, SB=violet)
+   --------------------------------------------------------------------------- */
+.diff-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.diff-card {
+  border: var(--bd) solid var(--ink);
+  box-shadow: var(--off) var(--off) 0 var(--ink);
+  background: var(--paper);
+  overflow: hidden;
+  transition: transform 0.14s var(--ease), box-shadow 0.14s var(--ease);
+}
+.diff-card:hover { transform: translate(-2px, -2px); box-shadow: 9px 9px 0 var(--ink); }
+
+.diff-card > header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.75rem 0.9rem;
+  border-bottom: var(--bd) solid var(--ink);
+  color: var(--paper);
+}
+.diff-card.ec2 > header { background: var(--blue); }
+.diff-card.sb  > header { background: var(--violet); }
+
+.db-tag {
+  font-family: var(--mono);
+  font-weight: 500;
+  font-size: 0.82rem;
+  letter-spacing: 0.01em;
+}
+.db-note {
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  opacity: 0.85;
+}
+
+/* ---------------------------------------------------------------------------
+   11 · Stat list — data-viz-as-design, oversized mono counts
+   --------------------------------------------------------------------------- */
+.stat-list { list-style: none; margin: 0; padding: 0.4rem 0.9rem 0.9rem; }
+
+.stat-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.6rem 0;
+  border-bottom: 2px dotted rgba(20, 19, 15, 0.18);
+}
+.stat-list li:last-child {
+  border-bottom: 0;
+  margin-top: 0.35rem;
+  padding-top: 0.7rem;
+  border-top: var(--bd) solid var(--ink);   /* "Final rows" totals separator */
+}
+
+.lbl {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+
+/* semantic status dots — chunky squares, not soft circles */
+.dot {
+  width: 13px; height: 13px;
+  flex: 0 0 auto;
+  background: var(--ink-soft);
+  border: 2px solid var(--ink);
+}
+.dot.add  { background: var(--green); }
+.dot.del  { background: var(--red); }
+.dot.upd  { background: var(--orange); }
+.dot.warn { background: var(--yellow); }
+
+/* oversized monospace counter — the hero data figure */
+.num {
+  font-family: var(--mono);
+  font-weight: 500;
+  font-size: clamp(1.6rem, 1.2rem + 1.6vw, 2.4rem);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.stat-list li:last-child .num { color: var(--blue); }
+.diff-card.sb .stat-list li:last-child .num { color: var(--violet); }
+
+/* ---------------------------------------------------------------------------
+   12 · Callout (warn) — new master-data
+   --------------------------------------------------------------------------- */
+.callout.warn {
+  background: var(--yellow);
+  border: var(--bd) solid var(--ink);
+  box-shadow: var(--off) var(--off) 0 var(--ink);
+  padding: 1rem 1.1rem;
+  margin-bottom: 1.5rem;
+}
+.callout.warn > strong {
+  display: block;
+  font-family: var(--disp);
+  font-weight: 700;
+  font-size: 1.05rem;
+  text-transform: uppercase;
+  margin-bottom: 0.3rem;
+}
+.callout.warn p { margin: 0 0 0.85rem; font-size: 0.9rem; color: #3a3526; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.chip {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  font-weight: 500;
+  padding: 0.35rem 0.6rem;
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  box-shadow: 3px 3px 0 var(--ink);
+}
+
+/* ---------------------------------------------------------------------------
+   13 · Reveal (<details>) — employees to remove
+   --------------------------------------------------------------------------- */
+.reveal {
+  border: var(--bd) solid var(--ink);
+  background: var(--paper);
+  box-shadow: var(--off) var(--off) 0 var(--ink);
+  margin-bottom: 1.5rem;
+}
+.reveal > summary {
+  cursor: pointer;
+  list-style: none;
+  font-family: var(--mono);
+  font-weight: 500;
+  font-size: 0.86rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.85rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: var(--paper-2);
+  transition: background 0.12s var(--ease);
+}
+.reveal > summary::-webkit-details-marker { display: none; }
+.reveal > summary::before {
+  content: "+";
+  font-size: 1.2rem;
+  line-height: 1;
+  width: 1.4rem; height: 1.4rem;
+  display: grid; place-items: center;
+  background: var(--ink);
+  color: var(--yellow);
+  border: 2px solid var(--ink);
+}
+.reveal[open] > summary { background: var(--ink); color: var(--paper); }
+.reveal[open] > summary::before { content: "\2212"; background: var(--yellow); color: var(--ink); }
+.reveal > summary:hover { background: var(--yellow); }
+.reveal[open] > summary:hover { background: var(--ink-soft); }
+.reveal > summary:focus-visible { outline: var(--bd) solid var(--blue); outline-offset: -3px; }
+
+.reveal-body {
+  padding: 0.9rem 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+/* nested grouping injected as <div><b>label</b><div class=reveal-body>…</div></div> */
+.reveal-body > div { width: 100%; padding: 0; }
+.reveal-body b {
+  display: block;
+  width: 100%;
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--red);
+  margin-bottom: 0.5rem;
+}
+
+/* code pills (ids / status flips) */
+.code-pill {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  padding: 0.3rem 0.55rem;
+  background: var(--paper-2);
+  border: 2px solid var(--ink);
+  box-shadow: 2px 2px 0 var(--ink);
+  white-space: nowrap;
+}
+.code-pill.dl {
+  background: #ffe3df;
+  border-color: var(--red);
+  box-shadow: 2px 2px 0 var(--red);
+  color: #8a160a;
+}
+
+/* ---------------------------------------------------------------------------
+   14 · Action row
+   --------------------------------------------------------------------------- */
+.action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.9rem;
+  margin-top: 0.5rem;
+}
+.action-row .btn-danger { margin-left: auto; }
+
+/* ---------------------------------------------------------------------------
+   15 · Result
+   --------------------------------------------------------------------------- */
+.result-body { display: flex; flex-direction: column; gap: 0; margin-bottom: 1.5rem; }
+
+.result-banner {
+  font-family: var(--disp);
+  font-weight: 700;
+  font-size: clamp(1.05rem, 0.9rem + 0.8vw, 1.4rem);
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  padding: 1rem 1.1rem;
+  border: var(--bd) solid var(--ink);
+  box-shadow: var(--off) var(--off) 0 var(--ink);
+  margin-bottom: 1.5rem;
+}
+.result-banner.ok  { background: var(--green); color: var(--ink); }
+.result-banner.bad { background: var(--red);   color: var(--paper); }
+
+.result-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.7rem 0.9rem;
+  border: var(--bd) solid var(--ink);
+  border-bottom-width: 0;
+  background: var(--paper);
+  font-size: 0.92rem;
+}
+.result-line:first-child { /* nothing special */ }
+.result-line:last-child { border-bottom-width: var(--bd); }
+.result-line span:first-child {
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+}
+.result-line .v {
+  font-family: var(--mono);
+  font-weight: 500;
+  font-size: 1.15rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+/* ---------------------------------------------------------------------------
+   16 · Errors
+   --------------------------------------------------------------------------- */
+.err {
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--paper);
+  background: var(--red);
+  border: var(--bd) solid var(--ink);
+  box-shadow: 4px 4px 0 var(--ink);
+  padding: 0.6rem 0.8rem;
+  margin-top: 0.9rem;
+}
+
+/* ---------------------------------------------------------------------------
+   17 · Overlay + spinner
+   --------------------------------------------------------------------------- */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.1rem;
+  background: rgba(20, 19, 15, 0.82);
+  backdrop-filter: blur(2px);
+  color: var(--paper);
+  font-family: var(--mono);
+  font-size: 0.9rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.spinner {
+  width: 52px; height: 52px;
+  background: var(--yellow);
+  border: var(--bd-thick) solid var(--paper);
+  box-shadow: 6px 6px 0 var(--blue);
+  animation: brutal-spin 0.9s steps(8, end) infinite;
+}
+@keyframes brutal-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ---------------------------------------------------------------------------
+   18 · Responsive — 1024 / 768 / 320
+   --------------------------------------------------------------------------- */
+@media (max-width: 1024px) {
+  .shell { width: min(100% - 1.5rem, 760px); }
+}
+
+@media (max-width: 768px) {
+  .panel { box-shadow: var(--off) var(--off) 0 var(--ink); }
+  .diff-grid { grid-template-columns: 1fr; }
+  .action-row .btn { flex: 1 1 100%; }
+  .action-row .btn-danger { margin-left: 0; }
+}
+
+@media (max-width: 380px) {
+  :root { --off: 5px; --off-lg: 7px; }
+  .shell { width: 100%; padding-inline: 0.75rem; }
+  .display { text-shadow: 3px 3px 0 var(--yellow); }
+  .masthead { gap: 0.6rem; }
+  .panel::before { top: 6px; right: 6px; }
+}
+
+/* ---------------------------------------------------------------------------
+   19 · Reduced motion — neutralize translate/shadow shifts + spinner
+   --------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  .btn:hover:not(:disabled),
+  .btn:active:not(:disabled),
+  .back:hover, .back:focus-visible, .back:active,
+  .dropzone:hover, .dropzone.drag,
+  .diff-card:hover {
+    transform: none;
+  }
+  .spinner { animation: none; }
+}

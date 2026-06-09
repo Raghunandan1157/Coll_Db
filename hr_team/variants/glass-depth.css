@@ -1,0 +1,741 @@
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap");
+/* ============================================================
+   HR Staff Sync — variant: "glass-depth"
+   Glassmorphism with REAL depth. Vanilla CSS only.
+   Works UNCHANGED with existing index.html + hr_team.js.
+   Typography pairing:
+     - Fraunces (display, opsz) — headlines, character + scale-contrast
+     - DM Sans (body) — loaded by the frozen HTML head
+     - DM Mono (data / codes) — loaded by the frozen HTML head
+   ============================================================ */
+
+/* ---------- Design tokens ---------- */
+:root {
+  /* base atmosphere */
+  --bg-0: oklch(16% 0.03 274);
+  --bg-1: oklch(20% 0.04 270);
+
+  /* gradient-mesh stops (vivid but tasteful) */
+  --mesh-1: oklch(64% 0.20 286);   /* violet  */
+  --mesh-2: oklch(70% 0.17 210);   /* azure   */
+  --mesh-3: oklch(72% 0.16 168);   /* teal    */
+  --mesh-4: oklch(74% 0.17 330);   /* magenta */
+
+  /* glass surfaces */
+  --glass: oklch(72% 0.05 270 / 0.07);
+  --glass-strong: oklch(78% 0.06 270 / 0.12);
+  --glass-line: oklch(96% 0.02 270 / 0.16);
+  --glass-line-soft: oklch(96% 0.02 270 / 0.08);
+  --inner-glow: oklch(98% 0.03 270 / 0.22);
+
+  /* ink */
+  --text: oklch(97% 0.012 280);
+  --muted: oklch(80% 0.025 280);
+  --faint: oklch(68% 0.03 280);
+
+  /* semantic */
+  --accent: oklch(78% 0.15 200);
+  --accent-ink: oklch(18% 0.05 230);
+  --add: oklch(80% 0.16 158);
+  --del: oklch(72% 0.20 18);
+  --upd: oklch(82% 0.15 256);
+  --warn: oklch(84% 0.15 82);
+  --ring: oklch(82% 0.14 210);
+
+  /* form */
+  --radius: 20px;
+  --radius-sm: 12px;
+  --radius-pill: 999px;
+  --shadow-card:
+    0 1px 0 0 var(--inner-glow) inset,
+    0 22px 60px -28px oklch(0% 0 0 / 0.75),
+    0 4px 18px -10px oklch(0% 0 0 / 0.55);
+  --shadow-float:
+    0 1px 0 0 var(--inner-glow) inset,
+    0 40px 90px -36px oklch(0% 0 0 / 0.85),
+    0 10px 30px -16px oklch(0% 0 0 / 0.6);
+  --blur: 22px;
+
+  --mono: "DM Mono", ui-monospace, "SF Mono", monospace;
+  --display: "Fraunces", "DM Sans", serif;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur: 320ms;
+}
+
+/* ---------- The hidden-attribute correctness floor ----------
+   JS toggles `hidden` on stages, errors, overlay, warnings.
+   Any explicit display on these must NEVER beat [hidden]. */
+[hidden] { display: none !important; }
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "DM Sans", system-ui, sans-serif;
+  font-size: clamp(0.95rem, 0.9rem + 0.25vw, 1.0625rem);
+  line-height: 1.55;
+  color: var(--text);
+  background: var(--bg-0);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+
+/* ============================================================
+   Atmosphere — slow animated multi-stop gradient-mesh backdrop
+   Lives on the fixed, aria-hidden .bg-grid layer.
+   ============================================================ */
+.bg-grid {
+  position: fixed;
+  inset: -20vmax;            /* oversize so the drifting blobs never reveal edges */
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(38vmax 38vmax at 18% 22%, var(--mesh-1) 0%, transparent 60%),
+    radial-gradient(34vmax 34vmax at 82% 16%, var(--mesh-2) 0%, transparent 58%),
+    radial-gradient(40vmax 40vmax at 75% 88%, var(--mesh-3) 0%, transparent 60%),
+    radial-gradient(30vmax 30vmax at 12% 86%, var(--mesh-4) 0%, transparent 58%),
+    linear-gradient(160deg, var(--bg-1), var(--bg-0));
+  filter: saturate(1.15) blur(6px);
+  opacity: 0.9;
+  animation: mesh-drift 34s var(--ease) infinite alternate;
+}
+/* fine grain texture over the mesh for atmosphere */
+.bg-grid::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(oklch(100% 0 0 / 0.05) 1px, transparent 1.4px);
+  background-size: 4px 4px;
+  mix-blend-mode: overlay;
+  opacity: 0.5;
+}
+
+@keyframes mesh-drift {
+  0%   { transform: translate3d(-2%, -1%, 0) scale(1.05) rotate(0deg); }
+  50%  { transform: translate3d(3%, 2%, 0) scale(1.12) rotate(4deg); }
+  100% { transform: translate3d(-1%, 3%, 0) scale(1.06) rotate(-3deg); }
+}
+
+/* ============================================================
+   Shell + masthead
+   ============================================================ */
+.shell {
+  position: relative;
+  z-index: 1;
+  max-width: 940px;
+  margin: 0 auto;
+  padding: clamp(20px, 2vw + 12px, 40px) clamp(16px, 3vw, 32px) 96px;
+}
+
+.masthead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: clamp(28px, 4vw, 48px);
+}
+
+.brand { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+.brand-mark {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 1.35rem;
+  letter-spacing: 0.04em;
+  background: linear-gradient(100deg, var(--mesh-2), var(--mesh-4));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.brand-sub {
+  font-size: 0.78rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--faint);
+  padding-left: 12px;
+  border-left: 1px solid var(--glass-line);
+}
+
+.back {
+  flex-shrink: 0;
+  font-size: 0.86rem;
+  color: var(--muted);
+  text-decoration: none;
+  padding: 8px 14px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--glass-line-soft);
+  background: var(--glass);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease),
+              background var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+.back:hover { color: var(--text); border-color: var(--glass-line); transform: translateY(-1px); }
+.back:active { transform: translateY(0); }
+
+/* ============================================================
+   Glass panels — frosted, layered, floating, parallax feel
+   NOTE: never set `display` such that it beats [hidden].
+   Layout uses flex but [hidden]{display:none !important} wins.
+   ============================================================ */
+.panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: clamp(22px, 3vw, 40px);
+  border-radius: var(--radius);
+  border: 1px solid var(--glass-line);
+  background:
+    linear-gradient(180deg, var(--glass-strong), var(--glass));
+  backdrop-filter: blur(var(--blur)) saturate(1.4);
+  -webkit-backdrop-filter: blur(var(--blur)) saturate(1.4);
+  box-shadow: var(--shadow-card);
+  animation: panel-rise 620ms var(--ease) both;
+}
+/* top sheen — a thin highlight that sells the glass */
+.panel::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 50%;
+  border-radius: var(--radius) var(--radius) 0 0;
+  background: linear-gradient(180deg, oklch(100% 0 0 / 0.06), transparent);
+  pointer-events: none;
+}
+
+@keyframes panel-rise {
+  from { opacity: 0; transform: translateY(18px) scale(0.985); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ============================================================
+   Typography — scale contrast hierarchy
+   ============================================================ */
+.display {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: clamp(2.6rem, 1.4rem + 5vw, 4.6rem);
+  line-height: 0.98;
+  letter-spacing: -0.02em;
+  margin: 0;
+  background: linear-gradient(96deg, var(--text) 30%, var(--mesh-2) 75%, var(--mesh-4));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.lede {
+  margin: 0;
+  max-width: 48ch;
+  font-size: clamp(1rem, 0.95rem + 0.3vw, 1.18rem);
+  color: var(--muted);
+}
+.section-title {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: clamp(1.3rem, 1.1rem + 0.9vw, 1.8rem);
+  letter-spacing: -0.01em;
+  margin: 0;
+  color: var(--text);
+}
+.preview-meta {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  letter-spacing: 0.01em;
+  color: var(--faint);
+}
+
+/* ============================================================
+   Gate
+   ============================================================ */
+.gate { gap: 22px; }
+.gate-form { display: flex; flex-direction: column; gap: 14px; max-width: 360px; }
+.gate-form label {
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.gate-form input {
+  font-family: var(--mono);
+  font-size: 1.05rem;
+  letter-spacing: 0.3em;
+  color: var(--text);
+  padding: 14px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-line);
+  background: oklch(20% 0.03 270 / 0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease),
+              background var(--dur) var(--ease);
+}
+.gate-form input::placeholder { color: var(--faint); letter-spacing: 0.3em; }
+.gate-form input:focus { outline: none; }
+
+/* ============================================================
+   Buttons — designed hover / focus / active
+   ============================================================ */
+.btn {
+  position: relative;
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font: inherit;
+  font-weight: 500;
+  font-size: 0.95rem;
+  letter-spacing: 0.01em;
+  padding: 13px 22px;
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  cursor: pointer;
+  user-select: none;
+  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease),
+              filter var(--dur) var(--ease), background var(--dur) var(--ease),
+              border-color var(--dur) var(--ease), opacity var(--dur) var(--ease);
+}
+.btn:active { transform: translateY(1px) scale(0.99); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; filter: grayscale(0.3); }
+
+.btn-primary {
+  color: var(--accent-ink);
+  background: linear-gradient(100deg, var(--mesh-3), var(--mesh-2));
+  box-shadow: 0 1px 0 oklch(100% 0 0 / 0.3) inset,
+              0 14px 30px -14px oklch(70% 0.17 210 / 0.7);
+}
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  filter: brightness(1.06);
+  box-shadow: 0 1px 0 oklch(100% 0 0 / 0.35) inset,
+              0 22px 44px -16px oklch(70% 0.17 210 / 0.85);
+}
+
+.btn-danger {
+  color: oklch(98% 0.02 18);
+  background: linear-gradient(100deg, var(--del), oklch(66% 0.20 4));
+  box-shadow: 0 1px 0 oklch(100% 0 0 / 0.25) inset,
+              0 14px 30px -14px oklch(68% 0.20 18 / 0.7);
+}
+.btn-danger:hover:not(:disabled) {
+  transform: translateY(-2px);
+  filter: brightness(1.06);
+  box-shadow: 0 1px 0 oklch(100% 0 0 / 0.3) inset,
+              0 22px 44px -16px oklch(68% 0.20 18 / 0.85);
+}
+
+.btn-ghost {
+  color: var(--muted);
+  background: var(--glass);
+  border-color: var(--glass-line);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.btn-ghost:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--glass-line);
+  background: var(--glass-strong);
+  transform: translateY(-1px);
+}
+
+/* ============================================================
+   Dropzone
+   ============================================================ */
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-align: center;
+  padding: clamp(28px, 5vw, 52px);
+  border-radius: var(--radius-sm);
+  border: 1.5px dashed var(--glass-line);
+  background:
+    radial-gradient(120% 80% at 50% 0%, oklch(78% 0.06 270 / 0.10), transparent 70%),
+    oklch(20% 0.03 270 / 0.35);
+  color: var(--muted);
+  cursor: pointer;
+  transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease),
+              transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+.dropzone:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  box-shadow: 0 18px 40px -24px oklch(0% 0 0 / 0.7);
+}
+/* .drag is toggled by JS on dragenter/over */
+.dropzone.drag {
+  border-color: var(--accent);
+  border-style: solid;
+  background:
+    radial-gradient(120% 90% at 50% 0%, oklch(78% 0.10 210 / 0.22), transparent 72%),
+    oklch(22% 0.04 230 / 0.5);
+  box-shadow: 0 0 0 4px oklch(82% 0.14 210 / 0.18),
+              0 20px 44px -22px oklch(70% 0.17 210 / 0.7);
+}
+.drop-ico {
+  width: 40px; height: 40px;
+  color: var(--accent);
+  opacity: 0.9;
+}
+.dropzone.drag .drop-ico { animation: float-ico 1.4s var(--ease) infinite alternate; }
+@keyframes float-ico { to { transform: translateY(-5px); } }
+.drop-main { font-size: 1.02rem; color: var(--text); }
+.drop-main strong { color: var(--accent); font-weight: 700; }
+.drop-sub {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  color: var(--faint);
+}
+
+/* ============================================================
+   Diff grid — floating layered cards w/ parallax feel
+   Grid-breaking: cards sit on top of the panel, lifted.
+   ============================================================ */
+.diff-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 18px;
+}
+.diff-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-line);
+  background: linear-gradient(180deg, var(--glass-strong), var(--glass));
+  backdrop-filter: blur(14px) saturate(1.3);
+  -webkit-backdrop-filter: blur(14px) saturate(1.3);
+  box-shadow: var(--shadow-float);
+  overflow: hidden;
+  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+/* color rail keyed to the database — semantic color as identity */
+.diff-card::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--rail, var(--accent));
+}
+.diff-card.ec2 { --rail: linear-gradient(var(--upd), var(--mesh-1)); }
+.diff-card.sb  { --rail: linear-gradient(var(--add), var(--mesh-3)); }
+.diff-card:hover { transform: translateY(-4px); }
+
+.diff-card header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.db-tag {
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text);
+  letter-spacing: 0.01em;
+}
+.db-note {
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--glass-line-soft);
+  background: var(--glass);
+}
+
+/* ============================================================
+   Stat list — data-viz-as-design
+   Each row: dot (semantic) + label, big mono number.
+   ============================================================ */
+.stat-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.stat-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--glass-line-soft);
+}
+.stat-list li:last-child { border-bottom: 0; }
+.lbl { display: inline-flex; align-items: center; gap: 10px; color: var(--muted); font-size: 0.92rem; }
+
+.dot {
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: var(--faint);                       /* neutral base — bare .dot from stat("") */
+  box-shadow: 0 0 0 3px oklch(70% 0.02 270 / 0.18);
+}
+.dot.add  { background: var(--add); box-shadow: 0 0 0 3px oklch(80% 0.16 158 / 0.22), 0 0 12px oklch(80% 0.16 158 / 0.5); }
+.dot.del  { background: var(--del); box-shadow: 0 0 0 3px oklch(72% 0.20 18 / 0.22), 0 0 12px oklch(72% 0.20 18 / 0.5); }
+.dot.upd  { background: var(--upd); box-shadow: 0 0 0 3px oklch(82% 0.15 256 / 0.22), 0 0 12px oklch(82% 0.15 256 / 0.5); }
+.dot.warn { background: var(--warn); box-shadow: 0 0 0 3px oklch(84% 0.15 82 / 0.22), 0 0 12px oklch(84% 0.15 82 / 0.5); }
+
+.num {
+  font-family: var(--mono);
+  font-size: 1.25rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+
+/* ============================================================
+   Callout / warning
+   ============================================================ */
+.callout {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 18px 20px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-line);
+}
+.callout.warn {
+  border-color: oklch(84% 0.15 82 / 0.4);
+  background:
+    linear-gradient(180deg, oklch(84% 0.15 82 / 0.12), oklch(84% 0.15 82 / 0.04));
+}
+.callout.warn strong { color: var(--warn); font-size: 1.0rem; }
+.callout.warn p { margin: 0; color: var(--muted); font-size: 0.92rem; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.chip {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  color: var(--text);
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid oklch(84% 0.15 82 / 0.4);
+  background: oklch(84% 0.15 82 / 0.1);
+}
+
+/* ============================================================
+   Reveal (details)
+   ============================================================ */
+.reveal {
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-line-soft);
+  background: oklch(20% 0.03 270 / 0.3);
+  overflow: hidden;
+}
+.reveal summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 14px 18px;
+  font-size: 0.92rem;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: color var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+.reveal summary::-webkit-details-marker { display: none; }
+.reveal summary::before {
+  content: "";
+  width: 7px; height: 7px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform var(--dur) var(--ease);
+}
+.reveal[open] summary::before { transform: rotate(45deg); }
+.reveal summary:hover { color: var(--text); background: var(--glass); }
+.reveal-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 4px 18px 18px;
+}
+.reveal-body > div { width: 100%; }
+.reveal-body b { display: block; margin: 10px 0 8px; color: var(--text); font-size: 0.86rem; }
+
+.code-pill {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  color: var(--muted);
+  padding: 5px 11px;
+  border-radius: 8px;
+  border: 1px solid var(--glass-line-soft);
+  background: oklch(24% 0.03 270 / 0.6);
+}
+.code-pill.dl {
+  color: oklch(86% 0.12 18);
+  border-color: oklch(72% 0.20 18 / 0.35);
+  background: oklch(72% 0.20 18 / 0.12);
+}
+
+/* ============================================================
+   Action row
+   ============================================================ */
+.action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: flex-end;
+  padding-top: 4px;
+}
+
+/* ============================================================
+   Result
+   ============================================================ */
+.result-body { display: flex; flex-direction: column; gap: 0; }
+.result-banner {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 1.15rem;
+  padding: 16px 20px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 14px;
+}
+.result-banner.ok {
+  color: oklch(92% 0.1 158);
+  border: 1px solid oklch(80% 0.16 158 / 0.4);
+  background: linear-gradient(180deg, oklch(80% 0.16 158 / 0.16), oklch(80% 0.16 158 / 0.05));
+}
+.result-banner.bad {
+  color: oklch(90% 0.12 18);
+  border: 1px solid oklch(72% 0.20 18 / 0.45);
+  background: linear-gradient(180deg, oklch(72% 0.20 18 / 0.16), oklch(72% 0.20 18 / 0.05));
+}
+.result-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 13px 4px;
+  border-bottom: 1px solid var(--glass-line-soft);
+  font-size: 0.94rem;
+  color: var(--muted);
+}
+.result-line:last-child { border-bottom: 0; }
+.result-line .v {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  font-size: 1.0rem;
+}
+
+/* ============================================================
+   Error text
+   ============================================================ */
+.err {
+  margin: 0;
+  font-size: 0.88rem;
+  color: oklch(82% 0.16 18);
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid oklch(72% 0.20 18 / 0.4);
+  background: oklch(72% 0.20 18 / 0.1);
+}
+
+/* ============================================================
+   Overlay + spinner
+   Mandated literal rule kept verbatim below.
+   ============================================================ */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  font-size: 0.95rem;
+  color: var(--text);
+  background: oklch(14% 0.03 274 / 0.55);
+  backdrop-filter: blur(10px) saturate(1.2);
+  -webkit-backdrop-filter: blur(10px) saturate(1.2);
+  animation: fade-in 240ms var(--ease) both;
+}
+.overlay[hidden] { display: none; }
+
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+.spinner {
+  width: 46px; height: 46px;
+  border-radius: 50%;
+  background:
+    conic-gradient(from 0deg, transparent 0 25%, var(--mesh-2), var(--mesh-4) 75%, transparent);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+          mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ============================================================
+   Focus-visible — crisp focus rings everywhere
+   ============================================================ */
+:focus-visible {
+  outline: none;
+  border-radius: var(--radius-sm);
+  box-shadow:
+    0 0 0 2px var(--bg-0),
+    0 0 0 4px var(--ring),
+    0 0 16px oklch(82% 0.14 210 / 0.45);
+}
+.gate-form input:focus-visible {
+  border-color: var(--ring);
+  background: oklch(22% 0.04 230 / 0.6);
+}
+.btn:focus-visible { box-shadow: 0 0 0 2px var(--bg-0), 0 0 0 4px var(--ring); }
+.back:focus-visible,
+.chip:focus-visible,
+.code-pill:focus-visible { box-shadow: 0 0 0 2px var(--bg-0), 0 0 0 4px var(--ring); }
+/* keyboard-only focus on the dropzone label */
+.dropzone:has(input:focus-visible) {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px oklch(82% 0.14 210 / 0.3);
+}
+.reveal summary:focus-visible {
+  box-shadow: 0 0 0 2px var(--bg-0), 0 0 0 4px var(--ring) inset;
+}
+
+/* ============================================================
+   Responsive — 320 / 768 / 1024 / 1440
+   ============================================================ */
+@media (max-width: 768px) {
+  .diff-grid { grid-template-columns: 1fr; }
+  .action-row { justify-content: stretch; }
+  .action-row .btn { flex: 1; }
+  .btn { width: auto; }
+}
+@media (max-width: 520px) {
+  .masthead { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .gate-form { max-width: 100%; }
+  .btn { align-self: stretch; }
+  .action-row { flex-direction: column; }
+}
+@media (min-width: 1024px) {
+  .shell { max-width: 1000px; }
+}
+@media (min-width: 1440px) {
+  .shell { max-width: 1080px; padding-top: 56px; }
+  .diff-grid { gap: 22px; }
+}
+
+/* ============================================================
+   Reduced motion — freeze the mesh, spinner, and all transitions
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  .bg-grid { animation: none; transform: none; }
+  .panel { animation: none; }
+  .spinner { animation: spin 1.6s linear infinite; } /* keep a slow, gentle indicator */
+  .dropzone.drag .drop-ico { animation: none; }
+  *, *::before, *::after {
+    transition-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

@@ -1,31 +1,11 @@
 @import url("https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&display=swap");
 
 /* ============================================================
-   HR Staff Sync — FINAL  ·  "Editorial Luxury, systematized"
-   ------------------------------------------------------------
-   Base:    editorial-luxury (winner) — Fraunces × DM Sans/Mono,
-            deep ink canvas, emerald + warm-gold, hairline grid,
-            tabular data, layered translucent surfaces.
-   Grafts:  Swiss-bento  → named 8px spacing scale, oversized
-                            ghost numeral as non-gradient depth,
-                            asymmetric 3-card bento, full 320/768/
-                            1024/1440 responsive coverage.
-            Neo-brutal   → confident, satisfying hover/press feel.
-   Fixes (judge-flagged):
-     • Contrast: --faint raised 58%→72% L (verified WCAG AA, all
-       sub-18px text ≥ 4.5:1 against composited dark surfaces).
-     • Gradient diet: removed text-clip gradient headline + brand
-       mark; flattened button / panel / callout / banner fills to
-       solid + accent border; kept ONE signature (gold top hairline)
-       and a single restrained atmosphere wash.
-     • 3-card grid: .sb2 (Supabase·assets) now has its own rail +
-       tag colour; grid rebuilt as EC2 full-width primary over a
-       2-col sb/sb2 row — real hierarchy, no orphan cell.
-     • Removed fragile ::first-line italic + ::first-letter gold
-       numeral (the latter never applied to a flex container).
-     • Spacing now runs on a named --space-* scale, not magic clamps.
-   Fonts: ONLY Fraunces (@import) + DM Sans + DM Mono (HTML head).
-   Works against the EXISTING index.html + hr_team.js, unchanged.
+   HR Staff Sync — "Editorial Luxury"
+   Dark ink canvas · emerald + warm-gold · oversized display
+   Layered translucent surfaces · hairline dividers · tabular data
+   Works against the EXISTING index.html + hr_team.js (unchanged).
+   Display pairing: Fraunces (optical serif) × DM Sans / DM Mono.
    ============================================================ */
 
 :root {
@@ -41,14 +21,13 @@
   --glass-hi:   oklch(96% 0.02 250 / 0.06);
 
   /* hairlines */
-  --line:       oklch(80% 0.012 255 / 0.14);
-  --line-soft:  oklch(80% 0.012 255 / 0.08);
+  --line:       oklch(80% 0.012 255 / 0.12);
+  --line-soft:  oklch(80% 0.012 255 / 0.07);
 
-  /* type — all verified ≥ 4.5:1 on composited dark surfaces */
-  --text:       oklch(95% 0.01 250);   /* 13.9:1+  */
-  --muted:      oklch(74% 0.015 256);  /* 6.96:1+  */
-  --faint:      oklch(72% 0.015 258);  /* 6.47:1+  (was 58% → AA fail) */
-  --dim:        oklch(54% 0.012 258);  /* NON-TEXT only: bare dot fill, idle rules */
+  /* type */
+  --text:       oklch(95% 0.01 250);
+  --muted:      oklch(74% 0.015 256);
+  --faint:      oklch(58% 0.015 258);
 
   /* refined accents */
   --emerald:    oklch(74% 0.13 162);
@@ -57,7 +36,6 @@
   --gold:       oklch(82% 0.11 86);
   --gold-dk:    oklch(60% 0.10 80);
   --gold-gl:    oklch(82% 0.11 86 / 0.16);
-  --violet:     oklch(72% 0.12 300);   /* sb2 identity — distinct from gold */
 
   /* semantic data tones */
   --add:        oklch(76% 0.13 162);
@@ -65,17 +43,6 @@
   --upd:        oklch(80% 0.11 86);
   --warn:       oklch(82% 0.12 78);
   --del-gl:     oklch(67% 0.16 22 / 0.14);
-
-  /* ── named 8px rhythm scale (graft: swiss) — replaces magic clamps ── */
-  --u:        8px;
-  --space-1:  calc(var(--u) * 0.5);   /*  4px */
-  --space-2:  var(--u);               /*  8px */
-  --space-3:  calc(var(--u) * 1.5);   /* 12px */
-  --space-4:  calc(var(--u) * 2);     /* 16px */
-  --space-5:  calc(var(--u) * 2.75);  /* 22px */
-  --space-6:  calc(var(--u) * 3.5);   /* 28px */
-  --space-8:  calc(var(--u) * 5.5);   /* 44px */
-  --gap:      clamp(var(--space-4), 1.6vw, var(--space-5));
 
   --radius:     18px;
   --radius-sm:  11px;
@@ -92,14 +59,14 @@
   --sans:  "DM Sans", system-ui, sans-serif;
   --mono:  "DM Mono", ui-monospace, monospace;
 
-  --dur: 300ms;
+  --dur: 320ms;
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* ---- mandated rule + broader [hidden] guard --------------------
-   JS toggles `.hidden` on panels, errors, callouts, reveals AND the
-   overlay. Panels/gate/action-row carry display:grid/flex, so the
-   UA [hidden] must win. Force it globally; keep the literal rule. */
+/* ---- the one mandated rule + the broader [hidden] guard ----
+   The JS toggles `.hidden` on panels, errors, callouts, reveals
+   AND the overlay. Author display rules would override the UA
+   [hidden] rule, so we force it globally and !important. */
 [hidden] { display: none !important; }
 .overlay[hidden] { display: none; }
 
@@ -118,19 +85,18 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-/* ───────────── Atmosphere ─────────────
-   Gradient diet: ONE restrained warm wash (top-right) instead of the
-   two emerald/gold "glow corners". Depth now comes from the hairline
-   editorial grid + faint grain, not stacked blobs. */
+/* ───────────── Atmosphere / texture ───────────── */
 .bg-grid {
   position: fixed;
   inset: 0;
   z-index: 0;
   pointer-events: none;
   background:
-    radial-gradient(1200px 680px at 84% -16%, var(--gold-gl), transparent 56%),
-    linear-gradient(180deg, var(--ink-2), var(--ink) 42%);
+    radial-gradient(1100px 620px at 78% -12%, var(--emerald-gl), transparent 58%),
+    radial-gradient(820px 560px at -8% 112%, var(--gold-gl), transparent 60%),
+    linear-gradient(180deg, var(--ink-2), var(--ink) 38%);
 }
+/* hairline editorial grid + faint film grain for depth */
 .bg-grid::before {
   content: "";
   position: absolute;
@@ -142,23 +108,23 @@ body {
   background-position: center top;
   -webkit-mask-image: radial-gradient(120% 90% at 50% 0%, oklch(0% 0 0) 30%, transparent 78%);
           mask-image: radial-gradient(120% 90% at 50% 0%, oklch(0% 0 0) 30%, transparent 78%);
-  opacity: 0.55;
+  opacity: 0.5;
 }
 .bg-grid::after {
   content: "";
   position: absolute;
   inset: 0;
-  opacity: 0.035;
+  opacity: 0.04;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-/* ───────────── Shell ───────────── */
+/* ───────────── Shell (asymmetric rhythm) ───────────── */
 .shell {
   position: relative;
   z-index: 1;
   max-width: 940px;
   margin: 0 auto;
-  padding: clamp(var(--space-5), 2.5vw, var(--space-8)) clamp(var(--space-4), 4vw, var(--space-8)) 96px;
+  padding: clamp(22px, 2.5vw, 40px) clamp(18px, 4vw, 44px) 96px;
 }
 
 /* ───────────── Masthead ───────────── */
@@ -166,20 +132,20 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-4);
-  padding-bottom: var(--space-5);
-  margin-bottom: clamp(var(--space-6), 5vw, calc(var(--u) * 6.5));
+  gap: 16px;
+  padding-bottom: 20px;
+  margin-bottom: clamp(30px, 5vw, 52px);
   border-bottom: 1px solid var(--line);
 }
-.brand { display: flex; align-items: baseline; gap: var(--space-3); }
+.brand { display: flex; align-items: baseline; gap: 14px; }
 .brand-mark {
   font-family: var(--serif);
   font-weight: 500;
   font-size: 1.35rem;
   letter-spacing: 0.18em;
-  color: var(--text);            /* solid — no gradient text-clip */
+  color: var(--text);
   position: relative;
-  padding-right: var(--space-3);
+  padding-right: 14px;
 }
 .brand-mark::after {
   content: "";
@@ -189,8 +155,8 @@ body {
   background: var(--line);
 }
 .brand-sub {
-  font-size: 0.74rem;
-  letter-spacing: 0.24em;
+  font-size: 0.72rem;
+  letter-spacing: 0.26em;
   text-transform: uppercase;
   color: var(--gold);
 }
@@ -213,21 +179,20 @@ body {
 .back:hover { color: var(--text); border-color: var(--emerald); transform: translateX(-2px); }
 .back:active { transform: translateX(-1px) scale(0.985); }
 
-/* ───────────── Panels ─────────────
-   Gradient diet: solid translucent fill (was a gradient) + the single
-   signature gold top hairline retained. */
+/* ───────────── Panels (layered translucent surfaces) ───────────── */
 .panel {
   position: relative;
-  background: var(--surface-2);
+  background:
+    linear-gradient(180deg, var(--surface-2), var(--surface));
   border: 1px solid var(--glass-edge);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   -webkit-backdrop-filter: blur(20px) saturate(1.05);
           backdrop-filter: blur(20px) saturate(1.05);
-  padding: clamp(var(--space-5), 3.5vw, var(--space-8));
+  padding: clamp(24px, 3.5vw, 44px);
   animation: rise var(--dur) var(--ease) both;
 }
-/* signature: gold hairline glint along the top edge (the ONE kept gradient) */
+/* gold hairline glint along the top edge */
 .panel::before {
   content: "";
   position: absolute;
@@ -235,32 +200,14 @@ body {
   height: 1px;
   border-radius: var(--radius) var(--radius) 0 0;
   background: linear-gradient(90deg, transparent, var(--gold-gl) 18%, var(--gold) 50%, var(--gold-gl) 82%, transparent);
-  opacity: 0.55;
+  opacity: 0.5;
 }
 @keyframes rise {
   from { opacity: 0; transform: translateY(14px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* ───────────── Gate (hero) — oversized ghost numeral graft ───────────── */
-.gate { position: relative; overflow: hidden; }
-.gate::after {
-  content: "01";
-  position: absolute;
-  right: clamp(-8px, 0.5vw, 16px);
-  bottom: clamp(-30px, -1vw, -10px);
-  font-family: var(--serif);
-  font-weight: 300;
-  font-size: clamp(7rem, 4rem + 16vw, 16rem);
-  line-height: 0.8;
-  letter-spacing: -0.04em;
-  color: var(--text);
-  opacity: 0.04;
-  pointer-events: none;
-  user-select: none;
-}
-
-/* ───────────── Display + headings (scale contrast) ───────────── */
+/* ───────────── Display + section headings (scale contrast) ───────────── */
 .display {
   font-family: var(--serif);
   font-weight: 300;
@@ -268,8 +215,15 @@ body {
   line-height: 0.92;
   letter-spacing: -0.035em;
   margin: 0 0 0.35em;
-  color: var(--text);            /* solid — gradient text-clip removed (AI tell + legibility) */
+  color: var(--text);
   text-wrap: balance;
+}
+.display::first-line { font-style: italic; }
+.gate .display {
+  background: linear-gradient(168deg, var(--text) 58%, var(--gold) 140%);
+  -webkit-background-clip: text;
+          background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 .lede {
   max-width: 46ch;
@@ -285,15 +239,24 @@ body {
   letter-spacing: -0.02em;
   margin: 0 0 1.1em;
   color: var(--text);
+  display: flex;
+  align-items: baseline;
+  gap: 0.5em;
+}
+/* the leading numeral ("1 ·") rendered as a gold editorial index */
+.section-title::first-letter {
+  font-variant-numeric: lining-nums;
+  color: var(--gold);
+  font-feature-settings: "ss01";
 }
 
 /* ───────────── Gate form ───────────── */
-.gate-form { display: grid; gap: var(--space-3); max-width: 360px; position: relative; }
+.gate-form { display: grid; gap: 12px; max-width: 360px; }
 .gate-form label {
-  font-size: 0.74rem;
-  letter-spacing: 0.2em;
+  font-size: 0.72rem;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: var(--faint);          /* AA-verified */
+  color: var(--faint);
 }
 .gate-form input {
   font-family: var(--mono);
@@ -307,15 +270,15 @@ body {
   transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
 }
 .gate-form input::placeholder { color: var(--faint); letter-spacing: 0.2em; }
-.gate-form input:hover { border-color: oklch(80% 0.012 255 / 0.26); }
+.gate-form input:hover { border-color: oklch(80% 0.012 255 / 0.22); }
 .gate-form input:focus {
   outline: none;
   border-color: var(--emerald);
   box-shadow: 0 0 0 3px var(--emerald-gl);
 }
-.gate-form .btn { margin-top: var(--space-1); }
+.gate-form .btn { margin-top: 6px; }
 
-/* ───────────── Buttons — flat fills + confident press (neo-brutal graft) ───────────── */
+/* ───────────── Buttons (designed states) ───────────── */
 .btn {
   font-family: var(--sans);
   font-weight: 600;
@@ -327,14 +290,14 @@ body {
   cursor: pointer;
   color: var(--text);
   background: var(--ink-3);
-  transition: transform 140ms var(--ease),
-              box-shadow 140ms var(--ease),
+  transition: transform var(--dur) var(--ease),
+              box-shadow var(--dur) var(--ease),
               border-color var(--dur) var(--ease),
               background var(--dur) var(--ease),
               color var(--dur) var(--ease);
 }
-.btn:hover:not(:disabled) { transform: translateY(-2px); }
-.btn:active:not(:disabled) { transform: translateY(1px) scale(0.99); transition-duration: 60ms; }
+.btn:hover { transform: translateY(-2px); }
+.btn:active { transform: translateY(0) scale(0.99); }
 .btn:disabled {
   opacity: 0.42;
   cursor: not-allowed;
@@ -342,33 +305,29 @@ body {
   box-shadow: none;
 }
 
-/* primary: SOLID emerald (was a gradient that dipped to a low-contrast
-   dark stop under the ink text). Solid = 8.5:1 ink-on-emerald, verified. */
 .btn-primary {
   color: oklch(18% 0.04 162);
-  background: var(--emerald);
-  border-color: oklch(80% 0.13 162 / 0.5);
+  background: linear-gradient(175deg, oklch(82% 0.13 162), var(--emerald) 65%, var(--emerald-dk));
   box-shadow:
     0 1px 0 0 oklch(96% 0.02 162 / 0.4) inset,
-    0 10px 24px -14px var(--emerald-gl);
+    0 12px 26px -12px var(--emerald-gl),
+    0 4px 12px -8px oklch(0% 0 0 / 0.5);
 }
 .btn-primary:hover:not(:disabled) {
-  background: oklch(78% 0.13 162);
   box-shadow:
     0 1px 0 0 oklch(96% 0.02 162 / 0.5) inset,
-    0 16px 32px -14px oklch(74% 0.13 162 / 0.4);
+    0 18px 36px -12px oklch(74% 0.13 162 / 0.42),
+    0 6px 16px -8px oklch(0% 0 0 / 0.55);
 }
 
-/* danger: solid red fill, white text (9.6:1+) */
 .btn-danger {
-  color: oklch(98% 0.02 22);
-  background: oklch(54% 0.18 24);
+  color: oklch(96% 0.02 22);
+  background: linear-gradient(175deg, oklch(58% 0.18 24), oklch(48% 0.17 24));
   border-color: oklch(70% 0.16 22 / 0.5);
-  box-shadow: 0 10px 24px -16px var(--del-gl), 0 1px 0 0 oklch(96% 0.04 22 / 0.18) inset;
+  box-shadow: 0 12px 26px -14px var(--del-gl), 0 1px 0 0 oklch(96% 0.04 22 / 0.18) inset;
 }
 .btn-danger:hover:not(:disabled) {
-  background: oklch(58% 0.19 24);
-  box-shadow: 0 16px 34px -16px oklch(67% 0.16 22 / 0.4), 0 1px 0 0 oklch(96% 0.04 22 / 0.25) inset;
+  box-shadow: 0 18px 38px -14px oklch(67% 0.16 22 / 0.4), 0 1px 0 0 oklch(96% 0.04 22 / 0.25) inset;
 }
 
 .btn-ghost {
@@ -378,11 +337,11 @@ body {
 }
 .btn-ghost:hover:not(:disabled) { color: var(--text); border-color: var(--muted); background: var(--glass-hi); }
 
-/* uniform focus ring */
+/* uniform focus ring across interactive elements */
 .btn:focus-visible,
 .back:focus-visible,
 .gate-form input:focus-visible,
-.dropzone:focus-within,
+.dropzone:focus-visible,
 .reveal summary:focus-visible {
   outline: 2px solid var(--gold);
   outline-offset: 3px;
@@ -393,25 +352,28 @@ body {
 .dropzone {
   display: grid;
   justify-items: center;
-  gap: var(--space-2);
+  gap: 8px;
   text-align: center;
-  padding: clamp(var(--space-6), 5vw, var(--space-8)) var(--space-5);
-  margin-bottom: var(--space-5);
+  padding: clamp(30px, 5vw, 52px) 24px;
+  margin-bottom: 22px;
   border: 1.5px dashed var(--line);
   border-radius: var(--radius);
-  background: var(--ink-2);
+  background:
+    radial-gradient(120% 140% at 50% 0%, var(--glass-hi), transparent 62%),
+    var(--ink-2);
   color: var(--muted);
   cursor: pointer;
   transition: border-color var(--dur) var(--ease),
               background var(--dur) var(--ease),
-              transform 140ms var(--ease);
+              transform var(--dur) var(--ease);
 }
 .dropzone:hover { border-color: var(--emerald); transform: translateY(-2px); }
 .dropzone.drag {
   border-color: var(--gold);
   border-style: solid;
-  background: var(--ink-3);
-  box-shadow: inset 0 0 0 2px var(--gold-gl);
+  background:
+    radial-gradient(120% 140% at 50% 0%, var(--gold-gl), transparent 60%),
+    var(--ink-2);
   transform: scale(1.008);
 }
 .drop-ico {
@@ -425,9 +387,8 @@ body {
 .drop-sub {
   font-family: var(--mono);
   font-size: 0.8rem;
-  color: var(--faint);          /* AA-verified */
+  color: var(--faint);
   letter-spacing: 0.02em;
-  word-break: break-all;
 }
 
 /* ───────────── Preview meta ───────────── */
@@ -441,45 +402,40 @@ body {
   border-bottom: 1px solid var(--line-soft);
 }
 
-/* ───────────── Diff grid — true bento, 3 cards, no orphan ─────────────
-   EC2 (hard-delete primary) spans full width on top; the two Supabase
-   cells sit in a 2-col row beneath. Real hierarchy, every card placed. */
+/* ───────────── Diff grid (grid-breaking composition) ───────────── */
 .diff-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: var(--gap);
-  margin-bottom: var(--space-5);
+  gap: 18px;
+  margin-bottom: 22px;
 }
-.diff-card.ec2 { grid-column: 1 / -1; }   /* heavy primary cell */
 .diff-card {
   position: relative;
   background: var(--surface);
   border: 1px solid var(--glass-edge);
   border-radius: var(--radius-sm);
-  padding: var(--space-5) var(--space-5) var(--space-4);
+  padding: 22px 22px 20px;
   overflow: hidden;
   box-shadow: var(--shadow);
-  transition: transform 140ms var(--ease), box-shadow var(--dur) var(--ease);
+  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
 }
 .diff-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lift); }
-/* color-coded left rail — semantic identity per database (all THREE defined) */
+/* color-coded left rail — semantic identity per database */
 .diff-card::before {
   content: "";
   position: absolute;
   left: 0; top: 0; bottom: 0;
   width: 3px;
-  background: var(--rail, var(--dim));
 }
-.diff-card.ec2 { --rail: linear-gradient(var(--emerald), var(--emerald-dk)); }
-.diff-card.sb  { --rail: linear-gradient(var(--gold), var(--gold-dk)); }
-.diff-card.sb2 { --rail: linear-gradient(var(--violet), oklch(48% 0.10 300)); }
+.diff-card.ec2::before { background: linear-gradient(var(--emerald), var(--emerald-dk)); }
+.diff-card.sb::before  { background: linear-gradient(var(--gold), var(--gold-dk)); }
 .diff-card header {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: var(--space-3);
-  margin-bottom: var(--space-4);
-  padding-bottom: var(--space-4);
+  gap: 10px;
+  margin-bottom: 14px;
+  padding-bottom: 14px;
   border-bottom: 1px solid var(--line-soft);
 }
 .db-tag {
@@ -491,12 +447,11 @@ body {
 }
 .diff-card.ec2 .db-tag { color: var(--emerald); }
 .diff-card.sb  .db-tag { color: var(--gold); }
-.diff-card.sb2 .db-tag { color: var(--violet); }
 .db-note {
-  font-size: 0.68rem;
-  letter-spacing: 0.12em;
+  font-size: 0.66rem;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--faint);          /* AA-verified */
+  color: var(--faint);
   white-space: nowrap;
 }
 
@@ -506,11 +461,12 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-3);
+  gap: 12px;
   padding: 9px 2px;
   border-bottom: 1px solid var(--line-soft);
 }
 .stat-list li:last-child { border-bottom: 0; }
+/* "Final rows" / configured-total: emphasised footer row */
 .stat-list li:last-child .num { color: var(--text); font-size: 1.15rem; }
 .lbl {
   display: inline-flex;
@@ -523,7 +479,7 @@ body {
   width: 8px; height: 8px;
   border-radius: 50%;
   flex: none;
-  background: var(--dim);
+  background: var(--faint);
   box-shadow: 0 0 0 3px oklch(80% 0.01 255 / 0.06);
 }
 .dot.add  { background: var(--add);  box-shadow: 0 0 0 3px var(--emerald-gl); }
@@ -535,7 +491,8 @@ body {
   background: var(--line);
   box-shadow: none;
 }
-/* the "Not configured" row has .lbl + .num but no .dot — keep it aligned + readable */
+/* the "Not configured" row has .lbl + .num but no .dot — keep it aligned */
+.stat-list li > .lbl:only-child,
 .stat-list .lbl:not(:has(.dot)) { padding-left: 2px; color: var(--faint); }
 .num {
   font-family: var(--mono);
@@ -546,22 +503,24 @@ body {
   color: var(--text);
 }
 
-/* ───────────── Callout warn — flat fill + accent border ───────────── */
+/* ───────────── Callout warn ───────────── */
 .callout.warn {
   display: grid;
-  gap: var(--space-1);
-  padding: var(--space-4) var(--space-5);
-  margin-bottom: var(--space-5);
+  gap: 6px;
+  padding: 18px 20px;
+  margin-bottom: 22px;
   border-radius: var(--radius-sm);
   border: 1px solid oklch(82% 0.12 78 / 0.3);
+  background:
+    linear-gradient(180deg, var(--gold-gl), transparent),
+    var(--ink-2);
   border-left: 3px solid var(--gold);
-  background: var(--ink-2);
 }
 .callout.warn strong { color: var(--gold); font-weight: 600; letter-spacing: -0.01em; }
 .callout.warn p { margin: 0; color: var(--muted); font-size: 0.92rem; }
 
 /* ───────────── Chips ───────────── */
-.chips { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-1); }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
 .chip {
   font-family: var(--mono);
   font-size: 0.78rem;
@@ -570,16 +529,14 @@ body {
   border-radius: 999px;
   background: var(--ink-3);
   border: 1px solid oklch(82% 0.11 86 / 0.28);
-  transition: transform 140ms var(--ease), border-color var(--dur) var(--ease);
 }
-.chip:hover { transform: translateY(-1px); border-color: var(--gold); }
 
 /* ───────────── Reveal (details/summary) ───────────── */
 .reveal {
   border: 1px solid var(--line-soft);
   border-radius: var(--radius-sm);
   background: var(--ink-2);
-  margin-bottom: var(--space-6);
+  margin-bottom: 24px;
   overflow: hidden;
 }
 .reveal summary {
@@ -590,7 +547,7 @@ body {
   color: var(--muted);
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: 11px;
   transition: color var(--dur) var(--ease), background var(--dur) var(--ease);
 }
 .reveal summary:hover { color: var(--text); background: var(--glass-hi); }
@@ -608,9 +565,10 @@ body {
 .reveal-body {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2);
-  padding: var(--space-4) 18px;
+  gap: 8px;
+  padding: 16px 18px;
 }
+/* nested grouping (EC2 delete / Supabase deactivate sections) */
 .reveal-body > div { width: 100%; }
 .reveal-body b {
   display: block;
@@ -619,10 +577,10 @@ body {
   font-weight: 500;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--faint);          /* AA-verified */
-  margin-bottom: var(--space-3);
+  color: var(--faint);
+  margin-bottom: 10px;
 }
-.reveal-body .reveal-body { padding: 0 0 var(--space-4); }
+.reveal-body .reveal-body { padding: 0 0 14px; }
 
 /* ───────────── Code pills ───────────── */
 .code-pill {
@@ -642,13 +600,13 @@ body {
   background: var(--del-gl);
 }
 
-/* ───────────── Action row ───────────── */
+/* ───────────── Action row (asymmetric) ───────────── */
 .action-row {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  margin-top: var(--space-2);
-  padding-top: var(--space-5);
+  gap: 14px;
+  margin-top: 8px;
+  padding-top: 22px;
   border-top: 1px solid var(--line);
 }
 .action-row .btn-danger { margin-left: auto; }
@@ -660,31 +618,32 @@ body {
   font-size: clamp(1.15rem, 1rem + 0.8vw, 1.6rem);
   font-weight: 400;
   letter-spacing: -0.015em;
-  padding: var(--space-5) var(--space-5);
-  margin-bottom: var(--space-4);
+  padding: 20px 22px;
+  margin-bottom: 18px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--glass-edge);
 }
 .result-banner.ok {
   color: var(--emerald);
-  background: var(--ink-2);      /* flat fill + accent rule (was gradient) */
+  background: linear-gradient(180deg, var(--emerald-gl), transparent), var(--ink-2);
   border-left: 3px solid var(--emerald);
 }
 .result-banner.bad {
   color: oklch(78% 0.13 24);
-  background: var(--ink-2);
+  background: linear-gradient(180deg, var(--del-gl), transparent), var(--ink-2);
   border-left: 3px solid var(--del);
 }
 .result-line {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: var(--space-4);
+  gap: 16px;
   padding: 12px 4px;
   border-bottom: 1px solid var(--line-soft);
 }
 .result-line:last-child { border-bottom: 0; }
 .result-line span:first-child { color: var(--muted); font-size: 0.92rem; }
+/* dotted leader between label and value — editorial ledger feel */
 .result-line .v {
   font-family: var(--mono);
   font-variant-numeric: tabular-nums lining-nums;
@@ -692,7 +651,7 @@ body {
   color: var(--text);
   white-space: nowrap;
 }
-#againBtn { margin-top: var(--space-6); }
+#againBtn { margin-top: 24px; }
 
 /* ───────────── Errors ───────────── */
 .err {
@@ -706,7 +665,7 @@ body {
   border-radius: var(--radius-sm);
 }
 
-/* ───────────── Overlay + spinner ───────────── */
+/* ───────────── Overlay + spinner (purposeful motion) ───────────── */
 .overlay {
   position: fixed;
   inset: 0;
@@ -715,7 +674,7 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--space-4);
+  gap: 18px;
   background: oklch(14% 0.02 264 / 0.72);
   -webkit-backdrop-filter: blur(10px);
           backdrop-filter: blur(10px);
@@ -738,16 +697,14 @@ body {
 @keyframes spin { to { transform: rotate(360deg); } }
 #overlayMsg { color: var(--muted); }
 
-/* ───────────── Responsive — explicit 1440 / 1024 / 768 / 320 ───────────── */
-@media (min-width: 1440px) {
-  .shell { max-width: 1040px; }
-}
+/* ───────────── Responsive ───────────── */
 @media (max-width: 1024px) {
   .shell { max-width: 760px; }
 }
 @media (max-width: 768px) {
   .diff-grid { grid-template-columns: 1fr; }
-  .diff-card.ec2 { grid-column: auto; }   /* single column — stack cleanly */
+}
+@media (max-width: 560px) {
   .masthead { flex-wrap: wrap; }
   .action-row { flex-wrap: wrap; }
   .action-row .btn { flex: 1 1 auto; }
@@ -757,11 +714,6 @@ body {
   .shell { padding-left: 14px; padding-right: 14px; }
   .panel { padding: 20px 16px; }
   .gate-form { max-width: none; }
-  .gate::after { font-size: 7rem; }
-}
-@media (max-width: 320px) {
-  .display { font-size: clamp(2.4rem, 14vw, 3rem); }
-  .btn { width: 100%; }
 }
 
 /* ───────────── Reduced motion ───────────── */
@@ -773,5 +725,5 @@ body {
     scroll-behavior: auto !important;
   }
   .spinner { animation: spin 1.4s linear infinite; }
-  .btn:hover, .btn:active, .dropzone:hover, .diff-card:hover, .back:hover, .chip:hover { transform: none; }
+  .btn:hover, .dropzone:hover, .diff-card:hover, .back:hover { transform: none; }
 }

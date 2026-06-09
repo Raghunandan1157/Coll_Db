@@ -14,6 +14,7 @@ const rateLimit = require("express-rate-limit");
 const { parseStaffWorkbook } = require("../lib/staffParser");
 const ec2Sync = require("../lib/ec2Sync");
 const supabaseSync = require("../lib/supabaseSync");
+const supabaseSync2 = require("../lib/supabaseSync2");
 const backup = require("../lib/staffBackup");
 const tokens = require("../lib/syncTokens");
 
@@ -56,6 +57,10 @@ function registerHrTeamRoutes(app, pool, upload) {
       if (supabaseSync.isConfigured()) {
         supabase = await supabaseSync.preview(parsed.rows);
       }
+      let supabase2 = null;
+      if (supabaseSync2.isConfigured()) {
+        supabase2 = await supabaseSync2.preview(parsed.working);
+      }
       const token = tokens.issue({ rows: parsed.rows, working: parsed.working });
       return res.json({
         token,
@@ -64,7 +69,9 @@ function registerHrTeamRoutes(app, pool, upload) {
         working_rows: parsed.working.length,
         ec2,
         supabase,
+        supabase2,
         supabase_configured: supabaseSync.isConfigured(),
+        supabase2_configured: supabaseSync2.isConfigured(),
       });
     } catch (err) {
       console.error("[hr-sync] preview error:", err);
@@ -95,15 +102,29 @@ function registerHrTeamRoutes(app, pool, upload) {
       return res.status(500).json({ error: "EC2 sync failed: " + err.message, stage: "ec2", result });
     }
 
-    // 2. Supabase (its own transaction + internal backup).
+    // 2. Supabase project 1 (its own transaction + internal backup).
     if (supabaseSync.isConfigured()) {
       try {
         result.supabase = await supabaseSync.apply(payload.rows);
       } catch (err) {
         console.error("[hr-sync] Supabase apply error:", err);
         return res.status(500).json({
-          error: "EC2 synced OK, but Supabase failed: " + err.message,
+          error: "EC2 synced OK, but Supabase (project 1) failed: " + err.message,
           stage: "supabase",
+          result,
+        });
+      }
+    }
+
+    // 3. Supabase project 2 (flat roster, upsert-only, own transaction + backup).
+    if (supabaseSync2.isConfigured()) {
+      try {
+        result.supabase2 = await supabaseSync2.apply(payload.working);
+      } catch (err) {
+        console.error("[hr-sync] Supabase2 apply error:", err);
+        return res.status(500).json({
+          error: "EC2 + project 1 synced OK, but project 2 failed: " + err.message,
+          stage: "supabase2",
           result,
         });
       }
