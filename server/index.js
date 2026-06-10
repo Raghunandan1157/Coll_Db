@@ -715,6 +715,7 @@ app.post("/api/upload", uploadLimiter, upload.single("file"), async (req, res) =
       demand_31_60_amt DECIMAL(15,2) DEFAULT 0, collection_31_60_amt DECIMAL(15,2) DEFAULT 0,
       pnpa_demand_amt DECIMAL(15,2) DEFAULT 0, pnpa_collection_amt DECIMAL(15,2) DEFAULT 0,
       on_date_demand_amt DECIMAL(15,2) DEFAULT 0, on_date_collection_amt DECIMAL(15,2) DEFAULT 0,
+      uploaded_at TIMESTAMPTZ DEFAULT NOW(),
       UNIQUE(emp_id, product_type_id)
     )`);
 
@@ -9148,13 +9149,14 @@ app.get('/api/ai-providers', (_req, res) => {
 });
 
 // /api/ai-activity — real upload/refresh timestamps for the inspector activity
-// feed. Uses report_date as the upload proxy (no created_at on these tables);
-// also returns row counts so the UI can show "248 branches".
+// feed. daily_performance has report_date; employee_performance is a snapshot
+// table (dropped+recreated each upload) so it carries uploaded_at instead.
+// Also returns row counts so the UI can show "248 branches".
 app.get('/api/ai-activity', async (_req, res) => {
   try {
     const [daily, empPerf, dailyReports, dra, branches] = await Promise.all([
       pool.query("SELECT MAX(report_date) AS d FROM daily_performance"),
-      pool.query("SELECT MAX(report_date) AS d FROM employee_performance"),
+      pool.query("SELECT MAX(uploaded_at) AS d FROM employee_performance"),
       pool.query("SELECT MAX(date) AS d FROM daily_reports"),
       pool.query("SELECT MAX(date) AS d FROM daily_reports_achievements"),
       pool.query("SELECT COUNT(*)::int AS n FROM branches"),
