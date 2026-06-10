@@ -1,0 +1,16 @@
+[Unit]
+Description=SSL cert expiry watchdog (self-heal + dashboard status)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/cert-watchdog.sh
+[Unit]
+Description=Run cert-watchdog twice daily
+
+[Timer]
+OnCalendar=*-*-* 02:42:00
+OnCalendar=*-*-* 14:42:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
