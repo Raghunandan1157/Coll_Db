@@ -23,6 +23,19 @@
     subtitleEl.textContent = session.name;
   }
 
+  // SSL cert watchdog banner (CEO only) — status written by EC2 root cron,
+  // served via /api/cert-status. Banner only when renewal has silently failed.
+  if (session.role === 'CEO') {
+    fetch('/api/cert-status').then(function (r) { return r.json(); }).then(function (s) {
+      if (s && typeof s.days_left === 'number' && s.days_left < 14) {
+        var b = document.createElement('div');
+        b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#c62828;color:#fff;padding:10px 16px;text-align:center;font-weight:600;font-size:14px;';
+        b.textContent = '⚠ SSL certificate expires in ' + s.days_left + ' day' + (s.days_left === 1 ? '' : 's') + ' — auto-renew failed. Run on EC2: sudo certbot renew';
+        document.body.appendChild(b);
+      }
+    }).catch(function () {});
+  }
+
   // Date badge — show current date
   var now = new Date();
   var dd = String(now.getDate()).padStart(2, '0');

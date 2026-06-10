@@ -9148,6 +9148,17 @@ app.get('/api/ai-providers', (_req, res) => {
   res.json({ available, unavailable });
 });
 
+// /api/cert-status — SSL watchdog status, written daily by root cron
+// (/usr/local/bin/cert-watchdog.sh) on EC2. Missing file (e.g. local dev)
+// returns days_left:null so the UI shows nothing.
+app.get('/api/cert-status', (_req, res) => {
+  try {
+    res.json(JSON.parse(fs.readFileSync('/home/ec2-user/cert-status.json', 'utf8')));
+  } catch (_) {
+    res.json({ days_left: null });
+  }
+});
+
 // /api/ai-activity — real upload/refresh timestamps for the inspector activity
 // feed. daily_performance has report_date; employee_performance is a snapshot
 // table (dropped+recreated each upload) so it carries uploaded_at instead.
