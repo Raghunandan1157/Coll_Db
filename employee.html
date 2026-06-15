@@ -917,8 +917,9 @@
             _pendingBtn.style.display = _showPending ? 'inline-flex' : 'none';
           }
 
-          // BM: show branch card, hide report builder
-          if (role === 'BM' || role === 'FO') {
+          // BM: show branch card, hide report builder.
+          // FO is intentionally excluded — daily plans are entered by the BM only.
+          if (role === 'BM') {
             var card = document.getElementById('drBranchCard');
             if (card) card.style.display = 'block';
             var rbc = document.getElementById('drReportBuilderCard');
@@ -961,6 +962,23 @@
                 _drShowTomorrowPlanButton();
               }
             }).catch(function(e){ console.error('[DR] Promise.all error:', e); });
+          }
+
+          // FO: no plan entry (BM-only) and no manager report builder — show a notice.
+          if (role === 'FO') {
+            var foBuilder = document.getElementById('drReportBuilderCard');
+            if (foBuilder) foBuilder.style.display = 'none';
+            var foSub = document.getElementById('drSubtitle');
+            if (foSub) foSub.textContent = 'Daily plans are entered by your Branch Manager';
+            if (!document.getElementById('_drFoNotice')) {
+              var foNote = document.createElement('div');
+              foNote.id = '_drFoNotice';
+              foNote.style.cssText = 'padding:32px 20px;text-align:center;color:#64748B;font-size:14px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:14px;margin:8px auto;max-width:520px';
+              foNote.innerHTML = '<div style="font-size:15px;font-weight:700;color:#1E293B;margin-bottom:6px">Branch Manager access only</div>'
+                + '<div>Daily plans &amp; achievements for your branch are entered by your Branch Manager.</div>';
+              var foContent = document.getElementById('dailyReportsContent');
+              if (foContent) foContent.appendChild(foNote);
+            }
           }
 
           // Scoped manager subtitle — RM/SM/DM/DvM/AM
