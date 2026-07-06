@@ -5071,7 +5071,7 @@ app.get("/api/daily-plan/branches", async (req, res) => {
         FROM employee_master
         WHERE branch_name IS NOT NULL AND branch_name != ''
           AND status = 'Working'
-          AND region_name NOT IN ('Corporate Office', 'Head Office')
+          AND region_name NOT IN ('Corporate Office', 'Head Office', 'Krishnagiri', 'Mysore')
         ORDER BY branch_name, region_name, division_name, area_name
       ) s
       ORDER BY region_name, division_name, area_name, branch_name
@@ -5183,6 +5183,7 @@ app.get("/api/daily-plan/pending-branches", async (req, res) => {
         FROM employee_master
         WHERE status = 'Working'
           AND branch_name IS NOT NULL AND branch_name <> ''
+          AND region_name NOT IN ('Corporate Office', 'Head Office', 'Krishnagiri', 'Mysore')
           AND (
             $2 = 'CEO'
             OR ($2 IN ('RM','SM')  AND UPPER(TRIM(region_name))   = UPPER(TRIM($3)))
